@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Users, FileText, TrendingUp, DollarSign, Plus } from "lucide-react";
 import ProposalForm from '@/components/sales/ProposalForm';
 import ProposalsList from '@/components/sales/ProposalsList';
+import ClientForm from '@/components/sales/ClientForm';
+import ClientsList from '@/components/sales/ClientsList';
 
 interface Client {
   id: string;
@@ -49,6 +51,8 @@ const Sales = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showProposalForm, setShowProposalForm] = useState(false);
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
+  const [showClientForm, setShowClientForm] = useState(false);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -137,6 +141,28 @@ const Sales = () => {
   const handleProposalCancel = () => {
     setShowProposalForm(false);
     setEditingProposalId(null);
+  };
+
+  const handleNewClient = () => {
+    setEditingClientId(null);
+    setShowClientForm(true);
+    setActiveTab('clients');
+  };
+
+  const handleEditClient = (id: string) => {
+    setEditingClientId(id);
+    setShowClientForm(true);
+  };
+
+  const handleClientSuccess = () => {
+    setShowClientForm(false);
+    setEditingClientId(null);
+    loadClients();
+  };
+
+  const handleClientCancel = () => {
+    setShowClientForm(false);
+    setEditingClientId(null);
   };
 
   if (loading) {
@@ -328,24 +354,18 @@ const Sales = () => {
         </TabsContent>
 
         <TabsContent value="clients" className="mt-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Gerenciar Clientes</CardTitle>
-                <CardDescription>Cadastro e controle de clientes</CardDescription>
-              </div>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Cliente
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4" />
-                <p>Funcionalidade de clientes será implementada em breve</p>
-              </div>
-            </CardContent>
-          </Card>
+          {showClientForm ? (
+            <ClientForm
+              clientId={editingClientId || undefined}
+              onSuccess={handleClientSuccess}
+              onCancel={handleClientCancel}
+            />
+          ) : (
+            <ClientsList
+              onNewClient={handleNewClient}
+              onEditClient={handleEditClient}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="proposals" className="mt-6">
