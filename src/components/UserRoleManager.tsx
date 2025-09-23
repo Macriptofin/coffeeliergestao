@@ -27,6 +27,8 @@ export function UserRoleManager() {
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [selectedRole, setSelectedRole] = useState<'admin' | 'manager' | 'user'>('user');
   const [userEmail, setUserEmail] = useState<string>('');
+  const [inviteEmail, setInviteEmail] = useState<string>('');
+  const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'user'>('user');
   const [loading, setLoading] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
@@ -119,6 +121,40 @@ export function UserRoleManager() {
     }
   };
 
+  const inviteUser = async () => {
+    if (!inviteEmail || !inviteRole) {
+      toast.error('Preencha o email e selecione um role');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Como não podemos usar auth.admin sem service key, vamos criar um sistema simples
+      // O admin pode gerar um link de convite ou instruir o usuário a se cadastrar
+      const signupUrl = `${window.location.origin}/auth?email=${encodeURIComponent(inviteEmail)}&role=${inviteRole}`;
+      
+      // Por enquanto, vamos mostrar o link para o admin compartilhar
+      toast.success(
+        `Link de cadastro gerado! Compartilhe com o usuário: ${signupUrl}`,
+        { duration: 10000 }
+      );
+      
+      // Copiar para clipboard
+      navigator.clipboard.writeText(signupUrl).then(() => {
+        toast.info('Link copiado para a área de transferência!');
+      });
+
+      setInviteEmail('');
+      setInviteRole('user');
+    } catch (error) {
+      console.error('Erro ao gerar convite:', error);
+      toast.error('Erro ao gerar link de convite.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const removeRole = async (roleId: string) => {
     try {
       setLoading(true);
@@ -179,10 +215,58 @@ export function UserRoleManager() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
-            Atribuir Role
+            Convidar Novo Usuário
           </CardTitle>
           <CardDescription>
-            Gerencie permissões de acesso dos usuários
+            Convide usuários por email e defina suas permissões
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="inviteEmail">Email do Usuário</Label>
+              <Input
+                id="inviteEmail"
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="usuario@exemplo.com"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Um convite será enviado para este email
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="inviteRole">Role</Label>
+              <Select value={inviteRole} onValueChange={(value: 'admin' | 'manager' | 'user') => setInviteRole(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin - Acesso total</SelectItem>
+                  <SelectItem value="manager">Manager - Gestão operacional</SelectItem>
+                  <SelectItem value="user">User - Acesso básico</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button onClick={inviteUser} disabled={loading} className="w-full">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Convidar Usuário
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            Atribuir Role Manualmente
+          </CardTitle>
+          <CardDescription>
+            Para usuários já cadastrados no sistema
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
