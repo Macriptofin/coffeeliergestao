@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ChefHat, Clock, Users, DollarSign, FileText, Edit, Trash2 } from "lucide-react";
 import { RecipeActions } from "./RecipeActions";
+import { LaunchProductDialog } from "./LaunchProductDialog";
 import type { Recipe, Ingredient } from "@/types";
 
 interface RecipesListProps {
@@ -218,25 +219,32 @@ export const RecipesList = ({ recipes, ingredients, onEdit, onDelete }: RecipesL
               </DialogContent>
             </Dialog>
 
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onEdit(recipe)}
-                className="flex-1"
-              >
-                <Edit className="h-3 w-3 mr-1" />
-                Editar
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onDelete(recipe.id)}
-                className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
-              >
-                <Trash2 className="h-3 w-3 mr-1" />
-                Excluir
-              </Button>
+            <div className="flex flex-col gap-2">
+              <LaunchProductDialog 
+                recipe={recipe} 
+                onSuccess={() => {}} 
+              />
+              
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onEdit(recipe)}
+                  className="flex-1"
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  Editar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onDelete(recipe.id)}
+                  className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Excluir
+                </Button>
+              </div>
             </div>
 
             <RecipeActions recipe={recipe} ingredients={ingredients} />

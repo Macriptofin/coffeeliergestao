@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Building2, 
   ShoppingCart,
+  TrendingUp,
   DollarSign,
   Users,
   FileText
@@ -38,6 +39,12 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       href: "/compras",
       icon: ShoppingCart,
       current: location.pathname.startsWith("/compras")
+    },
+    {
+      name: "Vendas",
+      href: "/vendas",
+      icon: TrendingUp,
+      current: location.pathname.startsWith("/vendas")
     },
     {
       name: "Produção",

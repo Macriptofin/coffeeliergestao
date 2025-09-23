@@ -11,6 +11,7 @@ import Suppliers from "./pages/Suppliers";
 import Production from "./pages/Production";
 import Stock from "./pages/Stock";
 import Purchases from "./pages/Purchases";
+import Sales from "./pages/Sales";
 import Reports from "./pages/Reports";
 import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
@@ -38,6 +39,8 @@ const App = () => (
             <Route path="estoque/*" element={<Stock />} />
             {/* Categoria Compras */}
             <Route path="compras" element={<Purchases />} />
+            {/* Categoria Vendas */}
+            <Route path="vendas" element={<Sales />} />
             {/* Categoria Produção */}
             <Route path="producao" element={<ProducaoMain />} />
             <Route path="receitas" element={<Recipes />} />
