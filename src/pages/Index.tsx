@@ -619,6 +619,7 @@ const Index = () => {
             {showIngredientForm && (
               <IngredientForm 
                 ingredient={editingIngredient}
+                existingIngredients={ingredients}
                 onSubmit={handleIngredientSubmit}
                 onCancel={cancelIngredientForm}
               />

@@ -4,16 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, Calculator } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { X, Calculator, AlertTriangle } from "lucide-react";
 import type { Ingredient } from "@/pages/Index";
 
 interface IngredientFormProps {
   ingredient?: Ingredient | null;
+  existingIngredients: Ingredient[];
   onSubmit: (ingredient: Omit<Ingredient, 'id'>) => void;
   onCancel: () => void;
 }
 
-export const IngredientForm = ({ ingredient, onSubmit, onCancel }: IngredientFormProps) => {
+export const IngredientForm = ({ ingredient, existingIngredients, onSubmit, onCancel }: IngredientFormProps) => {
   const [formData, setFormData] = useState({
     name: ingredient?.name || '',
     purchaseUnit: ingredient?.purchaseUnit || '',
@@ -22,6 +24,7 @@ export const IngredientForm = ({ ingredient, onSubmit, onCancel }: IngredientFor
     pricePerPurchaseUnit: ingredient?.pricePerPurchaseUnit?.toString() || '',
     supplier: ingredient?.supplier || '',
   });
+  const [duplicateError, setDuplicateError] = useState('');
 
   const units = [
     'kg', 'g', 'L', 'mL', 'unidade', 'pacote', 'caixa', 'lata', 'saco', 'envelope', 'dúzia', 'centena'
@@ -38,6 +41,18 @@ export const IngredientForm = ({ ingredient, onSubmit, onCancel }: IngredientFor
     e.preventDefault();
     if (!formData.name || !formData.purchaseUnit || !formData.usageUnit || !formData.conversionFactor || !formData.pricePerPurchaseUnit) return;
 
+    // Verificar duplicidade (ignorar o próprio ingrediente se estivermos editando)
+    const duplicateIngredient = existingIngredients.find(ing => 
+      ing.name.toLowerCase() === formData.name.toLowerCase() && 
+      (!ingredient || ing.id !== ingredient.id)
+    );
+
+    if (duplicateIngredient) {
+      setDuplicateError(`Já existe um ingrediente cadastrado com o nome "${duplicateIngredient.name}"`);
+      return;
+    }
+
+    setDuplicateError('');
     onSubmit({
       name: formData.name,
       purchaseUnit: formData.purchaseUnit,
@@ -46,6 +61,14 @@ export const IngredientForm = ({ ingredient, onSubmit, onCancel }: IngredientFor
       pricePerPurchaseUnit: parseFloat(formData.pricePerPurchaseUnit),
       supplier: formData.supplier || undefined,
     });
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, name: e.target.value });
+    // Limpar erro de duplicidade quando o usuário começar a digitar
+    if (duplicateError) {
+      setDuplicateError('');
+    }
   };
 
   return (
@@ -62,14 +85,24 @@ export const IngredientForm = ({ ingredient, onSubmit, onCancel }: IngredientFor
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {duplicateError && (
+            <Alert className="border-red-200 bg-red-50">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800">
+                {duplicateError}
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="space-y-2">
             <Label htmlFor="name">Nome do Ingrediente *</Label>
             <Input
               id="name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={handleNameChange}
               placeholder="Ex: Farinha de trigo"
               required
+              className={duplicateError ? "border-red-300 focus:border-red-500" : ""}
             />
           </div>
 
