@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Calculator, TrendingUp, Package } from "lucide-react";
+import { FileText, Calculator, TrendingUp, Package, AlertTriangle, ArrowUp, ArrowDown } from "lucide-react";
 import type { Recipe, Ingredient } from "./Index";
 import type { Supplier } from "@/components/SupplierForm";
 
@@ -127,6 +127,27 @@ const Reports = () => {
     (recipe.totalCost || 0) > (max.totalCost || 0) ? recipe : max, recipes[0]);
   const activeSuppliers = suppliers.filter(s => s.status === 'Ativo').length;
 
+  // Monitor de Variação de Preços (simulado até implementação do estoque)
+  const generatePriceVariations = () => {
+    return ingredients.map(ingredient => {
+      // Simulação de preço anterior com variação de -20% a +30%
+      const variationPercent = (Math.random() - 0.4) * 50; // -20% a +30%
+      const previousPrice = ingredient.pricePerPurchaseUnit / (1 + variationPercent / 100);
+      
+      return {
+        ...ingredient,
+        previousPrice,
+        currentPrice: ingredient.pricePerPurchaseUnit,
+        variationPercent: variationPercent,
+        variationValue: ingredient.pricePerPurchaseUnit - previousPrice
+      };
+    });
+  };
+
+  const priceVariations = generatePriceVariations()
+    .sort((a, b) => Math.abs(b.variationPercent) - Math.abs(a.variationPercent))
+    .slice(0, 10);
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -219,6 +240,67 @@ const Reports = () => {
             <p className="text-sm text-muted-foreground">
               De {suppliers.length} cadastrados
             </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Monitor de Variação de Preços */}
+      <div className="mb-8">
+        <Card className="shadow-elegant">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              Monitor de Variação de Preços
+            </CardTitle>
+            <CardDescription>
+              Top 10 ingredientes com maior variação de preço (simulação - será real com sistema de estoque)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {ingredients.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">
+                Nenhum ingrediente cadastrado
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {priceVariations.map((item, index) => {
+                  const isIncrease = item.variationPercent > 0;
+                  const variationColor = isIncrease ? 'text-red-600' : 'text-green-600';
+                  const bgColor = isIncrease ? 'bg-red-50' : 'bg-green-50';
+                  const Icon = isIncrease ? ArrowUp : ArrowDown;
+                  
+                  return (
+                    <div key={item.id} className={`flex items-center justify-between p-4 rounded-lg border ${bgColor}`}>
+                      <div className="flex items-center gap-4">
+                        <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span>Anterior: R$ {item.previousPrice.toFixed(2)}</span>
+                            <span>Atual: R$ {item.currentPrice.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className={`flex items-center gap-1 ${variationColor}`}>
+                          <Icon className="h-4 w-4" />
+                          <span className="font-semibold">
+                            {Math.abs(item.variationPercent).toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className={`text-right ${variationColor}`}>
+                          <div className="font-semibold">
+                            {isIncrease ? '+' : ''}R$ {item.variationValue.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
