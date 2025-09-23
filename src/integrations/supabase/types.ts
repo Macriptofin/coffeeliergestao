@@ -123,6 +123,7 @@ export type Database = {
           purchase_unit: string
           supplier: string | null
           supplier_id: string | null
+          unit_weight: number | null
           updated_at: string | null
           usage_unit: string
         }
@@ -138,6 +139,7 @@ export type Database = {
           purchase_unit: string
           supplier?: string | null
           supplier_id?: string | null
+          unit_weight?: number | null
           updated_at?: string | null
           usage_unit: string
         }
@@ -153,6 +155,7 @@ export type Database = {
           purchase_unit?: string
           supplier?: string | null
           supplier_id?: string | null
+          unit_weight?: number | null
           updated_at?: string | null
           usage_unit?: string
         }
