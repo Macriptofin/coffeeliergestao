@@ -35,17 +35,28 @@ export const IngredientsList = ({ ingredients, onEdit, onDelete }: IngredientsLi
             <CardTitle className="text-lg flex items-center justify-between">
               <span className="truncate">{ingredient.name}</span>
               <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">
-                {ingredient.unit}
+                {ingredient.usageUnit}
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Preço por {ingredient.unit}</span>
+                <span className="text-sm text-muted-foreground">Preço por {ingredient.usageUnit}</span>
                 <span className="font-semibold text-lg text-primary">
-                  R$ {ingredient.pricePerUnit.toFixed(2)}
+                  R$ {(ingredient.pricePerPurchaseUnit / ingredient.conversionFactor).toFixed(4)}
                 </span>
+              </div>
+              
+              <div className="space-y-2 pt-2 border-t border-border">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Compra em:</span>
+                  <span>{ingredient.purchaseUnit} - R$ {ingredient.pricePerPurchaseUnit.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Conversão:</span>
+                  <span>1 {ingredient.purchaseUnit} = {ingredient.conversionFactor} {ingredient.usageUnit}</span>
+                </div>
               </div>
               
               {ingredient.supplier && (

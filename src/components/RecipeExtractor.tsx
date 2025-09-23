@@ -417,8 +417,10 @@ export const RecipeExtractor = ({
         // Create new ingredient
         newIngredients.push({
           name: ingredient.name,
-          unit: ingredient.unit,
-          pricePerUnit: ingredient.pricePerUnit || 0,
+          purchaseUnit: ingredient.unit,
+          usageUnit: ingredient.unit,
+          conversionFactor: 1,
+          pricePerPurchaseUnit: ingredient.pricePerUnit || 0,
         });
       }
     });

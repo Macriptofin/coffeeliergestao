@@ -145,14 +145,15 @@ export const RecipesList = ({ recipes, ingredients, onEdit, onDelete }: RecipesL
                         const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
                         if (!ingredient) return null;
                         
-                        const cost = ingredient.pricePerUnit * recipeIngredient.quantity;
+                        const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
+                        const cost = pricePerUsage * recipeIngredient.quantity;
                         
                         return (
                           <div key={recipeIngredient.ingredientId} className="flex justify-between items-center p-2 bg-muted rounded">
                             <div>
                               <span className="font-medium">{ingredient.name}</span>
                               <span className="text-muted-foreground ml-2">
-                                ({recipeIngredient.quantity} {ingredient.unit})
+                                ({recipeIngredient.quantity} {ingredient.usageUnit})
                               </span>
                             </div>
                             <span className="text-sm font-medium text-primary">

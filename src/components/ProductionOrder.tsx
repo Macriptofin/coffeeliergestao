@@ -94,7 +94,8 @@ export const ProductionOrder = ({ recipes, ingredients }: ProductionOrderProps) 
         if (!ingredient) return;
 
         const totalNeeded = recipeIngredient.quantity * productionItem.quantity * productionItem.multiplier;
-        const cost = totalNeeded * ingredient.pricePerUnit;
+        const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
+        const cost = totalNeeded * pricePerUsage;
 
         if (consolidated[ingredient.id]) {
           consolidated[ingredient.id].totalQuantity += totalNeeded;
@@ -330,7 +331,7 @@ export const ProductionOrder = ({ recipes, ingredients }: ProductionOrderProps) 
                       <div className="flex justify-between items-start">
                         <h4 className="font-medium text-sm">{item.ingredient.name}</h4>
                         <Badge variant="outline" className="text-xs">
-                          {item.ingredient.unit}
+                          {item.ingredient.usageUnit}
                         </Badge>
                       </div>
                       

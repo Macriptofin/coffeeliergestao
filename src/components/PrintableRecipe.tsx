@@ -104,13 +104,14 @@ export const PrintableRecipe = forwardRef<HTMLDivElement, PrintableRecipeProps>(
                   const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
                   if (!ingredient) return null;
                   
-                  const cost = ingredient.pricePerUnit * recipeIngredient.quantity;
+                  const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
+                  const cost = pricePerUsage * recipeIngredient.quantity;
                   
                   return (
                     <tr key={ingredient.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                       <td className="border border-gray-400 px-4 py-2 font-medium">{ingredient.name}</td>
                       <td className="border border-gray-400 px-4 py-2 text-center">{recipeIngredient.quantity}</td>
-                      <td className="border border-gray-400 px-4 py-2 text-center">{ingredient.unit}</td>
+                      <td className="border border-gray-400 px-4 py-2 text-center">{ingredient.usageUnit}</td>
                       <td className="border border-gray-400 px-4 py-2 text-right font-semibold">
                         {cost.toFixed(2)}
                       </td>

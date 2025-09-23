@@ -14,8 +14,10 @@ import { CoffeelierLogo } from "@/components/CoffeelierLogo";
 export interface Ingredient {
   id: string;
   name: string;
-  unit: string;
-  pricePerUnit: number;
+  purchaseUnit: string; // Unidade de compra (ex: kg, pacote)
+  usageUnit: string; // Unidade de uso nas receitas (ex: g, mL)
+  conversionFactor: number; // Fator de conversão (ex: 1 kg = 1000g)
+  pricePerPurchaseUnit: number; // Preço por unidade de compra
   supplier?: string;
 }
 
@@ -61,7 +63,8 @@ const Index = () => {
     const totalCost = recipe.ingredients.reduce((total, recipeIngredient) => {
       const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
       if (ingredient) {
-        return total + (ingredient.pricePerUnit * recipeIngredient.quantity);
+        const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
+        return total + (pricePerUsage * recipeIngredient.quantity);
       }
       return total;
     }, 0);
@@ -91,10 +94,12 @@ const Index = () => {
             ing.id === recipeIngredient.ingredientId ? updatedIngredient : ing
           );
           if (ingredient?.id === updatedIngredient.id) {
-            return total + (updatedIngredient.pricePerUnit * recipeIngredient.quantity);
+            const pricePerUsage = updatedIngredient.pricePerPurchaseUnit / updatedIngredient.conversionFactor;
+            return total + (pricePerUsage * recipeIngredient.quantity);
           }
           if (ingredient) {
-            return total + (ingredient.pricePerUnit * recipeIngredient.quantity);
+            const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
+            return total + (pricePerUsage * recipeIngredient.quantity);
           }
           return total;
         }, 0);
@@ -109,7 +114,8 @@ const Index = () => {
     const totalCost = updatedRecipe.ingredients.reduce((total, recipeIngredient) => {
       const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
       if (ingredient) {
-        return total + (ingredient.pricePerUnit * recipeIngredient.quantity);
+        const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
+        return total + (pricePerUsage * recipeIngredient.quantity);
       }
       return total;
     }, 0);
@@ -335,10 +341,10 @@ const Index = () => {
                         <div key={ingredient.id} className="flex justify-between items-center p-3 bg-accent rounded-lg">
                           <div>
                             <p className="font-medium">{ingredient.name}</p>
-                            <p className="text-sm text-muted-foreground">{ingredient.unit}</p>
+                            <p className="text-sm text-muted-foreground">{ingredient.usageUnit}</p>
                           </div>
                           <span className="font-semibold text-primary">
-                            R$ {ingredient.pricePerUnit.toFixed(2)}
+                            R$ {(ingredient.pricePerPurchaseUnit / ingredient.conversionFactor).toFixed(4)}
                           </span>
                         </div>
                       ))}

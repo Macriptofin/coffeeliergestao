@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X } from "lucide-react";
+import { X, Calculator } from "lucide-react";
 import type { Ingredient } from "@/pages/Index";
 
 interface IngredientFormProps {
@@ -16,23 +16,34 @@ interface IngredientFormProps {
 export const IngredientForm = ({ ingredient, onSubmit, onCancel }: IngredientFormProps) => {
   const [formData, setFormData] = useState({
     name: ingredient?.name || '',
-    unit: ingredient?.unit || '',
-    pricePerUnit: ingredient?.pricePerUnit?.toString() || '',
+    purchaseUnit: ingredient?.purchaseUnit || '',
+    usageUnit: ingredient?.usageUnit || '',
+    conversionFactor: ingredient?.conversionFactor?.toString() || '',
+    pricePerPurchaseUnit: ingredient?.pricePerPurchaseUnit?.toString() || '',
     supplier: ingredient?.supplier || '',
   });
 
   const units = [
-    'kg', 'g', 'L', 'mL', 'unidade', 'pacote', 'caixa', 'lata', 'saco', 'envelope'
+    'kg', 'g', 'L', 'mL', 'unidade', 'pacote', 'caixa', 'lata', 'saco', 'envelope', 'dúzia', 'centena'
   ];
+
+  // Calcula o preço por unidade de uso
+  const getPricePerUsageUnit = () => {
+    const price = parseFloat(formData.pricePerPurchaseUnit) || 0;
+    const conversion = parseFloat(formData.conversionFactor) || 1;
+    return conversion > 0 ? (price / conversion).toFixed(4) : '0.0000';
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.unit || !formData.pricePerUnit) return;
+    if (!formData.name || !formData.purchaseUnit || !formData.usageUnit || !formData.conversionFactor || !formData.pricePerPurchaseUnit) return;
 
     onSubmit({
       name: formData.name,
-      unit: formData.unit,
-      pricePerUnit: parseFloat(formData.pricePerUnit),
+      purchaseUnit: formData.purchaseUnit,
+      usageUnit: formData.usageUnit,
+      conversionFactor: parseFloat(formData.conversionFactor),
+      pricePerPurchaseUnit: parseFloat(formData.pricePerPurchaseUnit),
       supplier: formData.supplier || undefined,
     });
   };
@@ -51,25 +62,41 @@ export const IngredientForm = ({ ingredient, onSubmit, onCancel }: IngredientFor
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Nome do Ingrediente *</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Ex: Farinha de trigo"
+              required
+            />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nome do Ingrediente *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ex: Farinha de trigo"
-                required
-              />
+              <Label htmlFor="purchaseUnit">Unidade de Compra *</Label>
+              <Select value={formData.purchaseUnit} onValueChange={(value) => setFormData({ ...formData, purchaseUnit: value })}>
+                <SelectTrigger className="bg-card">
+                  <SelectValue placeholder="Como você compra?" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border z-50">
+                  {units.map((unit) => (
+                    <SelectItem key={unit} value={unit}>
+                      {unit}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="unit">Unidade de Medida *</Label>
-              <Select value={formData.unit} onValueChange={(value) => setFormData({ ...formData, unit: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a unidade" />
+              <Label htmlFor="usageUnit">Unidade de Uso *</Label>
+              <Select value={formData.usageUnit} onValueChange={(value) => setFormData({ ...formData, usageUnit: value })}>
+                <SelectTrigger className="bg-card">
+                  <SelectValue placeholder="Como você usa?" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-card border-border z-50">
                   {units.map((unit) => (
                     <SelectItem key={unit} value={unit}>
                       {unit}
@@ -82,27 +109,58 @@ export const IngredientForm = ({ ingredient, onSubmit, onCancel }: IngredientFor
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="price">Preço por Unidade (R$) *</Label>
+              <Label htmlFor="conversionFactor">Fator de Conversão *</Label>
+              <Input
+                id="conversionFactor"
+                type="number"
+                step="0.01"
+                value={formData.conversionFactor}
+                onChange={(e) => setFormData({ ...formData, conversionFactor: e.target.value })}
+                placeholder="Ex: 1000 (1kg = 1000g)"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Quantas unidades de uso em 1 unidade de compra
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="price">Preço por Unidade de Compra (R$) *</Label>
               <Input
                 id="price"
                 type="number"
                 step="0.01"
-                value={formData.pricePerUnit}
-                onChange={(e) => setFormData({ ...formData, pricePerUnit: e.target.value })}
+                value={formData.pricePerPurchaseUnit}
+                onChange={(e) => setFormData({ ...formData, pricePerPurchaseUnit: e.target.value })}
                 placeholder="0,00"
                 required
               />
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="supplier">Fornecedor (Opcional)</Label>
-              <Input
-                id="supplier"
-                value={formData.supplier}
-                onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                placeholder="Ex: Distribuidora ABC"
-              />
+          </div>
+
+          {formData.conversionFactor && formData.pricePerPurchaseUnit && (
+            <div className="bg-accent-creme/30 p-4 rounded-lg border border-accent-mocca/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Calculator className="h-4 w-4 text-accent-coffee" />
+                <span className="font-medium text-accent-coffee">Cálculo Automático</span>
+              </div>
+              <p className="text-sm text-accent-coffee">
+                <strong>Custo por {formData.usageUnit}:</strong> R$ {getPricePerUsageUnit()}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Este será o valor usado nos cálculos das receitas
+              </p>
             </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="supplier">Fornecedor (Opcional)</Label>
+            <Input
+              id="supplier"
+              value={formData.supplier}
+              onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+              placeholder="Ex: Distribuidora ABC"
+            />
           </div>
 
           <div className="flex gap-3 pt-4">

@@ -131,7 +131,7 @@ export const PrintableProductionOrder = forwardRef<HTMLDivElement, PrintableProd
                     <td className="border border-gray-400 px-4 py-2 text-center font-semibold">
                       {item.totalQuantity.toFixed(2)}
                     </td>
-                    <td className="border border-gray-400 px-4 py-2 text-center">{item.ingredient.unit}</td>
+                    <td className="border border-gray-400 px-4 py-2 text-center">{item.ingredient.usageUnit}</td>
                     <td className="border border-gray-400 px-4 py-2 text-right font-semibold">
                       R$ {item.totalCost.toFixed(2)}
                     </td>

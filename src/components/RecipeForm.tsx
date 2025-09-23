@@ -65,7 +65,8 @@ export const RecipeForm = ({ recipe, ingredients, onSubmit, onCancel }: RecipeFo
     return recipeIngredients.reduce((total, recipeIngredient) => {
       const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
       if (ingredient) {
-        return total + (ingredient.pricePerUnit * recipeIngredient.quantity);
+        const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
+        return total + (pricePerUsage * recipeIngredient.quantity);
       }
       return total;
     }, 0);
@@ -200,7 +201,7 @@ export const RecipeForm = ({ recipe, ingredients, onSubmit, onCancel }: RecipeFo
                 <SelectContent>
                   {ingredients.map((ingredient) => (
                     <SelectItem key={ingredient.id} value={ingredient.id}>
-                      {ingredient.name} ({ingredient.unit})
+                      {ingredient.name} ({ingredient.usageUnit})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -226,14 +227,15 @@ export const RecipeForm = ({ recipe, ingredients, onSubmit, onCancel }: RecipeFo
                   const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
                   if (!ingredient) return null;
                   
-                  const cost = ingredient.pricePerUnit * recipeIngredient.quantity;
+                  const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
+                  const cost = pricePerUsage * recipeIngredient.quantity;
                   
                   return (
                     <div key={recipeIngredient.ingredientId} className="flex items-center justify-between p-3 bg-accent rounded-lg">
                       <div className="flex items-center gap-3">
                         <span className="font-medium">{ingredient.name}</span>
                         <Badge variant="outline">
-                          {recipeIngredient.quantity} {ingredient.unit}
+                          {recipeIngredient.quantity} {ingredient.usageUnit}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2">
