@@ -296,6 +296,23 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
     setLoading(true);
     try {
+      // Verificar se já existe uma nota fiscal com o mesmo número
+      const { data: existingInvoice, error: checkInvoiceError } = await supabase
+        .from('purchase_invoices')
+        .select('id, invoice_number')
+        .eq('invoice_number', formData.invoiceNumber)
+        .single();
+
+      if (checkInvoiceError && checkInvoiceError.code !== 'PGRST116') {
+        throw checkInvoiceError;
+      }
+
+      if (existingInvoice) {
+        toast.error(`Nota fiscal ${formData.invoiceNumber} já foi cadastrada no sistema`);
+        setLoading(false);
+        return;
+      }
+
       let supplierId = formData.supplierId;
 
       // Se não tem supplierId mas tem supplierName, verificar se precisa criar ou se já existe
@@ -318,6 +335,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         }
       }
 
+      console.log('Criando nota fiscal com supplier_id:', supplierId);
+
       const { data: invoice, error: invoiceError } = await supabase
         .from('purchase_invoices')
         .insert({
@@ -331,8 +350,14 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         .select()
         .single();
 
-      if (invoiceError) throw invoiceError;
+      if (invoiceError) {
+        console.error('Erro ao criar nota fiscal:', invoiceError);
+        throw invoiceError;
+      }
 
+      console.log('Nota fiscal criada:', invoice);
+
+      // Preparar dados dos itens da nota fiscal
       const invoiceItemsData = invoiceItems.map(item => ({
         invoice_id: invoice.id,
         supplier_product_id: item.ingredientId,
@@ -341,33 +366,76 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         total_price: item.totalPrice
       }));
 
+      console.log('Inserindo itens da nota fiscal:', invoiceItemsData);
+
       const { error: itemsError } = await supabase
         .from('invoice_items')
         .insert(invoiceItemsData);
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        console.error('Erro ao inserir itens da nota fiscal:', itemsError);
+        throw itemsError;
+      }
 
+      console.log('Itens da nota fiscal inseridos com sucesso');
+
+      // Processar movimentações de estoque para cada item
       for (const item of invoiceItems) {
         const ingredient = ingredients.find(ing => ing.id === item.ingredientId);
         
-        const conversionFactor = ingredient?.conversionFactor || 1;
-        const usageQuantity = item.quantity * conversionFactor;
-        
-        await supabase.from('stock_movements').insert({
-          ingredient_id: item.ingredientId,
-          movement_type: 'Entrada',
-          quantity: usageQuantity,
-          unit_price: item.unitPrice / conversionFactor,
-          reference_type: 'purchase_invoice',
-          reference_id: invoice.id,
-          notes: `Nota fiscal ${formData.invoiceNumber} - Compra: ${item.quantity} ${item.purchaseUnit}`
-        });
+        if (!ingredient) {
+          console.error('Ingrediente não encontrado:', item.ingredientId);
+          continue;
+        }
 
-        await supabase.rpc('calculate_weighted_average_price', {
+        console.log(`Processando item: ${item.ingredientName}`);
+        console.log(`Quantidade comprada: ${item.quantity} ${item.purchaseUnit}`);
+        console.log(`Fator de conversão: ${ingredient.conversionFactor}`);
+        
+        // Calcular quantidade em unidade de uso
+        const conversionFactor = ingredient.conversionFactor || 1;
+        const usageQuantity = item.quantity * conversionFactor;
+        const usageUnitPrice = item.unitPrice / conversionFactor;
+        
+        console.log(`Quantidade para estoque: ${usageQuantity} ${ingredient.usageUnit}`);
+        console.log(`Preço unitário para estoque: R$ ${usageUnitPrice.toFixed(4)}`);
+        
+        // Criar movimentação de estoque
+        const { data: stockMovement, error: stockError } = await supabase
+          .from('stock_movements')
+          .insert({
+            ingredient_id: item.ingredientId,
+            movement_type: 'Entrada',
+            quantity: usageQuantity,
+            unit_price: usageUnitPrice,
+            reference_type: 'purchase_invoice',
+            reference_id: invoice.id,
+            notes: `Nota fiscal ${formData.invoiceNumber} - Compra: ${item.quantity} ${item.purchaseUnit} = ${usageQuantity} ${ingredient.usageUnit}`
+          })
+          .select()
+          .single();
+
+        if (stockError) {
+          console.error('Erro ao criar movimentação de estoque:', stockError);
+          throw stockError;
+        }
+
+        console.log('Movimentação de estoque criada:', stockMovement);
+
+        // Atualizar preço médio ponderado
+        console.log('Chamando RPC calculate_weighted_average_price');
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('calculate_weighted_average_price', {
           p_ingredient_id: item.ingredientId,
           p_new_quantity: usageQuantity,
-          p_new_price: item.unitPrice / conversionFactor
+          p_new_price: usageUnitPrice
         });
+
+        if (rpcError) {
+          console.error('Erro no RPC calculate_weighted_average_price:', rpcError);
+          throw rpcError;
+        }
+
+        console.log('RPC executado com sucesso, novo preço médio:', rpcResult);
       }
 
       toast.success('Nota fiscal criada e estoque atualizado com sucesso');
@@ -398,7 +466,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       onRefresh();
     } catch (error) {
       console.error('Erro ao criar nota fiscal:', error);
-      toast.error('Erro ao criar nota fiscal');
+      toast.error(`Erro ao criar nota fiscal: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
