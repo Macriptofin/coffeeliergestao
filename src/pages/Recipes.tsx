@@ -170,6 +170,85 @@ const Recipes = () => {
     }
   };
 
+  const updateRecipe = async (recipe: Recipe) => {
+    try {
+      const totalCost = recipe.ingredients.reduce((total, recipeIngredient) => {
+        const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
+        if (ingredient) {
+          return total + calculateIngredientCost(ingredient, recipeIngredient.quantity);
+        }
+        return total;
+      }, 0);
+
+      // Calcular peso total dos ingredientes  
+      const totalWeight = recipe.ingredients.reduce((total, recipeIngredient) => {
+        const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
+        if (ingredient) {
+          return total + calculateIngredientWeight(ingredient, recipeIngredient.quantity);
+        }
+        return total;
+      }, 0);
+
+      // Atualizar receita principal
+      const { error: recipeError } = await supabase
+        .from('recipes')
+        .update({
+          name: recipe.name,
+          description: recipe.description,
+          category: recipe.category,
+          instructions: recipe.instructions,
+          preparation_time: recipe.preparationTime,
+          difficulty: recipe.difficulty,
+          yield_amount: recipe.yield,
+          total_cost: totalCost,
+          total_weight: totalWeight,
+          suggested_price: recipe.suggestedPrice,
+          profit_margin: recipe.profitMargin
+        })
+        .eq('id', recipe.id);
+      
+      if (recipeError) throw recipeError;
+
+      // Deletar ingredientes existentes
+      const { error: deleteError } = await supabase
+        .from('recipe_ingredients')
+        .delete()
+        .eq('recipe_id', recipe.id);
+      
+      if (deleteError) throw deleteError;
+
+      // Inserir novos ingredientes
+      if (recipe.ingredients.length > 0) {
+        const recipeIngredientsData = recipe.ingredients.map(ri => ({
+          recipe_id: recipe.id,
+          material_id: ri.ingredientId,
+          quantity: ri.quantity
+        }));
+
+        const { error: ingredientsError } = await supabase
+          .from('recipe_ingredients')
+          .insert(recipeIngredientsData);
+        
+        if (ingredientsError) throw ingredientsError;
+      }
+
+      // Atualizar receita no estado
+      const updatedRecipe: Recipe = {
+        ...recipe,
+        totalCost,
+        totalWeight
+      };
+      
+      setRecipes(recipes.map(r => r.id === recipe.id ? updatedRecipe : r));
+      setEditingRecipe(null);
+      setShowRecipeForm(false);
+      toast.success('Receita atualizada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar receita:', error);
+      toast.error('Erro ao atualizar receita');
+    }
+  };
+
   const deleteRecipe = async (recipeId: string) => {
     try {
       const { error } = await supabase
@@ -189,7 +268,7 @@ const Recipes = () => {
 
   const handleRecipeSubmit = (recipeData: Omit<Recipe, 'id' | 'totalCost'>) => {
     if (editingRecipe) {
-      // updateRecipe({ ...recipeData, id: editingRecipe.id });
+      updateRecipe({ ...recipeData, id: editingRecipe.id, totalCost: 0 });
     } else {
       addRecipe(recipeData);
     }
