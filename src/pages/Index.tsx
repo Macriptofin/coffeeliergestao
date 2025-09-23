@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import type { User, Session } from '@supabase/supabase-js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChefHat, Calculator, FileText, Plus, Sparkles } from "lucide-react";
+import { ChefHat, Calculator, FileText, Plus, Sparkles, LogOut } from "lucide-react";
 import { IngredientForm } from "@/components/IngredientForm";
 import { RecipeForm } from "@/components/RecipeForm";
 import { IngredientsList } from "@/components/IngredientsList";
@@ -44,6 +46,9 @@ export interface Recipe {
 }
 
 const Index = () => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [showIngredientForm, setShowIngredientForm] = useState(false);
@@ -52,12 +57,44 @@ const Index = () => {
   const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  // Carregar dados iniciais
+  // Authentication check and setup
   useEffect(() => {
-    loadIngredients();
-    loadRecipes();
-  }, []);
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setAuthLoading(false);
+        
+        if (!session) {
+          navigate('/auth');
+        }
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+      
+      if (!session) {
+        navigate('/auth');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  // Load data when authenticated
+  useEffect(() => {
+    if (session) {
+      loadIngredients();
+      loadRecipes();
+    }
+  }, [session]);
 
   const loadIngredients = async () => {
     try {
@@ -432,19 +469,53 @@ const Index = () => {
     setShowRecipeExtractor(false);
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast.success('Logout realizado com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao fazer logout');
+    }
+  };
+
+  // Show loading spinner while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Don't render main content if user is not authenticated
+  if (!session || !user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
       <div className="bg-gradient-coffee text-primary-foreground shadow-warm">
         <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center gap-4 mb-4">
-            <CoffeelierLogo size="lg" className="filter brightness-0 invert" />
-            <div>
-              <h1 className="text-3xl font-display font-bold">Sistema de Gestão</h1>
-              <p className="text-primary-foreground/80 text-sm font-medium">
-                Controle completo da sua confeitaria
-              </p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <CoffeelierLogo size="lg" className="filter brightness-0 invert" />
+              <div>
+                <h1 className="text-3xl font-display font-bold">Sistema de Gestão</h1>
+                <p className="text-primary-foreground/80 text-sm font-medium">
+                  Controle completo da sua confeitaria
+                </p>
+              </div>
             </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleLogout}
+              className="text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sair
+            </Button>
           </div>
           <p className="text-primary-foreground/90 text-lg font-light">
             Sistema completo para controle de custos e fichas técnicas das suas receitas
