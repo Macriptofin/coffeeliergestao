@@ -2,12 +2,13 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChefHat, Calculator, FileText, Plus } from "lucide-react";
+import { ChefHat, Calculator, FileText, Plus, Sparkles } from "lucide-react";
 import { IngredientForm } from "@/components/IngredientForm";
 import { RecipeForm } from "@/components/RecipeForm";
 import { IngredientsList } from "@/components/IngredientsList";
 import { RecipesList } from "@/components/RecipesList";
 import { ProductionOrder } from "@/components/ProductionOrder";
+import { RecipeExtractor } from "@/components/RecipeExtractor";
 
 export interface Ingredient {
   id: string;
@@ -42,6 +43,7 @@ const Index = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [showIngredientForm, setShowIngredientForm] = useState(false);
   const [showRecipeForm, setShowRecipeForm] = useState(false);
+  const [showRecipeExtractor, setShowRecipeExtractor] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
 
@@ -175,6 +177,17 @@ const Index = () => {
   const cancelRecipeForm = () => {
     setEditingRecipe(null);
     setShowRecipeForm(false);
+  };
+
+  const handleExtractedRecipe = (recipeData: Omit<Recipe, 'id' | 'totalCost'>) => {
+    addRecipe(recipeData);
+    setShowRecipeExtractor(false);
+  };
+
+  const handleExtractedIngredients = (newIngredients: Omit<Ingredient, 'id'>[]) => {
+    newIngredients.forEach(ingredient => {
+      addIngredient(ingredient);
+    });
   };
 
   return (
@@ -369,14 +382,23 @@ const Index = () => {
                 <h2 className="text-2xl font-bold">Gestão de Receitas</h2>
                 <p className="text-muted-foreground">Crie e gerencie as receitas e fichas técnicas</p>
               </div>
-              <Button 
-                onClick={() => setShowRecipeForm(true)}
-                className="bg-gradient-gold hover:bg-accent-gold/90 text-accent-gold-foreground shadow-soft"
-                disabled={ingredients.length === 0}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Receita
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => setShowRecipeExtractor(true)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white shadow-soft"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Extrair com AI
+                </Button>
+                <Button 
+                  onClick={() => setShowRecipeForm(true)}
+                  className="bg-gradient-gold hover:bg-accent-gold/90 text-accent-gold-foreground shadow-soft"
+                  disabled={ingredients.length === 0}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Receita
+                </Button>
+              </div>
             </div>
 
             {ingredients.length === 0 && (
@@ -398,6 +420,15 @@ const Index = () => {
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {showRecipeExtractor && (
+              <RecipeExtractor
+                existingIngredients={ingredients}
+                onRecipeExtracted={handleExtractedRecipe}
+                onIngredientsExtracted={handleExtractedIngredients}
+                onCancel={() => setShowRecipeExtractor(false)}
+              />
             )}
 
             {showRecipeForm && ingredients.length > 0 && (
