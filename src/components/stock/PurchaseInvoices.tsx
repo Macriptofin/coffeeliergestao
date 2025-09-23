@@ -409,6 +409,18 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         }
 
         // Reverter movimentações de estoque
+        const { data: movements, error: getMovementsError } = await supabase
+          .from('stock_movements')
+          .select('material_id, quantity, unit_price')
+          .eq('reference_type', 'Compra')
+          .eq('reference_id', invoiceId);
+
+        if (getMovementsError) {
+          console.error('Erro ao buscar movimentações:', getMovementsError);
+          throw getMovementsError;
+        }
+
+        // Excluir movimentações de estoque
         const { error: deleteMovementsError } = await supabase
           .from('stock_movements')
           .delete()
@@ -420,19 +432,14 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           throw deleteMovementsError;
         }
 
-        // Recalcular estoques afetados
-        const { data: items } = await supabase
-          .from('invoice_items')
-          .select('material_id')
-          .eq('invoice_id', invoiceId);
-
-        if (items) {
-          for (const item of items) {
-            // Recalcular preço médio ponderado removendo a quantidade
+        // Recalcular estoques afetados usando quantidades negativas para reverter
+        if (movements) {
+          for (const movement of movements) {
+            // Usar quantidade negativa para reverter a entrada anterior
             await supabase.rpc('calculate_weighted_average_price', {
-              p_material_id: item.material_id,
-              p_new_quantity: 0,
-              p_new_price: 0
+              p_material_id: movement.material_id,
+              p_new_quantity: -parseFloat(movement.quantity?.toString() || '0'),
+              p_new_price: parseFloat(movement.unit_price?.toString() || '0')
             });
           }
         }
