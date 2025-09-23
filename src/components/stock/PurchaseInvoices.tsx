@@ -539,20 +539,14 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         const material = item.materials;
         
         if (!material) {
-          console.error('Material não encontrado:', item.material_id);
+          toast.error(`Material não encontrado para o item ${item.material_id}`);
           continue;
         }
-
-        console.log(`Lançando no estoque: ${material.name}`);
-        console.log(`Quantidade comprada: ${item.quantity} ${material.purchase_unit}`);
         
         // Calcular quantidade em unidade de uso
         const conversionFactor = parseFloat(material.conversion_factor?.toString() || '1');
         const usageQuantity = parseFloat(item.quantity?.toString() || '0') * conversionFactor;
         const usageUnitPrice = parseFloat(item.unit_price?.toString() || '0') / conversionFactor;
-        
-        console.log(`Quantidade para estoque: ${usageQuantity} ${material.usage_unit}`);
-        console.log(`Preço unitário para estoque: R$ ${usageUnitPrice.toFixed(4)}`);
         
         // Criar movimentação de estoque
         const { error: stockError } = await supabase

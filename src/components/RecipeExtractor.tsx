@@ -69,7 +69,6 @@ export const RecipeExtractor = ({
       
       if (isPDF) {
         try {
-          console.log('Processando PDF...');
           // Use the document parsing tool
           const formData = new FormData();
           formData.append('file', file);
@@ -130,8 +129,6 @@ export const RecipeExtractor = ({
 
   const extractTextFromImage = async (base64Image: string): Promise<string> => {
     try {
-      console.log('Processando imagem com OCR...');
-      
       // Create a canvas to process the image
       const img = new Image();
       img.src = base64Image;
@@ -164,7 +161,6 @@ export const RecipeExtractor = ({
         throw new Error('Texto muito curto ou não fornecido');
       }
       
-      console.log('Texto extraído pelo usuário:', userText);
       return userText;
       
     } catch (error) {
@@ -199,15 +195,12 @@ export const RecipeExtractor = ({
   };
 
   const simulateAIExtraction = async (text: string): Promise<ExtractedRecipeData> => {
-    console.log('Processando texto com IA:', text.substring(0, 100) + '...');
-    
     // Simulate AI processing delay
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     try {
       // Parse the actual text to extract recipe data
       const extractedData = parseRecipeText(text);
-      console.log('Dados extraídos:', extractedData);
       return extractedData;
     } catch (error) {
       console.error('Erro ao processar texto:', error);
