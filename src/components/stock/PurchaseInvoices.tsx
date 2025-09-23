@@ -178,20 +178,22 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
     setLoading(true);
     try {
-      // Verificar se já existe uma nota fiscal com o mesmo número (apenas para novas notas)
+      // Verificar se já existe uma nota fiscal com o mesmo número e fornecedor (apenas para novas notas)
       if (!editingInvoice) {
         const { data: existingInvoice, error: checkInvoiceError } = await supabase
           .from('purchase_invoices')
-          .select('id, invoice_number')
+          .select('id, invoice_number, supplier_id')
           .eq('invoice_number', formData.invoiceNumber)
-          .single();
+          .eq('supplier_id', formData.supplierId)
+          .maybeSingle();
 
-        if (checkInvoiceError && checkInvoiceError.code !== 'PGRST116') {
+        if (checkInvoiceError) {
           throw checkInvoiceError;
         }
 
         if (existingInvoice) {
-          toast.error(`Nota fiscal ${formData.invoiceNumber} já foi cadastrada no sistema`);
+          const supplierName = suppliers.find(s => s.id === formData.supplierId)?.companyName || 'Fornecedor';
+          toast.error(`Nota fiscal ${formData.invoiceNumber} do ${supplierName} já foi cadastrada no sistema`);
           setLoading(false);
           return;
         }
