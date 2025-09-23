@@ -29,9 +29,7 @@ export function LaunchProductDialog({ recipe, onSuccess }: LaunchProductDialogPr
     name: recipe.name,
     description: recipe.description,
     category: '',
-    unitWeight: recipe.totalWeight ? (recipe.totalWeight / 1000).toFixed(3) : '',
-    profitMargin: '30',
-    sellingPrice: ''
+    unitWeight: recipe.totalWeight ? (recipe.totalWeight / 1000).toFixed(3) : ''
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,9 +44,6 @@ export function LaunchProductDialog({ recipe, onSuccess }: LaunchProductDialogPr
 
     try {
       const costPrice = recipe.totalCost || 0;
-      const margin = parseFloat(formData.profitMargin) / 100;
-      const calculatedPrice = costPrice / (1 - margin);
-      const finalPrice = formData.sellingPrice ? parseFloat(formData.sellingPrice) : calculatedPrice;
 
       // Inserir produto (code será gerado automaticamente pelo trigger)
       const { error } = await supabase
@@ -60,8 +55,7 @@ export function LaunchProductDialog({ recipe, onSuccess }: LaunchProductDialogPr
           category: formData.category as any,
           unit_weight: parseFloat(formData.unitWeight),
           cost_price: costPrice,
-          selling_price: finalPrice,
-          profit_margin: parseFloat(formData.profitMargin),
+          selling_price: 0, // Será definido na proposta
           is_active: true
         } as any);
 
@@ -76,9 +70,7 @@ export function LaunchProductDialog({ recipe, onSuccess }: LaunchProductDialogPr
         name: recipe.name,
         description: recipe.description,
         category: '',
-        unitWeight: '',
-        profitMargin: '30',
-        sellingPrice: ''
+        unitWeight: recipe.totalWeight ? (recipe.totalWeight / 1000).toFixed(3) : ''
       });
 
     } catch (error) {
@@ -86,16 +78,6 @@ export function LaunchProductDialog({ recipe, onSuccess }: LaunchProductDialogPr
       toast.error('Erro ao criar produto');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleProfitMarginChange = (value: string) => {
-    setFormData(prev => ({ ...prev, profitMargin: value }));
-    
-    if (value && recipe.totalCost) {
-      const margin = parseFloat(value) / 100;
-      const calculatedPrice = recipe.totalCost / (1 - margin);
-      setFormData(prev => ({ ...prev, sellingPrice: calculatedPrice.toFixed(2) }));
     }
   };
 
@@ -180,42 +162,20 @@ export function LaunchProductDialog({ recipe, onSuccess }: LaunchProductDialogPr
             </div>
           </div>
 
-          {/* Precificação */}
+          {/* Custo da receita - apenas informativo */}
           <div className="space-y-4 border-t pt-4">
-            <h3 className="text-lg font-medium">Precificação</h3>
+            <h3 className="text-lg font-medium">Informações Financeiras</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label>Custo da Receita</Label>
-                <Input
-                  value={`R$ ${(recipe.totalCost || 0).toFixed(2)}`}
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="profitMargin">Margem de Lucro (%)</Label>
-                <Input
-                  id="profitMargin"
-                  type="number"
-                  step="0.1"
-                  value={formData.profitMargin}
-                  onChange={(e) => handleProfitMarginChange(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="sellingPrice">Preço de Venda</Label>
-                <Input
-                  id="sellingPrice"
-                  type="number"
-                  step="0.01"
-                  value={formData.sellingPrice}
-                  onChange={(e) => setFormData(prev => ({ ...prev, sellingPrice: e.target.value }))}
-                  placeholder="Calculado automaticamente"
-                />
-              </div>
+            <div>
+              <Label>Custo da Receita</Label>
+              <Input
+                value={`R$ ${(recipe.totalCost || 0).toFixed(2)}`}
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                O preço de venda será definido nas propostas comerciais
+              </p>
             </div>
           </div>
 
