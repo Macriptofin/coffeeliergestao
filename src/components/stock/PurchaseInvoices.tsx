@@ -154,6 +154,36 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     }
 
     try {
+      // Verificar se o fornecedor já existe antes de tentar criar
+      const { data: existingSupplier, error: checkError } = await supabase
+        .from('suppliers')
+        .select('id, company_name')
+        .eq('company_name', supplierData.companyName)
+        .eq('status', 'Ativo')
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+
+      if (existingSupplier) {
+        // Fornecedor já existe, retornar o ID existente
+        const existingSupplierFormatted = {
+          id: existingSupplier.id,
+          companyName: existingSupplier.company_name
+        };
+        
+        // Atualizar lista local se não estiver presente
+        setSuppliers(prev => {
+          const exists = prev.some(s => s.id === existingSupplier.id);
+          return exists ? prev : [...prev, existingSupplierFormatted];
+        });
+        
+        toast.success(`Fornecedor "${supplierData.companyName}" encontrado no sistema`);
+        return existingSupplier.id;
+      }
+
+      // Fornecedor não existe, criar novo
       const { data: newSupplier, error } = await supabase
         .from('suppliers')
         .insert({
@@ -268,11 +298,23 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     try {
       let supplierId = formData.supplierId;
 
+      // Se não tem supplierId mas tem supplierName, verificar se precisa criar ou se já existe
       if (!supplierId && formData.supplierName) {
-        supplierId = await createSupplier();
-        if (!supplierId) {
-          setLoading(false);
-          return;
+        // Recarregar fornecedores para garantir dados atualizados
+        await loadSuppliers();
+        
+        // Verificar novamente se o fornecedor existe após recarregar
+        const existingSupplier = suppliers.find(s => s.companyName === formData.supplierName);
+        
+        if (existingSupplier) {
+          supplierId = existingSupplier.id;
+          setFormData(prev => ({ ...prev, supplierId: existingSupplier.id }));
+        } else {
+          supplierId = await createSupplier();
+          if (!supplierId) {
+            setLoading(false);
+            return;
+          }
         }
       }
 
