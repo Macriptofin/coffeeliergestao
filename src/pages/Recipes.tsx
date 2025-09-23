@@ -79,6 +79,7 @@ const Recipes = () => {
       difficulty: item.difficulty as 'Fácil' | 'Médio' | 'Difícil',
       yield: item.yield_amount,
       totalCost: item.total_cost ? parseFloat(item.total_cost.toString()) : undefined,
+      totalWeight: (item as any).total_weight ? parseFloat((item as any).total_weight.toString()) : undefined,
       suggestedPrice: item.suggested_price ? parseFloat(item.suggested_price.toString()) : undefined,
       profitMargin: item.profit_margin ? parseFloat(item.profit_margin.toString()) : undefined,
       ingredients: item.recipe_ingredients.map((ri: any) => ({
