@@ -433,11 +433,13 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
+          event_category: string | null
           event_date: string | null
           id: string
           notes: string | null
           number_of_people: number
           parent_proposal_id: string | null
+          products_selected: boolean | null
           proposal_date: string
           proposal_number: string
           status: string
@@ -451,11 +453,13 @@ export type Database = {
         Insert: {
           client_id: string
           created_at?: string
+          event_category?: string | null
           event_date?: string | null
           id?: string
           notes?: string | null
           number_of_people: number
           parent_proposal_id?: string | null
+          products_selected?: boolean | null
           proposal_date?: string
           proposal_number: string
           status?: string
@@ -469,11 +473,13 @@ export type Database = {
         Update: {
           client_id?: string
           created_at?: string
+          event_category?: string | null
           event_date?: string | null
           id?: string
           notes?: string | null
           number_of_people?: number
           parent_proposal_id?: string | null
+          products_selected?: boolean | null
           proposal_date?: string
           proposal_number?: string
           status?: string
