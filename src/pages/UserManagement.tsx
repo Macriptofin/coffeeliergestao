@@ -1,6 +1,5 @@
 import { AdminSetup } from "@/components/AdminSetup";
 import { UserRoleManager } from "@/components/UserRoleManager";
-import { SecurityAuditLog } from "@/components/SecurityAuditLog";
 import { useUserRole } from "@/hooks/useUserRole";
 
 const UserManagement = () => {
@@ -28,7 +27,6 @@ const UserManagement = () => {
       <div className="space-y-6">
         <AdminSetup />
         {userRole === 'admin' && <UserRoleManager />}
-        {/* {userRole === 'admin' && <SecurityAuditLog />} */}
       </div>
     </div>
   );
