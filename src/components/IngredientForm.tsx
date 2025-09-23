@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { X, Calculator, AlertTriangle } from "lucide-react";
 import type { Ingredient } from "@/pages/Index";
 
@@ -63,11 +64,21 @@ export const IngredientForm = ({ ingredient, existingIngredients, onSubmit, onCa
     });
   };
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, name: e.target.value });
+  const handleNameChange = (value: string) => {
+    setFormData({ ...formData, name: value });
     // Limpar erro de duplicidade quando o usuário começar a digitar
     if (duplicateError) {
       setDuplicateError('');
+    }
+  };
+
+  const handleNameSelect = (selectedName: string) => {
+    // Quando selecionar um nome existente, mostrar aviso
+    const existing = existingIngredients.find(ing => 
+      ing.name.toLowerCase() === selectedName.toLowerCase()
+    );
+    if (existing && (!ingredient || existing.id !== ingredient.id)) {
+      setDuplicateError(`Ingrediente "${selectedName}" já está cadastrado`);
     }
   };
 
@@ -96,10 +107,12 @@ export const IngredientForm = ({ ingredient, existingIngredients, onSubmit, onCa
           
           <div className="space-y-2">
             <Label htmlFor="name">Nome do Ingrediente *</Label>
-            <Input
+            <AutocompleteInput
               id="name"
               value={formData.name}
               onChange={handleNameChange}
+              onSelect={handleNameSelect}
+              suggestions={existingIngredients.map(ing => ing.name)}
               placeholder="Ex: Farinha de trigo"
               required
               className={duplicateError ? "border-red-300 focus:border-red-500" : ""}
