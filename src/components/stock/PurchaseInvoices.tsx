@@ -31,9 +31,10 @@ interface InvoiceItem {
   ingredientId: string;
   ingredientName: string;
   quantity: number;
-  unit: string;
+  purchaseUnit: string;
   unitPrice: number;
   totalPrice: number;
+  isNewIngredient?: boolean;
 }
 
 interface PurchaseInvoicesProps {
@@ -56,6 +57,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [currentItem, setCurrentItem] = useState({
     ingredientName: '',
+    purchaseUnit: '',
     quantity: 0,
     unitPrice: 0
   });
@@ -108,12 +110,49 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     }
   };
 
-  const addItemToInvoice = () => {
-    const selectedIngredient = ingredients.find(ing => ing.name === currentItem.ingredientName);
-    
-    if (!selectedIngredient || !currentItem.quantity || !currentItem.unitPrice) {
+  const addItemToInvoice = async () => {
+    if (!currentItem.ingredientName || !currentItem.purchaseUnit || !currentItem.quantity || !currentItem.unitPrice) {
       toast.error('Preencha todos os campos do item');
       return;
+    }
+
+    let selectedIngredient = ingredients.find(ing => ing.name === currentItem.ingredientName);
+    let isNewIngredient = false;
+
+    // Se o ingrediente não existe, criar um novo
+    if (!selectedIngredient) {
+      try {
+        const { data: newIngredient, error } = await supabase
+          .from('ingredients')
+          .insert({
+            name: currentItem.ingredientName,
+            purchase_unit: currentItem.purchaseUnit,
+            usage_unit: currentItem.purchaseUnit, // Por padrão, usar a mesma unidade
+            conversion_factor: 1, // Por padrão, fator 1
+            price_per_purchase_unit: currentItem.unitPrice
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        selectedIngredient = {
+          id: newIngredient.id,
+          name: newIngredient.name,
+          purchaseUnit: newIngredient.purchase_unit,
+          usageUnit: newIngredient.usage_unit,
+          conversionFactor: parseFloat(newIngredient.conversion_factor?.toString() || '1')
+        };
+
+        // Atualizar lista de ingredientes
+        setIngredients(prev => [...prev, selectedIngredient!]);
+        isNewIngredient = true;
+        toast.success(`Ingrediente "${currentItem.ingredientName}" cadastrado com sucesso`);
+      } catch (error) {
+        console.error('Erro ao criar ingrediente:', error);
+        toast.error('Erro ao criar novo ingrediente');
+        return;
+      }
     }
 
     const totalPrice = currentItem.quantity * currentItem.unitPrice;
@@ -121,13 +160,14 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       ingredientId: selectedIngredient.id,
       ingredientName: selectedIngredient.name,
       quantity: currentItem.quantity,
-      unit: selectedIngredient.purchaseUnit,
+      purchaseUnit: currentItem.purchaseUnit,
       unitPrice: currentItem.unitPrice,
-      totalPrice
+      totalPrice,
+      isNewIngredient
     };
 
     setInvoiceItems(prev => [...prev, newItem]);
-    setCurrentItem({ ingredientName: '', quantity: 0, unitPrice: 0 });
+    setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
     
     // Atualizar total automaticamente
     const newTotal = [...invoiceItems, newItem].reduce((sum, item) => sum + item.totalPrice, 0);
@@ -184,22 +224,28 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       // Criar movimentações de estoque para cada item
       for (const item of invoiceItems) {
-        // Criar movimentação de entrada
+        const ingredient = ingredients.find(ing => ing.id === item.ingredientId);
+        
+        // Calcular quantidade convertida para unidade de uso
+        const conversionFactor = ingredient?.conversionFactor || 1;
+        const usageQuantity = item.quantity * conversionFactor;
+        
+        // Criar movimentação de entrada (sempre em unidade de uso)
         await supabase.from('stock_movements').insert({
           ingredient_id: item.ingredientId,
           movement_type: 'Entrada',
-          quantity: item.quantity,
-          unit_price: item.unitPrice,
+          quantity: usageQuantity, // Quantidade convertida para unidade de uso
+          unit_price: item.unitPrice / conversionFactor, // Preço unitário ajustado para unidade de uso
           reference_type: 'purchase_invoice',
           reference_id: invoice.id,
-          notes: `Nota fiscal ${formData.invoiceNumber}`
+          notes: `Nota fiscal ${formData.invoiceNumber} - Compra: ${item.quantity} ${item.purchaseUnit}`
         });
 
         // Atualizar estoque usando a função de preço médio ponderado
         await supabase.rpc('calculate_weighted_average_price', {
           p_ingredient_id: item.ingredientId,
-          p_new_quantity: item.quantity,
-          p_new_price: item.unitPrice
+          p_new_quantity: usageQuantity, // Quantidade em unidade de uso
+          p_new_price: item.unitPrice / conversionFactor // Preço por unidade de uso
         });
       }
 
@@ -214,7 +260,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         notes: ''
       });
       setInvoiceItems([]);
-      setCurrentItem({ ingredientName: '', quantity: 0, unitPrice: 0 });
+      setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
       onRefresh();
     } catch (error) {
       console.error('Erro ao criar nota fiscal:', error);
@@ -320,7 +366,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                   {/* Adição de Itens */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium">Adicionar Itens</h3>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-5 gap-3">
                       <div>
                         <Label htmlFor="ingredientName">Ingrediente *</Label>
                         <AutocompleteInput
@@ -329,6 +375,15 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                           onChange={(value) => setCurrentItem(prev => ({ ...prev, ingredientName: value }))}
                           suggestions={ingredients.map(ing => ing.name)}
                           placeholder="Digite o nome do ingrediente"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="purchaseUnit">Unidade Compra *</Label>
+                        <Input
+                          id="purchaseUnit"
+                          value={currentItem.purchaseUnit}
+                          onChange={(e) => setCurrentItem(prev => ({ ...prev, purchaseUnit: e.target.value }))}
+                          placeholder="Ex: kg, L, un"
                         />
                       </div>
                       <div>
@@ -361,34 +416,61 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                       </div>
                     </div>
                     
-                    {/* Mostrar unidade do ingrediente selecionado */}
-                    {currentItem.ingredientName && ingredients.find(ing => ing.name === currentItem.ingredientName) && (
-                      <div className="text-sm text-muted-foreground">
-                        Unidade de compra: {ingredients.find(ing => ing.name === currentItem.ingredientName)?.purchaseUnit}
+                    {/* Mostrar informações do ingrediente selecionado */}
+                    {currentItem.ingredientName && (
+                      <div className="p-3 bg-muted rounded-lg">
+                        {ingredients.find(ing => ing.name === currentItem.ingredientName) ? (
+                          <div className="text-sm">
+                            <div className="font-medium text-green-700 dark:text-green-400 mb-1">
+                              ✓ Ingrediente encontrado no cadastro
+                            </div>
+                            <div className="text-muted-foreground">
+                              Unidade de uso: {ingredients.find(ing => ing.name === currentItem.ingredientName)?.usageUnit} • 
+                              Fator de conversão: {ingredients.find(ing => ing.name === currentItem.ingredientName)?.conversionFactor}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm">
+                            <div className="font-medium text-amber-700 dark:text-amber-400 mb-1">
+                              ⚠ Novo ingrediente será cadastrado
+                            </div>
+                            <div className="text-muted-foreground">
+                              Este ingrediente será criado automaticamente no sistema
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
 
                   {/* Lista de Itens Adicionados */}
                   {invoiceItems.length > 0 && (
-                    <div className="space-y-4">
+                      <div className="space-y-4">
                       <h3 className="text-lg font-medium">Itens da Nota Fiscal</h3>
                       <div className="border rounded-lg">
-                        <div className="grid grid-cols-6 gap-4 p-3 bg-muted font-medium text-sm">
+                        <div className="grid grid-cols-7 gap-4 p-3 bg-muted font-medium text-sm">
                           <div>Ingrediente</div>
                           <div>Quantidade</div>
                           <div>Unidade</div>
                           <div>Preço Unit.</div>
                           <div>Total</div>
+                          <div>Status</div>
                           <div>Ações</div>
                         </div>
                         {invoiceItems.map((item, index) => (
-                          <div key={index} className="grid grid-cols-6 gap-4 p-3 border-t items-center">
+                          <div key={index} className="grid grid-cols-7 gap-4 p-3 border-t items-center">
                             <div className="font-medium">{item.ingredientName}</div>
                             <div>{item.quantity}</div>
-                            <div>{item.unit}</div>
+                            <div>{item.purchaseUnit}</div>
                             <div>R$ {item.unitPrice.toFixed(2)}</div>
                             <div className="font-medium">R$ {item.totalPrice.toFixed(2)}</div>
+                            <div>
+                              {item.isNewIngredient ? (
+                                <Badge variant="secondary" className="text-xs">Novo</Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs">Cadastrado</Badge>
+                              )}
+                            </div>
                             <div>
                               <Button
                                 variant="ghost"
@@ -401,8 +483,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                             </div>
                           </div>
                         ))}
-                        <div className="grid grid-cols-6 gap-4 p-3 border-t bg-muted">
-                          <div className="col-span-4 font-medium">Total da Nota Fiscal:</div>
+                        <div className="grid grid-cols-7 gap-4 p-3 border-t bg-muted">
+                          <div className="col-span-5 font-medium">Total da Nota Fiscal:</div>
                           <div className="font-bold text-lg">R$ {invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)}</div>
                           <div></div>
                         </div>
