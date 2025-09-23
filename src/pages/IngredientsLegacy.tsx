@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { IngredientForm } from "@/components/IngredientForm";
 import { IngredientsList } from "@/components/IngredientsList";
-import type { Ingredient } from "./Index";
+import type { Ingredient } from "@/types";
 
 const Ingredients = () => {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);

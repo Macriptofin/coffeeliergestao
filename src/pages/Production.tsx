@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Plus, ClipboardList } from "lucide-react";
 import { ProductionOrder } from "@/components/ProductionOrder";
-import type { Recipe, Ingredient } from "./Index";
+import type { Recipe, Ingredient } from "@/types";
 
 const Production = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);

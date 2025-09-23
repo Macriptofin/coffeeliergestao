@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ChefHat, Clock, Users, DollarSign, FileText, Edit, Trash2 } from "lucide-react";
 import { RecipeActions } from "./RecipeActions";
-import type { Recipe, Ingredient } from "@/pages/Index";
+import type { Recipe, Ingredient } from "@/types";
 
 interface RecipesListProps {
   recipes: Recipe[];

@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Package2, Edit, Trash2 } from "lucide-react";
-import type { Ingredient } from "@/pages/Index";
+import type { Ingredient } from "@/types";
 
 interface IngredientsListProps {
   ingredients: Ingredient[];

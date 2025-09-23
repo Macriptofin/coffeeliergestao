@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { Upload, Camera, FileText, Sparkles, Loader2, X, Check } from "lucide-react";
-import type { Ingredient, Recipe } from "@/pages/Index";
+import type { Ingredient, Recipe } from "@/types";
 
 interface ExtractedRecipeData {
   name: string;

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { X, Calculator, AlertTriangle } from "lucide-react";
-import type { Ingredient } from "@/pages/Index";
+import type { Ingredient } from "@/types";
 
 interface IngredientFormProps {
   ingredient?: Ingredient | null;

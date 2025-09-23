@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import type { Recipe, Ingredient } from "@/pages/Index";
+import type { Recipe, Ingredient } from "@/types";
 
 interface ProductionItem {
   recipeId: string;

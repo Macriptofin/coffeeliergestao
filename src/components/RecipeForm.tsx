@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus, Minus } from "lucide-react";
-import type { Ingredient, Recipe, RecipeIngredient } from "@/pages/Index";
+import type { Ingredient, Recipe, RecipeIngredient } from "@/types";
 
 interface RecipeFormProps {
   recipe?: Recipe | null;

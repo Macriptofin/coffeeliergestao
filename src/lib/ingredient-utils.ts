@@ -1,4 +1,4 @@
-import type { Ingredient } from "@/pages/Index";
+import type { Ingredient } from "@/types";
 
 // Função para calcular o preço por unidade de uso
 export const getPricePerUsageUnit = (ingredient: Ingredient): number => {

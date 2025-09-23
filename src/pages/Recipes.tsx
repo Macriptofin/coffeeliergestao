@@ -7,7 +7,7 @@ import { Plus, Sparkles, ChefHat } from "lucide-react";
 import { RecipeForm } from "@/components/RecipeForm";
 import { RecipesList } from "@/components/RecipesList";
 import { RecipeExtractor } from "@/components/RecipeExtractor";
-import type { Recipe, Ingredient } from "./Index";
+import type { Recipe, Ingredient } from "@/types";
 
 const Recipes = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);

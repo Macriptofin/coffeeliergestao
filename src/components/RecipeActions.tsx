@@ -6,7 +6,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { Printer, FileDown, Eye } from "lucide-react";
 import { PrintableRecipe } from "./PrintableRecipe";
-import type { Recipe, Ingredient } from "@/pages/Index";
+import type { Recipe, Ingredient } from "@/types";
 
 interface RecipeActionsProps {
   recipe: Recipe;

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useReactToPrint } from "react-to-print";
 import { Plus, Minus, Printer, FileDown, ShoppingCart, X } from "lucide-react";
 import { PrintableProductionOrder } from "./PrintableProductionOrder";
-import type { Recipe, Ingredient } from "@/pages/Index";
+import type { Recipe, Ingredient } from "@/types";
 
 interface ProductionOrderProps {
   recipes: Recipe[];

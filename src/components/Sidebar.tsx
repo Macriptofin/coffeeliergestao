@@ -1,15 +1,15 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
-  Plus, 
-  ChefHat, 
-  Building2, 
   Package,
-  FileText, 
   ClipboardList,
-  Shield
+  Building2, 
+  DollarSign,
+  Users,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface SidebarProps {
   onItemClick?: () => void;
@@ -17,6 +17,7 @@ interface SidebarProps {
 
 export const Sidebar = ({ onItemClick }: SidebarProps) => {
   const location = useLocation();
+  const { isAdminOrManager } = useUserRole();
 
   const navigation = [
     {
@@ -26,16 +27,16 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       current: location.pathname === "/"
     },
     {
-      name: "Ingredientes",
-      href: "/ingredientes",
-      icon: Plus,
-      current: location.pathname === "/ingredientes"
+      name: "Estoque",
+      href: "/estoque",
+      icon: Package,
+      current: location.pathname.startsWith("/estoque") || location.pathname === "/ingredientes"
     },
     {
-      name: "Receitas",
-      href: "/receitas",
-      icon: ChefHat,
-      current: location.pathname === "/receitas"
+      name: "Produção",
+      href: "/producao",
+      icon: ClipboardList,
+      current: location.pathname.startsWith("/producao") || location.pathname === "/receitas"
     },
     {
       name: "Fornecedores",
@@ -44,30 +45,30 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       current: location.pathname === "/fornecedores"
     },
     {
-      name: "Produção",
-      href: "/producao",
-      icon: ClipboardList,
-      current: location.pathname === "/producao"
+      name: "Financeiro",
+      href: "/financeiro",
+      icon: DollarSign,
+      current: location.pathname.startsWith("/financeiro")
     },
     {
-      name: "Estoque",
-      href: "/estoque",
-      icon: Package,
-      current: location.pathname === "/estoque"
+      name: "Recursos Humanos",
+      href: "/rh",
+      icon: Users,
+      current: location.pathname.startsWith("/rh") || location.pathname === "/usuarios"
     },
     {
       name: "Relatórios",
       href: "/relatorios",
       icon: FileText,
       current: location.pathname === "/relatorios"
-    },
-    {
-      name: "Usuários",
-      href: "/usuarios",
-      icon: Shield,
-      current: location.pathname === "/usuarios"
     }
-  ];
+  ].filter(item => {
+    // Filtrar itens baseado no papel do usuário
+    if (item.name === "Recursos Humanos" && !isAdminOrManager()) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div className="w-64 bg-card border-r border-border h-full">
