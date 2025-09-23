@@ -121,3 +121,62 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Print Styles */
+@media print {
+  .print-recipe {
+    @apply text-black bg-white;
+    font-family: 'Times New Roman', serif;
+    font-size: 12pt;
+    line-height: 1.4;
+    color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    page-break-after: always;
+  }
+  
+  .print-recipe h1 {
+    font-size: 18pt;
+    font-weight: bold;
+  }
+  
+  .print-recipe h2 {
+    font-size: 14pt;
+    font-weight: bold;
+  }
+  
+  .print-recipe table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  
+  .print-recipe th,
+  .print-recipe td {
+    border: 1px solid #000;
+    padding: 8px;
+  }
+  
+  .print-recipe .bg-gray-100,
+  .print-recipe .bg-gray-50,
+  .print-recipe .bg-gray-200 {
+    background-color: #f5f5f5 !important;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Hide non-printable elements */
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Page breaks */
+  .page-break-before {
+    page-break-before: always;
+  }
+  
+  .page-break-after {
+    page-break-after: always;
+  }
+  
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+  }
+}

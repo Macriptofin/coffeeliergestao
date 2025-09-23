@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ChefHat, Clock, Users, DollarSign, FileText } from "lucide-react";
+import { RecipeActions } from "./RecipeActions";
 import type { Recipe, Ingredient } from "@/pages/Index";
 
 interface RecipesListProps {
@@ -100,13 +101,14 @@ export const RecipesList = ({ recipes, ingredients }: RecipesListProps) => {
               )}
             </div>
 
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="w-full">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Ver Ficha Técnica
-                </Button>
-              </DialogTrigger>
+            <div className="space-y-3">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="w-full">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Ver Ficha Técnica
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="text-2xl text-primary">{recipe.name}</DialogTitle>
@@ -212,6 +214,9 @@ export const RecipesList = ({ recipes, ingredients }: RecipesListProps) => {
                 </div>
               </DialogContent>
             </Dialog>
+
+            <RecipeActions recipe={recipe} ingredients={ingredients} />
+            </div>
           </CardContent>
         </Card>
       ))}

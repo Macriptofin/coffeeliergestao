@@ -7,6 +7,7 @@ import { IngredientForm } from "@/components/IngredientForm";
 import { RecipeForm } from "@/components/RecipeForm";
 import { IngredientsList } from "@/components/IngredientsList";
 import { RecipesList } from "@/components/RecipesList";
+import { ProductionOrder } from "@/components/ProductionOrder";
 
 export interface Ingredient {
   id: string;
@@ -300,9 +301,11 @@ const Index = () => {
 
           <TabsContent value="reports" className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold mb-2">Relatórios</h2>
-              <p className="text-muted-foreground mb-6">Análises e relatórios do seu negócio</p>
+              <h2 className="text-2xl font-bold mb-2">Relatórios e Produção</h2>
+              <p className="text-muted-foreground mb-6">Análises, relatórios e ordens de produção</p>
             </div>
+
+            <ProductionOrder recipes={recipes} ingredients={ingredients} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="shadow-elegant">
