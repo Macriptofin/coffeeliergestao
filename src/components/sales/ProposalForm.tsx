@@ -122,7 +122,7 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
                   <SelectValue placeholder="Selecione o cliente" />
                 </SelectTrigger>
                 <SelectContent>
-                  {clients.map(client => (
+                  {clients.filter(client => client.id && client.id.trim() !== '').map(client => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
                     </SelectItem>
@@ -139,7 +139,7 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
                   <SelectValue placeholder="Selecione a categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  {eventCategories.map(category => (
+                  {eventCategories.filter(category => category && category.trim() !== '').map(category => (
                     <SelectItem key={category} value={category}>
                       {category}
                     </SelectItem>

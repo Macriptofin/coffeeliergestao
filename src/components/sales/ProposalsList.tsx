@@ -187,8 +187,8 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
       proposal.proposal_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       proposal.clients?.name.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = !statusFilter || proposal.status === statusFilter;
-    const matchesCategory = !eventCategoryFilter || proposal.event_category === eventCategoryFilter;
+    const matchesStatus = !statusFilter || statusFilter === 'all' || proposal.status === statusFilter;
+    const matchesCategory = !eventCategoryFilter || eventCategoryFilter === 'all' || proposal.event_category === eventCategoryFilter;
 
     return matchesSearch && matchesStatus && matchesCategory;
   });
@@ -233,7 +233,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                 <SelectValue placeholder="Filtrar por status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos os status</SelectItem>
+                <SelectItem value="all">Todos os status</SelectItem>
                 {statusOptions.map(option => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
@@ -247,7 +247,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                 <SelectValue placeholder="Filtrar por categoria" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas as categorias</SelectItem>
+                <SelectItem value="all">Todas as categorias</SelectItem>
                 {eventCategories.map(category => (
                   <SelectItem key={category} value={category}>
                     {category}
