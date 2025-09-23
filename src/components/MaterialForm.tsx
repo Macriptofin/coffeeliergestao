@@ -92,7 +92,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   };
 
   const handleNameSelect = (selectedName: string) => {
-    // Quando selecionar um nome existente, mostrar aviso
+    // Quando selecionar um nome existente, mostrar aviso apenas se não for o próprio material
     const existing = existingMaterials.find(mat => 
       mat.name.toLowerCase() === selectedName.toLowerCase()
     );

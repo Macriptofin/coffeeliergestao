@@ -136,10 +136,10 @@ const Index = () => {
         .from('recipes')
         .select(`
           *,
-          recipe_ingredients (
-            quantity,
-            ingredient_id
-          )
+        recipe_ingredients (
+          quantity,
+          material_id
+        )
         `)
         .order('name');
       
@@ -158,7 +158,7 @@ const Index = () => {
         suggestedPrice: item.suggested_price ? parseFloat(item.suggested_price.toString()) : undefined,
         profitMargin: item.profit_margin ? parseFloat(item.profit_margin.toString()) : undefined,
         ingredients: item.recipe_ingredients.map((ri: any) => ({
-          ingredientId: ri.ingredient_id,
+          ingredientId: ri.material_id,
           quantity: parseFloat(ri.quantity.toString())
         }))
       }));
@@ -399,7 +399,7 @@ const Index = () => {
       if (recipe.ingredients.length > 0) {
         const recipeIngredientsData = recipe.ingredients.map(ri => ({
           recipe_id: data.id,
-          ingredient_id: ri.ingredientId,
+          material_id: ri.ingredientId,
           quantity: ri.quantity
         }));
 

@@ -60,7 +60,7 @@ const Recipes = () => {
         *,
         recipe_ingredients (
           quantity,
-          ingredient_id
+          material_id
         )
       `)
       .order('name');
@@ -80,7 +80,7 @@ const Recipes = () => {
       suggestedPrice: item.suggested_price ? parseFloat(item.suggested_price.toString()) : undefined,
       profitMargin: item.profit_margin ? parseFloat(item.profit_margin.toString()) : undefined,
       ingredients: item.recipe_ingredients.map((ri: any) => ({
-        ingredientId: ri.ingredient_id,
+        ingredientId: ri.material_id,
         quantity: parseFloat(ri.quantity.toString())
       }))
     }));
@@ -122,7 +122,7 @@ const Recipes = () => {
       if (recipe.ingredients.length > 0) {
         const recipeIngredientsData = recipe.ingredients.map(ri => ({
           recipe_id: data.id,
-          ingredient_id: ri.ingredientId,
+          material_id: ri.ingredientId,
           quantity: ri.quantity
         }));
 
