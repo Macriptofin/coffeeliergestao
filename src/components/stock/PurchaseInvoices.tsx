@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FileText, Plus, ShoppingCart, X, Package, Shield } from "lucide-react";
 import type { PurchaseInvoice } from "@/pages/Stock";
@@ -36,7 +35,6 @@ interface InvoiceItem {
   purchaseUnit: string;
   unitPrice: number;
   totalPrice: number;
-  isNewIngredient?: boolean;
 }
 
 interface PurchaseInvoicesProps {
@@ -59,18 +57,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     totalAmount: 0,
     notes: ''
   });
-  const [supplierData, setSupplierData] = useState({
-    companyName: '',
-    cnpjCpf: '',
-    contactName: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: ''
-  });
-  const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [currentItem, setCurrentItem] = useState({
     ingredientName: '',
@@ -136,131 +122,27 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         supplierId: existingSupplier.id,
         supplierName: value 
       }));
-      setShowSupplierForm(false);
     } else {
       setFormData(prev => ({ 
         ...prev, 
         supplierId: '',
         supplierName: value 
       }));
-      setSupplierData(prev => ({ ...prev, companyName: value }));
-      setShowSupplierForm(value.length > 0);
     }
   };
 
-  const createSupplier = async () => {
-    if (!supplierData.companyName) {
-      toast.error('Nome da empresa é obrigatório');
-      return null;
-    }
 
-    try {
-      // Verificar se o fornecedor já existe antes de tentar criar
-      const { data: existingSupplier, error: checkError } = await supabase
-        .from('suppliers')
-        .select('id, company_name')
-        .eq('company_name', supplierData.companyName)
-        .eq('status', 'Ativo')
-        .single();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        throw checkError;
-      }
-
-      if (existingSupplier) {
-        // Fornecedor já existe, retornar o ID existente
-        const existingSupplierFormatted = {
-          id: existingSupplier.id,
-          companyName: existingSupplier.company_name
-        };
-        
-        // Atualizar lista local se não estiver presente
-        setSuppliers(prev => {
-          const exists = prev.some(s => s.id === existingSupplier.id);
-          return exists ? prev : [...prev, existingSupplierFormatted];
-        });
-        
-        toast.success(`Fornecedor "${supplierData.companyName}" encontrado no sistema`);
-        return existingSupplier.id;
-      }
-
-      // Fornecedor não existe, criar novo
-      const { data: newSupplier, error } = await supabase
-        .from('suppliers')
-        .insert({
-          company_name: supplierData.companyName,
-          cnpj_cpf: supplierData.cnpjCpf || null,
-          contact_name: supplierData.contactName || null,
-          email: supplierData.email || null,
-          phone: supplierData.phone || null,
-          address: supplierData.address || null,
-          city: supplierData.city || null,
-          state: supplierData.state || null,
-          zip_code: supplierData.zipCode || null,
-          code: `FORN${Date.now()}`,
-          status: 'Ativo'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const newSupplierFormatted = {
-        id: newSupplier.id,
-        companyName: newSupplier.company_name
-      };
-      setSuppliers(prev => [...prev, newSupplierFormatted]);
-      
-      toast.success(`Fornecedor "${supplierData.companyName}" cadastrado com sucesso`);
-      return newSupplier.id;
-    } catch (error) {
-      console.error('Erro ao criar fornecedor:', error);
-      toast.error('Erro ao criar fornecedor');
-      return null;
-    }
-  };
-
-  const addItemToInvoice = async () => {
+  const addItemToInvoice = () => {
     if (!currentItem.ingredientName || !currentItem.purchaseUnit || !currentItem.quantity || !currentItem.unitPrice) {
       toast.error('Preencha todos os campos do item');
       return;
     }
 
-    let selectedIngredient = ingredients.find(ing => ing.name === currentItem.ingredientName);
-    let isNewIngredient = false;
+    const selectedIngredient = ingredients.find(ing => ing.name === currentItem.ingredientName);
 
     if (!selectedIngredient) {
-      try {
-        const { data: newIngredient, error } = await supabase
-          .from('ingredients')
-          .insert({
-            name: currentItem.ingredientName,
-            purchase_unit: currentItem.purchaseUnit,
-            usage_unit: currentItem.purchaseUnit,
-            conversion_factor: 1,
-            price_per_purchase_unit: currentItem.unitPrice
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        selectedIngredient = {
-          id: newIngredient.id,
-          name: newIngredient.name,
-          purchaseUnit: newIngredient.purchase_unit,
-          usageUnit: newIngredient.usage_unit,
-          conversionFactor: parseFloat(newIngredient.conversion_factor?.toString() || '1')
-        };
-
-        setIngredients(prev => [...prev, selectedIngredient!]);
-        isNewIngredient = true;
-        toast.success(`Ingrediente "${currentItem.ingredientName}" cadastrado com sucesso`);
-      } catch (error) {
-        console.error('Erro ao criar ingrediente:', error);
-        toast.error('Erro ao criar novo ingrediente');
-        return;
-      }
+      toast.error('Ingrediente não encontrado no cadastro. Cadastre o ingrediente antes de incluí-lo na nota fiscal.');
+      return;
     }
 
     const totalPrice = currentItem.quantity * currentItem.unitPrice;
@@ -270,8 +152,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       quantity: currentItem.quantity,
       purchaseUnit: currentItem.purchaseUnit,
       unitPrice: currentItem.unitPrice,
-      totalPrice,
-      isNewIngredient
+      totalPrice
     };
 
     setInvoiceItems(prev => [...prev, newItem]);
@@ -290,8 +171,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   };
 
   const handleSubmit = async () => {
-    if (!formData.invoiceNumber || (!formData.supplierId && !formData.supplierName) || invoiceItems.length === 0) {
-      toast.error('Preencha os campos obrigatórios e adicione pelo menos um item');
+    if (!formData.invoiceNumber || !formData.supplierId || invoiceItems.length === 0) {
+      toast.error('Preencha os campos obrigatórios e adicione pelo menos um item. O fornecedor deve estar cadastrado no sistema.');
       return;
     }
 
@@ -316,33 +197,13 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         }
       }
 
-      let supplierId = formData.supplierId;
-
-      // Se não tem supplierId mas tem supplierName, verificar se precisa criar ou se já existe
-      if (!supplierId && formData.supplierName) {
-        await loadSuppliers();
-        
-        const existingSupplier = suppliers.find(s => s.companyName === formData.supplierName);
-        
-        if (existingSupplier) {
-          supplierId = existingSupplier.id;
-          setFormData(prev => ({ ...prev, supplierId: existingSupplier.id }));
-        } else {
-          supplierId = await createSupplier();
-          if (!supplierId) {
-            setLoading(false);
-            return;
-          }
-        }
-      }
-
       if (editingInvoice) {
         // Atualizar nota fiscal existente
         const { error: invoiceError } = await supabase
           .from('purchase_invoices')
           .update({
             invoice_number: formData.invoiceNumber,
-            supplier_id: supplierId,
+            supplier_id: formData.supplierId,
             invoice_date: formData.invoiceDate,
             due_date: formData.dueDate || null,
             total_amount: formData.totalAmount,
@@ -385,7 +246,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           .from('purchase_invoices')
           .insert({
             invoice_number: formData.invoiceNumber,
-            supplier_id: supplierId,
+            supplier_id: formData.supplierId,
             invoice_date: formData.invoiceDate,
             due_date: formData.dueDate || null,
             total_amount: formData.totalAmount,
@@ -432,18 +293,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         totalAmount: 0,
         notes: ''
       });
-      setSupplierData({
-        companyName: '',
-        cnpjCpf: '',
-        contactName: '',
-        email: '',
-        phone: '',
-        address: '',
-        city: '',
-        state: '',
-        zipCode: ''
-      });
-      setShowSupplierForm(false);
       setInvoiceItems([]);
       setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
       onRefresh();
@@ -509,20 +358,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         notes: invoice.notes || ''
       });
 
-      // Preencher dados do fornecedor se existir
-      if (invoice.suppliers) {
-        setSupplierData({
-          companyName: invoice.suppliers.company_name,
-          cnpjCpf: invoice.suppliers.cnpj_cpf || '',
-          contactName: invoice.suppliers.contact_name || '',
-          email: invoice.suppliers.email || '',
-          phone: invoice.suppliers.phone || '',
-          address: invoice.suppliers.address || '',
-          city: invoice.suppliers.city || '',
-          state: invoice.suppliers.state || '',
-          zipCode: invoice.suppliers.zip_code || ''
-        });
-      }
 
       // Preencher itens da nota fiscal
       const formattedItems: InvoiceItem[] = items.map(item => ({
@@ -531,8 +366,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         quantity: parseFloat(item.quantity?.toString() || '0'),
         purchaseUnit: item.ingredients?.purchase_unit || '',
         unitPrice: parseFloat(item.unit_price?.toString() || '0'),
-        totalPrice: parseFloat(item.total_price?.toString() || '0'),
-        isNewIngredient: false
+        totalPrice: parseFloat(item.total_price?.toString() || '0')
       }));
 
       setInvoiceItems(formattedItems);
@@ -551,7 +385,14 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       // Verificar se a nota já foi lançada no estoque
       const { data: invoice, error: checkError } = await supabase
         .from('purchase_invoices')
-        .select('stock_posted, invoice_number')
+        .select(`
+          stock_posted, 
+          invoice_number,
+          suppliers:supplier_id (
+            id,
+            company_name
+          )
+        `)
         .eq('id', invoiceId)
         .single();
 
@@ -559,6 +400,13 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       if (invoice.stock_posted) {
         toast.error('Esta nota fiscal já foi lançada no estoque');
+        setLoading(false);
+        return;
+      }
+
+      // Verificar se o fornecedor ainda existe no sistema
+      if (!invoice.suppliers) {
+        toast.error('Fornecedor da nota fiscal não encontrado no sistema. Cadastre o fornecedor antes de lançar no estoque.');
         setLoading(false);
         return;
       }
@@ -579,6 +427,14 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         .eq('invoice_id', invoiceId);
 
       if (itemsError) throw itemsError;
+
+      // Verificar se todos os ingredientes ainda existem no sistema
+      const missingIngredients = items.filter(item => !item.ingredients);
+      if (missingIngredients.length > 0) {
+        toast.error(`Alguns ingredientes da nota fiscal não foram encontrados no sistema. Cadastre todos os ingredientes antes de lançar no estoque.`);
+        setLoading(false);
+        return;
+      }
 
       // Processar movimentações de estoque para cada item
       for (const item of items) {
@@ -742,16 +598,31 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                           placeholder="Ex: 001234"
                         />
                       </div>
-                      <div>
-                        <Label htmlFor="supplier">Fornecedor *</Label>
-                        <AutocompleteInput
-                          id="supplier"
-                          value={formData.supplierName}
-                          onChange={handleSupplierChange}
-                          suggestions={suppliers.map(supplier => supplier.companyName)}
-                          placeholder="Digite o nome do fornecedor"
-                        />
-                      </div>
+                       <div>
+                         <Label htmlFor="supplier">Fornecedor *</Label>
+                         <Select
+                           value={formData.supplierId}
+                           onValueChange={(value) => {
+                             const supplier = suppliers.find(s => s.id === value);
+                             setFormData(prev => ({
+                               ...prev,
+                               supplierId: value,
+                               supplierName: supplier?.companyName || ''
+                             }));
+                           }}
+                         >
+                           <SelectTrigger>
+                             <SelectValue placeholder="Selecione um fornecedor cadastrado" />
+                           </SelectTrigger>
+                           <SelectContent>
+                             {suppliers.map(supplier => (
+                               <SelectItem key={supplier.id} value={supplier.id}>
+                                 {supplier.companyName}
+                               </SelectItem>
+                             ))}
+                           </SelectContent>
+                         </Select>
+                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -776,133 +647,45 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                     </div>
                   </div>
 
-                  {showSupplierForm && (
-                    <>
-                      <Separator />
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-lg font-medium">Cadastro de Novo Fornecedor</h3>
-                          <Badge variant="secondary" className="text-xs">Será criado automaticamente</Badge>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label htmlFor="companyName">Nome da Empresa *</Label>
-                            <Input
-                              id="companyName"
-                              value={supplierData.companyName}
-                              onChange={(e) => setSupplierData(prev => ({ ...prev, companyName: e.target.value }))}
-                              placeholder="Razão Social"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="cnpjCpf">CNPJ/CPF</Label>
-                            <Input
-                              id="cnpjCpf"
-                              value={supplierData.cnpjCpf}
-                              onChange={(e) => setSupplierData(prev => ({ ...prev, cnpjCpf: e.target.value }))}
-                              placeholder="00.000.000/0000-00"
-                            />
-                          </div>
-                        </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label htmlFor="contactName">Nome do Contato</Label>
-                            <Input
-                              id="contactName"
-                              value={supplierData.contactName}
-                              onChange={(e) => setSupplierData(prev => ({ ...prev, contactName: e.target.value }))}
-                              placeholder="Nome do responsável"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="email">E-mail</Label>
-                            <Input
-                              id="email"
-                              type="email"
-                              value={supplierData.email}
-                              onChange={(e) => setSupplierData(prev => ({ ...prev, email: e.target.value }))}
-                              placeholder="contato@fornecedor.com"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-3">
-                          <div>
-                            <Label htmlFor="phone">Telefone</Label>
-                            <Input
-                              id="phone"
-                              value={supplierData.phone}
-                              onChange={(e) => setSupplierData(prev => ({ ...prev, phone: e.target.value }))}
-                              placeholder="(11) 99999-9999"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="city">Cidade</Label>
-                            <Input
-                              id="city"
-                              value={supplierData.city}
-                              onChange={(e) => setSupplierData(prev => ({ ...prev, city: e.target.value }))}
-                              placeholder="Cidade"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="state">Estado</Label>
-                            <Input
-                              id="state"
-                              value={supplierData.state}
-                              onChange={(e) => setSupplierData(prev => ({ ...prev, state: e.target.value }))}
-                              placeholder="SP"
-                              maxLength={2}
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label htmlFor="address">Endereço Completo</Label>
-                          <Input
-                            id="address"
-                            value={supplierData.address}
-                            onChange={(e) => setSupplierData(prev => ({ ...prev, address: e.target.value }))}
-                            placeholder="Rua, número, bairro, CEP"
-                          />
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {formData.supplierName && (
-                    <div className="p-3 bg-muted rounded-lg">
-                      <div className="text-sm">
-                        {formData.supplierId ? (
-                          <div className="font-medium text-green-700 dark:text-green-400">
-                            ✓ Fornecedor encontrado no cadastro
-                          </div>
-                        ) : (
-                          <div className="font-medium text-amber-700 dark:text-amber-400">
-                            ⚠ Novo fornecedor será cadastrado automaticamente
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                   {!formData.supplierId && suppliers.length === 0 && (
+                     <Alert className="border-amber-200 bg-amber-50">
+                       <AlertDescription className="text-amber-800">
+                         <strong>Atenção:</strong> Não há fornecedores cadastrados. Cadastre um fornecedor antes de criar a nota fiscal.
+                       </AlertDescription>
+                     </Alert>
+                   )}
 
                   <Separator />
 
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium">Adicionar Itens</h3>
-                    <div className="grid grid-cols-5 gap-3">
-                      <div>
-                        <Label htmlFor="ingredientName">Ingrediente *</Label>
-                        <AutocompleteInput
-                          id="ingredientName"
-                          value={currentItem.ingredientName}
-                          onChange={(value) => setCurrentItem(prev => ({ ...prev, ingredientName: value }))}
-                          suggestions={ingredients.map(ing => ing.name)}
-                          placeholder="Digite o nome do ingrediente"
-                        />
-                      </div>
+                     <div className="grid grid-cols-5 gap-3">
+                       <div>
+                         <Label htmlFor="ingredientName">Ingrediente *</Label>
+                         <Select
+                           value={currentItem.ingredientName}
+                           onValueChange={(value) => {
+                             const ingredient = ingredients.find(ing => ing.name === value);
+                             setCurrentItem(prev => ({
+                               ...prev,
+                               ingredientName: value,
+                               purchaseUnit: ingredient?.purchaseUnit || ''
+                             }));
+                           }}
+                         >
+                           <SelectTrigger>
+                             <SelectValue placeholder="Selecione um ingrediente cadastrado" />
+                           </SelectTrigger>
+                           <SelectContent>
+                             {ingredients.map(ingredient => (
+                               <SelectItem key={ingredient.id} value={ingredient.name}>
+                                 {ingredient.name}
+                               </SelectItem>
+                             ))}
+                           </SelectContent>
+                         </Select>
+                       </div>
                       <div>
                         <Label htmlFor="purchaseUnit">Unidade Compra *</Label>
                         <Input
@@ -942,30 +725,27 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                       </div>
                     </div>
                     
-                    {currentItem.ingredientName && (
-                      <div className="p-3 bg-muted rounded-lg">
-                        {ingredients.find(ing => ing.name === currentItem.ingredientName) ? (
-                          <div className="text-sm">
-                            <div className="font-medium text-green-700 dark:text-green-400 mb-1">
-                              ✓ Ingrediente encontrado no cadastro
-                            </div>
-                            <div className="text-muted-foreground">
-                              Unidade de uso: {ingredients.find(ing => ing.name === currentItem.ingredientName)?.usageUnit} • 
-                              Fator de conversão: {ingredients.find(ing => ing.name === currentItem.ingredientName)?.conversionFactor}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-sm">
-                            <div className="font-medium text-amber-700 dark:text-amber-400 mb-1">
-                              ⚠ Novo ingrediente será cadastrado
-                            </div>
-                            <div className="text-muted-foreground">
-                              Este ingrediente será criado automaticamente no sistema
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                     {ingredients.length === 0 && (
+                       <Alert className="border-amber-200 bg-amber-50">
+                         <AlertDescription className="text-amber-800">
+                           <strong>Atenção:</strong> Não há ingredientes cadastrados. Cadastre ingredientes antes de criar a nota fiscal.
+                         </AlertDescription>
+                       </Alert>
+                     )}
+                     
+                     {currentItem.ingredientName && (
+                       <div className="p-3 bg-muted rounded-lg">
+                         <div className="text-sm">
+                           <div className="font-medium text-green-700 dark:text-green-400 mb-1">
+                             ✓ Ingrediente selecionado
+                           </div>
+                           <div className="text-muted-foreground">
+                             Unidade de uso: {ingredients.find(ing => ing.name === currentItem.ingredientName)?.usageUnit} • 
+                             Fator de conversão: {ingredients.find(ing => ing.name === currentItem.ingredientName)?.conversionFactor}
+                           </div>
+                         </div>
+                       </div>
+                     )}
                   </div>
 
                   {invoiceItems.length > 0 && (
@@ -988,13 +768,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                             <div>{item.purchaseUnit}</div>
                             <div>R$ {item.unitPrice.toFixed(2)}</div>
                             <div className="font-medium">R$ {item.totalPrice.toFixed(2)}</div>
-                            <div>
-                              {item.isNewIngredient ? (
-                                <Badge variant="secondary" className="text-xs">Novo</Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-xs">Cadastrado</Badge>
-                              )}
-                            </div>
+                             <div>
+                               <Badge variant="outline" className="text-xs">Cadastrado</Badge>
+                             </div>
                             <div>
                               <Button
                                 variant="ghost"
@@ -1030,22 +806,21 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                   </div>
 
                   <div className="flex gap-3 pt-4">
-                    <Button variant="outline" onClick={() => {
-                      setShowForm(false);
-                      setEditingInvoice(null);
-                      setFormData({
-                        invoiceNumber: '',
-                        supplierId: '',
-                        supplierName: '',
-                        invoiceDate: new Date().toISOString().split('T')[0],
-                        dueDate: '',
-                        totalAmount: 0,
-                        notes: ''
-                      });
-                      setInvoiceItems([]);
-                      setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
-                      setShowSupplierForm(false);
-                     }} className="flex-1">
+                     <Button variant="outline" onClick={() => {
+                       setShowForm(false);
+                       setEditingInvoice(null);
+                       setFormData({
+                         invoiceNumber: '',
+                         supplierId: '',
+                         supplierName: '',
+                         invoiceDate: new Date().toISOString().split('T')[0],
+                         dueDate: '',
+                         totalAmount: 0,
+                         notes: ''
+                       });
+                       setInvoiceItems([]);
+                       setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
+                      }} className="flex-1">
                        Cancelar
                      </Button>
                      <Button onClick={handleSubmit} disabled={loading || invoiceItems.length === 0} className="flex-1">
