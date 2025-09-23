@@ -10,6 +10,7 @@ import { StockOverview } from "@/components/stock/StockOverview";
 import { PurchaseInvoices } from "@/components/stock/PurchaseInvoices";
 import { StockMovements } from "@/components/stock/StockMovements";
 import { SupplierProducts } from "@/components/stock/SupplierProducts";
+import { ImportMaterials } from "@/components/ImportMaterials";
 
 export interface StockItem {
   id: string;
@@ -266,7 +267,7 @@ const Stock = () => {
 
       {/* Tabs do Sistema */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             Visão Geral
@@ -282,6 +283,10 @@ const Stock = () => {
           <TabsTrigger value="products" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Produtos Fornecedor
+          </TabsTrigger>
+          <TabsTrigger value="import" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Importações
           </TabsTrigger>
         </TabsList>
 
@@ -305,6 +310,12 @@ const Stock = () => {
 
         <TabsContent value="products" className="mt-6">
           <SupplierProducts onRefresh={loadData} />
+        </TabsContent>
+
+        <TabsContent value="import" className="mt-6">
+          <div className="grid gap-6 md:grid-cols-1">
+            <ImportMaterials onRefresh={loadData} />
+          </div>
         </TabsContent>
       </Tabs>
     </div>
