@@ -29,6 +29,9 @@ export function UserRoleManager() {
   const [userEmail, setUserEmail] = useState<string>('');
   const [inviteEmail, setInviteEmail] = useState<string>('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'user'>('user');
+  const [newUserEmail, setNewUserEmail] = useState<string>('');
+  const [newUserPassword, setNewUserPassword] = useState<string>('');
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'manager' | 'user'>('user');
   const [loading, setLoading] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
@@ -121,35 +124,69 @@ export function UserRoleManager() {
     }
   };
 
-  const inviteUser = async () => {
-    if (!inviteEmail || !inviteRole) {
-      toast.error('Preencha o email e selecione um role');
+  const createNewUser = async () => {
+    if (!newUserEmail || !newUserPassword || !newUserRole) {
+      toast.error('Preencha todos os campos');
+      return;
+    }
+
+    if (newUserPassword.length < 6) {
+      toast.error('A senha deve ter pelo menos 6 caracteres');
       return;
     }
 
     try {
       setLoading(true);
       
-      // Como não podemos usar auth.admin sem service key, vamos criar um sistema simples
-      // O admin pode gerar um link de convite ou instruir o usuário a se cadastrar
-      const signupUrl = `${window.location.origin}/auth?email=${encodeURIComponent(inviteEmail)}&role=${inviteRole}`;
-      
-      // Por enquanto, vamos mostrar o link para o admin compartilhar
-      toast.success(
-        `Link de cadastro gerado! Compartilhe com o usuário: ${signupUrl}`,
-        { duration: 10000 }
-      );
-      
-      // Copiar para clipboard
-      navigator.clipboard.writeText(signupUrl).then(() => {
-        toast.info('Link copiado para a área de transferência!');
+      // Criar usuário usando signUp com confirmação automática
+      const { data, error } = await supabase.auth.signUp({
+        email: newUserEmail,
+        password: newUserPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth`,
+          data: {
+            created_by_admin: true,
+            assigned_role: newUserRole
+          }
+        }
       });
 
-      setInviteEmail('');
-      setInviteRole('user');
-    } catch (error) {
-      console.error('Erro ao gerar convite:', error);
-      toast.error('Erro ao gerar link de convite.');
+      if (error) throw error;
+
+      if (data.user) {
+        // Criar role para o usuário
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: data.user.id,
+            role: newUserRole
+          });
+
+        if (roleError) {
+          // Se der erro, tentar novamente após um delay
+          setTimeout(async () => {
+            await supabase
+              .from('user_roles')
+              .upsert({
+                user_id: data.user.id,
+                role: newUserRole
+              });
+          }, 1000);
+        }
+
+        toast.success(`Usuário ${newUserEmail} criado com sucesso com role ${newUserRole}!`);
+        setNewUserEmail('');
+        setNewUserPassword('');
+        setNewUserRole('user');
+        loadUserRoles();
+      }
+    } catch (error: any) {
+      console.error('Erro ao criar usuário:', error);
+      if (error.message?.includes('User already registered')) {
+        toast.error('Este email já está cadastrado no sistema');
+      } else {
+        toast.error('Erro ao criar usuário. Verifique os dados e tente novamente.');
+      }
     } finally {
       setLoading(false);
     }
@@ -211,25 +248,83 @@ export function UserRoleManager() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            Criar Novo Usuário
+          </CardTitle>
+          <CardDescription>
+            Cadastre novos usuários diretamente no sistema
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <Label htmlFor="newUserEmail">Email</Label>
+              <Input
+                id="newUserEmail"
+                type="email"
+                value={newUserEmail}
+                onChange={(e) => setNewUserEmail(e.target.value)}
+                placeholder="usuario@exemplo.com"
+              />
+            </div>
+            <div>
+              <Label htmlFor="newUserPassword">Senha</Label>
+              <Input
+                id="newUserPassword"
+                type="password"
+                value={newUserPassword}
+                onChange={(e) => setNewUserPassword(e.target.value)}
+                placeholder="••••••••"
+                minLength={6}
+              />
+            </div>
+            <div>
+              <Label htmlFor="newUserRole">Role</Label>
+              <Select value={newUserRole} onValueChange={(value: 'admin' | 'manager' | 'user') => setNewUserRole(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin - Acesso total</SelectItem>
+                  <SelectItem value="manager">Manager - Gestão operacional</SelectItem>
+                  <SelectItem value="user">User - Acesso básico</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button onClick={createNewUser} disabled={loading} className="w-full">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Criar Usuário
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="border-blue-200 bg-blue-50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-blue-800">
             <UserPlus className="h-5 w-5" />
-            Adicionando Novos Usuários
+            Cadastro Público
           </CardTitle>
           <CardDescription className="text-blue-700">
-            Como criar contas para novos usuários
+            Link para usuários se cadastrarem sozinhos
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <h4 className="font-medium text-blue-800">Processo Simples:</h4>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-blue-700">
-              <li>Compartilhe o link de cadastro: <code className="bg-white px-2 py-1 rounded border">{window.location.origin}/auth</code></li>
-              <li>Novos usuários se cadastram diretamente na aba "Cadastrar"</li>
-              <li>Automaticamente recebem role "user" (acesso básico)</li>
-              <li>Você pode alterar os roles na seção abaixo quando necessário</li>
-            </ol>
+            <p className="text-sm text-blue-700">
+              Compartilhe este link para que pessoas possam se cadastrar diretamente:
+            </p>
+            <code className="bg-white px-3 py-2 rounded border block text-sm break-all">
+              {window.location.origin}/auth
+            </code>
+            <p className="text-xs text-blue-600">
+              Novos cadastros automáticamente recebem role "user"
+            </p>
           </div>
         </CardContent>
       </Card>
