@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Users, FileText, TrendingUp, DollarSign, Plus } from "lucide-react";
+import ProposalForm from '@/components/sales/ProposalForm';
+import ProposalsList from '@/components/sales/ProposalsList';
 
 interface Client {
   id: string;
@@ -19,7 +21,7 @@ interface Product {
   id: string;
   code: string;
   name: string;
-  category: 'Salgados' | 'Doces' | 'Low Fat' | 'Bebidas';
+  category: any;
   unit_weight: number;
   selling_price: number;
   is_active: boolean;
@@ -29,7 +31,7 @@ interface Proposal {
   id: string;
   proposal_number: string;
   client_id: string;
-  event_category: 'Coffee Break' | 'Brunch' | 'Coquetel' | 'Mesa de Frios';
+  event_category: any;
   number_of_people: number;
   target_weight_per_person: number;
   proposal_date: string;
@@ -45,6 +47,8 @@ const Sales = () => {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showProposalForm, setShowProposalForm] = useState(false);
+  const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -72,7 +76,7 @@ const Sales = () => {
       .order('name');
 
     if (error) throw error;
-    setClients(data);
+    setClients(data as any);
   };
 
   const loadProducts = async () => {
@@ -83,7 +87,7 @@ const Sales = () => {
       .order('category', { ascending: true });
 
     if (error) throw error;
-    setProducts(data);
+    setProducts(data as any);
   };
 
   const loadProposals = async () => {
@@ -93,7 +97,7 @@ const Sales = () => {
       .order('proposal_date', { ascending: false });
 
     if (error) throw error;
-    setProposals(data);
+    setProposals(data as any);
   };
 
   // Cálculos para dashboard
@@ -107,6 +111,33 @@ const Sales = () => {
       return proposalMonth === currentMonth;
     })
     .reduce((sum, proposal) => sum + proposal.total_amount, 0);
+
+  const handleNewProposal = () => {
+    setEditingProposalId(null);
+    setShowProposalForm(true);
+    setActiveTab('proposals');
+  };
+
+  const handleEditProposal = (id: string) => {
+    setEditingProposalId(id);
+    setShowProposalForm(true);
+  };
+
+  const handleViewProposal = (id: string) => {
+    // TODO: Implement proposal view
+    toast.info('Visualização de proposta será implementada em breve');
+  };
+
+  const handleProposalSuccess = () => {
+    setShowProposalForm(false);
+    setEditingProposalId(null);
+    loadProposals();
+  };
+
+  const handleProposalCancel = () => {
+    setShowProposalForm(false);
+    setEditingProposalId(null);
+  };
 
   if (loading) {
     return (
@@ -318,24 +349,18 @@ const Sales = () => {
         </TabsContent>
 
         <TabsContent value="proposals" className="mt-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Propostas de Venda</CardTitle>
-                <CardDescription>Criação e gestão de propostas</CardDescription>
-              </div>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Proposta
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <FileText className="h-12 w-12 mx-auto mb-4" />
-                <p>Funcionalidade de propostas será implementada em breve</p>
-              </div>
-            </CardContent>
-          </Card>
+          {showProposalForm ? (
+            <ProposalForm
+              onSuccess={handleProposalSuccess}
+              onCancel={handleProposalCancel}
+            />
+          ) : (
+            <ProposalsList
+              onNewProposal={handleNewProposal}
+              onEditProposal={handleEditProposal}
+              onViewProposal={handleViewProposal}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="products" className="mt-6">

@@ -82,7 +82,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setProposals(data || []);
+      setProposals(data as any || []);
     } catch (error) {
       console.error('Erro ao carregar propostas:', error);
       toast.error('Erro ao carregar propostas');
@@ -127,7 +127,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
       // Criar nova proposta
       const newProposalData = {
         client_id: originalProposal.client_id,
-        event_category: originalProposal.event_category,
+        event_category: (originalProposal as any).event_category,
         event_date: null, // Limpar data do evento
         number_of_people: originalProposal.number_of_people,
         target_weight_per_person: originalProposal.target_weight_per_person,
@@ -140,7 +140,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
 
       const { data: newProposal, error: createError } = await supabase
         .from('proposals')
-        .insert(newProposalData)
+        .insert(newProposalData as any)
         .select()
         .single();
 
