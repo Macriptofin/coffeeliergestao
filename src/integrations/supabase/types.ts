@@ -555,10 +555,13 @@ export type Database = {
         Row: {
           action: string
           created_at: string
+          details: Json | null
           id: string
           ip_address: string | null
           new_role: string | null
           old_role: string | null
+          resource_id: string | null
+          resource_type: string | null
           target_user_id: string | null
           user_agent: string | null
           user_id: string | null
@@ -566,10 +569,13 @@ export type Database = {
         Insert: {
           action: string
           created_at?: string
+          details?: Json | null
           id?: string
           ip_address?: string | null
           new_role?: string | null
           old_role?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
           target_user_id?: string | null
           user_agent?: string | null
           user_id?: string | null
@@ -577,10 +583,13 @@ export type Database = {
         Update: {
           action?: string
           created_at?: string
+          details?: Json | null
           id?: string
           ip_address?: string | null
           new_role?: string | null
           old_role?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
           target_user_id?: string | null
           user_agent?: string | null
           user_id?: string | null
@@ -853,6 +862,15 @@ export type Database = {
       is_admin_or_manager: {
         Args: { _user_id: string }
         Returns: boolean
+      }
+      log_sensitive_data_access: {
+        Args: {
+          p_action: string
+          p_details?: Json
+          p_resource_id?: string
+          p_resource_type: string
+        }
+        Returns: undefined
       }
       no_admin_exists: {
         Args: Record<PropertyKey, never>
