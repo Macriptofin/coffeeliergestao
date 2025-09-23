@@ -7,6 +7,7 @@ export interface Ingredient {
   conversionFactor: number; // Fator de conversão (ex: 1 kg = 1000g)
   pricePerPurchaseUnit: number; // Preço por unidade de compra
   supplier?: string;
+  unitWeight?: number; // Peso em gramas quando a unidade não é de peso
 }
 
 export interface RecipeIngredient {
@@ -25,6 +26,7 @@ export interface Recipe {
   difficulty: 'Fácil' | 'Médio' | 'Difícil';
   yield: number;
   totalCost?: number;
+  totalWeight?: number; // Peso total em gramas
   suggestedPrice?: number;
   profitMargin?: number;
 }

@@ -27,12 +27,17 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     supplier: material?.supplier || '',
     category: material?.category || 'Insumo' as Material['category'],
     materialType: material?.materialType || 'ingredient' as Material['materialType'],
+    unitWeight: material?.unitWeight?.toString() || '',
   });
   const [duplicateError, setDuplicateError] = useState('');
 
   const units = [
     'kg', 'g', 'L', 'mL', 'unidade', 'pacote', 'caixa', 'lata', 'saco', 'envelope', 'dúzia', 'centena'
   ];
+
+  const weightUnits = ['kg', 'g'];
+  const isWeightUnit = weightUnits.includes(formData.usageUnit);
+  const needsUnitWeight = !isWeightUnit && formData.usageUnit;
 
   const categories = [
     { value: 'Insumo' as const, label: 'Insumos', description: 'Ingredientes básicos para produção', icon: Package },
@@ -80,6 +85,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       supplier: formData.supplier || undefined,
       category: formData.category,
       materialType: formData.materialType,
+      unitWeight: formData.unitWeight ? parseFloat(formData.unitWeight) : undefined,
     });
   };
 
@@ -246,6 +252,24 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Este será o valor usado nos cálculos das receitas
+              </p>
+            </div>
+          )}
+
+          {needsUnitWeight && (
+            <div className="space-y-2">
+              <Label htmlFor="unitWeight">Peso por {formData.usageUnit} (gramas) *</Label>
+              <Input
+                id="unitWeight"
+                type="number"
+                step="0.1"
+                value={formData.unitWeight}
+                onChange={(e) => setFormData({ ...formData, unitWeight: e.target.value })}
+                placeholder="Ex: 50 (gramas por unidade)"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Peso em gramas de 1 {formData.usageUnit} para cálculos de receitas
               </p>
             </div>
           )}

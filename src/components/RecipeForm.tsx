@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { X, Plus, Minus } from "lucide-react";
 import type { Ingredient, Recipe, RecipeIngredient } from "@/types";
+import { calculateIngredientCost, calculateIngredientWeight } from "@/lib/ingredient-utils";
 
 interface RecipeFormProps {
   recipe?: Recipe | null;
@@ -65,8 +66,17 @@ export const RecipeForm = ({ recipe, ingredients, onSubmit, onCancel }: RecipeFo
     return recipeIngredients.reduce((total, recipeIngredient) => {
       const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
       if (ingredient) {
-        const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
-        return total + (pricePerUsage * recipeIngredient.quantity);
+        return total + calculateIngredientCost(ingredient, recipeIngredient.quantity);
+      }
+      return total;
+    }, 0);
+  };
+
+  const calculateTotalWeight = () => {
+    return recipeIngredients.reduce((total, recipeIngredient) => {
+      const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
+      if (ingredient) {
+        return total + calculateIngredientWeight(ingredient, recipeIngredient.quantity);
       }
       return total;
     }, 0);
@@ -91,6 +101,7 @@ export const RecipeForm = ({ recipe, ingredients, onSubmit, onCancel }: RecipeFo
   };
 
   const totalCost = calculateTotalCost();
+  const totalWeight = calculateTotalWeight();
 
   return (
     <Card className="shadow-elegant border-accent-gold/20">
@@ -227,8 +238,8 @@ export const RecipeForm = ({ recipe, ingredients, onSubmit, onCancel }: RecipeFo
                   const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
                   if (!ingredient) return null;
                   
-                  const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
-                  const cost = pricePerUsage * recipeIngredient.quantity;
+                  const cost = calculateIngredientCost(ingredient, recipeIngredient.quantity);
+                  const weight = calculateIngredientWeight(ingredient, recipeIngredient.quantity);
                   
                   return (
                     <div key={recipeIngredient.ingredientId} className="flex items-center justify-between p-3 bg-accent rounded-lg">
@@ -236,6 +247,9 @@ export const RecipeForm = ({ recipe, ingredients, onSubmit, onCancel }: RecipeFo
                         <span className="font-medium">{ingredient.name}</span>
                         <Badge variant="outline">
                           {recipeIngredient.quantity} {ingredient.usageUnit}
+                        </Badge>
+                        <Badge variant="secondary">
+                          {weight.toFixed(1)}g
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2">
@@ -255,9 +269,15 @@ export const RecipeForm = ({ recipe, ingredients, onSubmit, onCancel }: RecipeFo
                   );
                 })}
                 
-                <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border-2 border-primary/20">
-                  <span className="font-semibold">Custo Total dos Ingredientes:</span>
-                  <span className="text-lg font-bold text-primary">R$ {totalCost.toFixed(2)}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border-2 border-primary/20">
+                    <span className="font-semibold">Custo Total:</span>
+                    <span className="text-lg font-bold text-primary">R$ {totalCost.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-accent-gold/10 rounded-lg border-2 border-accent-gold/20">
+                    <span className="font-semibold">Peso Total:</span>
+                    <span className="text-lg font-bold text-accent-gold">{(totalWeight / 1000).toFixed(3)} kg</span>
+                  </div>
                 </div>
               </div>
             )}

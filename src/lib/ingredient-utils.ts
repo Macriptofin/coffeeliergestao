@@ -16,6 +16,23 @@ export const calculateIngredientCost = (ingredient: Ingredient, quantity: number
   return pricePerUsage * quantity;
 };
 
+// Função para calcular peso de uma quantidade específica em gramas
+export const calculateIngredientWeight = (ingredient: Ingredient, quantity: number): number => {
+  const weightUnits = ['kg', 'g'];
+  const isWeightUnit = weightUnits.includes(ingredient.usageUnit);
+  
+  if (isWeightUnit) {
+    // Se a unidade já é de peso, converter para gramas
+    if (ingredient.usageUnit === 'kg') {
+      return quantity * 1000; // kg para gramas
+    }
+    return quantity; // já está em gramas
+  } else {
+    // Se não é unidade de peso, usar o peso unitário
+    return (ingredient.unitWeight || 0) * quantity;
+  }
+};
+
 // Função para formatar exibição do ingrediente
 export const formatIngredientDisplay = (ingredient: Ingredient) => {
   const pricePerUsage = getPricePerUsageUnit(ingredient).toFixed(4);

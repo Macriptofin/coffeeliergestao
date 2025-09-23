@@ -29,7 +29,7 @@ export function LaunchProductDialog({ recipe, onSuccess }: LaunchProductDialogPr
     name: recipe.name,
     description: recipe.description,
     category: '',
-    unitWeight: '',
+    unitWeight: recipe.totalWeight ? (recipe.totalWeight / 1000).toFixed(3) : '',
     profitMargin: '30',
     sellingPrice: ''
   });

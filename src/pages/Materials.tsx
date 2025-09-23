@@ -19,6 +19,7 @@ export interface Material {
   category: 'Insumo' | 'Embalagem' | 'Produto Acabado' | 'Produto Composto';
   code: string;
   materialType: 'ingredient' | 'packaging' | 'finished_product' | 'composite_product';
+  unitWeight?: number;
 }
 
 const Materials = () => {
@@ -72,7 +73,8 @@ const Materials = () => {
         supplier: item.supplier || undefined,
         category: item.category as Material['category'],
         code: item.code,
-        materialType: item.material_type as Material['materialType']
+        materialType: item.material_type as Material['materialType'],
+        unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined
       }));
       
       setMaterials(formattedMaterials);
@@ -96,7 +98,8 @@ const Materials = () => {
           price_per_purchase_unit: material.pricePerPurchaseUnit,
           supplier: material.supplier,
           category: material.category,
-          material_type: material.materialType
+          material_type: material.materialType,
+          unit_weight: material.unitWeight
         })
         .select()
         .single();
@@ -113,7 +116,8 @@ const Materials = () => {
         supplier: data.supplier || undefined,
         category: data.category as Material['category'],
         code: data.code,
-        materialType: data.material_type as Material['materialType']
+        materialType: data.material_type as Material['materialType'],
+        unitWeight: data.unit_weight ? parseFloat(data.unit_weight.toString()) : undefined
       };
       
       setMaterials([...materials, newMaterial]);
@@ -137,7 +141,8 @@ const Materials = () => {
           price_per_purchase_unit: updatedMaterial.pricePerPurchaseUnit,
           supplier: updatedMaterial.supplier,
           category: updatedMaterial.category,
-          material_type: updatedMaterial.materialType
+          material_type: updatedMaterial.materialType,
+          unit_weight: updatedMaterial.unitWeight
         })
         .eq('id', updatedMaterial.id);
       
