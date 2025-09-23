@@ -49,11 +49,24 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [formData, setFormData] = useState({
     invoiceNumber: '',
     supplierId: '',
+    supplierName: '',
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
     totalAmount: 0,
     notes: ''
   });
+  const [supplierData, setSupplierData] = useState({
+    companyName: '',
+    cnpjCpf: '',
+    contactName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: ''
+  });
+  const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [currentItem, setCurrentItem] = useState({
     ingredientName: '',
@@ -110,6 +123,69 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     }
   };
 
+  const handleSupplierChange = (value: string) => {
+    const existingSupplier = suppliers.find(s => s.companyName === value);
+    
+    if (existingSupplier) {
+      setFormData(prev => ({ 
+        ...prev, 
+        supplierId: existingSupplier.id,
+        supplierName: value 
+      }));
+      setShowSupplierForm(false);
+    } else {
+      setFormData(prev => ({ 
+        ...prev, 
+        supplierId: '',
+        supplierName: value 
+      }));
+      setSupplierData(prev => ({ ...prev, companyName: value }));
+      setShowSupplierForm(value.length > 0);
+    }
+  };
+
+  const createSupplier = async () => {
+    if (!supplierData.companyName) {
+      toast.error('Nome da empresa é obrigatório');
+      return null;
+    }
+
+    try {
+      const { data: newSupplier, error } = await supabase
+        .from('suppliers')
+        .insert({
+          company_name: supplierData.companyName,
+          cnpj_cpf: supplierData.cnpjCpf || null,
+          contact_name: supplierData.contactName || null,
+          email: supplierData.email || null,
+          phone: supplierData.phone || null,
+          address: supplierData.address || null,
+          city: supplierData.city || null,
+          state: supplierData.state || null,
+          zip_code: supplierData.zipCode || null,
+          code: `FORN${Date.now()}`,
+          status: 'Ativo'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newSupplierFormatted = {
+        id: newSupplier.id,
+        companyName: newSupplier.company_name
+      };
+      setSuppliers(prev => [...prev, newSupplierFormatted]);
+      
+      toast.success(`Fornecedor "${supplierData.companyName}" cadastrado com sucesso`);
+      return newSupplier.id;
+    } catch (error) {
+      console.error('Erro ao criar fornecedor:', error);
+      toast.error('Erro ao criar fornecedor');
+      return null;
+    }
+  };
+
   const addItemToInvoice = async () => {
     if (!currentItem.ingredientName || !currentItem.purchaseUnit || !currentItem.quantity || !currentItem.unitPrice) {
       toast.error('Preencha todos os campos do item');
@@ -119,7 +195,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     let selectedIngredient = ingredients.find(ing => ing.name === currentItem.ingredientName);
     let isNewIngredient = false;
 
-    // Se o ingrediente não existe, criar um novo
     if (!selectedIngredient) {
       try {
         const { data: newIngredient, error } = await supabase
@@ -127,8 +202,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           .insert({
             name: currentItem.ingredientName,
             purchase_unit: currentItem.purchaseUnit,
-            usage_unit: currentItem.purchaseUnit, // Por padrão, usar a mesma unidade
-            conversion_factor: 1, // Por padrão, fator 1
+            usage_unit: currentItem.purchaseUnit,
+            conversion_factor: 1,
             price_per_purchase_unit: currentItem.unitPrice
           })
           .select()
@@ -144,7 +219,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           conversionFactor: parseFloat(newIngredient.conversion_factor?.toString() || '1')
         };
 
-        // Atualizar lista de ingredientes
         setIngredients(prev => [...prev, selectedIngredient!]);
         isNewIngredient = true;
         toast.success(`Ingrediente "${currentItem.ingredientName}" cadastrado com sucesso`);
@@ -169,7 +243,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     setInvoiceItems(prev => [...prev, newItem]);
     setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
     
-    // Atualizar total automaticamente
     const newTotal = [...invoiceItems, newItem].reduce((sum, item) => sum + item.totalPrice, 0);
     setFormData(prev => ({ ...prev, totalAmount: newTotal }));
   };
@@ -178,25 +251,33 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     const newItems = invoiceItems.filter((_, i) => i !== index);
     setInvoiceItems(newItems);
     
-    // Atualizar total
     const newTotal = newItems.reduce((sum, item) => sum + item.totalPrice, 0);
     setFormData(prev => ({ ...prev, totalAmount: newTotal }));
   };
 
   const handleSubmit = async () => {
-    if (!formData.invoiceNumber || !formData.supplierId || invoiceItems.length === 0) {
+    if (!formData.invoiceNumber || (!formData.supplierId && !formData.supplierName) || invoiceItems.length === 0) {
       toast.error('Preencha os campos obrigatórios e adicione pelo menos um item');
       return;
     }
 
     setLoading(true);
     try {
-      // Criar a nota fiscal
+      let supplierId = formData.supplierId;
+
+      if (!supplierId && formData.supplierName) {
+        supplierId = await createSupplier();
+        if (!supplierId) {
+          setLoading(false);
+          return;
+        }
+      }
+
       const { data: invoice, error: invoiceError } = await supabase
         .from('purchase_invoices')
         .insert({
           invoice_number: formData.invoiceNumber,
-          supplier_id: formData.supplierId,
+          supplier_id: supplierId,
           invoice_date: formData.invoiceDate,
           due_date: formData.dueDate || null,
           total_amount: formData.totalAmount,
@@ -207,10 +288,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       if (invoiceError) throw invoiceError;
 
-      // Criar itens da nota fiscal
       const invoiceItemsData = invoiceItems.map(item => ({
         invoice_id: invoice.id,
-        supplier_product_id: item.ingredientId, // Usando ingredientId como referência
+        supplier_product_id: item.ingredientId,
         quantity: item.quantity,
         unit_price: item.unitPrice,
         total_price: item.totalPrice
@@ -222,30 +302,26 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       if (itemsError) throw itemsError;
 
-      // Criar movimentações de estoque para cada item
       for (const item of invoiceItems) {
         const ingredient = ingredients.find(ing => ing.id === item.ingredientId);
         
-        // Calcular quantidade convertida para unidade de uso
         const conversionFactor = ingredient?.conversionFactor || 1;
         const usageQuantity = item.quantity * conversionFactor;
         
-        // Criar movimentação de entrada (sempre em unidade de uso)
         await supabase.from('stock_movements').insert({
           ingredient_id: item.ingredientId,
           movement_type: 'Entrada',
-          quantity: usageQuantity, // Quantidade convertida para unidade de uso
-          unit_price: item.unitPrice / conversionFactor, // Preço unitário ajustado para unidade de uso
+          quantity: usageQuantity,
+          unit_price: item.unitPrice / conversionFactor,
           reference_type: 'purchase_invoice',
           reference_id: invoice.id,
           notes: `Nota fiscal ${formData.invoiceNumber} - Compra: ${item.quantity} ${item.purchaseUnit}`
         });
 
-        // Atualizar estoque usando a função de preço médio ponderado
         await supabase.rpc('calculate_weighted_average_price', {
           p_ingredient_id: item.ingredientId,
-          p_new_quantity: usageQuantity, // Quantidade em unidade de uso
-          p_new_price: item.unitPrice / conversionFactor // Preço por unidade de uso
+          p_new_quantity: usageQuantity,
+          p_new_price: item.unitPrice / conversionFactor
         });
       }
 
@@ -254,11 +330,24 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       setFormData({
         invoiceNumber: '',
         supplierId: '',
+        supplierName: '',
         invoiceDate: new Date().toISOString().split('T')[0],
         dueDate: '',
         totalAmount: 0,
         notes: ''
       });
+      setSupplierData({
+        companyName: '',
+        cnpjCpf: '',
+        contactName: '',
+        email: '',
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: ''
+      });
+      setShowSupplierForm(false);
       setInvoiceItems([]);
       setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
       onRefresh();
@@ -309,7 +398,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-6">
-                  {/* Dados da Nota Fiscal */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium">Dados da Nota Fiscal</h3>
                     <div className="grid grid-cols-2 gap-3">
@@ -324,18 +412,13 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                       </div>
                       <div>
                         <Label htmlFor="supplier">Fornecedor *</Label>
-                        <Select value={formData.supplierId} onValueChange={(value) => setFormData(prev => ({ ...prev, supplierId: value }))}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o fornecedor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {suppliers.map(supplier => (
-                              <SelectItem key={supplier.id} value={supplier.id}>
-                                {supplier.companyName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <AutocompleteInput
+                          id="supplier"
+                          value={formData.supplierName}
+                          onChange={handleSupplierChange}
+                          suggestions={suppliers.map(supplier => supplier.companyName)}
+                          placeholder="Digite o nome do fornecedor"
+                        />
                       </div>
                     </div>
 
@@ -361,9 +444,120 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                     </div>
                   </div>
 
+                  {showSupplierForm && (
+                    <>
+                      <Separator />
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-medium">Cadastro de Novo Fornecedor</h3>
+                          <Badge variant="secondary" className="text-xs">Será criado automaticamente</Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="companyName">Nome da Empresa *</Label>
+                            <Input
+                              id="companyName"
+                              value={supplierData.companyName}
+                              onChange={(e) => setSupplierData(prev => ({ ...prev, companyName: e.target.value }))}
+                              placeholder="Razão Social"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="cnpjCpf">CNPJ/CPF</Label>
+                            <Input
+                              id="cnpjCpf"
+                              value={supplierData.cnpjCpf}
+                              onChange={(e) => setSupplierData(prev => ({ ...prev, cnpjCpf: e.target.value }))}
+                              placeholder="00.000.000/0000-00"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="contactName">Nome do Contato</Label>
+                            <Input
+                              id="contactName"
+                              value={supplierData.contactName}
+                              onChange={(e) => setSupplierData(prev => ({ ...prev, contactName: e.target.value }))}
+                              placeholder="Nome do responsável"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="email">E-mail</Label>
+                            <Input
+                              id="email"
+                              type="email"
+                              value={supplierData.email}
+                              onChange={(e) => setSupplierData(prev => ({ ...prev, email: e.target.value }))}
+                              placeholder="contato@fornecedor.com"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <Label htmlFor="phone">Telefone</Label>
+                            <Input
+                              id="phone"
+                              value={supplierData.phone}
+                              onChange={(e) => setSupplierData(prev => ({ ...prev, phone: e.target.value }))}
+                              placeholder="(11) 99999-9999"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="city">Cidade</Label>
+                            <Input
+                              id="city"
+                              value={supplierData.city}
+                              onChange={(e) => setSupplierData(prev => ({ ...prev, city: e.target.value }))}
+                              placeholder="Cidade"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="state">Estado</Label>
+                            <Input
+                              id="state"
+                              value={supplierData.state}
+                              onChange={(e) => setSupplierData(prev => ({ ...prev, state: e.target.value }))}
+                              placeholder="SP"
+                              maxLength={2}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="address">Endereço Completo</Label>
+                          <Input
+                            id="address"
+                            value={supplierData.address}
+                            onChange={(e) => setSupplierData(prev => ({ ...prev, address: e.target.value }))}
+                            placeholder="Rua, número, bairro, CEP"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {formData.supplierName && (
+                    <div className="p-3 bg-muted rounded-lg">
+                      <div className="text-sm">
+                        {formData.supplierId ? (
+                          <div className="font-medium text-green-700 dark:text-green-400">
+                            ✓ Fornecedor encontrado no cadastro
+                          </div>
+                        ) : (
+                          <div className="font-medium text-amber-700 dark:text-amber-400">
+                            ⚠ Novo fornecedor será cadastrado automaticamente
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <Separator />
 
-                  {/* Adição de Itens */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium">Adicionar Itens</h3>
                     <div className="grid grid-cols-5 gap-3">
@@ -416,7 +610,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                       </div>
                     </div>
                     
-                    {/* Mostrar informações do ingrediente selecionado */}
                     {currentItem.ingredientName && (
                       <div className="p-3 bg-muted rounded-lg">
                         {ingredients.find(ing => ing.name === currentItem.ingredientName) ? (
@@ -443,9 +636,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                     )}
                   </div>
 
-                  {/* Lista de Itens Adicionados */}
                   {invoiceItems.length > 0 && (
-                      <div className="space-y-4">
+                    <div className="space-y-4">
                       <h3 className="text-lg font-medium">Itens da Nota Fiscal</h3>
                       <div className="border rounded-lg">
                         <div className="grid grid-cols-7 gap-4 p-3 bg-muted font-medium text-sm">
@@ -494,7 +686,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
                   <Separator />
 
-                  {/* Observações */}
                   <div>
                     <Label htmlFor="notes">Observações</Label>
                     <Textarea
@@ -506,7 +697,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                     />
                   </div>
 
-                  {/* Botões */}
                   <div className="flex gap-3 pt-4">
                     <Button variant="outline" onClick={() => setShowForm(false)} className="flex-1">
                       Cancelar
