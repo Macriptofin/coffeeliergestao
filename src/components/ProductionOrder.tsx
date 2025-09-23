@@ -14,6 +14,7 @@ import type { Recipe, Ingredient } from "@/pages/Index";
 interface ProductionOrderProps {
   recipes: Recipe[];
   ingredients: Ingredient[];
+  onClose?: () => void;
 }
 
 interface ProductionItem {
@@ -29,7 +30,7 @@ interface ConsolidatedIngredient {
   usedInRecipes: { recipeName: string; quantity: number }[];
 }
 
-export const ProductionOrder = ({ recipes, ingredients }: ProductionOrderProps) => {
+export const ProductionOrder = ({ recipes, ingredients, onClose }: ProductionOrderProps) => {
   const [productionItems, setProductionItems] = useState<ProductionItem[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState('');
   const [quantity, setQuantity] = useState('1');
@@ -143,9 +144,21 @@ export const ProductionOrder = ({ recipes, ingredients }: ProductionOrderProps) 
     <div className="space-y-6">
       <Card className="shadow-elegant">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5 text-primary" />
-            Criar Ordem de Produção
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5 text-primary" />
+              Criar Ordem de Produção
+            </div>
+            {onClose && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">

@@ -86,7 +86,6 @@ export const Layout = () => {
               
               <CoffeelierLogo size="lg" className="filter brightness-0 invert" />
               <div>
-                <h1 className="text-2xl font-display font-bold">Coffeelier</h1>
                 <p className="text-primary-foreground/80 text-sm font-medium">
                   Sistema de Gestão
                 </p>
