@@ -20,6 +20,7 @@ import Estoque from "./pages/Estoque";
 import ProducaoMain from "./pages/ProducaoMain";
 import Financeiro from "./pages/Financeiro";
 import RecursosHumanos from "./pages/RecursosHumanos";
+import Colaboradores from "./pages/Colaboradores";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="financeiro" element={<Financeiro />} />
             {/* Categoria Recursos Humanos */}
             <Route path="rh" element={<RecursosHumanos />} />
+            <Route path="rh/colaboradores" element={<Colaboradores />} />
             <Route path="usuarios" element={<UserManagement />} />
             {/* Relatórios */}
             <Route path="relatorios" element={<Reports />} />

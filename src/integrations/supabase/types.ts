@@ -65,6 +65,126 @@ export type Database = {
         }
         Relationships: []
       }
+      employees: {
+        Row: {
+          account_type: string | null
+          address: string | null
+          bank_account: string | null
+          bank_branch: string | null
+          bank_name: string | null
+          benefits: string[] | null
+          birth_date: string | null
+          city: string | null
+          cpf: string | null
+          created_at: string
+          ctps_number: string | null
+          ctps_series: string | null
+          department: string
+          email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          employee_number: string
+          employment_type: string
+          full_name: string
+          gender: string | null
+          hire_date: string
+          id: string
+          marital_status: string | null
+          military_service: string | null
+          mobile_phone: string | null
+          notes: string | null
+          phone: string | null
+          pis_pasep: string | null
+          position: string
+          rg: string | null
+          salary: number | null
+          state: string | null
+          status: string
+          termination_date: string | null
+          updated_at: string
+          voter_registration: string | null
+          zip_code: string | null
+        }
+        Insert: {
+          account_type?: string | null
+          address?: string | null
+          bank_account?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
+          benefits?: string[] | null
+          birth_date?: string | null
+          city?: string | null
+          cpf?: string | null
+          created_at?: string
+          ctps_number?: string | null
+          ctps_series?: string | null
+          department: string
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          employee_number: string
+          employment_type?: string
+          full_name: string
+          gender?: string | null
+          hire_date: string
+          id?: string
+          marital_status?: string | null
+          military_service?: string | null
+          mobile_phone?: string | null
+          notes?: string | null
+          phone?: string | null
+          pis_pasep?: string | null
+          position: string
+          rg?: string | null
+          salary?: number | null
+          state?: string | null
+          status?: string
+          termination_date?: string | null
+          updated_at?: string
+          voter_registration?: string | null
+          zip_code?: string | null
+        }
+        Update: {
+          account_type?: string | null
+          address?: string | null
+          bank_account?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
+          benefits?: string[] | null
+          birth_date?: string | null
+          city?: string | null
+          cpf?: string | null
+          created_at?: string
+          ctps_number?: string | null
+          ctps_series?: string | null
+          department?: string
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          employee_number?: string
+          employment_type?: string
+          full_name?: string
+          gender?: string | null
+          hire_date?: string
+          id?: string
+          marital_status?: string | null
+          military_service?: string | null
+          mobile_phone?: string | null
+          notes?: string | null
+          phone?: string | null
+          pis_pasep?: string | null
+          position?: string
+          rg?: string | null
+          salary?: number | null
+          state?: string | null
+          status?: string
+          termination_date?: string | null
+          updated_at?: string
+          voter_registration?: string | null
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
       invoice_items: {
         Row: {
           created_at: string
