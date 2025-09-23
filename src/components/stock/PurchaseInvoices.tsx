@@ -476,7 +476,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
         // Atualizar preço médio ponderado
         const { error: rpcError } = await supabase.rpc('calculate_weighted_average_price', {
-          p_ingredient_id: item.material_id,
+          p_material_id: item.material_id,
           p_new_quantity: usageQuantity,
           p_new_price: usageUnitPrice
         });

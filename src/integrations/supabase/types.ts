@@ -594,7 +594,7 @@ export type Database = {
       }
       calculate_weighted_average_price: {
         Args: {
-          p_ingredient_id: string
+          p_material_id: string
           p_new_price: number
           p_new_quantity: number
         }
