@@ -185,6 +185,42 @@ export type Database = {
         }
         Relationships: []
       }
+      event_category_standards: {
+        Row: {
+          created_at: string
+          event_category: Database["public"]["Enums"]["event_category"]
+          id: string
+          max_percentage: number | null
+          min_percentage: number | null
+          notes: string | null
+          product_category: Database["public"]["Enums"]["product_category"]
+          recommended_percentage: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_category: Database["public"]["Enums"]["event_category"]
+          id?: string
+          max_percentage?: number | null
+          min_percentage?: number | null
+          notes?: string | null
+          product_category: Database["public"]["Enums"]["product_category"]
+          recommended_percentage?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_category?: Database["public"]["Enums"]["event_category"]
+          id?: string
+          max_percentage?: number | null
+          min_percentage?: number | null
+          notes?: string | null
+          product_category?: Database["public"]["Enums"]["product_category"]
+          recommended_percentage?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       invoice_items: {
         Row: {
           created_at: string
@@ -291,7 +327,6 @@ export type Database = {
       }
       products: {
         Row: {
-          category: Database["public"]["Enums"]["product_category"]
           code: string
           cost_price: number
           created_at: string
@@ -306,7 +341,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          category: Database["public"]["Enums"]["product_category"]
           code: string
           cost_price?: number
           created_at?: string
@@ -321,7 +355,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          category?: Database["public"]["Enums"]["product_category"]
           code?: string
           cost_price?: number
           created_at?: string
@@ -400,7 +433,6 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
-          event_category: Database["public"]["Enums"]["event_category"]
           event_date: string | null
           id: string
           notes: string | null
@@ -419,7 +451,6 @@ export type Database = {
         Insert: {
           client_id: string
           created_at?: string
-          event_category: Database["public"]["Enums"]["event_category"]
           event_date?: string | null
           id?: string
           notes?: string | null
@@ -438,7 +469,6 @@ export type Database = {
         Update: {
           client_id?: string
           created_at?: string
-          event_category?: Database["public"]["Enums"]["event_category"]
           event_date?: string | null
           id?: string
           notes?: string | null
@@ -999,8 +1029,22 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "user"
-      event_category: "Coffee Break" | "Brunch" | "Coquetel" | "Mesa de Frios"
-      product_category: "Salgados" | "Doces" | "Low Fat" | "Bebidas"
+      event_category:
+        | "Coffee Break"
+        | "Brunch"
+        | "Coquetel"
+        | "Almoco"
+        | "Jantar"
+        | "Festa Infantil"
+        | "Casamento"
+        | "Reuniao Corporativa"
+      product_category:
+        | "Salgados"
+        | "Doces"
+        | "Low Fat"
+        | "Bebidas"
+        | "Sobremesas"
+        | "Complementos"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1129,8 +1173,24 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "user"],
-      event_category: ["Coffee Break", "Brunch", "Coquetel", "Mesa de Frios"],
-      product_category: ["Salgados", "Doces", "Low Fat", "Bebidas"],
+      event_category: [
+        "Coffee Break",
+        "Brunch",
+        "Coquetel",
+        "Almoco",
+        "Jantar",
+        "Festa Infantil",
+        "Casamento",
+        "Reuniao Corporativa",
+      ],
+      product_category: [
+        "Salgados",
+        "Doces",
+        "Low Fat",
+        "Bebidas",
+        "Sobremesas",
+        "Complementos",
+      ],
     },
   },
 } as const
