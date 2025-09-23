@@ -1,4 +1,3 @@
-import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,53 +24,47 @@ import Colaboradores from "./pages/Colaboradores";
 
 const queryClient = new QueryClient();
 
-const AppContent = () => {
+function App() {
   return (
     <BrowserRouter>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <Routes>
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            {/* Categoria Estoque */}
-            <Route path="estoque" element={<Estoque />} />
-            <Route path="ingredientes" element={<Materials />} />
-            <Route path="estoque/*" element={<Stock />} />
-            {/* Categoria Compras */}
-            <Route path="compras" element={<Purchases />} />
-            {/* Categoria Vendas */}
-            <Route path="vendas" element={<Sales />} />
-            {/* Categoria Produção */}
-            <Route path="producao" element={<ProducaoMain />} />
-            <Route path="receitas" element={<Recipes />} />
-            <Route path="producao/*" element={<Production />} />
-            {/* Fornecedores */}
-            <Route path="fornecedores" element={<Suppliers />} />
-            {/* Categoria Financeiro */}
-            <Route path="financeiro" element={<Financeiro />} />
-            {/* Categoria Recursos Humanos */}
-            <Route path="rh" element={<RecursosHumanos />} />
-            <Route path="rh/colaboradores" element={<Colaboradores />} />
-            <Route path="usuarios" element={<UserManagement />} />
-            {/* Relatórios */}
-            <Route path="relatorios" element={<Reports />} />
-          </Route>
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </TooltipProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Dashboard />} />
+              {/* Categoria Estoque */}
+              <Route path="estoque" element={<Estoque />} />
+              <Route path="ingredientes" element={<Materials />} />
+              <Route path="estoque/*" element={<Stock />} />
+              {/* Categoria Compras */}
+              <Route path="compras" element={<Purchases />} />
+              {/* Categoria Vendas */}
+              <Route path="vendas" element={<Sales />} />
+              {/* Categoria Produção */}
+              <Route path="producao" element={<ProducaoMain />} />
+              <Route path="receitas" element={<Recipes />} />
+              <Route path="producao/*" element={<Production />} />
+              {/* Fornecedores */}
+              <Route path="fornecedores" element={<Suppliers />} />
+              {/* Categoria Financeiro */}
+              <Route path="financeiro" element={<Financeiro />} />
+              {/* Categoria Recursos Humanos */}
+              <Route path="rh" element={<RecursosHumanos />} />
+              <Route path="rh/colaboradores" element={<Colaboradores />} />
+              <Route path="usuarios" element={<UserManagement />} />
+              {/* Relatórios */}
+              <Route path="relatorios" element={<Reports />} />
+            </Route>
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </TooltipProvider>
+      </QueryClientProvider>
     </BrowserRouter>
   );
-};
-
-const App = () => {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AppContent />
-    </QueryClientProvider>
-  );
-};
+}
 
 export default App;
