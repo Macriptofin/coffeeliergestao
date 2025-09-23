@@ -8,6 +8,7 @@ import { RecipeForm } from "@/components/RecipeForm";
 import { RecipesList } from "@/components/RecipesList";
 import { RecipeExtractor } from "@/components/RecipeExtractor";
 import type { Recipe, Ingredient } from "@/types";
+import { calculateIngredientCost, calculateIngredientWeight } from "@/lib/ingredient-utils";
 
 const Recipes = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -78,7 +79,6 @@ const Recipes = () => {
       difficulty: item.difficulty as 'Fácil' | 'Médio' | 'Difícil',
       yield: item.yield_amount,
       totalCost: item.total_cost ? parseFloat(item.total_cost.toString()) : undefined,
-      totalWeight: item.total_weight ? parseFloat(item.total_weight.toString()) : undefined,
       suggestedPrice: item.suggested_price ? parseFloat(item.suggested_price.toString()) : undefined,
       profitMargin: item.profit_margin ? parseFloat(item.profit_margin.toString()) : undefined,
       ingredients: item.recipe_ingredients.map((ri: any) => ({
@@ -95,8 +95,16 @@ const Recipes = () => {
       const totalCost = recipe.ingredients.reduce((total, recipeIngredient) => {
         const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
         if (ingredient) {
-          const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
-          return total + (pricePerUsage * recipeIngredient.quantity);
+          return total + calculateIngredientCost(ingredient, recipeIngredient.quantity);
+        }
+        return total;
+      }, 0);
+
+      // Calcular peso total dos ingredientes  
+      const totalWeight = recipe.ingredients.reduce((total, recipeIngredient) => {
+        const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
+        if (ingredient) {
+          return total + calculateIngredientWeight(ingredient, recipeIngredient.quantity);
         }
         return total;
       }, 0);
@@ -112,6 +120,7 @@ const Recipes = () => {
           difficulty: recipe.difficulty,
           yield_amount: recipe.yield,
           total_cost: totalCost,
+          total_weight: totalWeight,
           suggested_price: recipe.suggestedPrice,
           profit_margin: recipe.profitMargin
         })
@@ -145,6 +154,7 @@ const Recipes = () => {
         difficulty: data.difficulty as 'Fácil' | 'Médio' | 'Difícil',
         yield: data.yield_amount,
         totalCost: parseFloat(data.total_cost?.toString() || '0'),
+        totalWeight: parseFloat(data.total_weight?.toString() || '0'),
         suggestedPrice: data.suggested_price ? parseFloat(data.suggested_price.toString()) : undefined,
         profitMargin: data.profit_margin ? parseFloat(data.profit_margin.toString()) : undefined,
         ingredients: recipe.ingredients

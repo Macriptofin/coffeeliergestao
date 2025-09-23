@@ -513,6 +513,7 @@ export type Database = {
           profit_margin: number | null
           suggested_price: number | null
           total_cost: number | null
+          total_weight: number | null
           updated_at: string | null
           yield_amount: number
         }
@@ -528,6 +529,7 @@ export type Database = {
           profit_margin?: number | null
           suggested_price?: number | null
           total_cost?: number | null
+          total_weight?: number | null
           updated_at?: string | null
           yield_amount: number
         }
@@ -543,6 +545,7 @@ export type Database = {
           profit_margin?: number | null
           suggested_price?: number | null
           total_cost?: number | null
+          total_weight?: number | null
           updated_at?: string | null
           yield_amount?: number
         }

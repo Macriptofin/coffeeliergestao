@@ -36,15 +36,16 @@ const Production = () => {
     
     if (error) throw error;
     
-    const formattedIngredients = data.map(item => ({
-      id: item.id,
-      name: item.name,
-      purchaseUnit: item.purchase_unit,
-      usageUnit: item.usage_unit,
-      conversionFactor: parseFloat(item.conversion_factor.toString()),
-      pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit.toString()),
-      supplier: item.supplier || undefined
-    }));
+      const formattedIngredients = data.map(item => ({
+        id: item.id,
+        name: item.name,
+        purchaseUnit: item.purchase_unit,
+        usageUnit: item.usage_unit,
+        conversionFactor: parseFloat(item.conversion_factor.toString()),
+        pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit.toString()),
+        supplier: item.supplier || undefined,
+        unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined
+      }));
     
     setIngredients(formattedIngredients);
   };
