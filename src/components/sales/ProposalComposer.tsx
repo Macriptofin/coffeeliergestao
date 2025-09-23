@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Minus, Save, ArrowLeft } from 'lucide-react';
+import { Plus, Minus, Save, ArrowLeft, X } from 'lucide-react';
+import { Combobox } from '@/components/ui/combobox';
 
 interface Product {
   id: string;
@@ -43,6 +44,7 @@ const productCategories = [
 export default function ProposalComposer({ proposalId, onComplete, onCancel }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedItems, setSelectedItems] = useState<Record<string, ProposalItem>>({});
+  const [selectedProductIds, setSelectedProductIds] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [proposal, setProposal] = useState<any>(null);
@@ -77,6 +79,33 @@ export default function ProposalComposer({ proposalId, onComplete, onCancel }: P
     } finally {
       setLoading(false);
     }
+  };
+
+  const addProductToCategory = (categoryKey: string, productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    // Add product to category selection
+    setSelectedProductIds(prev => ({
+      ...prev,
+      [categoryKey]: [...(prev[categoryKey] || []), productId]
+    }));
+
+    // Initialize with quantity 1
+    updateQuantity(productId, 1);
+  };
+
+  const removeProductFromCategory = (categoryKey: string, productId: string) => {
+    // Remove from category selection
+    setSelectedProductIds(prev => ({
+      ...prev,
+      [categoryKey]: (prev[categoryKey] || []).filter(id => id !== productId)
+    }));
+
+    // Remove from selected items
+    const newItems = { ...selectedItems };
+    delete newItems[productId];
+    setSelectedItems(newItems);
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -214,68 +243,111 @@ export default function ProposalComposer({ proposalId, onComplete, onCancel }: P
 
       {/* Seleção de Produtos por Categoria */}
       <div className="space-y-6">
-        {groupedProducts.map(category => (
-          <Card key={category.key}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Badge className={category.color}>{category.label}</Badge>
-                <span className="text-sm text-muted-foreground">
-                  ({category.products.length} produtos disponíveis)
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {category.products.length > 0 ? (
-                <div className="space-y-4">
-                  {category.products.map(product => (
-                    <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <h4 className="font-medium">{product.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {product.code} - {product.unit_weight}g - R$ {product.selling_price.toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateQuantity(product.id, Math.max(0, getQuantity(product.id) - 1))}
-                          disabled={getQuantity(product.id) === 0}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={getQuantity(product.id)}
-                          onChange={(e) => updateQuantity(product.id, parseInt(e.target.value) || 0)}
-                          className="w-20 text-center"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateQuantity(product.id, getQuantity(product.id) + 1)}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                        {getQuantity(product.id) > 0 && (
-                          <div className="ml-4 text-sm text-muted-foreground">
-                            Total: {getQuantity(product.id) * product.unit_weight}g - 
-                            R$ {(getQuantity(product.id) * product.selling_price).toFixed(2)}
+        {groupedProducts.map(category => {
+          const categorySelectedProducts = selectedProductIds[category.key] || [];
+          const availableProducts = category.products.filter(p => !categorySelectedProducts.includes(p.id));
+          
+          return (
+            <Card key={category.key}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Badge className={category.color}>{category.label}</Badge>
+                  <span className="text-sm text-muted-foreground">
+                    ({category.products.length} produtos disponíveis)
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Combobox para seleção de produtos */}
+                {availableProducts.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-medium">Adicionar produto:</Label>
+                    <Combobox
+                      placeholder={`Selecione um produto de ${category.label.toLowerCase()}...`}
+                      searchPlaceholder={`Buscar ${category.label.toLowerCase()}...`}
+                      emptyText="Nenhum produto encontrado."
+                      options={availableProducts.map(product => ({
+                        value: product.id,
+                        label: `${product.name} - ${product.code} - ${product.unit_weight}g - R$ ${product.selling_price.toFixed(2)}`
+                      }))}
+                      onSelect={(productId) => {
+                        if (productId) {
+                          addProductToCategory(category.key, productId);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Lista de produtos selecionados */}
+                {categorySelectedProducts.length > 0 && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Produtos selecionados:</Label>
+                    {categorySelectedProducts.map(productId => {
+                      const product = products.find(p => p.id === productId);
+                      if (!product) return null;
+                      
+                      return (
+                        <div key={productId} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                          <div className="flex-1">
+                            <h4 className="font-medium">{product.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {product.code} - {product.unit_weight}g - R$ {product.selling_price.toFixed(2)}
+                            </p>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Nenhum produto disponível nesta categoria</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateQuantity(product.id, Math.max(0, getQuantity(product.id) - 1))}
+                              disabled={getQuantity(product.id) === 0}
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={getQuantity(product.id)}
+                              onChange={(e) => updateQuantity(product.id, parseInt(e.target.value) || 0)}
+                              className="w-20 text-center"
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateQuantity(product.id, getQuantity(product.id) + 1)}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeProductFromCategory(category.key, product.id)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                            {getQuantity(product.id) > 0 && (
+                              <div className="ml-2 text-sm text-muted-foreground">
+                                Total: {getQuantity(product.id) * product.unit_weight}g - 
+                                R$ {(getQuantity(product.id) * product.selling_price).toFixed(2)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {categorySelectedProducts.length === 0 && availableProducts.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>Nenhum produto disponível nesta categoria</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Botões de Ação */}
