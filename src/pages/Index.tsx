@@ -59,7 +59,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary-light/5">
       <div className="container mx-auto p-4">
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">
