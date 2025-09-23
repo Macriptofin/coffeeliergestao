@@ -42,6 +42,8 @@ const Index = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [showIngredientForm, setShowIngredientForm] = useState(false);
   const [showRecipeForm, setShowRecipeForm] = useState(false);
+  const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
+  const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
 
   const addIngredient = (ingredient: Omit<Ingredient, 'id'>) => {
     const newIngredient = {
@@ -67,6 +69,111 @@ const Index = () => {
       totalCost,
     };
     setRecipes([...recipes, newRecipe]);
+    setShowRecipeForm(false);
+  };
+
+  const updateIngredient = (updatedIngredient: Ingredient) => {
+    setIngredients(ingredients.map(ing => 
+      ing.id === updatedIngredient.id ? updatedIngredient : ing
+    ));
+    setEditingIngredient(null);
+    setShowIngredientForm(false);
+    
+    // Recalculate costs for recipes that use this ingredient
+    const updatedRecipes = recipes.map(recipe => {
+      const usesIngredient = recipe.ingredients.some(ri => ri.ingredientId === updatedIngredient.id);
+      if (usesIngredient) {
+        const newTotalCost = recipe.ingredients.reduce((total, recipeIngredient) => {
+          const ingredient = ingredients.find(ing => 
+            ing.id === recipeIngredient.ingredientId ? updatedIngredient : ing
+          );
+          if (ingredient?.id === updatedIngredient.id) {
+            return total + (updatedIngredient.pricePerUnit * recipeIngredient.quantity);
+          }
+          if (ingredient) {
+            return total + (ingredient.pricePerUnit * recipeIngredient.quantity);
+          }
+          return total;
+        }, 0);
+        return { ...recipe, totalCost: newTotalCost };
+      }
+      return recipe;
+    });
+    setRecipes(updatedRecipes);
+  };
+
+  const updateRecipe = (updatedRecipe: Omit<Recipe, 'totalCost'>) => {
+    const totalCost = updatedRecipe.ingredients.reduce((total, recipeIngredient) => {
+      const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
+      if (ingredient) {
+        return total + (ingredient.pricePerUnit * recipeIngredient.quantity);
+      }
+      return total;
+    }, 0);
+
+    const recipeWithCost: Recipe = {
+      ...updatedRecipe,
+      totalCost,
+    };
+
+    setRecipes(recipes.map(recipe => 
+      recipe.id === updatedRecipe.id ? recipeWithCost : recipe
+    ));
+    setEditingRecipe(null);
+    setShowRecipeForm(false);
+  };
+
+  const deleteIngredient = (ingredientId: string) => {
+    // Check if ingredient is used in any recipe
+    const isUsed = recipes.some(recipe => 
+      recipe.ingredients.some(ri => ri.ingredientId === ingredientId)
+    );
+    
+    if (isUsed) {
+      alert('Este ingrediente não pode ser excluído pois está sendo usado em receitas.');
+      return;
+    }
+    
+    setIngredients(ingredients.filter(ing => ing.id !== ingredientId));
+  };
+
+  const deleteRecipe = (recipeId: string) => {
+    setRecipes(recipes.filter(recipe => recipe.id !== recipeId));
+  };
+
+  const handleIngredientSubmit = (ingredientData: Omit<Ingredient, 'id'>) => {
+    if (editingIngredient) {
+      updateIngredient({ ...ingredientData, id: editingIngredient.id });
+    } else {
+      addIngredient(ingredientData);
+    }
+  };
+
+  const handleRecipeSubmit = (recipeData: Omit<Recipe, 'id' | 'totalCost'>) => {
+    if (editingRecipe) {
+      updateRecipe({ ...recipeData, id: editingRecipe.id });
+    } else {
+      addRecipe(recipeData);
+    }
+  };
+
+  const startEditingIngredient = (ingredient: Ingredient) => {
+    setEditingIngredient(ingredient);
+    setShowIngredientForm(true);
+  };
+
+  const startEditingRecipe = (recipe: Recipe) => {
+    setEditingRecipe(recipe);
+    setShowRecipeForm(true);
+  };
+
+  const cancelIngredientForm = () => {
+    setEditingIngredient(null);
+    setShowIngredientForm(false);
+  };
+
+  const cancelRecipeForm = () => {
+    setEditingRecipe(null);
     setShowRecipeForm(false);
   };
 
@@ -243,12 +350,17 @@ const Index = () => {
 
             {showIngredientForm && (
               <IngredientForm 
-                onSubmit={addIngredient}
-                onCancel={() => setShowIngredientForm(false)}
+                ingredient={editingIngredient}
+                onSubmit={handleIngredientSubmit}
+                onCancel={cancelIngredientForm}
               />
             )}
 
-            <IngredientsList ingredients={ingredients} />
+            <IngredientsList 
+              ingredients={ingredients} 
+              onEdit={startEditingIngredient}
+              onDelete={deleteIngredient}
+            />
           </TabsContent>
 
           <TabsContent value="recipes" className="space-y-6">
@@ -290,13 +402,19 @@ const Index = () => {
 
             {showRecipeForm && ingredients.length > 0 && (
               <RecipeForm 
+                recipe={editingRecipe}
                 ingredients={ingredients}
-                onSubmit={addRecipe}
-                onCancel={() => setShowRecipeForm(false)}
+                onSubmit={handleRecipeSubmit}
+                onCancel={cancelRecipeForm}
               />
             )}
 
-            <RecipesList recipes={recipes} ingredients={ingredients} />
+            <RecipesList 
+              recipes={recipes} 
+              ingredients={ingredients}
+              onEdit={startEditingRecipe}
+              onDelete={deleteRecipe}
+            />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-6">

@@ -10,25 +10,26 @@ import { X, Plus, Minus } from "lucide-react";
 import type { Ingredient, Recipe, RecipeIngredient } from "@/pages/Index";
 
 interface RecipeFormProps {
+  recipe?: Recipe | null;
   ingredients: Ingredient[];
   onSubmit: (recipe: Omit<Recipe, 'id' | 'totalCost'>) => void;
   onCancel: () => void;
 }
 
-export const RecipeForm = ({ ingredients, onSubmit, onCancel }: RecipeFormProps) => {
+export const RecipeForm = ({ recipe, ingredients, onSubmit, onCancel }: RecipeFormProps) => {
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    category: '',
-    instructions: '',
-    preparationTime: '',
-    difficulty: '' as Recipe['difficulty'],
-    yield: '',
-    suggestedPrice: '',
-    profitMargin: '',
+    name: recipe?.name || '',
+    description: recipe?.description || '',
+    category: recipe?.category || '',
+    instructions: recipe?.instructions || '',
+    preparationTime: recipe?.preparationTime?.toString() || '',
+    difficulty: recipe?.difficulty || '' as Recipe['difficulty'],
+    yield: recipe?.yield?.toString() || '',
+    suggestedPrice: recipe?.suggestedPrice?.toString() || '',
+    profitMargin: recipe?.profitMargin?.toString() || '',
   });
 
-  const [recipeIngredients, setRecipeIngredients] = useState<RecipeIngredient[]>([]);
+  const [recipeIngredients, setRecipeIngredients] = useState<RecipeIngredient[]>(recipe?.ingredients || []);
   const [selectedIngredient, setSelectedIngredient] = useState('');
   const [quantity, setQuantity] = useState('');
 
@@ -94,7 +95,9 @@ export const RecipeForm = ({ ingredients, onSubmit, onCancel }: RecipeFormProps)
     <Card className="shadow-elegant border-accent-gold/20">
       <CardHeader className="pb-4">
         <div className="flex justify-between items-center">
-          <CardTitle className="text-accent-gold">Nova Receita</CardTitle>
+          <CardTitle className="text-accent-gold">
+            {recipe ? 'Editar Receita' : 'Nova Receita'}
+          </CardTitle>
           <Button variant="ghost" size="sm" onClick={onCancel}>
             <X className="h-4 w-4" />
           </Button>
@@ -307,7 +310,7 @@ export const RecipeForm = ({ ingredients, onSubmit, onCancel }: RecipeFormProps)
 
           <div className="flex gap-3 pt-4">
             <Button type="submit" className="bg-gradient-gold text-accent-gold-foreground flex-1">
-              Criar Receita
+              {recipe ? 'Atualizar Receita' : 'Criar Receita'}
             </Button>
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar

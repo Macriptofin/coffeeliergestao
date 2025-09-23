@@ -1,13 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Package2, Edit, Trash2 } from "lucide-react";
 import type { Ingredient } from "@/pages/Index";
 
 interface IngredientsListProps {
   ingredients: Ingredient[];
+  onEdit: (ingredient: Ingredient) => void;
+  onDelete: (ingredientId: string) => void;
 }
 
-export const IngredientsList = ({ ingredients }: IngredientsListProps) => {
+export const IngredientsList = ({ ingredients, onEdit, onDelete }: IngredientsListProps) => {
   if (ingredients.length === 0) {
     return (
       <Card className="shadow-soft">
@@ -53,6 +56,27 @@ export const IngredientsList = ({ ingredients }: IngredientsListProps) => {
                   </span>
                 </div>
               )}
+              
+              <div className="flex gap-2 pt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onEdit(ingredient)}
+                  className="flex-1"
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  Editar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onDelete(ingredient.id)}
+                  className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Excluir
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

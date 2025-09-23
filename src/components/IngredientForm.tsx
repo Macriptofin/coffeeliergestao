@@ -8,16 +8,17 @@ import { X } from "lucide-react";
 import type { Ingredient } from "@/pages/Index";
 
 interface IngredientFormProps {
+  ingredient?: Ingredient | null;
   onSubmit: (ingredient: Omit<Ingredient, 'id'>) => void;
   onCancel: () => void;
 }
 
-export const IngredientForm = ({ onSubmit, onCancel }: IngredientFormProps) => {
+export const IngredientForm = ({ ingredient, onSubmit, onCancel }: IngredientFormProps) => {
   const [formData, setFormData] = useState({
-    name: '',
-    unit: '',
-    pricePerUnit: '',
-    supplier: '',
+    name: ingredient?.name || '',
+    unit: ingredient?.unit || '',
+    pricePerUnit: ingredient?.pricePerUnit?.toString() || '',
+    supplier: ingredient?.supplier || '',
   });
 
   const units = [
@@ -40,7 +41,9 @@ export const IngredientForm = ({ onSubmit, onCancel }: IngredientFormProps) => {
     <Card className="shadow-elegant border-primary/20">
       <CardHeader className="pb-4">
         <div className="flex justify-between items-center">
-          <CardTitle className="text-primary">Novo Ingrediente</CardTitle>
+          <CardTitle className="text-primary">
+            {ingredient ? 'Editar Ingrediente' : 'Novo Ingrediente'}
+          </CardTitle>
           <Button variant="ghost" size="sm" onClick={onCancel}>
             <X className="h-4 w-4" />
           </Button>
@@ -104,7 +107,7 @@ export const IngredientForm = ({ onSubmit, onCancel }: IngredientFormProps) => {
 
           <div className="flex gap-3 pt-4">
             <Button type="submit" className="bg-gradient-primary flex-1">
-              Cadastrar Ingrediente
+              {ingredient ? 'Atualizar Ingrediente' : 'Cadastrar Ingrediente'}
             </Button>
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar

@@ -2,16 +2,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ChefHat, Clock, Users, DollarSign, FileText } from "lucide-react";
+import { ChefHat, Clock, Users, DollarSign, FileText, Edit, Trash2 } from "lucide-react";
 import { RecipeActions } from "./RecipeActions";
 import type { Recipe, Ingredient } from "@/pages/Index";
 
 interface RecipesListProps {
   recipes: Recipe[];
   ingredients: Ingredient[];
+  onEdit: (recipe: Recipe) => void;
+  onDelete: (recipeId: string) => void;
 }
 
-export const RecipesList = ({ recipes, ingredients }: RecipesListProps) => {
+export const RecipesList = ({ recipes, ingredients, onEdit, onDelete }: RecipesListProps) => {
   if (recipes.length === 0) {
     return (
       <Card className="shadow-soft">
@@ -214,6 +216,27 @@ export const RecipesList = ({ recipes, ingredients }: RecipesListProps) => {
                 </div>
               </DialogContent>
             </Dialog>
+
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onEdit(recipe)}
+                className="flex-1"
+              >
+                <Edit className="h-3 w-3 mr-1" />
+                Editar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onDelete(recipe.id)}
+                className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Excluir
+              </Button>
+            </div>
 
             <RecipeActions recipe={recipe} ingredients={ingredients} />
             </div>
