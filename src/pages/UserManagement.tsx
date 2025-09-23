@@ -28,7 +28,7 @@ const UserManagement = () => {
       <div className="space-y-6">
         <AdminSetup />
         {userRole === 'admin' && <UserRoleManager />}
-        {userRole === 'admin' && <SecurityAuditLog />}
+        {/* {userRole === 'admin' && <SecurityAuditLog />} */}
       </div>
     </div>
   );

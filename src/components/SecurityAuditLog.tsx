@@ -23,6 +23,14 @@ export const SecurityAuditLog = () => {
   const [loading, setLoading] = useState(true);
   const { userRole } = useUserRole();
 
+  useEffect(() => {
+    if (userRole === 'admin') {
+      loadAuditLogs();
+    } else {
+      setLoading(false);
+    }
+  }, [userRole]);
+
   const loadAuditLogs = async () => {
     try {
       const { data, error } = await supabase
@@ -43,12 +51,6 @@ export const SecurityAuditLog = () => {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (userRole === 'admin') {
-      loadAuditLogs();
-    }
-  }, [userRole]);
 
   const getActionBadgeVariant = (action: string) => {
     switch (action) {
@@ -128,7 +130,7 @@ export const SecurityAuditLog = () => {
                   </Badge>
                   <div className="text-sm">
                     <p className="font-medium">
-                      Usuário: {entry.target_user_id}
+                      Usuário: {entry.target_user_id.slice(0, 8)}...
                     </p>
                     {entry.old_role && entry.new_role ? (
                       <p className="text-muted-foreground">
@@ -146,7 +148,7 @@ export const SecurityAuditLog = () => {
                   </div>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  {new Date(entry.created_at).toLocaleString('pt-BR')}
                 </div>
               </div>
             ))}
