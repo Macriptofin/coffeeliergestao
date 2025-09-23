@@ -10,13 +10,13 @@ import { toast } from 'sonner';
 import { Plus, Minus, Save, ArrowLeft, X } from 'lucide-react';
 import { Combobox } from '@/components/ui/combobox';
 
-interface Product {
+interface Material {
   id: string;
   code: string;
   name: string;
-  category?: string;
+  category: string;
   unit_weight: number;
-  selling_price: number;
+  price_per_purchase_unit: number;
 }
 
 interface ProposalItem {
@@ -42,9 +42,9 @@ const productCategories = [
 ];
 
 export default function ProposalComposer({ proposalId, onComplete, onCancel }: Props) {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [selectedItems, setSelectedItems] = useState<Record<string, ProposalItem>>({});
-  const [selectedProductIds, setSelectedProductIds] = useState<Record<string, string[]>>({});
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [proposal, setProposal] = useState<any>(null);
@@ -55,11 +55,10 @@ export default function ProposalComposer({ proposalId, onComplete, onCancel }: P
 
   const loadData = async () => {
     try {
-      const [productsResult, proposalResult] = await Promise.all([
+      const [materialsResult, proposalResult] = await Promise.all([
         supabase
-          .from('products')
+          .from('materials')
           .select('*')
-          .eq('is_active', true)
           .order('category', { ascending: true }),
         supabase
           .from('proposals')
@@ -68,69 +67,69 @@ export default function ProposalComposer({ proposalId, onComplete, onCancel }: P
           .single()
       ]);
 
-      if (productsResult.error) throw productsResult.error;
+      if (materialsResult.error) throw materialsResult.error;
       if (proposalResult.error) throw proposalResult.error;
 
-      setProducts(productsResult.data || []);
+      setMaterials(materialsResult.data || []);
       setProposal(proposalResult.data);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar produtos');
+      toast.error('Erro ao carregar materiais');
     } finally {
       setLoading(false);
     }
   };
 
-  const addProductToCategory = (categoryKey: string, productId: string) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
+  const addMaterialToCategory = (categoryKey: string, materialId: string) => {
+    const material = materials.find(m => m.id === materialId);
+    if (!material) return;
 
-    // Add product to category selection
-    setSelectedProductIds(prev => ({
+    // Add material to category selection
+    setSelectedMaterialIds(prev => ({
       ...prev,
-      [categoryKey]: [...(prev[categoryKey] || []), productId]
+      [categoryKey]: [...(prev[categoryKey] || []), materialId]
     }));
 
     // Initialize with quantity 1
-    updateQuantity(productId, 1);
+    updateQuantity(materialId, 1);
   };
 
-  const removeProductFromCategory = (categoryKey: string, productId: string) => {
+  const removeMaterialFromCategory = (categoryKey: string, materialId: string) => {
     // Remove from category selection
-    setSelectedProductIds(prev => ({
+    setSelectedMaterialIds(prev => ({
       ...prev,
-      [categoryKey]: (prev[categoryKey] || []).filter(id => id !== productId)
+      [categoryKey]: (prev[categoryKey] || []).filter(id => id !== materialId)
     }));
 
     // Remove from selected items
     const newItems = { ...selectedItems };
-    delete newItems[productId];
+    delete newItems[materialId];
     setSelectedItems(newItems);
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
+  const updateQuantity = (materialId: string, quantity: number) => {
+    const material = materials.find(m => m.id === materialId);
+    if (!material) return;
 
     if (quantity <= 0) {
       const newItems = { ...selectedItems };
-      delete newItems[productId];
+      delete newItems[materialId];
       setSelectedItems(newItems);
       return;
     }
 
     const item: ProposalItem = {
-      product_id: productId,
+      product_id: materialId, // Mantemos product_id para compatibilidade com a tabela proposal_items
       quantity,
-      unit_price: product.selling_price,
-      unit_weight: product.unit_weight,
-      total_price: quantity * product.selling_price,
-      total_weight: quantity * product.unit_weight
+      unit_price: material.price_per_purchase_unit,
+      unit_weight: material.unit_weight || 0,
+      total_price: quantity * material.price_per_purchase_unit,
+      total_weight: quantity * (material.unit_weight || 0)
     };
 
     setSelectedItems(prev => ({
       ...prev,
-      [productId]: item
+      [materialId]: item
     }));
   };
 
@@ -191,9 +190,9 @@ export default function ProposalComposer({ proposalId, onComplete, onCancel }: P
     }
   };
 
-  const groupedProducts = productCategories.map(category => ({
+  const groupedMaterials = productCategories.map(category => ({
     ...category,
-    products: products.filter(p => p.category === category.key || (!p.category && category.key === 'Salgados'))
+    materials: materials.filter(m => m.category === category.key || (!m.category && category.key === 'Salgados'))
   }));
 
   const totals = calculateTotals();
@@ -241,11 +240,11 @@ export default function ProposalComposer({ proposalId, onComplete, onCancel }: P
         </CardContent>
       </Card>
 
-      {/* Seleção de Produtos por Categoria */}
+      {/* Seleção de Materiais por Categoria */}
       <div className="space-y-6">
-        {groupedProducts.map(category => {
-          const categorySelectedProducts = selectedProductIds[category.key] || [];
-          const availableProducts = category.products.filter(p => !categorySelectedProducts.includes(p.id));
+        {groupedMaterials.map(category => {
+          const categorySelectedMaterials = selectedMaterialIds[category.key] || [];
+          const availableMaterials = category.materials.filter(m => !categorySelectedMaterials.includes(m.id));
           
           return (
             <Card key={category.key}>
@@ -253,83 +252,83 @@ export default function ProposalComposer({ proposalId, onComplete, onCancel }: P
                 <CardTitle className="flex items-center gap-2">
                   <Badge className={category.color}>{category.label}</Badge>
                   <span className="text-sm text-muted-foreground">
-                    ({category.products.length} produtos disponíveis)
+                    ({category.materials.length} materiais disponíveis)
                   </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Combobox para seleção de produtos */}
-                {availableProducts.length > 0 && (
+                {/* Combobox para seleção de materiais */}
+                {availableMaterials.length > 0 && (
                   <div>
-                    <Label className="text-sm font-medium">Adicionar produto:</Label>
+                    <Label className="text-sm font-medium">Adicionar material:</Label>
                     <Combobox
-                      placeholder={`Selecione um produto de ${category.label.toLowerCase()}...`}
+                      placeholder={`Selecione um material de ${category.label.toLowerCase()}...`}
                       searchPlaceholder={`Buscar ${category.label.toLowerCase()}...`}
-                      emptyText="Nenhum produto encontrado."
-                      options={availableProducts.map(product => ({
-                        value: product.id,
-                        label: `${product.name} - ${product.code} - ${product.unit_weight}g - R$ ${product.selling_price.toFixed(2)}`
+                      emptyText="Nenhum material encontrado."
+                      options={availableMaterials.map(material => ({
+                        value: material.id,
+                        label: `${material.name} - ${material.code || 'Sem código'} - ${material.unit_weight || 0}g - R$ ${material.price_per_purchase_unit.toFixed(2)}`
                       }))}
-                      onSelect={(productId) => {
-                        if (productId) {
-                          addProductToCategory(category.key, productId);
+                      onSelect={(materialId) => {
+                        if (materialId) {
+                          addMaterialToCategory(category.key, materialId);
                         }
                       }}
                     />
                   </div>
                 )}
 
-                {/* Lista de produtos selecionados */}
-                {categorySelectedProducts.length > 0 && (
+                {/* Lista de materiais selecionados */}
+                {categorySelectedMaterials.length > 0 && (
                   <div className="space-y-3">
-                    <Label className="text-sm font-medium">Produtos selecionados:</Label>
-                    {categorySelectedProducts.map(productId => {
-                      const product = products.find(p => p.id === productId);
-                      if (!product) return null;
+                    <Label className="text-sm font-medium">Materiais selecionados:</Label>
+                    {categorySelectedMaterials.map(materialId => {
+                      const material = materials.find(m => m.id === materialId);
+                      if (!material) return null;
                       
                       return (
-                        <div key={productId} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                        <div key={materialId} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
                           <div className="flex-1">
-                            <h4 className="font-medium">{product.name}</h4>
+                            <h4 className="font-medium">{material.name}</h4>
                             <p className="text-sm text-muted-foreground">
-                              {product.code} - {product.unit_weight}g - R$ {product.selling_price.toFixed(2)}
+                              {material.code || 'Sem código'} - {material.unit_weight || 0}g - R$ {material.price_per_purchase_unit.toFixed(2)}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => updateQuantity(product.id, Math.max(0, getQuantity(product.id) - 1))}
-                              disabled={getQuantity(product.id) === 0}
+                              onClick={() => updateQuantity(material.id, Math.max(0, getQuantity(material.id) - 1))}
+                              disabled={getQuantity(material.id) === 0}
                             >
                               <Minus className="h-4 w-4" />
                             </Button>
                             <Input
                               type="number"
                               min="0"
-                              value={getQuantity(product.id)}
-                              onChange={(e) => updateQuantity(product.id, parseInt(e.target.value) || 0)}
+                              value={getQuantity(material.id)}
+                              onChange={(e) => updateQuantity(material.id, parseInt(e.target.value) || 0)}
                               className="w-20 text-center"
                             />
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => updateQuantity(product.id, getQuantity(product.id) + 1)}
+                              onClick={() => updateQuantity(material.id, getQuantity(material.id) + 1)}
                             >
                               <Plus className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => removeProductFromCategory(category.key, product.id)}
+                              onClick={() => removeMaterialFromCategory(category.key, material.id)}
                               className="text-destructive hover:text-destructive"
                             >
                               <X className="h-4 w-4" />
                             </Button>
-                            {getQuantity(product.id) > 0 && (
+                            {getQuantity(material.id) > 0 && (
                               <div className="ml-2 text-sm text-muted-foreground">
-                                Total: {getQuantity(product.id) * product.unit_weight}g - 
-                                R$ {(getQuantity(product.id) * product.selling_price).toFixed(2)}
+                                Total: {getQuantity(material.id) * (material.unit_weight || 0)}g - 
+                                R$ {(getQuantity(material.id) * material.price_per_purchase_unit).toFixed(2)}
                               </div>
                             )}
                           </div>
@@ -339,9 +338,9 @@ export default function ProposalComposer({ proposalId, onComplete, onCancel }: P
                   </div>
                 )}
 
-                {categorySelectedProducts.length === 0 && availableProducts.length === 0 && (
+                {categorySelectedMaterials.length === 0 && availableMaterials.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
-                    <p>Nenhum produto disponível nesta categoria</p>
+                    <p>Nenhum material disponível nesta categoria</p>
                   </div>
                 )}
               </CardContent>
