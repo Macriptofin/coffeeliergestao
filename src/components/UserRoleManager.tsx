@@ -316,31 +316,6 @@ export function UserRoleManager() {
         </CardContent>
       </Card>
 
-      <Card className="border-blue-200 bg-blue-50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-blue-800">
-            <UserPlus className="h-5 w-5" />
-            Cadastro Público
-          </CardTitle>
-          <CardDescription className="text-blue-700">
-            Link para usuários se cadastrarem sozinhos
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <p className="text-sm text-blue-700">
-              Compartilhe este link para que pessoas possam se cadastrar diretamente:
-            </p>
-            <code className="bg-white px-3 py-2 rounded border block text-sm break-all">
-              {window.location.origin}/auth
-            </code>
-            <p className="text-xs text-blue-600">
-              Novos cadastros automáticamente recebem role "user"
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
