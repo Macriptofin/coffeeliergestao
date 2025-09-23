@@ -49,6 +49,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     invoiceNumber: '',
     supplierId: '',
@@ -296,31 +297,31 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
     setLoading(true);
     try {
-      // Verificar se já existe uma nota fiscal com o mesmo número
-      const { data: existingInvoice, error: checkInvoiceError } = await supabase
-        .from('purchase_invoices')
-        .select('id, invoice_number')
-        .eq('invoice_number', formData.invoiceNumber)
-        .single();
+      // Verificar se já existe uma nota fiscal com o mesmo número (apenas para novas notas)
+      if (!editingInvoice) {
+        const { data: existingInvoice, error: checkInvoiceError } = await supabase
+          .from('purchase_invoices')
+          .select('id, invoice_number')
+          .eq('invoice_number', formData.invoiceNumber)
+          .single();
 
-      if (checkInvoiceError && checkInvoiceError.code !== 'PGRST116') {
-        throw checkInvoiceError;
-      }
+        if (checkInvoiceError && checkInvoiceError.code !== 'PGRST116') {
+          throw checkInvoiceError;
+        }
 
-      if (existingInvoice) {
-        toast.error(`Nota fiscal ${formData.invoiceNumber} já foi cadastrada no sistema`);
-        setLoading(false);
-        return;
+        if (existingInvoice) {
+          toast.error(`Nota fiscal ${formData.invoiceNumber} já foi cadastrada no sistema`);
+          setLoading(false);
+          return;
+        }
       }
 
       let supplierId = formData.supplierId;
 
       // Se não tem supplierId mas tem supplierName, verificar se precisa criar ou se já existe
       if (!supplierId && formData.supplierName) {
-        // Recarregar fornecedores para garantir dados atualizados
         await loadSuppliers();
         
-        // Verificar novamente se o fornecedor existe após recarregar
         const existingSupplier = suppliers.find(s => s.companyName === formData.supplierName);
         
         if (existingSupplier) {
@@ -335,111 +336,93 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         }
       }
 
-      console.log('Criando nota fiscal com supplier_id:', supplierId);
+      if (editingInvoice) {
+        // Atualizar nota fiscal existente
+        const { error: invoiceError } = await supabase
+          .from('purchase_invoices')
+          .update({
+            invoice_number: formData.invoiceNumber,
+            supplier_id: supplierId,
+            invoice_date: formData.invoiceDate,
+            due_date: formData.dueDate || null,
+            total_amount: formData.totalAmount,
+            notes: formData.notes || null
+          })
+          .eq('id', editingInvoice);
 
-      const { data: invoice, error: invoiceError } = await supabase
-        .from('purchase_invoices')
-        .insert({
-          invoice_number: formData.invoiceNumber,
-          supplier_id: supplierId,
-          invoice_date: formData.invoiceDate,
-          due_date: formData.dueDate || null,
-          total_amount: formData.totalAmount,
-          notes: formData.notes || null
-        })
-        .select()
-        .single();
-
-      if (invoiceError) {
-        console.error('Erro ao criar nota fiscal:', invoiceError);
-        throw invoiceError;
-      }
-
-      console.log('Nota fiscal criada:', invoice);
-
-      // Preparar dados dos itens da nota fiscal
-      const invoiceItemsData = invoiceItems.map(item => ({
-        invoice_id: invoice.id,
-        ingredient_id: item.ingredientId,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-        total_price: item.totalPrice
-      }));
-
-      console.log('Inserindo itens da nota fiscal:', invoiceItemsData);
-
-      const { error: itemsError } = await supabase
-        .from('invoice_items')
-        .insert(invoiceItemsData);
-
-      if (itemsError) {
-        console.error('Erro ao inserir itens da nota fiscal:', itemsError);
-        throw itemsError;
-      }
-
-      console.log('Itens da nota fiscal inseridos com sucesso');
-
-      // Processar movimentações de estoque para cada item
-      for (const item of invoiceItems) {
-        const ingredient = ingredients.find(ing => ing.id === item.ingredientId);
-        
-        if (!ingredient) {
-          console.error('Ingrediente não encontrado:', item.ingredientId);
-          continue;
+        if (invoiceError) {
+          console.error('Erro ao atualizar nota fiscal:', invoiceError);
+          throw invoiceError;
         }
 
-        console.log(`Processando item: ${item.ingredientName}`);
-        console.log(`Quantidade comprada: ${item.quantity} ${item.purchaseUnit}`);
-        console.log(`Fator de conversão: ${ingredient.conversionFactor}`);
-        
-        // Calcular quantidade em unidade de uso
-        const conversionFactor = ingredient.conversionFactor || 1;
-        const usageQuantity = item.quantity * conversionFactor;
-        const usageUnitPrice = item.unitPrice / conversionFactor;
-        
-        console.log(`Quantidade para estoque: ${usageQuantity} ${ingredient.usageUnit}`);
-        console.log(`Preço unitário para estoque: R$ ${usageUnitPrice.toFixed(4)}`);
-        
-        // Criar movimentação de estoque
-        const { data: stockMovement, error: stockError } = await supabase
-          .from('stock_movements')
+        // Remover itens existentes e inserir novos
+        await supabase
+          .from('invoice_items')
+          .delete()
+          .eq('invoice_id', editingInvoice);
+
+        const invoiceItemsData = invoiceItems.map(item => ({
+          invoice_id: editingInvoice,
+          ingredient_id: item.ingredientId,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          total_price: item.totalPrice
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('invoice_items')
+          .insert(invoiceItemsData);
+
+        if (itemsError) {
+          console.error('Erro ao atualizar itens da nota fiscal:', itemsError);
+          throw itemsError;
+        }
+
+        toast.success('Nota fiscal atualizada com sucesso');
+      } else {
+        // Criar nova nota fiscal
+        const { data: invoice, error: invoiceError } = await supabase
+          .from('purchase_invoices')
           .insert({
-            ingredient_id: item.ingredientId,
-            movement_type: 'Entrada',
-            quantity: usageQuantity,
-            unit_price: usageUnitPrice,
-            reference_type: 'purchase_invoice',
-            reference_id: invoice.id,
-            notes: `Nota fiscal ${formData.invoiceNumber} - Compra: ${item.quantity} ${item.purchaseUnit} = ${usageQuantity} ${ingredient.usageUnit}`
+            invoice_number: formData.invoiceNumber,
+            supplier_id: supplierId,
+            invoice_date: formData.invoiceDate,
+            due_date: formData.dueDate || null,
+            total_amount: formData.totalAmount,
+            notes: formData.notes || null,
+            stock_posted: false
           })
           .select()
           .single();
 
-        if (stockError) {
-          console.error('Erro ao criar movimentação de estoque:', stockError);
-          throw stockError;
+        if (invoiceError) {
+          console.error('Erro ao criar nota fiscal:', invoiceError);
+          throw invoiceError;
         }
 
-        console.log('Movimentação de estoque criada:', stockMovement);
+        const invoiceItemsData = invoiceItems.map(item => ({
+          invoice_id: invoice.id,
+          ingredient_id: item.ingredientId,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          total_price: item.totalPrice
+        }));
 
-        // Atualizar preço médio ponderado
-        console.log('Chamando RPC calculate_weighted_average_price');
-        const { data: rpcResult, error: rpcError } = await supabase.rpc('calculate_weighted_average_price', {
-          p_ingredient_id: item.ingredientId,
-          p_new_quantity: usageQuantity,
-          p_new_price: usageUnitPrice
-        });
+        const { error: itemsError } = await supabase
+          .from('invoice_items')
+          .insert(invoiceItemsData);
 
-        if (rpcError) {
-          console.error('Erro no RPC calculate_weighted_average_price:', rpcError);
-          throw rpcError;
+        if (itemsError) {
+          console.error('Erro ao inserir itens da nota fiscal:', itemsError);
+          throw itemsError;
         }
 
-        console.log('RPC executado com sucesso, novo preço médio:', rpcResult);
+        toast.success('Nota fiscal criada com sucesso');
       }
 
-      toast.success('Nota fiscal criada e estoque atualizado com sucesso');
+      // Resetar formulário
       setShowForm(false);
+      setEditingInvoice(null);
       setFormData({
         invoiceNumber: '',
         supplierId: '',
@@ -465,8 +448,205 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
       onRefresh();
     } catch (error) {
-      console.error('Erro ao criar nota fiscal:', error);
-      toast.error(`Erro ao criar nota fiscal: ${error.message || 'Erro desconhecido'}`);
+      console.error('Erro ao processar nota fiscal:', error);
+      toast.error(`Erro ao processar nota fiscal: ${error.message || 'Erro desconhecido'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startEditInvoice = async (invoiceId: string) => {
+    try {
+      // Carregar dados da nota fiscal
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('purchase_invoices')
+        .select(`
+          *,
+          suppliers:supplier_id (
+            id,
+            company_name,
+            cnpj_cpf,
+            contact_name,
+            email,
+            phone,
+            address,
+            city,
+            state,
+            zip_code
+          )
+        `)
+        .eq('id', invoiceId)
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      // Carregar itens da nota fiscal
+      const { data: items, error: itemsError } = await supabase
+        .from('invoice_items')
+        .select(`
+          *,
+          ingredients:ingredient_id (
+            id,
+            name,
+            purchase_unit,
+            usage_unit,
+            conversion_factor
+          )
+        `)
+        .eq('invoice_id', invoiceId);
+
+      if (itemsError) throw itemsError;
+
+      // Preencher formulário com dados da nota fiscal
+      setEditingInvoice(invoiceId);
+      setFormData({
+        invoiceNumber: invoice.invoice_number,
+        supplierId: invoice.supplier_id || '',
+        supplierName: invoice.suppliers?.company_name || '',
+        invoiceDate: invoice.invoice_date,
+        dueDate: invoice.due_date || '',
+        totalAmount: parseFloat(invoice.total_amount?.toString() || '0'),
+        notes: invoice.notes || ''
+      });
+
+      // Preencher dados do fornecedor se existir
+      if (invoice.suppliers) {
+        setSupplierData({
+          companyName: invoice.suppliers.company_name,
+          cnpjCpf: invoice.suppliers.cnpj_cpf || '',
+          contactName: invoice.suppliers.contact_name || '',
+          email: invoice.suppliers.email || '',
+          phone: invoice.suppliers.phone || '',
+          address: invoice.suppliers.address || '',
+          city: invoice.suppliers.city || '',
+          state: invoice.suppliers.state || '',
+          zipCode: invoice.suppliers.zip_code || ''
+        });
+      }
+
+      // Preencher itens da nota fiscal
+      const formattedItems: InvoiceItem[] = items.map(item => ({
+        ingredientId: item.ingredient_id,
+        ingredientName: item.ingredients?.name || '',
+        quantity: parseFloat(item.quantity?.toString() || '0'),
+        purchaseUnit: item.ingredients?.purchase_unit || '',
+        unitPrice: parseFloat(item.unit_price?.toString() || '0'),
+        totalPrice: parseFloat(item.total_price?.toString() || '0'),
+        isNewIngredient: false
+      }));
+
+      setInvoiceItems(formattedItems);
+      setShowForm(true);
+      
+      toast.success('Nota fiscal carregada para edição');
+    } catch (error) {
+      console.error('Erro ao carregar nota fiscal:', error);
+      toast.error('Erro ao carregar nota fiscal para edição');
+    }
+  };
+
+  const postToStock = async (invoiceId: string) => {
+    setLoading(true);
+    try {
+      // Verificar se a nota já foi lançada no estoque
+      const { data: invoice, error: checkError } = await supabase
+        .from('purchase_invoices')
+        .select('stock_posted, invoice_number')
+        .eq('id', invoiceId)
+        .single();
+
+      if (checkError) throw checkError;
+
+      if (invoice.stock_posted) {
+        toast.error('Esta nota fiscal já foi lançada no estoque');
+        setLoading(false);
+        return;
+      }
+
+      // Carregar itens da nota fiscal
+      const { data: items, error: itemsError } = await supabase
+        .from('invoice_items')
+        .select(`
+          *,
+          ingredients:ingredient_id (
+            id,
+            name,
+            purchase_unit,
+            usage_unit,
+            conversion_factor
+          )
+        `)
+        .eq('invoice_id', invoiceId);
+
+      if (itemsError) throw itemsError;
+
+      // Processar movimentações de estoque para cada item
+      for (const item of items) {
+        const ingredient = item.ingredients;
+        
+        if (!ingredient) {
+          console.error('Ingrediente não encontrado:', item.ingredient_id);
+          continue;
+        }
+
+        console.log(`Lançando no estoque: ${ingredient.name}`);
+        console.log(`Quantidade comprada: ${item.quantity} ${ingredient.purchase_unit}`);
+        
+        // Calcular quantidade em unidade de uso
+        const conversionFactor = parseFloat(ingredient.conversion_factor?.toString() || '1');
+        const usageQuantity = parseFloat(item.quantity?.toString() || '0') * conversionFactor;
+        const usageUnitPrice = parseFloat(item.unit_price?.toString() || '0') / conversionFactor;
+        
+        console.log(`Quantidade para estoque: ${usageQuantity} ${ingredient.usage_unit}`);
+        console.log(`Preço unitário para estoque: R$ ${usageUnitPrice.toFixed(4)}`);
+        
+        // Criar movimentação de estoque
+        const { error: stockError } = await supabase
+          .from('stock_movements')
+          .insert({
+            ingredient_id: item.ingredient_id,
+            movement_type: 'Entrada',
+            quantity: usageQuantity,
+            unit_price: usageUnitPrice,
+            reference_type: 'purchase_invoice',
+            reference_id: invoiceId,
+            notes: `Nota fiscal ${invoice.invoice_number} - Compra: ${item.quantity} ${ingredient.purchase_unit} = ${usageQuantity} ${ingredient.usage_unit}`
+          });
+
+        if (stockError) {
+          console.error('Erro ao criar movimentação de estoque:', stockError);
+          throw stockError;
+        }
+
+        // Atualizar preço médio ponderado
+        const { error: rpcError } = await supabase.rpc('calculate_weighted_average_price', {
+          p_ingredient_id: item.ingredient_id,
+          p_new_quantity: usageQuantity,
+          p_new_price: usageUnitPrice
+        });
+
+        if (rpcError) {
+          console.error('Erro no RPC calculate_weighted_average_price:', rpcError);
+          throw rpcError;
+        }
+      }
+
+      // Marcar nota fiscal como lançada no estoque
+      const { error: updateError } = await supabase
+        .from('purchase_invoices')
+        .update({
+          stock_posted: true,
+          stock_posted_at: new Date().toISOString()
+        })
+        .eq('id', invoiceId);
+
+      if (updateError) throw updateError;
+
+      toast.success('Nota fiscal lançada no estoque com sucesso');
+      onRefresh();
+    } catch (error) {
+      console.error('Erro ao lançar no estoque:', error);
+      toast.error(`Erro ao lançar no estoque: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
@@ -539,9 +719,14 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Nova Nota Fiscal</DialogTitle>
+                  <DialogTitle>
+                    {editingInvoice ? 'Editar Nota Fiscal' : 'Nova Nota Fiscal'}
+                  </DialogTitle>
                   <DialogDescription>
-                    Cadastre uma nova nota fiscal de compra para atualizar o estoque
+                    {editingInvoice 
+                      ? 'Modifique os dados da nota fiscal conforme necessário'
+                      : 'Cadastre uma nova nota fiscal de compra'
+                    }
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-6">
@@ -845,11 +1030,26 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                   </div>
 
                   <div className="flex gap-3 pt-4">
-                    <Button variant="outline" onClick={() => setShowForm(false)} className="flex-1">
-                      Cancelar
-                    </Button>
-                    <Button onClick={handleSubmit} disabled={loading || invoiceItems.length === 0} className="flex-1">
-                      {loading ? 'Salvando...' : `Criar Nota Fiscal (${invoiceItems.length} itens)`}
+                    <Button variant="outline" onClick={() => {
+                      setShowForm(false);
+                      setEditingInvoice(null);
+                      setFormData({
+                        invoiceNumber: '',
+                        supplierId: '',
+                        supplierName: '',
+                        invoiceDate: new Date().toISOString().split('T')[0],
+                        dueDate: '',
+                        totalAmount: 0,
+                        notes: ''
+                      });
+                      setInvoiceItems([]);
+                      setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
+                      setShowSupplierForm(false);
+                     }} className="flex-1">
+                       Cancelar
+                     </Button>
+                     <Button onClick={handleSubmit} disabled={loading || invoiceItems.length === 0} className="flex-1">
+                      {loading ? 'Salvando...' : editingInvoice ? `Atualizar Nota Fiscal (${invoiceItems.length} itens)` : `Criar Nota Fiscal (${invoiceItems.length} itens)`}
                     </Button>
                   </div>
                 </div>
@@ -876,6 +1076,11 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                       <Badge variant={getStatusColor(invoice.status)}>
                         {invoice.status}
                       </Badge>
+                      {invoice.stockPosted && (
+                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                          Lançada no Estoque
+                        </Badge>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
                       <div>
@@ -897,6 +1102,29 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                         <span>Valor Total</span>
                       </div>
                     </div>
+                  </div>
+                  <div className="flex flex-col gap-2 ml-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => startEditInvoice(invoice.id)}
+                      className="flex items-center gap-2"
+                    >
+                      <FileText className="h-4 w-4" />
+                      Editar
+                    </Button>
+                    {!invoice.stockPosted && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => postToStock(invoice.id)}
+                        disabled={loading}
+                        className="flex items-center gap-2"
+                      >
+                        <Package className="h-4 w-4" />
+                        Lançar no Estoque
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}

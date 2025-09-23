@@ -36,6 +36,8 @@ export interface PurchaseInvoice {
   invoiceDate: string;
   totalAmount: number;
   status: 'Pendente' | 'Pago' | 'Vencido' | 'Cancelado';
+  stockPosted: boolean;
+  stockPostedAt?: string;
 }
 
 const Stock = () => {
@@ -118,7 +120,9 @@ const Stock = () => {
       } : undefined,
       invoiceDate: item.invoice_date,
       totalAmount: parseFloat(item.total_amount?.toString() || '0'),
-      status: item.status as 'Pendente' | 'Pago' | 'Vencido' | 'Cancelado'
+      status: item.status as 'Pendente' | 'Pago' | 'Vencido' | 'Cancelado',
+      stockPosted: item.stock_posted || false,
+      stockPostedAt: item.stock_posted_at || undefined
     }));
 
     setPurchaseInvoices(formattedInvoices);

@@ -116,6 +116,8 @@ export type Database = {
           notes: string | null
           purchase_order_id: string | null
           status: string
+          stock_posted: boolean
+          stock_posted_at: string | null
           supplier_id: string | null
           total_amount: number
           updated_at: string
@@ -129,6 +131,8 @@ export type Database = {
           notes?: string | null
           purchase_order_id?: string | null
           status?: string
+          stock_posted?: boolean
+          stock_posted_at?: string | null
           supplier_id?: string | null
           total_amount?: number
           updated_at?: string
@@ -142,6 +146,8 @@ export type Database = {
           notes?: string | null
           purchase_order_id?: string | null
           status?: string
+          stock_posted?: boolean
+          stock_posted_at?: string | null
           supplier_id?: string | null
           total_amount?: number
           updated_at?: string
