@@ -71,7 +71,7 @@ export const Layout = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <div className="bg-gradient-coffee text-primary-foreground shadow-warm relative z-50">
+      <div className="bg-gradient-primary text-primary-foreground shadow-warm relative z-50">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
