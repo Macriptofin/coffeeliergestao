@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -49,65 +51,247 @@ const Index = () => {
   const [showRecipeExtractor, setShowRecipeExtractor] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const addIngredient = (ingredient: Omit<Ingredient, 'id'>) => {
-    const newIngredient = {
-      ...ingredient,
-      id: Date.now().toString(),
-    };
-    setIngredients([...ingredients, newIngredient]);
-    setShowIngredientForm(false);
+  // Carregar dados iniciais
+  useEffect(() => {
+    loadIngredients();
+    loadRecipes();
+  }, []);
+
+  const loadIngredients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ingredients')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      
+      const formattedIngredients = data.map(item => ({
+        id: item.id,
+        name: item.name,
+        purchaseUnit: item.purchase_unit,
+        usageUnit: item.usage_unit,
+        conversionFactor: parseFloat(item.conversion_factor.toString()),
+        pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit.toString()),
+        supplier: item.supplier || undefined
+      }));
+      
+      setIngredients(formattedIngredients);
+    } catch (error) {
+      console.error('Erro ao carregar ingredientes:', error);
+      toast.error('Erro ao carregar ingredientes');
+    }
   };
 
-  const addRecipe = (recipe: Omit<Recipe, 'id' | 'totalCost'>) => {
-    const totalCost = recipe.ingredients.reduce((total, recipeIngredient) => {
-      const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
-      if (ingredient) {
-        const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
-        return total + (pricePerUsage * recipeIngredient.quantity);
-      }
-      return total;
-    }, 0);
-
-    const newRecipe: Recipe = {
-      ...recipe,
-      id: Date.now().toString(),
-      totalCost,
-    };
-    setRecipes([...recipes, newRecipe]);
-    setShowRecipeForm(false);
+  const loadRecipes = async () => {
+    try {
+      setLoading(true);
+      const { data: recipesData, error: recipesError } = await supabase
+        .from('recipes')
+        .select(`
+          *,
+          recipe_ingredients (
+            quantity,
+            ingredient_id
+          )
+        `)
+        .order('name');
+      
+      if (recipesError) throw recipesError;
+      
+      const formattedRecipes = recipesData.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description || '',
+        category: item.category,
+        instructions: item.instructions || '',
+        preparationTime: item.preparation_time || 0,
+        difficulty: item.difficulty as 'Fácil' | 'Médio' | 'Difícil',
+        yield: item.yield_amount,
+        totalCost: item.total_cost ? parseFloat(item.total_cost.toString()) : undefined,
+        suggestedPrice: item.suggested_price ? parseFloat(item.suggested_price.toString()) : undefined,
+        profitMargin: item.profit_margin ? parseFloat(item.profit_margin.toString()) : undefined,
+        ingredients: item.recipe_ingredients.map((ri: any) => ({
+          ingredientId: ri.ingredient_id,
+          quantity: parseFloat(ri.quantity.toString())
+        }))
+      }));
+      
+      setRecipes(formattedRecipes);
+    } catch (error) {
+      console.error('Erro ao carregar receitas:', error);
+      toast.error('Erro ao carregar receitas');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateIngredient = (updatedIngredient: Ingredient) => {
-    setIngredients(ingredients.map(ing => 
-      ing.id === updatedIngredient.id ? updatedIngredient : ing
-    ));
-    setEditingIngredient(null);
-    setShowIngredientForm(false);
-    
-    // Recalculate costs for recipes that use this ingredient
-    const updatedRecipes = recipes.map(recipe => {
-      const usesIngredient = recipe.ingredients.some(ri => ri.ingredientId === updatedIngredient.id);
-      if (usesIngredient) {
-        const newTotalCost = recipe.ingredients.reduce((total, recipeIngredient) => {
-          const ingredient = ingredients.find(ing => 
-            ing.id === recipeIngredient.ingredientId ? updatedIngredient : ing
-          );
-          if (ingredient?.id === updatedIngredient.id) {
-            const pricePerUsage = updatedIngredient.pricePerPurchaseUnit / updatedIngredient.conversionFactor;
-            return total + (pricePerUsage * recipeIngredient.quantity);
-          }
-          if (ingredient) {
-            const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
-            return total + (pricePerUsage * recipeIngredient.quantity);
-          }
-          return total;
-        }, 0);
-        return { ...recipe, totalCost: newTotalCost };
+  const addIngredient = async (ingredient: Omit<Ingredient, 'id'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('ingredients')
+        .insert({
+          name: ingredient.name,
+          purchase_unit: ingredient.purchaseUnit,
+          usage_unit: ingredient.usageUnit,
+          conversion_factor: ingredient.conversionFactor,
+          price_per_purchase_unit: ingredient.pricePerPurchaseUnit,
+          supplier: ingredient.supplier
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      const newIngredient: Ingredient = {
+        id: data.id,
+        name: data.name,
+        purchaseUnit: data.purchase_unit,
+        usageUnit: data.usage_unit,
+        conversionFactor: parseFloat(data.conversion_factor.toString()),
+        pricePerPurchaseUnit: parseFloat(data.price_per_purchase_unit.toString()),
+        supplier: data.supplier || undefined
+      };
+      
+      setIngredients([...ingredients, newIngredient]);
+      setShowIngredientForm(false);
+      toast.success('Ingrediente cadastrado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao adicionar ingrediente:', error);
+      toast.error('Erro ao cadastrar ingrediente');
+    }
+  };
+
+  const addRecipe = async (recipe: Omit<Recipe, 'id' | 'totalCost'>) => {
+    try {
+      const totalCost = recipe.ingredients.reduce((total, recipeIngredient) => {
+        const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
+        if (ingredient) {
+          const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
+          return total + (pricePerUsage * recipeIngredient.quantity);
+        }
+        return total;
+      }, 0);
+
+      const { data, error } = await supabase
+        .from('recipes')
+        .insert({
+          name: recipe.name,
+          description: recipe.description,
+          category: recipe.category,
+          instructions: recipe.instructions,
+          preparation_time: recipe.preparationTime,
+          difficulty: recipe.difficulty,
+          yield_amount: recipe.yield,
+          total_cost: totalCost,
+          suggested_price: recipe.suggestedPrice,
+          profit_margin: recipe.profitMargin
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+
+      // Inserir ingredientes da receita
+      if (recipe.ingredients.length > 0) {
+        const recipeIngredientsData = recipe.ingredients.map(ri => ({
+          recipe_id: data.id,
+          ingredient_id: ri.ingredientId,
+          quantity: ri.quantity
+        }));
+
+        const { error: ingredientsError } = await supabase
+          .from('recipe_ingredients')
+          .insert(recipeIngredientsData);
+        
+        if (ingredientsError) throw ingredientsError;
       }
-      return recipe;
-    });
-    setRecipes(updatedRecipes);
+
+      const newRecipe: Recipe = {
+        id: data.id,
+        name: data.name,
+        description: data.description || '',
+        category: data.category,
+        instructions: data.instructions || '',
+        preparationTime: data.preparation_time || 0,
+        difficulty: data.difficulty as 'Fácil' | 'Médio' | 'Difícil',
+        yield: data.yield_amount,
+        totalCost: parseFloat(data.total_cost?.toString() || '0'),
+        suggestedPrice: data.suggested_price ? parseFloat(data.suggested_price.toString()) : undefined,
+        profitMargin: data.profit_margin ? parseFloat(data.profit_margin.toString()) : undefined,
+        ingredients: recipe.ingredients
+      };
+      
+      setRecipes([...recipes, newRecipe]);
+      setShowRecipeForm(false);
+      toast.success('Receita cadastrada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao adicionar receita:', error);
+      toast.error('Erro ao cadastrar receita');
+    }
+  };
+
+  const updateIngredient = async (updatedIngredient: Ingredient) => {
+    try {
+      const { error } = await supabase
+        .from('ingredients')
+        .update({
+          name: updatedIngredient.name,
+          purchase_unit: updatedIngredient.purchaseUnit,
+          usage_unit: updatedIngredient.usageUnit,
+          conversion_factor: updatedIngredient.conversionFactor,
+          price_per_purchase_unit: updatedIngredient.pricePerPurchaseUnit,
+          supplier: updatedIngredient.supplier
+        })
+        .eq('id', updatedIngredient.id);
+      
+      if (error) throw error;
+      
+      setIngredients(ingredients.map(ing => 
+        ing.id === updatedIngredient.id ? updatedIngredient : ing
+      ));
+      setEditingIngredient(null);
+      setShowIngredientForm(false);
+      
+      // Recalcular custos das receitas que usam este ingrediente
+      const updatedRecipes = recipes.map(recipe => {
+        const usesIngredient = recipe.ingredients.some(ri => ri.ingredientId === updatedIngredient.id);
+        if (usesIngredient) {
+          const newTotalCost = recipe.ingredients.reduce((total, recipeIngredient) => {
+            const ingredient = ingredients.find(ing => 
+              ing.id === recipeIngredient.ingredientId ? updatedIngredient : ing
+            );
+            if (ingredient?.id === updatedIngredient.id) {
+              const pricePerUsage = updatedIngredient.pricePerPurchaseUnit / updatedIngredient.conversionFactor;
+              return total + (pricePerUsage * recipeIngredient.quantity);
+            }
+            if (ingredient) {
+              const pricePerUsage = ingredient.pricePerPurchaseUnit / ingredient.conversionFactor;
+              return total + (pricePerUsage * recipeIngredient.quantity);
+            }
+            return total;
+          }, 0);
+          
+          // Atualizar custo total no banco
+          supabase
+            .from('recipes')
+            .update({ total_cost: newTotalCost })
+            .eq('id', recipe.id)
+            .then();
+            
+          return { ...recipe, totalCost: newTotalCost };
+        }
+        return recipe;
+      });
+      setRecipes(updatedRecipes);
+      
+      toast.success('Ingrediente atualizado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar ingrediente:', error);
+      toast.error('Erro ao atualizar ingrediente');
+    }
   };
 
   const updateRecipe = (updatedRecipe: Omit<Recipe, 'totalCost'>) => {
@@ -132,22 +316,48 @@ const Index = () => {
     setShowRecipeForm(false);
   };
 
-  const deleteIngredient = (ingredientId: string) => {
-    // Check if ingredient is used in any recipe
+  const deleteIngredient = async (ingredientId: string) => {
+    // Verificar se o ingrediente está sendo usado em alguma receita
     const isUsed = recipes.some(recipe => 
       recipe.ingredients.some(ri => ri.ingredientId === ingredientId)
     );
     
     if (isUsed) {
-      alert('Este ingrediente não pode ser excluído pois está sendo usado em receitas.');
+      toast.error('Este ingrediente não pode ser excluído pois está sendo usado em receitas.');
       return;
     }
     
-    setIngredients(ingredients.filter(ing => ing.id !== ingredientId));
+    try {
+      const { error } = await supabase
+        .from('ingredients')
+        .delete()
+        .eq('id', ingredientId);
+      
+      if (error) throw error;
+      
+      setIngredients(ingredients.filter(ing => ing.id !== ingredientId));
+      toast.success('Ingrediente excluído com sucesso!');
+    } catch (error) {
+      console.error('Erro ao excluir ingrediente:', error);
+      toast.error('Erro ao excluir ingrediente');
+    }
   };
 
-  const deleteRecipe = (recipeId: string) => {
-    setRecipes(recipes.filter(recipe => recipe.id !== recipeId));
+  const deleteRecipe = async (recipeId: string) => {
+    try {
+      const { error } = await supabase
+        .from('recipes')
+        .delete()
+        .eq('id', recipeId);
+      
+      if (error) throw error;
+      
+      setRecipes(recipes.filter(recipe => recipe.id !== recipeId));
+      toast.success('Receita excluída com sucesso!');
+    } catch (error) {
+      console.error('Erro ao excluir receita:', error);
+      toast.error('Erro ao excluir receita');
+    }
   };
 
   const handleIngredientSubmit = (ingredientData: Omit<Ingredient, 'id'>) => {
@@ -241,6 +451,14 @@ const Index = () => {
           </p>
         </div>
       </div>
+
+      {loading && (
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </div>
+      )}
 
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="overview" className="space-y-6">
