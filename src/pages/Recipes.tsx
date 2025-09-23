@@ -232,6 +232,47 @@ const Recipes = () => {
         if (ingredientsError) throw ingredientsError;
       }
 
+      // Agora atualizar produtos relacionados a esta receita
+      const { data: relatedProducts, error: productsQueryError } = await supabase
+        .from('products')
+        .select('id, name')
+        .eq('recipe_id', recipe.id);
+
+      if (productsQueryError) {
+        console.warn('Erro ao buscar produtos relacionados:', productsQueryError);
+      } else if (relatedProducts && relatedProducts.length > 0) {
+        // Atualizar custo dos produtos relacionados
+        const { error: updateProductsError } = await supabase
+          .from('products')
+          .update({
+            cost_price: totalCost,
+            unit_weight: totalWeight / 1000 // converter para kg se necessário
+          })
+          .eq('recipe_id', recipe.id);
+
+        if (updateProductsError) {
+          console.warn('Erro ao atualizar produtos relacionados:', updateProductsError);
+        } else {
+          // Buscar materiais relacionados aos produtos e atualizar preço
+          for (const product of relatedProducts) {
+            const { error: updateMaterialError } = await supabase
+              .from('materials')
+              .update({
+                price_per_purchase_unit: totalCost,
+                unit_weight: totalWeight
+              })
+              .eq('name', product.name)
+              .eq('category', 'Produto Acabado');
+
+            if (updateMaterialError) {
+              console.warn('Erro ao atualizar material do produto:', updateMaterialError);
+            }
+          }
+          
+          toast.success('Receita e produtos relacionados atualizados!');
+        }
+      }
+
       // Atualizar receita no estado
       const updatedRecipe: Recipe = {
         ...recipe,
@@ -242,7 +283,10 @@ const Recipes = () => {
       setRecipes(recipes.map(r => r.id === recipe.id ? updatedRecipe : r));
       setEditingRecipe(null);
       setShowRecipeForm(false);
-      toast.success('Receita atualizada com sucesso!');
+      
+      if (!relatedProducts || relatedProducts.length === 0) {
+        toast.success('Receita atualizada com sucesso!');
+      }
     } catch (error) {
       console.error('Erro ao atualizar receita:', error);
       toast.error('Erro ao atualizar receita');
