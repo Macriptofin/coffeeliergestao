@@ -84,7 +84,6 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
         event_date: data.event_date || null,
         number_of_people: data.number_of_people,
         target_weight_per_person: data.target_weight_per_person,
-        total_target_weight: totalTargetWeight,
         total_weight: 0,
         total_amount: 0,
         notes: data.notes || null,
