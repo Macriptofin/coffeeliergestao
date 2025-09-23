@@ -14,11 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
-      ingredients: {
+      invoice_items: {
         Row: {
+          created_at: string
+          id: string
+          invoice_id: string
+          material_id: string
+          quantity: number
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_id: string
+          material_id: string
+          quantity: number
+          total_price: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          material_id?: string
+          quantity?: number
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      materials: {
+        Row: {
+          category: string
+          code: string | null
           conversion_factor: number
           created_at: string | null
           id: string
+          material_type: string
           name: string
           price_per_purchase_unit: number
           purchase_unit: string
@@ -28,9 +76,12 @@ export type Database = {
           usage_unit: string
         }
         Insert: {
+          category?: string
+          code?: string | null
           conversion_factor?: number
           created_at?: string | null
           id?: string
+          material_type?: string
           name: string
           price_per_purchase_unit: number
           purchase_unit: string
@@ -40,9 +91,12 @@ export type Database = {
           usage_unit: string
         }
         Update: {
+          category?: string
+          code?: string | null
           conversion_factor?: number
           created_at?: string | null
           id?: string
+          material_type?: string
           name?: string
           price_per_purchase_unit?: number
           purchase_unit?: string
@@ -57,51 +111,6 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      invoice_items: {
-        Row: {
-          created_at: string
-          id: string
-          ingredient_id: string
-          invoice_id: string
-          quantity: number
-          total_price: number
-          unit_price: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          ingredient_id: string
-          invoice_id: string
-          quantity: number
-          total_price: number
-          unit_price: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          ingredient_id?: string
-          invoice_id?: string
-          quantity?: number
-          total_price?: number
-          unit_price?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invoice_items_ingredient_id_fkey"
-            columns: ["ingredient_id"]
-            isOneToOne: false
-            referencedRelation: "ingredients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoice_items_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "purchase_invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -220,30 +229,30 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
-          ingredient_id: string | null
+          material_id: string | null
           quantity: number
           recipe_id: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
-          ingredient_id?: string | null
+          material_id?: string | null
           quantity: number
           recipe_id?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
-          ingredient_id?: string | null
+          material_id?: string | null
           quantity?: number
           recipe_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "recipe_ingredients_ingredient_id_fkey"
-            columns: ["ingredient_id"]
+            columns: ["material_id"]
             isOneToOne: false
-            referencedRelation: "ingredients"
+            referencedRelation: "materials"
             referencedColumns: ["id"]
           },
           {
@@ -345,8 +354,8 @@ export type Database = {
           created_at: string
           current_quantity: number
           id: string
-          ingredient_id: string
           last_movement_date: string | null
+          material_id: string
           minimum_quantity: number
           total_value: number
           updated_at: string
@@ -356,8 +365,8 @@ export type Database = {
           created_at?: string
           current_quantity?: number
           id?: string
-          ingredient_id: string
           last_movement_date?: string | null
+          material_id: string
           minimum_quantity?: number
           total_value?: number
           updated_at?: string
@@ -367,8 +376,8 @@ export type Database = {
           created_at?: string
           current_quantity?: number
           id?: string
-          ingredient_id?: string
           last_movement_date?: string | null
+          material_id?: string
           minimum_quantity?: number
           total_value?: number
           updated_at?: string
@@ -376,9 +385,9 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "stock_items_ingredient_id_fkey"
-            columns: ["ingredient_id"]
+            columns: ["material_id"]
             isOneToOne: true
-            referencedRelation: "ingredients"
+            referencedRelation: "materials"
             referencedColumns: ["id"]
           },
         ]
@@ -387,7 +396,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          ingredient_id: string
+          material_id: string
           movement_date: string
           movement_type: string
           notes: string | null
@@ -399,7 +408,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          ingredient_id: string
+          material_id: string
           movement_date?: string
           movement_type: string
           notes?: string | null
@@ -411,7 +420,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
-          ingredient_id?: string
+          material_id?: string
           movement_date?: string
           movement_type?: string
           notes?: string | null
@@ -423,9 +432,9 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "stock_movements_ingredient_id_fkey"
-            columns: ["ingredient_id"]
+            columns: ["material_id"]
             isOneToOne: false
-            referencedRelation: "ingredients"
+            referencedRelation: "materials"
             referencedColumns: ["id"]
           },
         ]
@@ -435,9 +444,9 @@ export type Database = {
           conversion_factor: number
           created_at: string
           id: string
-          ingredient_id: string
           is_active: boolean
           last_price: number | null
+          material_id: string
           supplier_id: string
           supplier_product_code: string | null
           supplier_product_name: string
@@ -448,9 +457,9 @@ export type Database = {
           conversion_factor?: number
           created_at?: string
           id?: string
-          ingredient_id: string
           is_active?: boolean
           last_price?: number | null
+          material_id: string
           supplier_id: string
           supplier_product_code?: string | null
           supplier_product_name: string
@@ -461,9 +470,9 @@ export type Database = {
           conversion_factor?: number
           created_at?: string
           id?: string
-          ingredient_id?: string
           is_active?: boolean
           last_price?: number | null
+          material_id?: string
           supplier_id?: string
           supplier_product_code?: string | null
           supplier_product_name?: string
@@ -473,9 +482,9 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "supplier_products_ingredient_id_fkey"
-            columns: ["ingredient_id"]
+            columns: ["material_id"]
             isOneToOne: false
-            referencedRelation: "ingredients"
+            referencedRelation: "materials"
             referencedColumns: ["id"]
           },
           {
