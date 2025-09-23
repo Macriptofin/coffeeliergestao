@@ -21,7 +21,8 @@ const Reports = () => {
       await Promise.all([
         loadIngredients(),
         loadRecipes(),
-        loadSuppliers()
+        loadSuppliers(),
+        loadPriceVariations()
       ]);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -127,26 +128,77 @@ const Reports = () => {
     (recipe.totalCost || 0) > (max.totalCost || 0) ? recipe : max, recipes[0]);
   const activeSuppliers = suppliers.filter(s => s.status === 'Ativo').length;
 
-  // Monitor de Variação de Preços (simulado até implementação do estoque)
-  const generatePriceVariations = () => {
-    return ingredients.map(ingredient => {
-      // Simulação de preço anterior com variação de -20% a +30%
-      const variationPercent = (Math.random() - 0.4) * 50; // -20% a +30%
-      const previousPrice = ingredient.pricePerPurchaseUnit / (1 + variationPercent / 100);
-      
-      return {
-        ...ingredient,
-        previousPrice,
-        currentPrice: ingredient.pricePerPurchaseUnit,
-        variationPercent: variationPercent,
-        variationValue: ingredient.pricePerPurchaseUnit - previousPrice
-      };
-    });
-  };
+  // Monitor de Variação de Preços (dados reais do estoque)
+  const [priceVariations, setPriceVariations] = useState<any[]>([]);
 
-  const priceVariations = generatePriceVariations()
-    .sort((a, b) => Math.abs(b.variationPercent) - Math.abs(a.variationPercent))
-    .slice(0, 10);
+  const loadPriceVariations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('stock_movements')
+        .select(`
+          ingredient_id,
+          unit_price,
+          movement_date,
+          ingredients (
+            name,
+            price_per_purchase_unit
+          )
+        `)
+        .eq('movement_type', 'Entrada')
+        .not('unit_price', 'is', null)
+        .order('movement_date', { ascending: false });
+
+      if (error) throw error;
+
+      // Agrupar por ingrediente e calcular variação
+      const ingredientPrices: Record<string, any> = {};
+      
+      data.forEach(movement => {
+        const ingredientId = movement.ingredient_id;
+        if (!ingredientPrices[ingredientId]) {
+          ingredientPrices[ingredientId] = {
+            name: movement.ingredients.name,
+            currentPrice: parseFloat(movement.ingredients.price_per_purchase_unit?.toString() || '0'),
+            prices: []
+          };
+        }
+        ingredientPrices[ingredientId].prices.push({
+          price: parseFloat(movement.unit_price?.toString() || '0'),
+          date: movement.movement_date
+        });
+      });
+
+      // Calcular variações
+      const variations = Object.values(ingredientPrices)
+        .filter((item: any) => item.prices.length >= 2)
+        .map((item: any) => {
+          const sortedPrices = item.prices.sort((a: any, b: any) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+          
+          const currentPrice = sortedPrices[0].price;
+          const previousPrice = sortedPrices[1].price;
+          const variationPercent = ((currentPrice - previousPrice) / previousPrice) * 100;
+          const variationValue = currentPrice - previousPrice;
+
+          return {
+            name: item.name,
+            currentPrice,
+            previousPrice,
+            variationPercent,
+            variationValue
+          };
+        })
+        .sort((a, b) => Math.abs(b.variationPercent) - Math.abs(a.variationPercent))
+        .slice(0, 10);
+
+      setPriceVariations(variations);
+    } catch (error) {
+      console.error('Erro ao carregar variações de preço:', error);
+      // Fallback para dados simulados se não houver dados reais
+      setPriceVariations([]);
+    }
+  };
 
   if (loading) {
     return (
@@ -253,13 +305,13 @@ const Reports = () => {
               Monitor de Variação de Preços
             </CardTitle>
             <CardDescription>
-              Top 10 ingredientes com maior variação de preço (simulação - será real com sistema de estoque)
+              Top 10 ingredientes com maior variação de preço baseado em movimentações reais de estoque
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {ingredients.length === 0 ? (
+            {priceVariations.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">
-                Nenhum ingrediente cadastrado
+                Nenhuma variação de preço detectada. Cadastre movimentações de estoque para monitorar variações.
               </p>
             ) : (
               <div className="space-y-3">

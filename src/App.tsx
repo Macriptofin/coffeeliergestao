@@ -9,6 +9,7 @@ import Ingredients from "./pages/Ingredients";
 import Recipes from "./pages/Recipes";
 import Suppliers from "./pages/Suppliers";
 import Production from "./pages/Production";
+import Stock from "./pages/Stock";
 import Reports from "./pages/Reports";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="receitas" element={<Recipes />} />
             <Route path="fornecedores" element={<Suppliers />} />
             <Route path="producao" element={<Production />} />
+            <Route path="estoque" element={<Stock />} />
             <Route path="relatorios" element={<Reports />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

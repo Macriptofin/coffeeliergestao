@@ -4,6 +4,7 @@ import {
   Plus, 
   ChefHat, 
   Building2, 
+  Package,
   FileText, 
   ClipboardList 
 } from "lucide-react";
@@ -46,6 +47,12 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       href: "/producao",
       icon: ClipboardList,
       current: location.pathname === "/producao"
+    },
+    {
+      name: "Estoque",
+      href: "/estoque",
+      icon: Package,
+      current: location.pathname === "/estoque"
     },
     {
       name: "Relatórios",
