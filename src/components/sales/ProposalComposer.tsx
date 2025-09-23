@@ -13,7 +13,7 @@ interface Product {
   id: string;
   code: string;
   name: string;
-  category: string;
+  category?: string;
   unit_weight: number;
   selling_price: number;
 }
@@ -164,7 +164,7 @@ export default function ProposalComposer({ proposalId, onComplete, onCancel }: P
 
   const groupedProducts = productCategories.map(category => ({
     ...category,
-    products: products.filter(p => p.category === category.key)
+    products: products.filter(p => p.category === category.key || (!p.category && category.key === 'Salgados'))
   }));
 
   const totals = calculateTotals();

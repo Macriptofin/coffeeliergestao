@@ -10,6 +10,7 @@ import ProposalForm from '@/components/sales/ProposalForm';
 import ProposalsList from '@/components/sales/ProposalsList';
 import ClientForm from '@/components/sales/ClientForm';
 import ClientsList from '@/components/sales/ClientsList';
+import ProposalComposer from '@/components/sales/ProposalComposer';
 
 interface Client {
   id: string;
@@ -52,6 +53,8 @@ const Sales = () => {
   const [showProposalForm, setShowProposalForm] = useState(false);
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
   const [showClientForm, setShowClientForm] = useState(false);
+  const [createdProposalId, setCreatedProposalId] = useState<string | null>(null);
+  const [showProposalComposer, setShowProposalComposer] = useState(false);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -132,10 +135,27 @@ const Sales = () => {
     toast.info('Visualização de proposta será implementada em breve');
   };
 
-  const handleProposalSuccess = () => {
-    setShowProposalForm(false);
-    setEditingProposalId(null);
+  const handleProposalSuccess = (proposalId?: string) => {
+    if (proposalId) {
+      setCreatedProposalId(proposalId);
+      setShowProposalComposer(true);
+      setShowProposalForm(false);
+    } else {
+      setShowProposalForm(false);
+      setEditingProposalId(null);
+      loadProposals();
+    }
+  };
+
+  const handleProposalComposerComplete = () => {
+    setShowProposalComposer(false);
+    setCreatedProposalId(null);
     loadProposals();
+  };
+
+  const handleProposalComposerCancel = () => {
+    setShowProposalComposer(false);
+    setCreatedProposalId(null);
   };
 
   const handleProposalCancel = () => {
@@ -369,7 +389,13 @@ const Sales = () => {
         </TabsContent>
 
         <TabsContent value="proposals" className="mt-6">
-          {showProposalForm ? (
+          {showProposalComposer && createdProposalId ? (
+            <ProposalComposer
+              proposalId={createdProposalId}
+              onComplete={handleProposalComposerComplete}
+              onCancel={handleProposalComposerCancel}
+            />
+          ) : showProposalForm ? (
             <ProposalForm
               onSuccess={handleProposalSuccess}
               onCancel={handleProposalCancel}
