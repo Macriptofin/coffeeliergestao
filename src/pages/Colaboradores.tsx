@@ -13,20 +13,32 @@ const Colaboradores = () => {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
+  const [activeTab, setActiveTab] = useState("list");
 
   const handleAddEmployee = () => {
     setEditingEmployee(null);
     setShowForm(true);
+    setActiveTab("form");
   };
 
   const handleEditEmployee = (employee) => {
     setEditingEmployee(employee);
     setShowForm(true);
+    setActiveTab("form");
   };
 
   const handleCloseForm = () => {
     setShowForm(false);
     setEditingEmployee(null);
+    setActiveTab("list");
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value === "list") {
+      setShowForm(false);
+      setEditingEmployee(null);
+    }
   };
 
   return (
@@ -95,7 +107,7 @@ const Colaboradores = () => {
         </Card>
       </div>
 
-      <Tabs defaultValue="list">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-2 mb-6">
           <TabsTrigger value="list">Lista de Colaboradores</TabsTrigger>
           <TabsTrigger value="form" disabled={!showForm}>
@@ -120,6 +132,7 @@ const Colaboradores = () => {
               onSuccess={() => {
                 setShowForm(false);
                 setEditingEmployee(null);
+                setActiveTab("list");
               }}
             />
           )}
