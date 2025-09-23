@@ -866,12 +866,12 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                         </span>
                         <span>Fornecedor</span>
                       </div>
-                      <div>
-                        <span className="block font-medium text-foreground">
-                          {new Date(invoice.invoiceDate).toLocaleDateString('pt-BR')}
-                        </span>
-                        <span>Data da Nota</span>
-                      </div>
+                       <div>
+                         <span className="block font-medium text-foreground">
+                           {new Date(invoice.invoiceDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                         </span>
+                         <span>Data da Nota</span>
+                       </div>
                       <div>
                         <span className="block font-medium text-foreground">
                           R$ {invoice.totalAmount.toFixed(2)}
