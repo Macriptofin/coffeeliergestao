@@ -94,7 +94,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const loadIngredients = async () => {
     try {
       const { data, error } = await supabase
-        .from('ingredients')
+        .from('materials')
         .select('id, name, purchase_unit, usage_unit, conversion_factor')
         .order('name');
 
@@ -263,7 +263,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
         const invoiceItemsData = invoiceItems.map(item => ({
           invoice_id: invoice.id,
-          ingredient_id: item.ingredientId,
+          material_id: item.ingredientId,
           quantity: item.quantity,
           unit_price: item.unitPrice,
           total_price: item.totalPrice
@@ -438,35 +438,35 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       // Processar movimentações de estoque para cada item
       for (const item of items) {
-        const ingredient = item.ingredients;
+        const material = item.materials;
         
-        if (!ingredient) {
-          console.error('Ingrediente não encontrado:', item.ingredient_id);
+        if (!material) {
+          console.error('Material não encontrado:', item.material_id);
           continue;
         }
 
-        console.log(`Lançando no estoque: ${ingredient.name}`);
-        console.log(`Quantidade comprada: ${item.quantity} ${ingredient.purchase_unit}`);
+        console.log(`Lançando no estoque: ${material.name}`);
+        console.log(`Quantidade comprada: ${item.quantity} ${material.purchase_unit}`);
         
         // Calcular quantidade em unidade de uso
-        const conversionFactor = parseFloat(ingredient.conversion_factor?.toString() || '1');
+        const conversionFactor = parseFloat(material.conversion_factor?.toString() || '1');
         const usageQuantity = parseFloat(item.quantity?.toString() || '0') * conversionFactor;
         const usageUnitPrice = parseFloat(item.unit_price?.toString() || '0') / conversionFactor;
         
-        console.log(`Quantidade para estoque: ${usageQuantity} ${ingredient.usage_unit}`);
+        console.log(`Quantidade para estoque: ${usageQuantity} ${material.usage_unit}`);
         console.log(`Preço unitário para estoque: R$ ${usageUnitPrice.toFixed(4)}`);
         
         // Criar movimentação de estoque
         const { error: stockError } = await supabase
           .from('stock_movements')
           .insert({
-            ingredient_id: item.ingredient_id,
+            material_id: item.material_id,
             movement_type: 'Entrada',
             quantity: usageQuantity,
             unit_price: usageUnitPrice,
             reference_type: 'Compra',
             reference_id: invoiceId,
-            notes: `Nota fiscal ${invoice.invoice_number} - Compra: ${item.quantity} ${ingredient.purchase_unit} = ${usageQuantity} ${ingredient.usage_unit}`
+            notes: `Nota fiscal ${invoice.invoice_number} - Compra: ${item.quantity} ${material.purchase_unit} = ${usageQuantity} ${material.usage_unit}`
           });
 
         if (stockError) {

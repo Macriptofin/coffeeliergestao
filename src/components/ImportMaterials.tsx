@@ -100,24 +100,26 @@ export const ImportMaterials: React.FC<ImportMaterialsProps> = ({ onRefresh }) =
         await Promise.all(
           batch.map(async (material) => {
             try {
-              // Check if ingredient already exists
+              // Check if material already exists
               const { data: existing } = await supabase
-                .from('ingredients')
+                .from('materials')
                 .select('id')
                 .eq('name', material.material)
                 .maybeSingle();
 
               if (!existing) {
-                // Create new ingredient
+                // Create new material
                 await supabase
-                  .from('ingredients')
+                  .from('materials')
                   .insert({
                     name: material.material,
                     usage_unit: material.unidadeUso,
                     purchase_unit: material.unidadeCompra,
                     conversion_factor: material.fatorConversao,
                     price_per_purchase_unit: 0, // Default price, can be updated later
-                    supplier: `${material.categoria} - ${material.subcategoria}`
+                    supplier: `${material.categoria} - ${material.subcategoria}`,
+                    category: 'Insumo',
+                    material_type: 'ingredient'
                   });
               }
             } catch (error) {

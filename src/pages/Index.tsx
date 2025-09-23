@@ -17,6 +17,7 @@ import { CoffeelierLogo } from "@/components/CoffeelierLogo";
 import { SupplierForm, Supplier } from "@/components/SupplierForm";
 import { SuppliersList } from "@/components/SuppliersList";
 
+// Legacy Ingredient interface - use Material from Materials page instead
 export interface Ingredient {
   id: string;
   name: string;
