@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FileText, Plus, ShoppingCart, X, Package, Shield } from "lucide-react";
+import { FileText, Plus, ShoppingCart, X, Package, Shield, Trash2 } from "lucide-react";
 import type { PurchaseInvoice } from "@/pages/Stock";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -378,6 +378,95 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     } catch (error) {
       console.error('Erro ao carregar nota fiscal:', error);
       toast.error('Erro ao carregar nota fiscal para edição');
+    }
+  };
+
+  const deleteInvoice = async (invoiceId: string) => {
+    try {
+      // Confirmar exclusão
+      const confirmed = window.confirm('Tem certeza que deseja excluir esta nota fiscal? Esta ação não pode ser desfeita.');
+      if (!confirmed) return;
+
+      setLoading(true);
+
+      // Verificar se a nota foi lançada no estoque
+      const { data: invoice, error: checkError } = await supabase
+        .from('purchase_invoices')
+        .select('stock_posted, invoice_number')
+        .eq('id', invoiceId)
+        .single();
+
+      if (checkError) throw checkError;
+
+      if (invoice.stock_posted) {
+        // Se foi lançada no estoque, reverter as movimentações
+        const confirmed2 = window.confirm(
+          `Esta nota fiscal já foi lançada no estoque. Ao excluí-la, as movimentações de estoque serão revertidas. Confirma a exclusão?`
+        );
+        if (!confirmed2) {
+          setLoading(false);
+          return;
+        }
+
+        // Reverter movimentações de estoque
+        const { error: deleteMovementsError } = await supabase
+          .from('stock_movements')
+          .delete()
+          .eq('reference_type', 'Compra')
+          .eq('reference_id', invoiceId);
+
+        if (deleteMovementsError) {
+          console.error('Erro ao reverter movimentações:', deleteMovementsError);
+          throw deleteMovementsError;
+        }
+
+        // Recalcular estoques afetados
+        const { data: items } = await supabase
+          .from('invoice_items')
+          .select('material_id')
+          .eq('invoice_id', invoiceId);
+
+        if (items) {
+          for (const item of items) {
+            // Recalcular preço médio ponderado removendo a quantidade
+            await supabase.rpc('calculate_weighted_average_price', {
+              p_material_id: item.material_id,
+              p_new_quantity: 0,
+              p_new_price: 0
+            });
+          }
+        }
+      }
+
+      // Excluir itens da nota fiscal
+      const { error: deleteItemsError } = await supabase
+        .from('invoice_items')
+        .delete()
+        .eq('invoice_id', invoiceId);
+
+      if (deleteItemsError) {
+        console.error('Erro ao excluir itens da nota:', deleteItemsError);
+        throw deleteItemsError;
+      }
+
+      // Excluir a nota fiscal
+      const { error: deleteInvoiceError } = await supabase
+        .from('purchase_invoices')
+        .delete()
+        .eq('id', invoiceId);
+
+      if (deleteInvoiceError) {
+        console.error('Erro ao excluir nota fiscal:', deleteInvoiceError);
+        throw deleteInvoiceError;
+      }
+
+      toast.success(`Nota fiscal ${invoice.invoice_number} excluída com sucesso`);
+      onRefresh();
+    } catch (error) {
+      console.error('Erro ao excluir nota fiscal:', error);
+      toast.error('Erro ao excluir nota fiscal');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -880,29 +969,39 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2 ml-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => startEditInvoice(invoice.id)}
-                      className="flex items-center gap-2"
-                    >
-                      <FileText className="h-4 w-4" />
-                      Editar
-                    </Button>
-                    {!invoice.stockPosted && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => postToStock(invoice.id)}
-                        disabled={loading}
-                        className="flex items-center gap-2"
-                      >
-                        <Package className="h-4 w-4" />
-                        Lançar no Estoque
-                      </Button>
-                    )}
-                  </div>
+                   <div className="flex flex-col gap-2 ml-4">
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => startEditInvoice(invoice.id)}
+                       className="flex items-center gap-2"
+                     >
+                       <FileText className="h-4 w-4" />
+                       Editar
+                     </Button>
+                     {!invoice.stockPosted && (
+                       <Button
+                         variant="default"
+                         size="sm"
+                         onClick={() => postToStock(invoice.id)}
+                         disabled={loading}
+                         className="flex items-center gap-2"
+                       >
+                         <Package className="h-4 w-4" />
+                         Lançar no Estoque
+                       </Button>
+                     )}
+                     <Button
+                       variant="destructive"
+                       size="sm"
+                       onClick={() => deleteInvoice(invoice.id)}
+                       disabled={loading}
+                       className="flex items-center gap-2"
+                     >
+                       <Trash2 className="h-4 w-4" />
+                       Excluir
+                     </Button>
+                   </div>
                 </div>
               ))}
             </div>
