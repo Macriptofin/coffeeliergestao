@@ -23,6 +23,7 @@ export type Database = {
           price_per_purchase_unit: number
           purchase_unit: string
           supplier: string | null
+          supplier_id: string | null
           updated_at: string | null
           usage_unit: string
         }
@@ -34,6 +35,7 @@ export type Database = {
           price_per_purchase_unit: number
           purchase_unit: string
           supplier?: string | null
+          supplier_id?: string | null
           updated_at?: string | null
           usage_unit: string
         }
@@ -45,10 +47,19 @@ export type Database = {
           price_per_purchase_unit?: number
           purchase_unit?: string
           supplier?: string | null
+          supplier_id?: string | null
           updated_at?: string | null
           usage_unit?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ingredients_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       recipe_ingredients: {
         Row: {
@@ -134,6 +145,72 @@ export type Database = {
           total_cost?: number | null
           updated_at?: string | null
           yield_amount?: number
+        }
+        Relationships: []
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          city: string | null
+          cnpj_cpf: string | null
+          code: string
+          company_name: string
+          contact_name: string | null
+          created_at: string
+          email: string | null
+          id: string
+          main_category: string | null
+          minimum_order_value: number | null
+          notes: string | null
+          payment_terms: number | null
+          phone: string | null
+          state: string | null
+          status: string
+          trade_name: string | null
+          updated_at: string
+          zip_code: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          cnpj_cpf?: string | null
+          code: string
+          company_name: string
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          main_category?: string | null
+          minimum_order_value?: number | null
+          notes?: string | null
+          payment_terms?: number | null
+          phone?: string | null
+          state?: string | null
+          status?: string
+          trade_name?: string | null
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          cnpj_cpf?: string | null
+          code?: string
+          company_name?: string
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          main_category?: string | null
+          minimum_order_value?: number | null
+          notes?: string | null
+          payment_terms?: number | null
+          phone?: string | null
+          state?: string | null
+          status?: string
+          trade_name?: string | null
+          updated_at?: string
+          zip_code?: string | null
         }
         Relationships: []
       }

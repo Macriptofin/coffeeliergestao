@@ -6,7 +6,7 @@ import type { User, Session } from '@supabase/supabase-js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChefHat, Calculator, FileText, Plus, Sparkles, LogOut } from "lucide-react";
+import { ChefHat, Calculator, FileText, Plus, Sparkles, LogOut, Building2 } from "lucide-react";
 import { IngredientForm } from "@/components/IngredientForm";
 import { RecipeForm } from "@/components/RecipeForm";
 import { IngredientsList } from "@/components/IngredientsList";
@@ -14,6 +14,8 @@ import { RecipesList } from "@/components/RecipesList";
 import { ProductionOrder } from "@/components/ProductionOrder";
 import { RecipeExtractor } from "@/components/RecipeExtractor";
 import { CoffeelierLogo } from "@/components/CoffeelierLogo";
+import { SupplierForm, Supplier } from "@/components/SupplierForm";
+import { SuppliersList } from "@/components/SuppliersList";
 
 export interface Ingredient {
   id: string;
@@ -51,11 +53,14 @@ const Index = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [showIngredientForm, setShowIngredientForm] = useState(false);
   const [showRecipeForm, setShowRecipeForm] = useState(false);
+  const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [showRecipeExtractor, setShowRecipeExtractor] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -93,6 +98,7 @@ const Index = () => {
     if (session) {
       loadIngredients();
       loadRecipes();
+      loadSuppliers();
     }
   }, [session]);
 
@@ -165,6 +171,42 @@ const Index = () => {
     }
   };
 
+  const loadSuppliers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('suppliers')
+        .select('*')
+        .order('company_name');
+      
+      if (error) throw error;
+      
+      const formattedSuppliers = data.map(item => ({
+        id: item.id,
+        code: item.code,
+        status: item.status as 'Ativo' | 'Inativo',
+        companyName: item.company_name,
+        tradeName: item.trade_name || undefined,
+        cnpjCpf: item.cnpj_cpf || undefined,
+        contactName: item.contact_name || undefined,
+        phone: item.phone || undefined,
+        email: item.email || undefined,
+        address: item.address || undefined,
+        city: item.city || undefined,
+        state: item.state || undefined,
+        zipCode: item.zip_code || undefined,
+        mainCategory: item.main_category || undefined,
+        paymentTerms: item.payment_terms || 30,
+        minimumOrderValue: parseFloat(item.minimum_order_value?.toString() || '0'),
+        notes: item.notes || undefined
+      }));
+      
+      setSuppliers(formattedSuppliers);
+    } catch (error) {
+      console.error('Erro ao carregar fornecedores:', error);
+      toast.error('Erro ao carregar fornecedores');
+    }
+  };
+
   const addIngredient = async (ingredient: Omit<Ingredient, 'id'>) => {
     try {
       const { data, error } = await supabase
@@ -198,6 +240,127 @@ const Index = () => {
     } catch (error) {
       console.error('Erro ao adicionar ingrediente:', error);
       toast.error('Erro ao cadastrar ingrediente');
+    }
+  };
+
+  const addSupplier = async (supplier: Omit<Supplier, 'id' | 'code'>) => {
+    try {
+      // Gerar código automático
+      const { data: existingSuppliers } = await supabase
+        .from('suppliers')
+        .select('code')
+        .order('code', { ascending: false })
+        .limit(1);
+      
+      const lastCode = existingSuppliers?.[0]?.code || 'FORN-0000';
+      const nextNumber = parseInt(lastCode.split('-')[1]) + 1;
+      const newCode = `FORN-${nextNumber.toString().padStart(4, '0')}`;
+
+      const { data, error } = await supabase
+        .from('suppliers')
+        .insert({
+          code: newCode,
+          status: supplier.status,
+          company_name: supplier.companyName,
+          trade_name: supplier.tradeName,
+          cnpj_cpf: supplier.cnpjCpf,
+          contact_name: supplier.contactName,
+          phone: supplier.phone,
+          email: supplier.email,
+          address: supplier.address,
+          city: supplier.city,
+          state: supplier.state,
+          zip_code: supplier.zipCode,
+          main_category: supplier.mainCategory,
+          payment_terms: supplier.paymentTerms,
+          minimum_order_value: supplier.minimumOrderValue,
+          notes: supplier.notes
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      const newSupplier: Supplier = {
+        id: data.id,
+        code: data.code,
+        status: data.status as 'Ativo' | 'Inativo',
+        companyName: data.company_name,
+        tradeName: data.trade_name || undefined,
+        cnpjCpf: data.cnpj_cpf || undefined,
+        contactName: data.contact_name || undefined,
+        phone: data.phone || undefined,
+        email: data.email || undefined,
+        address: data.address || undefined,
+        city: data.city || undefined,
+        state: data.state || undefined,
+        zipCode: data.zip_code || undefined,
+        mainCategory: data.main_category || undefined,
+        paymentTerms: data.payment_terms || 30,
+        minimumOrderValue: parseFloat(data.minimum_order_value?.toString() || '0'),
+        notes: data.notes || undefined
+      };
+      
+      setSuppliers([...suppliers, newSupplier]);
+      setShowSupplierForm(false);
+      toast.success('Fornecedor cadastrado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao adicionar fornecedor:', error);
+      toast.error('Erro ao cadastrar fornecedor');
+    }
+  };
+
+  const updateSupplier = async (updatedSupplier: Supplier) => {
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .update({
+          status: updatedSupplier.status,
+          company_name: updatedSupplier.companyName,
+          trade_name: updatedSupplier.tradeName,
+          cnpj_cpf: updatedSupplier.cnpjCpf,
+          contact_name: updatedSupplier.contactName,
+          phone: updatedSupplier.phone,
+          email: updatedSupplier.email,
+          address: updatedSupplier.address,
+          city: updatedSupplier.city,
+          state: updatedSupplier.state,
+          zip_code: updatedSupplier.zipCode,
+          main_category: updatedSupplier.mainCategory,
+          payment_terms: updatedSupplier.paymentTerms,
+          minimum_order_value: updatedSupplier.minimumOrderValue,
+          notes: updatedSupplier.notes
+        })
+        .eq('id', updatedSupplier.id);
+      
+      if (error) throw error;
+      
+      setSuppliers(suppliers.map(sup => 
+        sup.id === updatedSupplier.id ? updatedSupplier : sup
+      ));
+      setEditingSupplier(null);
+      setShowSupplierForm(false);
+      toast.success('Fornecedor atualizado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar fornecedor:', error);
+      toast.error('Erro ao atualizar fornecedor');
+    }
+  };
+
+  const deleteSupplier = async (supplierId: string) => {
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .delete()
+        .eq('id', supplierId);
+      
+      if (error) throw error;
+      
+      setSuppliers(suppliers.filter(sup => sup.id !== supplierId));
+      toast.success('Fornecedor excluído com sucesso!');
+    } catch (error) {
+      console.error('Erro ao excluir fornecedor:', error);
+      toast.error('Erro ao excluir fornecedor');
     }
   };
 
@@ -433,6 +596,24 @@ const Index = () => {
     setShowRecipeForm(false);
   };
 
+  const handleSupplierSubmit = (supplierData: Omit<Supplier, 'id' | 'code'>) => {
+    if (editingSupplier) {
+      updateSupplier({ ...supplierData, id: editingSupplier.id, code: editingSupplier.code });
+    } else {
+      addSupplier(supplierData);
+    }
+  };
+
+  const startEditingSupplier = (supplier: Supplier) => {
+    setEditingSupplier(supplier);
+    setShowSupplierForm(true);
+  };
+
+  const cancelSupplierForm = () => {
+    setEditingSupplier(null);
+    setShowSupplierForm(false);
+  };
+
   const handleExtractedRecipe = (recipeData: Omit<Recipe, 'id' | 'totalCost'>, newIngredients: Omit<Ingredient, 'id'>[]) => {
     // First add new ingredients
     const addedIngredients: Ingredient[] = [];
@@ -546,6 +727,10 @@ const Index = () => {
               <ChefHat className="h-4 w-4" />
               Receitas
             </TabsTrigger>
+            <TabsTrigger value="suppliers" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Fornecedores
+            </TabsTrigger>
             <TabsTrigger value="reports" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Relatórios
@@ -553,7 +738,7 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
               <Card className="shadow-soft">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -586,6 +771,26 @@ const Index = () => {
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-bold text-accent-coffee">{recipes.length}</span>
                     <span className="text-muted-foreground">receitas</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-soft">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Building2 className="h-4 w-4 text-blue-600" />
+                    </div>
+                    Fornecedores
+                  </CardTitle>
+                  <CardDescription>Parceiros ativos</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-blue-600">
+                      {suppliers.filter(s => s.status === 'Ativo').length}
+                    </span>
+                    <span className="text-muted-foreground">ativos</span>
                   </div>
                 </CardContent>
               </Card>
@@ -772,6 +977,37 @@ const Index = () => {
               onEdit={startEditingRecipe}
               onDelete={deleteRecipe}
             />
+          </TabsContent>
+
+          <TabsContent value="suppliers" className="space-y-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">Fornecedores</h2>
+                <p className="text-muted-foreground mb-6">Gerencie seus parceiros comerciais e contatos de fornecimento</p>
+              </div>
+              {!showSupplierForm && (
+                <Button onClick={() => setShowSupplierForm(true)} className="shrink-0">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Fornecedor
+                </Button>
+              )}
+            </div>
+
+            {showSupplierForm && (
+              <SupplierForm 
+                supplier={editingSupplier}
+                onSubmit={handleSupplierSubmit}
+                onCancel={cancelSupplierForm}
+              />
+            )}
+
+            {!showSupplierForm && (
+              <SuppliersList 
+                suppliers={suppliers}
+                onEdit={startEditingSupplier}
+                onDelete={deleteSupplier}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-6">
