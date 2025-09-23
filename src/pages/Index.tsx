@@ -179,15 +179,40 @@ const Index = () => {
     setShowRecipeForm(false);
   };
 
-  const handleExtractedRecipe = (recipeData: Omit<Recipe, 'id' | 'totalCost'>) => {
-    addRecipe(recipeData);
-    setShowRecipeExtractor(false);
-  };
-
-  const handleExtractedIngredients = (newIngredients: Omit<Ingredient, 'id'>[]) => {
+  const handleExtractedRecipe = (recipeData: Omit<Recipe, 'id' | 'totalCost'>, newIngredients: Omit<Ingredient, 'id'>[]) => {
+    // First add new ingredients
+    const addedIngredients: Ingredient[] = [];
     newIngredients.forEach(ingredient => {
-      addIngredient(ingredient);
+      const newIngredient = {
+        ...ingredient,
+        id: Date.now().toString() + Math.random().toString(),
+      };
+      addedIngredients.push(newIngredient);
+      setIngredients(prev => [...prev, newIngredient]);
     });
+
+    // Update the ingredients array with new additions
+    const allIngredients = [...ingredients, ...addedIngredients];
+
+    // Map recipe ingredients from names to actual IDs
+    const mappedIngredients = recipeData.ingredients.map(ri => {
+      const ingredient = allIngredients.find(ing => 
+        ing.name.toLowerCase() === ri.ingredientId.toLowerCase()
+      );
+      return {
+        ingredientId: ingredient?.id || ri.ingredientId,
+        quantity: ri.quantity
+      };
+    });
+
+    // Create the recipe with mapped ingredients
+    const finalRecipeData = {
+      ...recipeData,
+      ingredients: mappedIngredients
+    };
+
+    addRecipe(finalRecipeData);
+    setShowRecipeExtractor(false);
   };
 
   return (
@@ -426,7 +451,6 @@ const Index = () => {
               <RecipeExtractor
                 existingIngredients={ingredients}
                 onRecipeExtracted={handleExtractedRecipe}
-                onIngredientsExtracted={handleExtractedIngredients}
                 onCancel={() => setShowRecipeExtractor(false)}
               />
             )}

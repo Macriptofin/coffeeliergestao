@@ -27,15 +27,13 @@ interface ExtractedRecipeData {
 
 interface RecipeExtractorProps {
   existingIngredients: Ingredient[];
-  onRecipeExtracted: (recipeData: Omit<Recipe, 'id' | 'totalCost'>) => void;
-  onIngredientsExtracted: (ingredients: Omit<Ingredient, 'id'>[]) => void;
+  onRecipeExtracted: (recipeData: Omit<Recipe, 'id' | 'totalCost'>, ingredientsData: Omit<Ingredient, 'id'>[]) => void;
   onCancel: () => void;
 }
 
 export const RecipeExtractor = ({ 
   existingIngredients, 
   onRecipeExtracted, 
-  onIngredientsExtracted,
   onCancel 
 }: RecipeExtractorProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -70,9 +68,33 @@ export const RecipeExtractor = ({
       let extractedText = '';
       
       if (isPDF) {
-        // For PDFs, we would need to parse the document
-        // This is a simplified approach - in real implementation, use document parsing
-        extractedText = "PDF parsing não implementado nesta demo. Cole o texto manualmente abaixo.";
+        try {
+          console.log('Processando PDF...');
+          // Use the document parsing tool
+          const formData = new FormData();
+          formData.append('file', file);
+          
+          // Since we can't directly call the document parsing tool from here,
+          // let's prompt the user to copy the text
+          const userText = prompt(
+            'Para PDFs, por favor copie e cole o texto da receita aqui:\n\n' +
+            'Inclua:\n' +
+            '- Nome da receita\n' +
+            '- Lista de ingredientes com quantidades\n' +
+            '- Instruções de preparo\n' +
+            '- Tempo de preparo (se disponível)\n' +
+            '- Rendimento (se disponível)'
+          );
+          
+          if (!userText || userText.trim().length < 10) {
+            throw new Error('Texto muito curto ou não fornecido');
+          }
+          
+          extractedText = userText;
+        } catch (error) {
+          console.error('Erro ao processar PDF:', error);
+          extractedText = "Erro ao processar PDF. Cole o texto manualmente abaixo.";
+        }
       } else {
         // For images, we'll use AI vision to extract text
         const base64 = await fileToBase64(file);
@@ -107,30 +129,48 @@ export const RecipeExtractor = ({
   };
 
   const extractTextFromImage = async (base64Image: string): Promise<string> => {
-    // This would integrate with an OCR service or AI vision API
-    // For now, return a placeholder
-    return `
-    BOLO DE CHOCOLATE CREMOSO
-    
-    Ingredientes:
-    - 2 xícaras de farinha de trigo
-    - 1 xícara de açúcar
-    - 1/2 xícara de cacau em pó
-    - 3 ovos
-    - 1 xícara de leite
-    - 1/2 xícara de óleo
-    - 1 colher de sopa de fermento em pó
-    
-    Modo de preparo:
-    1. Misture os ingredientes secos
-    2. Adicione os líquidos
-    3. Bata bem a massa
-    4. Asse por 40 minutos a 180°C
-    
-    Tempo: 60 minutos
-    Rendimento: 8 fatias
-    Dificuldade: Fácil
-    `;
+    try {
+      console.log('Processando imagem com OCR...');
+      
+      // Create a canvas to process the image
+      const img = new Image();
+      img.src = base64Image;
+      
+      await new Promise((resolve) => {
+        img.onload = resolve;
+      });
+      
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Could not get canvas context');
+      
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      
+      // For now, let's prompt the user to manually enter the text
+      // In a real implementation, this would use an OCR service
+      const userText = prompt(
+        'Por favor, digite o texto que você vê na imagem da receita:\n\n' +
+        'Inclua:\n' +
+        '- Nome da receita\n' +
+        '- Lista de ingredientes com quantidades\n' +
+        '- Instruções de preparo\n' +
+        '- Tempo de preparo (se disponível)\n' +
+        '- Rendimento (se disponível)'
+      );
+      
+      if (!userText || userText.trim().length < 10) {
+        throw new Error('Texto muito curto ou não fornecido');
+      }
+      
+      console.log('Texto extraído pelo usuário:', userText);
+      return userText;
+      
+    } catch (error) {
+      console.error('Erro na extração de texto da imagem:', error);
+      throw new Error('Erro ao processar a imagem. Por favor, tente colar o texto manualmente.');
+    }
   };
 
   const processExtractedText = async (text: string) => {
@@ -159,34 +199,198 @@ export const RecipeExtractor = ({
   };
 
   const simulateAIExtraction = async (text: string): Promise<ExtractedRecipeData> => {
+    console.log('Processando texto com IA:', text.substring(0, 100) + '...');
+    
     // Simulate AI processing delay
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // This would be replaced with actual AI service call
+    try {
+      // Parse the actual text to extract recipe data
+      const extractedData = parseRecipeText(text);
+      console.log('Dados extraídos:', extractedData);
+      return extractedData;
+    } catch (error) {
+      console.error('Erro ao processar texto:', error);
+      // Return a basic structure if parsing fails
+      return {
+        name: "Receita Extraída",
+        description: "Receita processada a partir do texto fornecido",
+        category: "Outros",
+        ingredients: [],
+        instructions: text,
+        preparationTime: 30,
+        difficulty: 'Médio',
+        yield: 1
+      };
+    }
+  };
+
+  const parseRecipeText = (text: string): ExtractedRecipeData => {
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    // Extract recipe name (usually the first line or in caps)
+    let name = "Receita Extraída";
+    const titleLine = lines.find(line => 
+      line.toUpperCase() === line && line.length > 5 && line.length < 50
+    );
+    if (titleLine) {
+      name = titleLine.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    } else if (lines[0] && lines[0].length < 50) {
+      name = lines[0];
+    }
+
+    // Extract ingredients
+    const ingredients: Array<{name: string; quantity: number; unit: string}> = [];
+    let inIngredientsSection = false;
+    let inInstructionsSection = false;
+    let instructions = "";
+    
+    for (const line of lines) {
+      const lowerLine = line.toLowerCase();
+      
+      // Check if we're entering ingredients section
+      if (lowerLine.includes('ingredient') || lowerLine.includes('receita') || line.match(/^-/) || line.match(/^\d/)) {
+        inIngredientsSection = true;
+        inInstructionsSection = false;
+        if (lowerLine.includes('ingredient')) continue;
+      }
+      
+      // Check if we're entering instructions section
+      if (lowerLine.includes('preparo') || lowerLine.includes('modo') || lowerLine.includes('instruc') || 
+          line.match(/^\d+\./) || lowerLine.includes('passo')) {
+        inInstructionsSection = true;
+        inIngredientsSection = false;
+        if (lowerLine.includes('preparo') || lowerLine.includes('modo') || lowerLine.includes('instruc')) {
+          continue;
+        }
+      }
+      
+      if (inIngredientsSection && !inInstructionsSection) {
+        // Parse ingredient line
+        const ingredient = parseIngredientLine(line);
+        if (ingredient) {
+          ingredients.push(ingredient);
+        }
+      }
+      
+      if (inInstructionsSection) {
+        instructions += line + '\n';
+      }
+    }
+
+    // Extract time, difficulty, and yield from text
+    let preparationTime = 30;
+    let difficulty: 'Fácil' | 'Médio' | 'Difícil' = 'Médio';
+    let yieldAmount = 4;
+
+    const timeMatch = text.match(/(\d+)\s*(min|minutos|horas?|h)/i);
+    if (timeMatch) {
+      const time = parseInt(timeMatch[1]);
+      preparationTime = timeMatch[2].toLowerCase().includes('h') ? time * 60 : time;
+    }
+
+    if (text.toLowerCase().includes('fácil')) difficulty = 'Fácil';
+    if (text.toLowerCase().includes('difícil')) difficulty = 'Difícil';
+
+    const yieldMatch = text.match(/(\d+)\s*(porç|fatias?|pessoas?|serve)/i);
+    if (yieldMatch) {
+      yieldAmount = parseInt(yieldMatch[1]);
+    }
+
+    // Determine category based on ingredients or name
+    let category = "Outros";
+    const nameAndIngredients = (name + ' ' + ingredients.map(i => i.name).join(' ')).toLowerCase();
+    
+    if (nameAndIngredients.includes('bolo') || nameAndIngredients.includes('cake')) category = "Bolos";
+    else if (nameAndIngredients.includes('torta')) category = "Tortas";
+    else if (nameAndIngredients.includes('cookie') || nameAndIngredients.includes('biscoito')) category = "Cookies";
+    else if (nameAndIngredients.includes('pão') || nameAndIngredients.includes('bread')) category = "Pães";
+    else if (nameAndIngredients.includes('doce') || nameAndIngredients.includes('brigadeiro')) category = "Docinhos";
+
     return {
-      name: "Bolo de Chocolate Cremoso",
-      description: "Um delicioso bolo de chocolate com textura cremosa e sabor intenso",
-      category: "Bolos",
-      ingredients: [
-        { name: "Farinha de trigo", quantity: 2, unit: "xícara" },
-        { name: "Açúcar cristal", quantity: 1, unit: "xícara" },
-        { name: "Cacau em pó", quantity: 0.5, unit: "xícara" },
-        { name: "Ovos", quantity: 3, unit: "unidade" },
-        { name: "Leite integral", quantity: 1, unit: "xícara" },
-        { name: "Óleo vegetal", quantity: 0.5, unit: "xícara" },
-        { name: "Fermento em pó", quantity: 1, unit: "colher de sopa" }
-      ],
-      instructions: `1. Pré-aqueça o forno a 180°C e unte uma forma redonda.
-2. Em uma tigela, misture todos os ingredientes secos: farinha, açúcar, cacau e fermento.
-3. Em outra tigela, bata os ovos e adicione o leite e o óleo.
-4. Misture os ingredientes líquidos aos secos, mexendo até obter uma massa homogênea.
-5. Despeje a massa na forma untada.
-6. Asse por 40-45 minutos ou até que um palito inserido saia limpo.
-7. Deixe esfriar antes de desenformar.`,
-      preparationTime: 60,
-      difficulty: 'Fácil',
-      yield: 8
+      name,
+      description: `Receita de ${name.toLowerCase()}`,
+      category,
+      ingredients,
+      instructions: instructions.trim() || text,
+      preparationTime,
+      difficulty,
+      yield: yieldAmount
     };
+  };
+
+  const parseIngredientLine = (line: string): {name: string; quantity: number; unit: string} | null => {
+    // Remove leading bullets or numbers
+    let cleanLine = line.replace(/^[-•*\d+\.)]\s*/, '').trim();
+    
+    if (cleanLine.length < 3) return null;
+    
+    // Common patterns for ingredients
+    const patterns = [
+      // "2 xícaras de farinha"
+      /^(\d+(?:[,\.]\d+)?)\s*(xícaras?|copos?|colheres?\s*(?:de\s*(?:sopa|chá|café))?|kg|g|ml|l|litros?|unidades?|dentes?|pitadas?)\s*(?:de\s+)?(.+)/i,
+      // "farinha - 2 xícaras"
+      /^(.+?)\s*[-–]\s*(\d+(?:[,\.]\d+)?)\s*(xícaras?|copos?|colheres?\s*(?:de\s*(?:sopa|chá|café))?|kg|g|ml|l|litros?|unidades?|dentes?|pitadas?)/i,
+      // "1/2 xícara farinha"
+      /^(\d+\/\d+|\d+(?:[,\.]\d+)?)\s*(xícaras?|copos?|colheres?\s*(?:de\s*(?:sopa|chá|café))?|kg|g|ml|l|litros?|unidades?|dentes?|pitadas?)\s+(.+)/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = cleanLine.match(pattern);
+      if (match) {
+        let quantity: number;
+        let unit: string;
+        let name: string;
+        
+        if (pattern === patterns[1]) {
+          // "farinha - 2 xícaras" format
+          name = match[1].trim();
+          quantity = parseFloat(match[2].replace(',', '.'));
+          unit = normalizeUnit(match[3]);
+        } else {
+          // "2 xícaras de farinha" format
+          quantity = parseFloat(match[1].replace(',', '.'));
+          if (match[1].includes('/')) {
+            const [num, den] = match[1].split('/');
+            quantity = parseInt(num) / parseInt(den);
+          }
+          unit = normalizeUnit(match[2]);
+          name = match[3].trim();
+        }
+        
+        if (name && quantity > 0 && unit) {
+          return { name, quantity, unit };
+        }
+      }
+    }
+    
+    // If no pattern matches, treat whole line as ingredient name with default quantity
+    return {
+      name: cleanLine,
+      quantity: 1,
+      unit: 'unidade'
+    };
+  };
+
+  const normalizeUnit = (unit: string): string => {
+    const normalized = unit.toLowerCase().trim();
+    
+    if (normalized.includes('xícara')) return 'xícara';
+    if (normalized.includes('copo')) return 'copo';
+    if (normalized.includes('colher')) {
+      if (normalized.includes('sopa')) return 'colher de sopa';
+      if (normalized.includes('chá')) return 'colher de chá';
+      if (normalized.includes('café')) return 'colher de café';
+      return 'colher de sopa';
+    }
+    if (normalized.includes('kg')) return 'kg';
+    if (normalized.includes('g') && !normalized.includes('kg')) return 'g';
+    if (normalized.includes('ml')) return 'mL';
+    if (normalized.includes('l') && !normalized.includes('ml')) return 'L';
+    if (normalized.includes('litro')) return 'L';
+    if (normalized.includes('unidade') || normalized.includes('dente') || normalized.includes('pitada')) return 'unidade';
+    
+    return unit;
   };
 
   const updateIngredientPrice = (index: number, price: string) => {
@@ -200,59 +404,47 @@ export const RecipeExtractor = ({
   const handleSaveRecipe = () => {
     if (!extractedData) return;
 
-    // First, save new ingredients
+    // Separate new and existing ingredients
     const newIngredients: Omit<Ingredient, 'id'>[] = [];
-    const recipeIngredients: Array<{ ingredientId: string; quantity: number }> = [];
-
+    
     extractedData.ingredients.forEach((ingredient) => {
       // Check if ingredient already exists
       const existing = existingIngredients.find(
         ing => ing.name.toLowerCase() === ingredient.name.toLowerCase()
       );
 
-      if (existing) {
-        // Use existing ingredient
-        recipeIngredients.push({
-          ingredientId: existing.id,
-          quantity: ingredient.quantity
-        });
-      } else {
+      if (!existing) {
         // Create new ingredient
-        const newId = `extracted_${Date.now()}_${Math.random()}`;
         newIngredients.push({
           name: ingredient.name,
           unit: ingredient.unit,
           pricePerUnit: ingredient.pricePerUnit || 0,
         });
-        
-        recipeIngredients.push({
-          ingredientId: newId,
-          quantity: ingredient.quantity
-        });
       }
     });
 
-    // Save ingredients first
-    if (newIngredients.length > 0) {
-      onIngredientsExtracted(newIngredients);
-    }
-
-    // Save recipe
+    // Pass both recipe and ingredients to parent
     onRecipeExtracted({
       name: extractedData.name,
       description: extractedData.description,
       category: extractedData.category,
-      ingredients: recipeIngredients,
+      ingredients: extractedData.ingredients.map(ing => ({
+        ingredientId: ing.name, // Use name as temporary ID
+        quantity: ing.quantity
+      })),
       instructions: extractedData.instructions,
       preparationTime: extractedData.preparationTime,
       difficulty: extractedData.difficulty,
       yield: extractedData.yield,
-    });
+    }, newIngredients);
 
     toast({
       title: "Receita salva!",
       description: `${newIngredients.length} novos ingredientes e receita foram adicionados`,
     });
+
+    // Close the extractor
+    setExtractedData(null);
   };
 
   return (
