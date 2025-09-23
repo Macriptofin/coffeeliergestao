@@ -6,7 +6,8 @@ import {
   Building2, 
   Package,
   FileText, 
-  ClipboardList 
+  ClipboardList,
+  Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +60,12 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       href: "/relatorios",
       icon: FileText,
       current: location.pathname === "/relatorios"
+    },
+    {
+      name: "Usuários",
+      href: "/usuarios",
+      icon: Shield,
+      current: location.pathname === "/usuarios"
     }
   ];
 

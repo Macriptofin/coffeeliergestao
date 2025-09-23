@@ -11,8 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
-import { FileText, Plus, ShoppingCart, X, Package } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FileText, Plus, ShoppingCart, X, Package, Shield } from "lucide-react";
 import type { PurchaseInvoice } from "@/pages/Stock";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface Supplier {
   id: string;
@@ -43,6 +45,7 @@ interface PurchaseInvoicesProps {
 }
 
 export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps) {
+  const { isAdminOrManager, loading: roleLoading } = useUserRole();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -368,6 +371,40 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       default: return 'secondary';
     }
   };
+
+  if (roleLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdminOrManager()) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Notas Fiscais de Compra
+          </CardTitle>
+          <CardDescription>
+            Acesso restrito a administradores e gerentes
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert className="border-amber-200 bg-amber-50">
+            <Shield className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800">
+              <strong>Acesso Restrito:</strong> Esta funcionalidade contém informações sensíveis de fornecedores e está disponível apenas para usuários com permissões de administrador ou gerente.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">

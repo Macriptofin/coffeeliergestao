@@ -11,6 +11,7 @@ import Suppliers from "./pages/Suppliers";
 import Production from "./pages/Production";
 import Stock from "./pages/Stock";
 import Reports from "./pages/Reports";
+import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="producao" element={<Production />} />
             <Route path="estoque" element={<Stock />} />
             <Route path="relatorios" element={<Reports />} />
+            <Route path="usuarios" element={<UserManagement />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
