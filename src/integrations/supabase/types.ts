@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      clients: {
+        Row: {
+          address: string | null
+          city: string | null
+          cnpj_cpf: string | null
+          contact_person: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          state: string | null
+          status: string
+          updated_at: string
+          zip_code: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          cnpj_cpf?: string | null
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          state?: string | null
+          status?: string
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          cnpj_cpf?: string | null
+          contact_person?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          state?: string | null
+          status?: string
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
       invoice_items: {
         Row: {
           created_at: string
@@ -111,6 +162,188 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category: Database["public"]["Enums"]["product_category"]
+          code: string
+          cost_price: number
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          profit_margin: number | null
+          recipe_id: string | null
+          selling_price: number
+          unit_weight: number
+          updated_at: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["product_category"]
+          code: string
+          cost_price?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          profit_margin?: number | null
+          recipe_id?: string | null
+          selling_price?: number
+          unit_weight?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["product_category"]
+          code?: string
+          cost_price?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          profit_margin?: number | null
+          recipe_id?: string | null
+          selling_price?: number
+          unit_weight?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposal_items: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          proposal_id: string
+          quantity: number
+          total_price: number | null
+          total_weight: number | null
+          unit_price: number
+          unit_weight: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          proposal_id: string
+          quantity: number
+          total_price?: number | null
+          total_weight?: number | null
+          unit_price: number
+          unit_weight: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          proposal_id?: string
+          quantity?: number
+          total_price?: number | null
+          total_weight?: number | null
+          unit_price?: number
+          unit_weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_items_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposals: {
+        Row: {
+          client_id: string
+          created_at: string
+          event_category: Database["public"]["Enums"]["event_category"]
+          event_date: string | null
+          id: string
+          notes: string | null
+          number_of_people: number
+          parent_proposal_id: string | null
+          proposal_date: string
+          proposal_number: string
+          status: string
+          target_weight_per_person: number
+          total_amount: number
+          total_target_weight: number | null
+          total_weight: number
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          event_category: Database["public"]["Enums"]["event_category"]
+          event_date?: string | null
+          id?: string
+          notes?: string | null
+          number_of_people: number
+          parent_proposal_id?: string | null
+          proposal_date?: string
+          proposal_number: string
+          status?: string
+          target_weight_per_person?: number
+          total_amount?: number
+          total_target_weight?: number | null
+          total_weight?: number
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          event_category?: Database["public"]["Enums"]["event_category"]
+          event_date?: string | null
+          id?: string
+          notes?: string | null
+          number_of_people?: number
+          parent_proposal_id?: string | null
+          proposal_date?: string
+          proposal_number?: string
+          status?: string
+          target_weight_per_person?: number
+          total_amount?: number
+          total_target_weight?: number | null
+          total_weight?: number
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_parent_proposal_id_fkey"
+            columns: ["parent_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
             referencedColumns: ["id"]
           },
         ]
@@ -622,6 +855,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "user"
+      event_category: "Coffee Break" | "Brunch" | "Coquetel" | "Mesa de Frios"
+      product_category: "Salgados" | "Doces" | "Low Fat" | "Bebidas"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -750,6 +985,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "user"],
+      event_category: ["Coffee Break", "Brunch", "Coquetel", "Mesa de Frios"],
+      product_category: ["Salgados", "Doces", "Low Fat", "Bebidas"],
     },
   },
 } as const
