@@ -2,15 +2,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Package, ShoppingCart, FileText, TrendingUp, AlertTriangle } from "lucide-react";
+import { Package, AlertTriangle, TrendingUp } from "lucide-react";
 import { StockOverview } from "@/components/stock/StockOverview";
-import { PurchaseInvoices } from "@/components/stock/PurchaseInvoices";
-import { StockMovements } from "@/components/stock/StockMovements";
-import { SupplierProducts } from "@/components/stock/SupplierProducts";
-import { ImportMaterials } from "@/components/ImportMaterials";
 
 export interface StockItem {
   id: string;
@@ -42,9 +36,7 @@ export interface PurchaseInvoice {
 
 const Stock = () => {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
-  const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseInvoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     loadData();
@@ -52,10 +44,7 @@ const Stock = () => {
 
   const loadData = async () => {
     try {
-      await Promise.all([
-        loadStockItems(),
-        loadPurchaseInvoices()
-      ]);
+      await loadStockItems();
     } catch (error) {
       console.error('Erro ao carregar dados do estoque:', error);
       toast.error('Erro ao carregar dados do estoque');
@@ -96,42 +85,11 @@ const Stock = () => {
     setStockItems(formattedItems);
   };
 
-  const loadPurchaseInvoices = async () => {
-    const { data, error } = await supabase
-      .from('purchase_invoices')
-      .select(`
-        *,
-        suppliers (
-          id,
-          company_name
-        )
-      `)
-      .order('invoice_date', { ascending: false })
-      .limit(10);
-
-    if (error) throw error;
-
-    const formattedInvoices: PurchaseInvoice[] = data.map(item => ({
-      id: item.id,
-      invoiceNumber: item.invoice_number,
-      supplier: item.suppliers ? {
-        id: item.suppliers.id,
-        companyName: item.suppliers.company_name
-      } : undefined,
-      invoiceDate: item.invoice_date,
-      totalAmount: parseFloat(item.total_amount?.toString() || '0'),
-      status: item.status as 'Pendente' | 'Pago' | 'Vencido' | 'Cancelado',
-      stockPosted: item.stock_posted || false,
-      stockPostedAt: item.stock_posted_at || undefined
-    }));
-
-    setPurchaseInvoices(formattedInvoices);
-  };
-
   // Cálculos para resumo
   const totalStockValue = stockItems.reduce((sum, item) => sum + item.totalValue, 0);
   const lowStockItems = stockItems.filter(item => item.currentQuantity <= item.minimumQuantity);
-  const pendingInvoices = purchaseInvoices.filter(invoice => invoice.status === 'Pendente');
+  const outOfStockItems = stockItems.filter(item => item.currentQuantity === 0);
+  const totalItems = stockItems.length;
 
   if (loading) {
     return (
@@ -146,9 +104,9 @@ const Stock = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Gestão de Estoque</h1>
+        <h1 className="text-3xl font-bold mb-2">Controle de Estoque</h1>
         <p className="text-muted-foreground">
-          Controle completo de entrada, saída e preço médio dos ingredientes
+          Visão completa dos saldos atuais e relatórios de estoque
         </p>
       </div>
 
@@ -195,18 +153,18 @@ const Stock = () => {
         <Card className="shadow-soft">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <FileText className="h-4 w-4 text-blue-600" />
+              <div className="p-2 bg-red-100 rounded-lg">
+                <Package className="h-4 w-4 text-red-600" />
               </div>
-              Notas Pendentes
+              Sem Estoque
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {pendingInvoices.length}
+            <div className="text-2xl font-bold text-red-600">
+              {outOfStockItems.length}
             </div>
             <p className="text-sm text-muted-foreground">
-              Aguardando pagamento
+              Itens zerados
             </p>
           </CardContent>
         </Card>
@@ -217,15 +175,15 @@ const Stock = () => {
               <div className="p-2 bg-accent-mocca/20 rounded-lg">
                 <TrendingUp className="h-4 w-4 text-accent-coffee" />
               </div>
-              Preço Médio
+              Total de Itens
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-accent-coffee">
-              R$ {stockItems.length > 0 ? (totalStockValue / stockItems.reduce((sum, item) => sum + item.currentQuantity, 0) || 0).toFixed(2) : '0,00'}
+              {totalItems}
             </div>
             <p className="text-sm text-muted-foreground">
-              Por unidade média
+              Itens cadastrados
             </p>
           </CardContent>
         </Card>
@@ -270,58 +228,12 @@ const Stock = () => {
       )}
 
       {/* Tabs do Sistema */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Visão Geral
-          </TabsTrigger>
-          <TabsTrigger value="purchases" className="flex items-center gap-2">
-            <ShoppingCart className="h-4 w-4" />
-            Compras
-          </TabsTrigger>
-          <TabsTrigger value="movements" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Movimentações
-          </TabsTrigger>
-          <TabsTrigger value="products" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Produtos Fornecedor
-          </TabsTrigger>
-          <TabsTrigger value="import" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Importações
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="mt-6">
-          <StockOverview 
-            stockItems={stockItems} 
-            onRefresh={loadStockItems}
-          />
-        </TabsContent>
-
-        <TabsContent value="purchases" className="mt-6">
-          <PurchaseInvoices 
-            invoices={purchaseInvoices}
-            onRefresh={loadPurchaseInvoices}
-          />
-        </TabsContent>
-
-        <TabsContent value="movements" className="mt-6">
-          <StockMovements onRefresh={loadData} />
-        </TabsContent>
-
-        <TabsContent value="products" className="mt-6">
-          <SupplierProducts onRefresh={loadData} />
-        </TabsContent>
-
-        <TabsContent value="import" className="mt-6">
-          <div className="grid gap-6 md:grid-cols-1">
-            <ImportMaterials onRefresh={loadData} />
-          </div>
-        </TabsContent>
-      </Tabs>
+      <div className="w-full">
+        <StockOverview 
+          stockItems={stockItems} 
+          onRefresh={loadStockItems}
+        />
+      </div>
     </div>
   );
 };
