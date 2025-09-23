@@ -106,7 +106,7 @@ const Index = () => {
   const loadIngredients = async () => {
     try {
       const { data, error } = await supabase
-        .from('ingredients')
+        .from('materials')
         .select('*')
         .order('name');
       
@@ -211,7 +211,7 @@ const Index = () => {
   const addIngredient = async (ingredient: Omit<Ingredient, 'id'>) => {
     try {
       const { data, error } = await supabase
-        .from('ingredients')
+        .from('materials')
         .insert({
           name: ingredient.name,
           purchase_unit: ingredient.purchaseUnit,
@@ -437,7 +437,7 @@ const Index = () => {
   const updateIngredient = async (updatedIngredient: Ingredient) => {
     try {
       const { error } = await supabase
-        .from('ingredients')
+        .from('materials')
         .update({
           name: updatedIngredient.name,
           purchase_unit: updatedIngredient.purchaseUnit,
@@ -530,7 +530,7 @@ const Index = () => {
     
     try {
       const { error } = await supabase
-        .from('ingredients')
+        .from('materials')
         .delete()
         .eq('id', ingredientId);
       

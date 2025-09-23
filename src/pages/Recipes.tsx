@@ -34,7 +34,7 @@ const Recipes = () => {
 
   const loadIngredients = async () => {
     const { data, error } = await supabase
-      .from('ingredients')
+      .from('materials')
       .select('*')
       .order('name');
     

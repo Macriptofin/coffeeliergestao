@@ -40,7 +40,7 @@ export function StockMovements({ onRefresh }: StockMovementsProps) {
         .from('stock_movements')
         .select(`
           *,
-          ingredients (
+          materials:material_id (
             name,
             usage_unit
           )
@@ -59,8 +59,8 @@ export function StockMovements({ onRefresh }: StockMovementsProps) {
       const formattedMovements: StockMovement[] = data.map(item => ({
         id: item.id,
         ingredient: {
-          name: item.ingredients.name,
-          usageUnit: item.ingredients.usage_unit
+          name: item.materials.name,
+          usageUnit: item.materials.usage_unit
         },
         movementType: item.movement_type as 'Entrada' | 'Saida' | 'Ajuste',
         quantity: parseFloat(item.quantity?.toString() || '0'),

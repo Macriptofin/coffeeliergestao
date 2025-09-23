@@ -111,9 +111,9 @@ const Materials = () => {
         conversionFactor: parseFloat(data.conversion_factor.toString()),
         pricePerPurchaseUnit: parseFloat(data.price_per_purchase_unit.toString()),
         supplier: data.supplier || undefined,
-        category: data.category,
+        category: data.category as Material['category'],
         code: data.code,
-        materialType: data.material_type
+        materialType: data.material_type as Material['materialType']
       };
       
       setMaterials([...materials, newMaterial]);

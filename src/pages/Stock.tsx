@@ -69,7 +69,7 @@ const Stock = () => {
       .from('stock_items')
       .select(`
         *,
-        ingredients (
+        materials:material_id (
           id,
           name,
           usage_unit
@@ -82,9 +82,9 @@ const Stock = () => {
     const formattedItems: StockItem[] = data.map(item => ({
       id: item.id,
       ingredient: {
-        id: item.ingredients.id,
-        name: item.ingredients.name,
-        usageUnit: item.ingredients.usage_unit
+        id: item.materials.id,
+        name: item.materials.name,
+        usageUnit: item.materials.usage_unit
       },
       currentQuantity: parseFloat(item.current_quantity?.toString() || '0'),
       minimumQuantity: parseFloat(item.minimum_quantity?.toString() || '0'),

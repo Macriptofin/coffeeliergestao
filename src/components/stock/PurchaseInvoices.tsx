@@ -224,7 +224,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
         const invoiceItemsData = invoiceItems.map(item => ({
           invoice_id: editingInvoice,
-          ingredient_id: item.ingredientId,
+          material_id: item.ingredientId,
           quantity: item.quantity,
           unit_price: item.unitPrice,
           total_price: item.totalPrice
@@ -334,7 +334,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         .from('invoice_items')
         .select(`
           *,
-          ingredients:ingredient_id (
+          materials:material_id (
             id,
             name,
             purchase_unit,
@@ -361,10 +361,10 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       // Preencher itens da nota fiscal
       const formattedItems: InvoiceItem[] = items.map(item => ({
-        ingredientId: item.ingredient_id,
-        ingredientName: item.ingredients?.name || '',
+        ingredientId: item.material_id,
+        ingredientName: item.materials?.name || '',
         quantity: parseFloat(item.quantity?.toString() || '0'),
-        purchaseUnit: item.ingredients?.purchase_unit || '',
+        purchaseUnit: item.materials?.purchase_unit || '',
         unitPrice: parseFloat(item.unit_price?.toString() || '0'),
         totalPrice: parseFloat(item.total_price?.toString() || '0')
       }));
@@ -416,7 +416,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         .from('invoice_items')
         .select(`
           *,
-          ingredients:ingredient_id (
+          materials:material_id (
             id,
             name,
             purchase_unit,
@@ -428,10 +428,10 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       if (itemsError) throw itemsError;
 
-      // Verificar se todos os ingredientes ainda existem no sistema
-      const missingIngredients = items.filter(item => !item.ingredients);
-      if (missingIngredients.length > 0) {
-        toast.error(`Alguns ingredientes da nota fiscal não foram encontrados no sistema. Cadastre todos os ingredientes antes de lançar no estoque.`);
+      // Verificar se todos os materiais ainda existem no sistema
+      const missingMaterials = items.filter(item => !item.materials);
+      if (missingMaterials.length > 0) {
+        toast.error(`Alguns materiais da nota fiscal não foram encontrados no sistema. Cadastre todos os materiais antes de lançar no estoque.`);
         setLoading(false);
         return;
       }
@@ -476,7 +476,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
         // Atualizar preço médio ponderado
         const { error: rpcError } = await supabase.rpc('calculate_weighted_average_price', {
-          p_ingredient_id: item.ingredient_id,
+          p_ingredient_id: item.material_id,
           p_new_quantity: usageQuantity,
           p_new_price: usageUnitPrice
         });

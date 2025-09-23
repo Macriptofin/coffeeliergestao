@@ -34,7 +34,7 @@ const Reports = () => {
 
   const loadIngredients = async () => {
     const { data, error } = await supabase
-      .from('ingredients')
+      .from('materials')
       .select('*')
       .order('name');
     
@@ -136,10 +136,10 @@ const Reports = () => {
       const { data, error } = await supabase
         .from('stock_movements')
         .select(`
-          ingredient_id,
+          material_id,
           unit_price,
           movement_date,
-          ingredients (
+          materials:material_id (
             name,
             price_per_purchase_unit
           )
@@ -150,26 +150,26 @@ const Reports = () => {
 
       if (error) throw error;
 
-      // Agrupar por ingrediente e calcular variação
-      const ingredientPrices: Record<string, any> = {};
+      // Agrupar por material e calcular variação
+      const materialPrices: Record<string, any> = {};
       
       data.forEach(movement => {
-        const ingredientId = movement.ingredient_id;
-        if (!ingredientPrices[ingredientId]) {
-          ingredientPrices[ingredientId] = {
-            name: movement.ingredients.name,
-            currentPrice: parseFloat(movement.ingredients.price_per_purchase_unit?.toString() || '0'),
+        const materialId = movement.material_id;
+        if (!materialPrices[materialId]) {
+          materialPrices[materialId] = {
+            name: movement.materials.name,
+            currentPrice: parseFloat(movement.materials.price_per_purchase_unit?.toString() || '0'),
             prices: []
           };
         }
-        ingredientPrices[ingredientId].prices.push({
+        materialPrices[materialId].prices.push({
           price: parseFloat(movement.unit_price?.toString() || '0'),
           date: movement.movement_date
         });
       });
 
       // Calcular variações
-      const variations = Object.values(ingredientPrices)
+      const variations = Object.values(materialPrices)
         .filter((item: any) => item.prices.length >= 2)
         .map((item: any) => {
           const sortedPrices = item.prices.sort((a: any, b: any) => 

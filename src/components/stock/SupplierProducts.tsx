@@ -89,7 +89,7 @@ export function SupplierProducts({ onRefresh }: SupplierProductsProps) {
           id,
           company_name
         ),
-        ingredients (
+        materials:material_id (
           id,
           name,
           usage_unit
@@ -107,9 +107,9 @@ export function SupplierProducts({ onRefresh }: SupplierProductsProps) {
         companyName: item.suppliers.company_name
       },
       ingredient: {
-        id: item.ingredients.id,
-        name: item.ingredients.name,
-        usageUnit: item.ingredients.usage_unit
+        id: item.materials.id,
+        name: item.materials.name,
+        usageUnit: item.materials.usage_unit
       },
       supplierProductName: item.supplier_product_name,
       supplierProductCode: item.supplier_product_code,
@@ -136,10 +136,10 @@ export function SupplierProducts({ onRefresh }: SupplierProductsProps) {
   };
 
   const loadIngredients = async () => {
-    const { data, error } = await supabase
-      .from('ingredients')
-      .select('id, name, usage_unit')
-      .order('name');
+      const { data, error } = await supabase
+        .from('materials')
+        .select('id, name, usage_unit')
+        .order('name');
 
     if (error) throw error;
 
@@ -173,7 +173,7 @@ export function SupplierProducts({ onRefresh }: SupplierProductsProps) {
           .from('supplier_products')
           .insert({
             supplier_id: formData.supplierId,
-            ingredient_id: formData.ingredientId,
+            material_id: formData.ingredientId,
             supplier_product_name: formData.supplierProductName,
             supplier_product_code: formData.supplierProductCode || null,
             supplier_unit: formData.supplierUnit,

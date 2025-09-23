@@ -57,7 +57,7 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
         await supabase
           .from('stock_movements')
           .insert({
-            ingredient_id: editingStock.ingredient.id,
+            material_id: editingStock.ingredient.id,
             movement_type: 'Ajuste',
             quantity: adjustmentQuantity,
             reference_type: 'Ajuste',
