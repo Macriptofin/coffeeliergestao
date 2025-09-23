@@ -69,9 +69,9 @@ export const MaterialsList = ({ materials, onEdit, onDelete }: MaterialsListProp
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <CardTitle className="text-lg mb-2 flex items-center gap-2">
+                <CardTitle className="text-lg mb-2 flex items-start gap-2">
                   {getCategoryIcon(material.category)}
-                  <span className="truncate">{material.name}</span>
+                  <span className="break-words leading-tight">{material.name}</span>
                 </CardTitle>
                 <div className="flex flex-wrap gap-2">
                   <Badge 
@@ -122,7 +122,7 @@ export const MaterialsList = ({ materials, onEdit, onDelete }: MaterialsListProp
             {material.supplier && (
               <div className="text-sm">
                 <p className="text-muted-foreground">Fornecedor</p>
-                <p className="font-medium truncate">{material.supplier}</p>
+                <p className="font-medium break-words">{material.supplier}</p>
               </div>
             )}
 
