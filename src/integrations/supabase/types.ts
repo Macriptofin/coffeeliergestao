@@ -297,6 +297,42 @@ export type Database = {
         }
         Relationships: []
       }
+      security_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          new_role: string | null
+          old_role: string | null
+          target_user_id: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          new_role?: string | null
+          old_role?: string | null
+          target_user_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          new_role?: string | null
+          old_role?: string | null
+          target_user_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       stock_items: {
         Row: {
           average_price: number
@@ -537,6 +573,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_exists: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       calculate_weighted_average_price: {
         Args: {
           p_ingredient_id: string
@@ -550,6 +590,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_admin_not_self: {
+        Args: { _target_user_id: string; _user_id: string }
         Returns: boolean
       }
       is_admin_or_manager: {

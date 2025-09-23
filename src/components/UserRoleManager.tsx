@@ -126,35 +126,54 @@ export function UserRoleManager() {
 
   const createNewUser = async () => {
     if (!newUserEmail || !newUserPassword || !newUserRole) {
-      toast.error('Preencha todos os campos');
+      toast.error('Por favor, preencha todos os campos.');
       return;
     }
 
-    if (newUserPassword.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
+    // Validate password strength
+    if (newUserPassword.length < 8) {
+      toast.error('A senha deve ter pelo menos 8 caracteres.');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newUserEmail)) {
+      toast.error('Por favor, insira um email válido.');
+      return;
+    }
+
+    if (currentUserRole !== 'admin') {
+      toast.error('Apenas administradores podem criar usuários.');
       return;
     }
 
     try {
       setLoading(true);
-      
-      // Criar usuário usando signUp com confirmação automática
+      const redirectUrl = `${window.location.origin}/`;
+
       const { data, error } = await supabase.auth.signUp({
         email: newUserEmail,
         password: newUserPassword,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth`,
-          data: {
-            created_by_admin: true,
-            assigned_role: newUserRole
-          }
+          emailRedirectTo: redirectUrl
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao criar usuário:', error);
+        if (error.message?.includes('User already registered')) {
+          toast.error('Este email já está cadastrado no sistema');
+        } else {
+          toast.error(`Erro ao criar usuário: ${error.message}`);
+        }
+        return;
+      }
 
       if (data.user) {
-        // Criar role para o usuário
+        // Wait a moment for user creation to complete, then assign role
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
         const { error: roleError } = await supabase
           .from('user_roles')
           .insert({
@@ -163,30 +182,20 @@ export function UserRoleManager() {
           });
 
         if (roleError) {
-          // Se der erro, tentar novamente após um delay
-          setTimeout(async () => {
-            await supabase
-              .from('user_roles')
-              .upsert({
-                user_id: data.user.id,
-                role: newUserRole
-              });
-          }, 1000);
+          console.error('Erro ao criar role do usuário:', roleError);
+          toast.error('Usuário criado, mas erro ao definir role. Tente definir manualmente.');
+        } else {
+          toast.success(`Usuário criado com sucesso com o role ${newUserRole}!`);
         }
 
-        toast.success(`Usuário ${newUserEmail} criado com sucesso com role ${newUserRole}!`);
         setNewUserEmail('');
         setNewUserPassword('');
         setNewUserRole('user');
-        loadUserRoles();
+        await loadUserRoles();
       }
     } catch (error: any) {
       console.error('Erro ao criar usuário:', error);
-      if (error.message?.includes('User already registered')) {
-        toast.error('Este email já está cadastrado no sistema');
-      } else {
-        toast.error('Erro ao criar usuário. Verifique os dados e tente novamente.');
-      }
+      toast.error('Erro inesperado ao criar usuário');
     } finally {
       setLoading(false);
     }
@@ -278,8 +287,11 @@ export function UserRoleManager() {
                 value={newUserPassword}
                 onChange={(e) => setNewUserPassword(e.target.value)}
                 placeholder="••••••••"
-                minLength={6}
+                minLength={8}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Mínimo 8 caracteres
+              </p>
             </div>
             <div>
               <Label htmlFor="newUserRole">Role</Label>
