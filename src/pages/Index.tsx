@@ -9,6 +9,7 @@ import { IngredientsList } from "@/components/IngredientsList";
 import { RecipesList } from "@/components/RecipesList";
 import { ProductionOrder } from "@/components/ProductionOrder";
 import { RecipeExtractor } from "@/components/RecipeExtractor";
+import { CoffeelierLogo } from "@/components/CoffeelierLogo";
 
 export interface Ingredient {
   id: string;
@@ -218,13 +219,18 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <div className="bg-gradient-primary text-primary-foreground">
+      <div className="bg-gradient-coffee text-primary-foreground shadow-warm">
         <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center gap-3 mb-4">
-            <ChefHat className="h-8 w-8" />
-            <h1 className="text-3xl font-bold">Gestão de Confeitaria</h1>
+          <div className="flex items-center gap-4 mb-4">
+            <CoffeelierLogo size="lg" className="filter brightness-0 invert" />
+            <div>
+              <h1 className="text-3xl font-display font-bold">Sistema de Gestão</h1>
+              <p className="text-primary-foreground/80 text-sm font-medium">
+                Controle completo da sua confeitaria
+              </p>
+            </div>
           </div>
-          <p className="text-primary-foreground/90 text-lg">
+          <p className="text-primary-foreground/90 text-lg font-light">
             Sistema completo para controle de custos e fichas técnicas das suas receitas
           </p>
         </div>
@@ -274,8 +280,8 @@ const Index = () => {
               <Card className="shadow-soft">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <div className="p-2 bg-accent-gold/20 rounded-lg">
-                      <ChefHat className="h-4 w-4 text-accent-gold" />
+                    <div className="p-2 bg-accent-mocca/20 rounded-lg">
+                      <ChefHat className="h-4 w-4 text-accent-coffee" />
                     </div>
                     Receitas
                   </CardTitle>
@@ -283,7 +289,7 @@ const Index = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-accent-gold">{recipes.length}</span>
+                    <span className="text-3xl font-bold text-accent-coffee">{recipes.length}</span>
                     <span className="text-muted-foreground">receitas</span>
                   </div>
                 </CardContent>

@@ -8,48 +8,61 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 355 25% 98%;
-    --foreground: 340 15% 15%;
+    --background: 34 89% 97%;
+    --foreground: 25 54% 22%;
 
     --card: 0 0% 100%;
-    --card-foreground: 340 15% 15%;
+    --card-foreground: 25 54% 22%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 340 15% 15%;
+    --popover-foreground: 25 54% 22%;
 
-    --primary: 345 65% 68%;
-    --primary-foreground: 0 0% 100%;
+    /* Coffeelier Primary - Oliva */
+    --primary: 62 35% 29%;
+    --primary-foreground: 34 89% 91%;
     
-    --primary-light: 345 45% 85%;
-    --primary-glow: 345 70% 75%;
+    --primary-light: 62 30% 45%;
+    --primary-glow: 62 40% 35%;
 
-    --secondary: 45 85% 92%;
-    --secondary-foreground: 340 15% 15%;
+    /* Coffeelier Secondary - Caramelo */
+    --secondary: 25 54% 49%;
+    --secondary-foreground: 34 89% 91%;
     
-    --accent-gold: 45 95% 65%;
-    --accent-gold-foreground: 340 20% 15%;
+    /* Coffeelier Accent - Mocca */
+    --accent-coffee: 25 54% 22%;
+    --accent-coffee-foreground: 34 89% 91%;
+    
+    /* Coffeelier Mocca */
+    --accent-mocca: 34 52% 67%;
+    --accent-mocca-foreground: 25 54% 22%;
+    
+    /* Coffeelier Creme */
+    --accent-creme: 34 89% 91%;
+    --accent-creme-foreground: 25 54% 22%;
 
-    --muted: 355 20% 95%;
-    --muted-foreground: 340 10% 50%;
+    --muted: 34 40% 95%;
+    --muted-foreground: 25 30% 45%;
 
-    --accent: 355 30% 92%;
-    --accent-foreground: 340 15% 15%;
+    --accent: 34 30% 92%;
+    --accent-foreground: 25 54% 22%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 345 25% 88%;
-    --input: 345 20% 92%;
-    --ring: 345 65% 68%;
+    --border: 34 25% 88%;
+    --input: 34 20% 92%;
+    --ring: 62 35% 29%;
     
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-glow)) 100%);
+    /* Coffeelier Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-light)) 100%);
+    --gradient-coffee: linear-gradient(135deg, hsl(var(--accent-coffee)) 0%, hsl(var(--secondary)) 100%);
+    --gradient-warm: linear-gradient(135deg, hsl(var(--accent-mocca)) 0%, hsl(var(--accent-creme)) 100%);
     --gradient-subtle: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--muted)) 100%);
-    --gradient-gold: linear-gradient(135deg, hsl(var(--accent-gold)) 0%, hsl(45 80% 75%) 100%);
     
-    /* Shadows */
-    --shadow-elegant: 0 10px 30px -5px hsl(var(--primary) / 0.1);
-    --shadow-soft: 0 4px 12px -2px hsl(var(--primary) / 0.08);
+    /* Coffeelier Shadows */
+    --shadow-elegant: 0 10px 30px -5px hsl(var(--primary) / 0.15);
+    --shadow-soft: 0 4px 12px -2px hsl(var(--primary) / 0.1);
+    --shadow-warm: 0 8px 25px -5px hsl(var(--accent-coffee) / 0.2);
     
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -74,33 +87,42 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 25 54% 12%;
+    --foreground: 34 89% 91%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 25 54% 15%;
+    --card-foreground: 34 89% 91%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 25 54% 15%;
+    --popover-foreground: 34 89% 91%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 62 35% 45%;
+    --primary-foreground: 25 54% 12%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 25 54% 35%;
+    --secondary-foreground: 34 89% 91%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --accent-coffee: 25 54% 22%;
+    --accent-coffee-foreground: 34 89% 91%;
+    
+    --accent-mocca: 34 52% 67%;
+    --accent-mocca-foreground: 25 54% 22%;
+    
+    --accent-creme: 34 89% 91%;
+    --accent-creme-foreground: 25 54% 22%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --muted: 25 30% 20%;
+    --muted-foreground: 34 40% 65%;
+
+    --accent: 25 30% 18%;
+    --accent-foreground: 34 89% 91%;
 
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 34 89% 91%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 25 30% 25%;
+    --input: 25 30% 20%;
+    --ring: 62 35% 45%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;

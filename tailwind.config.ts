@@ -13,6 +13,11 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        serif: ['Playfair Display', 'ui-serif', 'Georgia', 'serif'],
+        display: ['Playfair Display', 'serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -40,8 +45,12 @@ export default {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
-          gold: "hsl(var(--accent-gold))",
-          "gold-foreground": "hsl(var(--accent-gold-foreground))",
+          coffee: "hsl(var(--accent-coffee))",
+          "coffee-foreground": "hsl(var(--accent-coffee-foreground))",
+          mocca: "hsl(var(--accent-mocca))",
+          "mocca-foreground": "hsl(var(--accent-mocca-foreground))",
+          creme: "hsl(var(--accent-creme))",
+          "creme-foreground": "hsl(var(--accent-creme-foreground))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
@@ -69,12 +78,14 @@ export default {
       },
       backgroundImage: {
         "gradient-primary": "var(--gradient-primary)",
+        "gradient-coffee": "var(--gradient-coffee)",
+        "gradient-warm": "var(--gradient-warm)",
         "gradient-subtle": "var(--gradient-subtle)",
-        "gradient-gold": "var(--gradient-gold)",
       },
       boxShadow: {
         elegant: "var(--shadow-elegant)",
         soft: "var(--shadow-soft)",
+        warm: "var(--shadow-warm)",
       },
       transitionTimingFunction: {
         smooth: "var(--transition-smooth)",
