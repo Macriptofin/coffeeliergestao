@@ -211,50 +211,25 @@ export function UserRoleManager() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="border-blue-200 bg-blue-50">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-blue-800">
             <UserPlus className="h-5 w-5" />
-            Convidar Novo Usuário
+            Adicionando Novos Usuários
           </CardTitle>
-          <CardDescription>
-            Convide usuários por email e defina suas permissões
+          <CardDescription className="text-blue-700">
+            Como criar contas para novos usuários
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="inviteEmail">Email do Usuário</Label>
-              <Input
-                id="inviteEmail"
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="usuario@exemplo.com"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Um convite será enviado para este email
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="inviteRole">Role</Label>
-              <Select value={inviteRole} onValueChange={(value: 'admin' | 'manager' | 'user') => setInviteRole(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin - Acesso total</SelectItem>
-                  <SelectItem value="manager">Manager - Gestão operacional</SelectItem>
-                  <SelectItem value="user">User - Acesso básico</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button onClick={inviteUser} disabled={loading} className="w-full">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Convidar Usuário
-              </Button>
-            </div>
+        <CardContent>
+          <div className="space-y-3">
+            <h4 className="font-medium text-blue-800">Processo Simples:</h4>
+            <ol className="list-decimal list-inside space-y-2 text-sm text-blue-700">
+              <li>Compartilhe o link de cadastro: <code className="bg-white px-2 py-1 rounded border">{window.location.origin}/auth</code></li>
+              <li>Novos usuários se cadastram diretamente na aba "Cadastrar"</li>
+              <li>Automaticamente recebem role "user" (acesso básico)</li>
+              <li>Você pode alterar os roles na seção abaixo quando necessário</li>
+            </ol>
           </div>
         </CardContent>
       </Card>
@@ -263,10 +238,10 @@ export function UserRoleManager() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
-            Atribuir Role Manualmente
+            Gerenciar Roles de Usuários
           </CardTitle>
           <CardDescription>
-            Para usuários já cadastrados no sistema
+            Altere permissões de usuários existentes
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
