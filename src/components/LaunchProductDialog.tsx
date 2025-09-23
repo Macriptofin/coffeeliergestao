@@ -44,24 +44,56 @@ export function LaunchProductDialog({ recipe, onSuccess }: LaunchProductDialogPr
 
     try {
       const costPrice = recipe.totalCost || 0;
+      const unitWeightGrams = parseFloat(formData.unitWeight);
 
-      // Inserir produto (code será gerado automaticamente pelo trigger)
-      const { error } = await supabase
+      // 1. Primeiro, inserir como material na categoria "Produto Acabado"
+      const { data: materialData, error: materialError } = await supabase
+        .from('materials')
+        .insert({
+          name: formData.name,
+          category: 'Produto Acabado',
+          material_type: 'ingredient',
+          usage_unit: 'unidade',
+          purchase_unit: 'unidade',
+          conversion_factor: 1,
+          price_per_purchase_unit: costPrice,
+          unit_weight: unitWeightGrams
+        })
+        .select()
+        .single();
+
+      if (materialError) throw materialError;
+
+      // 2. Inserir produto referenciando o material criado
+      const { error: productError } = await supabase
         .from('products')
         .insert({
           name: formData.name,
           description: formData.description,
           recipe_id: recipe.id,
           category: formData.category as any,
-          unit_weight: parseFloat(formData.unitWeight),
+          unit_weight: unitWeightGrams,
           cost_price: costPrice,
           selling_price: 0, // Será definido na proposta
           is_active: true
         } as any);
 
-      if (error) throw error;
+      if (productError) throw productError;
 
-      toast.success('Produto criado com sucesso!');
+      // 3. Criar registro inicial no estoque com quantidade zero
+      const { error: stockError } = await supabase
+        .from('stock_items')
+        .insert({
+          material_id: materialData.id,
+          current_quantity: 0,
+          minimum_quantity: 0,
+          average_price: costPrice,
+          total_value: 0
+        });
+
+      if (stockError) throw stockError;
+
+      toast.success('Produto criado e adicionado ao controle de estoque!');
       setOpen(false);
       onSuccess();
       
@@ -97,7 +129,7 @@ export function LaunchProductDialog({ recipe, onSuccess }: LaunchProductDialogPr
             Lançar Receita como Produto
           </DialogTitle>
           <DialogDescription>
-            Transforme esta receita em um produto para usar nas propostas de venda
+            Transforme esta receita em um produto acabado que será controlado no estoque e disponível para propostas de venda
           </DialogDescription>
         </DialogHeader>
 
