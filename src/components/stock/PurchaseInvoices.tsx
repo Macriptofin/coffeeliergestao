@@ -360,7 +360,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       // Preparar dados dos itens da nota fiscal
       const invoiceItemsData = invoiceItems.map(item => ({
         invoice_id: invoice.id,
-        supplier_product_id: item.ingredientId,
+        ingredient_id: item.ingredientId,
         quantity: item.quantity,
         unit_price: item.unitPrice,
         total_price: item.totalPrice

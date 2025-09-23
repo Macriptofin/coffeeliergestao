@@ -65,43 +65,43 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          ingredient_id: string
           invoice_id: string
           quantity: number
-          supplier_product_id: string
           total_price: number
           unit_price: number
         }
         Insert: {
           created_at?: string
           id?: string
+          ingredient_id: string
           invoice_id: string
           quantity: number
-          supplier_product_id: string
           total_price: number
           unit_price: number
         }
         Update: {
           created_at?: string
           id?: string
+          ingredient_id?: string
           invoice_id?: string
           quantity?: number
-          supplier_product_id?: string
           total_price?: number
           unit_price?: number
         }
         Relationships: [
           {
+            foreignKeyName: "invoice_items_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "invoice_items_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "purchase_invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoice_items_supplier_product_id_fkey"
-            columns: ["supplier_product_id"]
-            isOneToOne: false
-            referencedRelation: "supplier_products"
             referencedColumns: ["id"]
           },
         ]
