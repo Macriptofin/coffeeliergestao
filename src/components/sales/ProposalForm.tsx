@@ -152,6 +152,7 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
               <Label htmlFor="event_date">Data do Evento</Label>
               <Input
                 type="date"
+                autoComplete="off"
                 {...register('event_date')}
               />
             </div>
@@ -161,6 +162,7 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
               <Input
                 type="number"
                 min="1"
+                autoComplete="off"
                 {...register('number_of_people', { required: true, min: 1 })}
               />
               {errors.number_of_people && <span className="text-sm text-destructive">Campo obrigatório</span>}
@@ -171,6 +173,7 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
               <Input
                 type="number"
                 min="50"
+                autoComplete="off"
                 {...register('target_weight_per_person', { required: true, min: 50 })}
               />
               {errors.target_weight_per_person && <span className="text-sm text-destructive">Mínimo 50g</span>}
