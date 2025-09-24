@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
-import { X, Calculator, AlertTriangle, Package, Tag } from "lucide-react";
+import { X, AlertTriangle, Package, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Material } from "@/pages/Materials";
 
@@ -23,7 +23,6 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     purchaseUnit: material?.purchaseUnit || '',
     usageUnit: material?.usageUnit || '',
     conversionFactor: material?.conversionFactor?.toString() || '',
-    pricePerPurchaseUnit: material?.pricePerPurchaseUnit?.toString() || '',
     supplier: material?.supplier || '',
     category: material?.category || 'Insumo' as Material['category'],
     materialType: material?.materialType || 'ingredient' as Material['materialType'],
@@ -53,16 +52,10 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     { value: 'composite_product' as const, label: 'Produto Composto' }
   ];
 
-  // Calcula o preço por unidade de uso
-  const getPricePerUsageUnit = () => {
-    const price = parseFloat(formData.pricePerPurchaseUnit) || 0;
-    const conversion = parseFloat(formData.conversionFactor) || 1;
-    return conversion > 0 ? (price / conversion).toFixed(4) : '0.0000';
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.purchaseUnit || !formData.usageUnit || !formData.conversionFactor || !formData.pricePerPurchaseUnit) return;
+    if (!formData.name || !formData.purchaseUnit || !formData.usageUnit || !formData.conversionFactor) return;
 
     // Verificar duplicidade (ignorar o próprio material se estivermos editando)
     const duplicateMaterial = existingMaterials.find(mat => 
@@ -81,7 +74,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       purchaseUnit: formData.purchaseUnit,
       usageUnit: formData.usageUnit,
       conversionFactor: parseFloat(formData.conversionFactor),
-      pricePerPurchaseUnit: parseFloat(formData.pricePerPurchaseUnit),
+      pricePerPurchaseUnit: 0, // Valor padrão, será definido no controle de estoque
       supplier: formData.supplier || undefined,
       category: formData.category,
       materialType: formData.materialType,
@@ -227,34 +220,8 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
               </p>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="price">Preço por Unidade de Compra (R$) *</Label>
-              <Input
-                id="price"
-                type="number"
-                step="0.01"
-                value={formData.pricePerPurchaseUnit}
-                onChange={(e) => setFormData({ ...formData, pricePerPurchaseUnit: e.target.value })}
-                placeholder="0,00"
-                required
-              />
-            </div>
           </div>
 
-          {formData.conversionFactor && formData.pricePerPurchaseUnit && (
-            <div className="bg-accent-creme/30 p-4 rounded-lg border border-accent-mocca/20">
-              <div className="flex items-center gap-2 mb-2">
-                <Calculator className="h-4 w-4 text-accent-coffee" />
-                <span className="font-medium text-accent-coffee">Cálculo Automático</span>
-              </div>
-              <p className="text-sm text-accent-coffee">
-                <strong>Custo por {formData.usageUnit}:</strong> R$ {getPricePerUsageUnit()}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Este será o valor usado nos cálculos das receitas
-              </p>
-            </div>
-          )}
 
           {needsUnitWeight && (
             <div className="space-y-2">

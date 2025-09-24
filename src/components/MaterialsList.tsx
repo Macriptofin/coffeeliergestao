@@ -51,16 +51,6 @@ export const MaterialsList = ({ materials, onEdit, onDelete }: MaterialsListProp
     }
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(price);
-  };
-
-  const getPricePerUsageUnit = (pricePerPurchase: number, conversionFactor: number) => {
-    return conversionFactor > 0 ? pricePerPurchase / conversionFactor : 0;
-  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -104,18 +94,6 @@ export const MaterialsList = ({ materials, onEdit, onDelete }: MaterialsListProp
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Fator de Conversão:</span>
                 <span className="font-medium">{material.conversionFactor}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Preço por {material.purchaseUnit}:</span>
-                <span className="font-bold text-primary">
-                  {formatPrice(material.pricePerPurchaseUnit)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Custo por {material.usageUnit}:</span>
-                <span className="font-medium text-accent-coffee">
-                  {formatPrice(getPricePerUsageUnit(material.pricePerPurchaseUnit, material.conversionFactor))}
-                </span>
               </div>
             </div>
 
