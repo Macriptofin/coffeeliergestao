@@ -40,7 +40,7 @@ interface EventsListProps {
 
 export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -63,7 +63,7 @@ export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListPr
                          event.clients?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          event.venue?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === '' || event.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || statusFilter === '' || event.status === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
@@ -92,7 +92,7 @@ export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListPr
               <SelectValue placeholder="Filtrar por status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos os status</SelectItem>
+              <SelectItem value="all">Todos os status</SelectItem>
               <SelectItem value="Agendado">Agendado</SelectItem>
               <SelectItem value="Em Preparação">Em Preparação</SelectItem>
               <SelectItem value="Em Andamento">Em Andamento</SelectItem>
