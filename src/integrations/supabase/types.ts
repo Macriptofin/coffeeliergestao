@@ -697,10 +697,12 @@ export type Database = {
       }
       materials: {
         Row: {
+          allowed_brands: string[] | null
           category: string
           code: string | null
           conversion_factor: number
           created_at: string | null
+          description: string | null
           id: string
           material_type: string
           name: string
@@ -713,10 +715,12 @@ export type Database = {
           usage_unit: string
         }
         Insert: {
+          allowed_brands?: string[] | null
           category?: string
           code?: string | null
           conversion_factor?: number
           created_at?: string | null
+          description?: string | null
           id?: string
           material_type?: string
           name: string
@@ -729,10 +733,12 @@ export type Database = {
           usage_unit: string
         }
         Update: {
+          allowed_brands?: string[] | null
           category?: string
           code?: string | null
           conversion_factor?: number
           created_at?: string | null
+          description?: string | null
           id?: string
           material_type?: string
           name?: string
