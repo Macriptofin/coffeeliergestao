@@ -41,13 +41,15 @@ export default function Agenda() {
   const [showEventForm, setShowEventForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { userRole, isAdminOrManager } = useUserRole();
+  const { userRole, isAdminOrManager, loading: roleLoading } = useUserRole();
 
   useEffect(() => {
-    if (isAdminOrManager()) {
+    if (!roleLoading && isAdminOrManager()) {
       loadEvents();
+    } else if (!roleLoading) {
+      setLoading(false);
     }
-  }, [isAdminOrManager]);
+  }, [userRole, roleLoading]);
 
   const loadEvents = async () => {
     try {
