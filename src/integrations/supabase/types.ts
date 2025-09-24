@@ -402,6 +402,45 @@ export type Database = {
           },
         ]
       }
+      employee_salary_info: {
+        Row: {
+          created_at: string
+          employee_id: string
+          id: string
+          salary: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          id?: string
+          salary?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          id?: string
+          salary?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_salary_info_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_salary_info_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees_masked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           account_type: string | null
@@ -1417,7 +1456,51 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      employees_masked: {
+        Row: {
+          account_type: string | null
+          address: string | null
+          bank_account: string | null
+          bank_branch: string | null
+          bank_name: string | null
+          benefits: string[] | null
+          birth_date: string | null
+          city: string | null
+          cpf: string | null
+          cpf_display: string | null
+          created_at: string | null
+          ctps_number: string | null
+          ctps_series: string | null
+          department: string | null
+          email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          employee_number: string | null
+          employment_type: string | null
+          full_name: string | null
+          gender: string | null
+          hire_date: string | null
+          id: string | null
+          marital_status: string | null
+          military_service: string | null
+          mobile_phone: string | null
+          notes: string | null
+          phone: string | null
+          pis_pasep: string | null
+          position: string | null
+          rg: string | null
+          rg_display: string | null
+          salary: number | null
+          salary_amount: number | null
+          state: string | null
+          status: string | null
+          termination_date: string | null
+          updated_at: string | null
+          voter_registration: string | null
+          zip_code: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_exists: {
@@ -1447,6 +1530,15 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      log_pii_access: {
+        Args: {
+          p_access_type: string
+          p_employee_id: string
+          p_pii_fields: string[]
+          p_table_name: string
+        }
+        Returns: undefined
+      }
       log_sensitive_data_access: {
         Args: {
           p_action: string
@@ -1455,6 +1547,14 @@ export type Database = {
           p_resource_type: string
         }
         Returns: undefined
+      }
+      mask_cpf: {
+        Args: { cpf_value: string }
+        Returns: string
+      }
+      mask_rg: {
+        Args: { rg_value: string }
+        Returns: string
       }
       no_admin_exists: {
         Args: Record<PropertyKey, never>
