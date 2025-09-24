@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, FileText, TrendingUp, Package2, Clock } from "lucide-react";
 import { PurchaseInvoices } from "@/components/stock/PurchaseInvoices";
-import { StockMovements } from "@/components/stock/StockMovements";
 import { SupplierProducts } from "@/components/stock/SupplierProducts";
 import { ImportMaterials } from "@/components/ImportMaterials";
 
@@ -224,14 +223,10 @@ const Purchases = () => {
 
       {/* Tabs do Sistema */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="invoices" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Notas Fiscais
-          </TabsTrigger>
-          <TabsTrigger value="movements" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Movimentações
           </TabsTrigger>
           <TabsTrigger value="products" className="flex items-center gap-2">
             <Package2 className="h-4 w-4" />
@@ -248,10 +243,6 @@ const Purchases = () => {
             invoices={purchaseInvoices}
             onRefresh={loadPurchaseInvoices}
           />
-        </TabsContent>
-
-        <TabsContent value="movements" className="mt-6">
-          <StockMovements onRefresh={loadData} />
         </TabsContent>
 
         <TabsContent value="products" className="mt-6">

@@ -26,6 +26,7 @@ import AnaliseFinanceira from "./pages/financeiro/AnaliseFinanceira";
 import RelatoriosContabeis from "./pages/financeiro/RelatoriosContabeis";
 import RecursosHumanos from "./pages/RecursosHumanos";
 import Colaboradores from "./pages/Colaboradores";
+import EstoqueMovimentacoes from "./pages/EstoqueMovimentacoes";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ function App() {
               {/* Categoria Estoque */}
               <Route path="estoque" element={<Estoque />} />
               <Route path="ingredientes" element={<Materials />} />
+              <Route path="estoque/movimentacoes" element={<EstoqueMovimentacoes />} />
               <Route path="estoque/*" element={<Stock />} />
               {/* Categoria Compras */}
               <Route path="compras" element={<Purchases />} />
