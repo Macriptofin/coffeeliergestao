@@ -14,6 +14,302 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts_payable: {
+        Row: {
+          account_id: string | null
+          cost_center_id: string | null
+          created_at: string
+          description: string
+          discount_amount: number | null
+          document_number: string | null
+          due_date: string
+          id: string
+          interest_amount: number | null
+          invoice_number: string | null
+          issue_date: string
+          notes: string | null
+          original_amount: number
+          paid_amount: number | null
+          remaining_amount: number
+          status: string
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          description: string
+          discount_amount?: number | null
+          document_number?: string | null
+          due_date: string
+          id?: string
+          interest_amount?: number | null
+          invoice_number?: string | null
+          issue_date: string
+          notes?: string | null
+          original_amount: number
+          paid_amount?: number | null
+          remaining_amount: number
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          description?: string
+          discount_amount?: number | null
+          document_number?: string | null
+          due_date?: string
+          id?: string
+          interest_amount?: number | null
+          invoice_number?: string | null
+          issue_date?: string
+          notes?: string | null
+          original_amount?: number
+          paid_amount?: number | null
+          remaining_amount?: number
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounts_receivable: {
+        Row: {
+          account_id: string | null
+          client_id: string | null
+          cost_center_id: string | null
+          created_at: string
+          description: string
+          discount_amount: number | null
+          document_number: string | null
+          due_date: string
+          id: string
+          interest_amount: number | null
+          invoice_number: string | null
+          issue_date: string
+          notes: string | null
+          original_amount: number
+          proposal_id: string | null
+          received_amount: number | null
+          remaining_amount: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          client_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          description: string
+          discount_amount?: number | null
+          document_number?: string | null
+          due_date: string
+          id?: string
+          interest_amount?: number | null
+          invoice_number?: string | null
+          issue_date: string
+          notes?: string | null
+          original_amount: number
+          proposal_id?: string | null
+          received_amount?: number | null
+          remaining_amount: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          client_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          description?: string
+          discount_amount?: number | null
+          document_number?: string | null
+          due_date?: string
+          id?: string
+          interest_amount?: number | null
+          invoice_number?: string | null
+          issue_date?: string
+          notes?: string | null
+          original_amount?: number
+          proposal_id?: string | null
+          received_amount?: number | null
+          remaining_amount?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_receivable_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_transactions: {
+        Row: {
+          account_id: string | null
+          amount: number
+          bank_account: string | null
+          category: string
+          cost_center_id: string | null
+          created_at: string
+          description: string
+          document_number: string | null
+          id: string
+          notes: string | null
+          payment_method: string
+          reference_id: string | null
+          reference_type: string | null
+          transaction_date: string
+          transaction_type: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          bank_account?: string | null
+          category: string
+          cost_center_id?: string | null
+          created_at?: string
+          description: string
+          document_number?: string | null
+          id?: string
+          notes?: string | null
+          payment_method: string
+          reference_id?: string | null
+          reference_type?: string | null
+          transaction_date: string
+          transaction_type: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          bank_account?: string | null
+          category?: string
+          cost_center_id?: string | null
+          created_at?: string
+          description?: string
+          document_number?: string | null
+          id?: string
+          notes?: string | null
+          payment_method?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          transaction_date?: string
+          transaction_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_transactions_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chart_of_accounts: {
+        Row: {
+          account_type: string
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          level: number
+          name: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_type: string
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          level?: number
+          name: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_type?: string
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          level?: number
+          name?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chart_of_accounts_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
@@ -64,6 +360,47 @@ export type Database = {
           zip_code?: string | null
         }
         Relationships: []
+      }
+      cost_centers: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_centers_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employees: {
         Row: {
@@ -321,6 +658,50 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_transactions: {
+        Row: {
+          account_payable_id: string
+          amount: number
+          bank_account: string | null
+          created_at: string
+          document_number: string | null
+          id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string
+        }
+        Insert: {
+          account_payable_id: string
+          amount: number
+          bank_account?: string | null
+          created_at?: string
+          document_number?: string | null
+          id?: string
+          notes?: string | null
+          payment_date: string
+          payment_method: string
+        }
+        Update: {
+          account_payable_id?: string
+          amount?: number
+          bank_account?: string | null
+          created_at?: string
+          document_number?: string | null
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_transactions_account_payable_id_fkey"
+            columns: ["account_payable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
             referencedColumns: ["id"]
           },
         ]
@@ -616,6 +997,50 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipt_transactions: {
+        Row: {
+          account_receivable_id: string
+          amount: number
+          bank_account: string | null
+          created_at: string
+          document_number: string | null
+          id: string
+          notes: string | null
+          receipt_date: string
+          receipt_method: string
+        }
+        Insert: {
+          account_receivable_id: string
+          amount: number
+          bank_account?: string | null
+          created_at?: string
+          document_number?: string | null
+          id?: string
+          notes?: string | null
+          receipt_date: string
+          receipt_method: string
+        }
+        Update: {
+          account_receivable_id?: string
+          amount?: number
+          bank_account?: string | null
+          created_at?: string
+          document_number?: string | null
+          id?: string
+          notes?: string | null
+          receipt_date?: string
+          receipt_method?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_transactions_account_receivable_id_fkey"
+            columns: ["account_receivable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_receivable"
             referencedColumns: ["id"]
           },
         ]

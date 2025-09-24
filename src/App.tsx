@@ -17,6 +17,12 @@ import NotFound from "./pages/NotFound";
 import Estoque from "./pages/Estoque";
 import ProducaoMain from "./pages/ProducaoMain";
 import Financeiro from "./pages/Financeiro";
+import ContasPagar from "./pages/financeiro/ContasPagar";
+import ContasReceber from "./pages/financeiro/ContasReceber";
+import FluxoCaixa from "./pages/financeiro/FluxoCaixa";
+import CentrosCusto from "./pages/financeiro/CentrosCusto";
+import AnaliseFinanceira from "./pages/financeiro/AnaliseFinanceira";
+import RelatoriosContabeis from "./pages/financeiro/RelatoriosContabeis";
 import RecursosHumanos from "./pages/RecursosHumanos";
 import Colaboradores from "./pages/Colaboradores";
 
@@ -47,6 +53,12 @@ function App() {
               <Route path="fornecedores" element={<Suppliers />} />
               {/* Categoria Financeiro */}
               <Route path="financeiro" element={<Financeiro />} />
+              <Route path="financeiro/pagar" element={<ContasPagar />} />
+              <Route path="financeiro/receber" element={<ContasReceber />} />
+              <Route path="financeiro/fluxo" element={<FluxoCaixa />} />
+              <Route path="financeiro/custos" element={<CentrosCusto />} />
+              <Route path="financeiro/analises" element={<AnaliseFinanceira />} />
+              <Route path="financeiro/relatorios" element={<RelatoriosContabeis />} />
               {/* Categoria Recursos Humanos */}
               <Route path="rh" element={<RecursosHumanos />} />
               <Route path="rh/colaboradores" element={<Colaboradores />} />
