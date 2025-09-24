@@ -79,6 +79,13 @@ export const MaterialsList = ({ materials, onEdit, onDelete }: MaterialsListProp
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
+            {material.description && (
+              <div className="text-sm mb-3">
+                <p className="text-muted-foreground mb-1">Descrição</p>
+                <p className="text-sm leading-relaxed line-clamp-3">{material.description}</p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-muted-foreground">Unidade de Uso</p>
@@ -101,6 +108,19 @@ export const MaterialsList = ({ materials, onEdit, onDelete }: MaterialsListProp
               <div className="text-sm">
                 <p className="text-muted-foreground">Fornecedor</p>
                 <p className="font-medium break-words">{material.supplier}</p>
+              </div>
+            )}
+
+            {material.allowedBrands && material.allowedBrands.length > 0 && (
+              <div className="text-sm">
+                <p className="text-muted-foreground mb-1">Marcas Permitidas</p>
+                <div className="flex flex-wrap gap-1">
+                  {material.allowedBrands.map((brand, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs">
+                      {brand}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             )}
 

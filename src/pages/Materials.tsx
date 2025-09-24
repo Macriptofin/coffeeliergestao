@@ -12,11 +12,13 @@ import { Input } from "@/components/ui/input";
 export interface Material {
   id: string;
   name: string;
+  description?: string;
   purchaseUnit: string;
   usageUnit: string;
   conversionFactor: number;
   pricePerPurchaseUnit: number;
   supplier?: string;
+  allowedBrands?: string[];
   category: 'Insumo' | 'Embalagem' | 'Produto Acabado' | 'Produto Composto';
   code: string;
   materialType: 'ingredient' | 'packaging' | 'finished_product' | 'composite_product';
@@ -62,7 +64,9 @@ const Materials = () => {
       filtered = filtered.filter(material => 
         material.name.toLowerCase().includes(search) ||
         material.code.toLowerCase().includes(search) ||
-        material.supplier?.toLowerCase().includes(search)
+        material.description?.toLowerCase().includes(search) ||
+        material.supplier?.toLowerCase().includes(search) ||
+        material.allowedBrands?.some(brand => brand.toLowerCase().includes(search))
       );
     }
     
@@ -81,11 +85,13 @@ const Materials = () => {
       const formattedMaterials = data.map(item => ({
         id: item.id,
         name: item.name,
+        description: item.description || undefined,
         purchaseUnit: item.purchase_unit,
         usageUnit: item.usage_unit,
         conversionFactor: parseFloat(item.conversion_factor.toString()),
         pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit.toString()),
         supplier: item.supplier || undefined,
+        allowedBrands: item.allowed_brands || undefined,
         category: item.category as Material['category'],
         code: item.code,
         materialType: item.material_type as Material['materialType'],
@@ -107,11 +113,13 @@ const Materials = () => {
         .from('materials')
         .insert({
           name: material.name,
+          description: material.description,
           purchase_unit: material.purchaseUnit,
           usage_unit: material.usageUnit,
           conversion_factor: material.conversionFactor,
           price_per_purchase_unit: material.pricePerPurchaseUnit,
           supplier: material.supplier,
+          allowed_brands: material.allowedBrands,
           category: material.category,
           material_type: material.materialType,
           unit_weight: material.unitWeight
@@ -124,11 +132,13 @@ const Materials = () => {
       const newMaterial: Material = {
         id: data.id,
         name: data.name,
+        description: data.description || undefined,
         purchaseUnit: data.purchase_unit,
         usageUnit: data.usage_unit,
         conversionFactor: parseFloat(data.conversion_factor.toString()),
         pricePerPurchaseUnit: parseFloat(data.price_per_purchase_unit.toString()),
         supplier: data.supplier || undefined,
+        allowedBrands: data.allowed_brands || undefined,
         category: data.category as Material['category'],
         code: data.code,
         materialType: data.material_type as Material['materialType'],
@@ -150,11 +160,13 @@ const Materials = () => {
         .from('materials')
         .update({
           name: updatedMaterial.name,
+          description: updatedMaterial.description,
           purchase_unit: updatedMaterial.purchaseUnit,
           usage_unit: updatedMaterial.usageUnit,
           conversion_factor: updatedMaterial.conversionFactor,
           price_per_purchase_unit: updatedMaterial.pricePerPurchaseUnit,
           supplier: updatedMaterial.supplier,
+          allowed_brands: updatedMaterial.allowedBrands,
           category: updatedMaterial.category,
           material_type: updatedMaterial.materialType,
           unit_weight: updatedMaterial.unitWeight
@@ -244,7 +256,7 @@ const Materials = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Pesquisar por nome, código ou fornecedor..."
+            placeholder="Pesquisar por nome, código, descrição, fornecedor ou marca..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 bg-card"

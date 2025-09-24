@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
+import { Textarea } from "@/components/ui/textarea";
 import { X, AlertTriangle, Package, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Material } from "@/pages/Materials";
@@ -20,10 +21,12 @@ interface MaterialFormProps {
 export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }: MaterialFormProps) => {
   const [formData, setFormData] = useState({
     name: material?.name || '',
+    description: material?.description || '',
     purchaseUnit: material?.purchaseUnit || '',
     usageUnit: material?.usageUnit || '',
     conversionFactor: material?.conversionFactor?.toString() || '',
     supplier: material?.supplier || '',
+    allowedBrands: material?.allowedBrands?.join(', ') || '',
     category: material?.category || 'Insumo' as Material['category'],
     materialType: material?.materialType || 'ingredient' as Material['materialType'],
     unitWeight: material?.unitWeight?.toString() || '',
@@ -71,11 +74,13 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     setDuplicateError('');
     onSubmit({
       name: formData.name,
+      description: formData.description || undefined,
       purchaseUnit: formData.purchaseUnit,
       usageUnit: formData.usageUnit,
       conversionFactor: parseFloat(formData.conversionFactor),
       pricePerPurchaseUnit: 0, // Valor padrão, será definido no controle de estoque
       supplier: formData.supplier || undefined,
+      allowedBrands: formData.allowedBrands ? formData.allowedBrands.split(',').map(b => b.trim()).filter(b => b) : undefined,
       category: formData.category,
       materialType: formData.materialType,
       unitWeight: formData.unitWeight ? parseFloat(formData.unitWeight) : undefined,
@@ -169,6 +174,21 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
             />
           </div>
 
+          {/* Descrição do Material */}
+          <div className="space-y-2">
+            <Label htmlFor="description">Descrição Detalhada</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Descreva as características, propriedades e especificações técnicas do material..."
+              className="min-h-20"
+            />
+            <p className="text-xs text-muted-foreground">
+              Inclua informações relevantes como características físicas, qualidade, especificações técnicas, etc.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="purchaseUnit">Unidade de Compra *</Label>
@@ -249,6 +269,19 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
               onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
               placeholder="Ex: Distribuidora ABC"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="allowedBrands">Marcas Permitidas (Opcional)</Label>
+            <Input
+              id="allowedBrands"
+              value={formData.allowedBrands}
+              onChange={(e) => setFormData({ ...formData, allowedBrands: e.target.value })}
+              placeholder="Ex: Fleischmann, Fermipan, Itaiquara (separar por vírgulas)"
+            />
+            <p className="text-xs text-muted-foreground">
+              Liste as marcas aprovadas para compra deste material, separadas por vírgulas
+            </p>
           </div>
 
           <div className="flex gap-3 pt-4">
