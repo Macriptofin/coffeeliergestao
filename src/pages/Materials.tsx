@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Plus, Filter } from "lucide-react";
+import { Plus, Filter, Search } from "lucide-react";
 import { MaterialForm } from "@/components/MaterialForm";
 import { MaterialsList } from "@/components/MaterialsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 
 export interface Material {
   id: string;
@@ -29,6 +30,7 @@ const Materials = () => {
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const categories = [
     { value: "all", label: "Todas as Categorias", color: "default" },
@@ -44,14 +46,27 @@ const Materials = () => {
 
   useEffect(() => {
     filterMaterials();
-  }, [materials, selectedCategory]);
+  }, [materials, selectedCategory, searchTerm]);
 
   const filterMaterials = () => {
-    if (selectedCategory === "all") {
-      setFilteredMaterials(materials);
-    } else {
-      setFilteredMaterials(materials.filter(material => material.category === selectedCategory));
+    let filtered = materials;
+    
+    // Filtrar por categoria
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter(material => material.category === selectedCategory);
     }
+    
+    // Filtrar por termo de pesquisa
+    if (searchTerm.trim()) {
+      const search = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(material => 
+        material.name.toLowerCase().includes(search) ||
+        material.code.toLowerCase().includes(search) ||
+        material.supplier?.toLowerCase().includes(search)
+      );
+    }
+    
+    setFilteredMaterials(filtered);
   };
 
   const loadMaterials = async () => {
@@ -221,6 +236,20 @@ const Materials = () => {
           <Plus className="h-4 w-4 mr-2" />
           Novo Material
         </Button>
+      </div>
+
+      {/* Barra de Pesquisa */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Pesquisar por nome, código ou fornecedor..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 bg-card"
+          />
+        </div>
       </div>
 
       {/* Filtros */}
