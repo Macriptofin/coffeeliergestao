@@ -1761,6 +1761,17 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: undefined
       }
+      create_security_alert: {
+        Args: {
+          p_alert_type: string
+          p_description: string
+          p_ip_address?: string
+          p_metadata?: Json
+          p_severity: string
+          p_title: string
+        }
+        Returns: string
+      }
       get_masked_employee_data: {
         Args: Record<PropertyKey, never>
         Returns: {
