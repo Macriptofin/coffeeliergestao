@@ -166,7 +166,7 @@ const Auth = () => {
   return (
     <div className="min-h-screen bg-gray-100 flex">
       {/* Left side - Login Form */}
-      <div className="flex-1 flex flex-col justify-center px-8 py-12 sm:px-16 lg:px-20 xl:px-24">
+      <div className="w-full lg:w-2/5 flex flex-col justify-center px-8 py-12 sm:px-16 lg:px-20 xl:px-24">
         <div className="mx-auto w-full max-w-sm lg:w-96">
           <div className="mb-8">
             <CoffeelierLogo />
@@ -314,7 +314,7 @@ const Auth = () => {
       </div>
 
       {/* Right side - Promotional image */}
-      <div className="hidden lg:block relative w-0 flex-1">
+      <div className="hidden lg:block relative lg:w-3/5">
         <img 
           src="/lovable-uploads/Capa sistema.png.png" 
           alt="Mesa especial Coffeelier com diversos pratos gourmet"
