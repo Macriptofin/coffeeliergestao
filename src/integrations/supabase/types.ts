@@ -623,6 +623,184 @@ export type Database = {
         }
         Relationships: []
       }
+      event_checklist: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          description: string | null
+          due_date: string
+          event_id: string
+          id: string
+          is_completed: boolean
+          notes: string | null
+          priority_level: string
+          responsible_person: string | null
+          task_name: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          description?: string | null
+          due_date: string
+          event_id: string
+          id?: string
+          is_completed?: boolean
+          notes?: string | null
+          priority_level?: string
+          responsible_person?: string | null
+          task_name: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string
+          event_id?: string
+          id?: string
+          is_completed?: boolean
+          notes?: string | null
+          priority_level?: string
+          responsible_person?: string | null
+          task_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_checklist_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_notifications: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          is_sent: boolean
+          message: string
+          notification_method: string
+          notification_type: string
+          sent_at: string | null
+          trigger_date: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          is_sent?: boolean
+          message: string
+          notification_method?: string
+          notification_type: string
+          sent_at?: string | null
+          trigger_date: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          is_sent?: boolean
+          message?: string
+          notification_method?: string
+          notification_type?: string
+          sent_at?: string | null
+          trigger_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_notifications_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          client_id: string
+          contact_person: string | null
+          contact_phone: string | null
+          created_at: string
+          event_date: string
+          event_duration: number | null
+          event_name: string
+          id: string
+          proposal_id: string | null
+          setup_notes: string | null
+          setup_time: string | null
+          special_requirements: string | null
+          status: string
+          total_amount: number
+          total_people: number
+          total_weight: number
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          client_id: string
+          contact_person?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          event_date: string
+          event_duration?: number | null
+          event_name: string
+          id?: string
+          proposal_id?: string | null
+          setup_notes?: string | null
+          setup_time?: string | null
+          special_requirements?: string | null
+          status?: string
+          total_amount?: number
+          total_people: number
+          total_weight?: number
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          client_id?: string
+          contact_person?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          event_date?: string
+          event_duration?: number | null
+          event_name?: string
+          id?: string
+          proposal_id?: string | null
+          setup_notes?: string | null
+          setup_time?: string | null
+          special_requirements?: string | null
+          status?: string
+          total_amount?: number
+          total_people?: number
+          total_weight?: number
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_permissions: {
         Row: {
           created_at: string
@@ -1578,6 +1756,10 @@ export type Database = {
       check_rate_limit: {
         Args: { p_attempt_type: string; p_email: string; p_ip_address: string }
         Returns: Json
+      }
+      create_event_notifications: {
+        Args: { p_event_id: string }
+        Returns: undefined
       }
       get_masked_employee_data: {
         Args: Record<PropertyKey, never>

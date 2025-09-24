@@ -8,7 +8,8 @@ import {
   TrendingUp,
   DollarSign,
   Users,
-  FileText
+  FileText,
+  Calendar
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -45,6 +46,12 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       href: "/vendas",
       icon: TrendingUp,
       current: location.pathname.startsWith("/vendas")
+    },
+    {
+      name: "Agenda",
+      href: "/agenda",
+      icon: Calendar,
+      current: location.pathname.startsWith("/agenda")
     },
     {
       name: "Produção",

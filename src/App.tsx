@@ -27,6 +27,7 @@ import RelatoriosContabeis from "./pages/financeiro/RelatoriosContabeis";
 import RecursosHumanos from "./pages/RecursosHumanos";
 import Colaboradores from "./pages/Colaboradores";
 import EstoqueMovimentacoes from "./pages/EstoqueMovimentacoes";
+import Agenda from "./pages/Agenda";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,8 @@ function App() {
               <Route path="compras" element={<Purchases />} />
               {/* Categoria Vendas */}
               <Route path="vendas" element={<Sales />} />
+              {/* Agenda de Eventos */}
+              <Route path="agenda" element={<Agenda />} />
               {/* Categoria Produção */}
               <Route path="producao" element={<ProducaoMain />} />
               <Route path="receitas" element={<Recipes />} />
