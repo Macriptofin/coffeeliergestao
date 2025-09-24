@@ -12,6 +12,7 @@ import Purchases from "./pages/Purchases";
 import Sales from "./pages/Sales";
 import Reports from "./pages/Reports";
 import UserManagement from "./pages/UserManagement";
+import SecurityMonitoring from "./pages/SecurityMonitoring";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Estoque from "./pages/Estoque";
@@ -63,6 +64,7 @@ function App() {
               <Route path="rh" element={<RecursosHumanos />} />
               <Route path="rh/colaboradores" element={<Colaboradores />} />
               <Route path="usuarios" element={<UserManagement />} />
+              <Route path="seguranca" element={<SecurityMonitoring />} />
               {/* Relatórios */}
               <Route path="relatorios" element={<Reports />} />
             </Route>

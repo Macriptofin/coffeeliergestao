@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { DollarSign, TrendingUp, TrendingDown, PieChart as PieChartIcon, BarChart3, Calendar } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, PieChart as PieChartIcon, BarChart3, Calendar, Shield } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useFinancialPermissions } from "@/hooks/useFinancialPermissions";
 
 interface FinancialData {
   entradas: number;
@@ -30,6 +32,7 @@ interface CostCenterData {
 }
 
 const AnaliseFinanceira = () => {
+  const { hasAnyFinancialAccess, canViewAllFinancial, loading: permissionsLoading } = useFinancialPermissions();
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("3"); // Últimos 3 meses
   const [dateFilter, setDateFilter] = useState({
@@ -212,6 +215,29 @@ const AnaliseFinanceira = () => {
   };
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+
+  if (permissionsLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasAnyFinancialAccess()) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Alert>
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            Você não tem permissão para acessar as análises financeiras. Entre em contato com um administrador para solicitar acesso.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   if (loading) {
     return <div className="p-6">Carregando análises...</div>;

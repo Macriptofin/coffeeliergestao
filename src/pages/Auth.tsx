@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CoffeelierLogo } from '@/components/CoffeelierLogo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePasswordSecurity } from '@/hooks/usePasswordSecurity';
+import { useRateLimiting } from '@/hooks/useRateLimiting';
 import { toast } from 'sonner';
 
 const Auth = () => {
@@ -20,6 +21,7 @@ const Auth = () => {
   const [passwordValidationMessage, setPasswordValidationMessage] = useState('');
   const navigate = useNavigate();
   const { validatePassword, isValidating } = usePasswordSecurity();
+  const { checkRateLimit, logAuthAttempt, isChecking } = useRateLimiting();
 
   useEffect(() => {
     // Check if user is already logged in
@@ -61,21 +63,38 @@ const Auth = () => {
     setError('');
 
     try {
+      // Check rate limiting first
+      const rateLimitCheck = await checkRateLimit(email, 'signin');
+      if (!rateLimitCheck.allowed) {
+        setError(rateLimitCheck.message || 'Muitas tentativas. Tente mais tarde.');
+        await logAuthAttempt(email, 'signin', false, rateLimitCheck.reason);
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        const failureReason = error.message.includes('Invalid login credentials') 
+          ? 'invalid_credentials' 
+          : 'auth_error';
+          
+        await logAuthAttempt(email, 'signin', false, failureReason);
+        
         if (error.message.includes('Invalid login credentials')) {
           setError('Email ou senha incorretos.');
         } else {
           setError(error.message);
         }
       } else {
+        await logAuthAttempt(email, 'signin', true);
         toast.success('Login realizado com sucesso!');
       }
     } catch (error: any) {
+      await logAuthAttempt(email, 'signin', false, 'unexpected_error');
       setError('Erro inesperado. Tente novamente.');
     } finally {
       setLoading(false);
@@ -102,6 +121,15 @@ const Auth = () => {
     }
 
     try {
+      // Check rate limiting for signup
+      const rateLimitCheck = await checkRateLimit(email, 'signup');
+      if (!rateLimitCheck.allowed) {
+        setError(rateLimitCheck.message || 'Muitas tentativas. Tente mais tarde.');
+        await logAuthAttempt(email, 'signup', false, rateLimitCheck.reason);
+        setLoading(false);
+        return;
+      }
+
       const redirectUrl = `${window.location.origin}/`;
       
       const { error } = await supabase.auth.signUp({
@@ -113,15 +141,23 @@ const Auth = () => {
       });
 
       if (error) {
+        const failureReason = error.message.includes('User already registered') 
+          ? 'user_exists' 
+          : 'auth_error';
+          
+        await logAuthAttempt(email, 'signup', false, failureReason);
+        
         if (error.message.includes('User already registered')) {
           setError('Este email já está cadastrado. Tente fazer login.');
         } else {
           setError(error.message);
         }
       } else {
+        await logAuthAttempt(email, 'signup', true);
         toast.success('Cadastro realizado! Verifique seu email para confirmar a conta.');
       }
     } catch (error: any) {
+      await logAuthAttempt(email, 'signup', false, 'unexpected_error');
       setError('Erro inesperado. Tente novamente.');
     } finally {
       setLoading(false);
@@ -176,8 +212,8 @@ const Auth = () => {
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Entrando...' : 'Entrar'}
+                <Button type="submit" className="w-full" disabled={loading || isChecking}>
+                  {loading || isChecking ? 'Verificando...' : 'Entrar'}
                 </Button>
               </form>
             </TabsContent>
@@ -233,9 +269,9 @@ const Auth = () => {
                 <Button 
                   type="submit" 
                   className="w-full" 
-                  disabled={loading || isValidating || !!passwordValidationMessage}
+                  disabled={loading || isValidating || isChecking || !!passwordValidationMessage}
                 >
-                  {loading ? 'Criando conta...' : 'Criar Conta'}
+                  {loading || isChecking ? 'Verificando...' : 'Criar Conta'}
                 </Button>
               </form>
             </TabsContent>

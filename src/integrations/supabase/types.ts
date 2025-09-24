@@ -194,6 +194,39 @@ export type Database = {
           },
         ]
       }
+      auth_attempts: {
+        Row: {
+          attempt_type: string
+          created_at: string
+          email: string
+          failure_reason: string | null
+          id: string
+          ip_address: string | null
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          attempt_type: string
+          created_at?: string
+          email: string
+          failure_reason?: string | null
+          id?: string
+          ip_address?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          attempt_type?: string
+          created_at?: string
+          email?: string
+          failure_reason?: string | null
+          id?: string
+          ip_address?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       cash_transactions: {
         Row: {
           account_id: string | null
@@ -587,6 +620,33 @@ export type Database = {
           product_category?: Database["public"]["Enums"]["product_category"]
           recommended_percentage?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      financial_permissions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          department: string | null
+          id: string
+          permission_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          department?: string | null
+          id?: string
+          permission_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          department?: string | null
+          id?: string
+          permission_type?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -1167,6 +1227,51 @@ export type Database = {
         }
         Relationships: []
       }
+      security_alerts: {
+        Row: {
+          acknowledged: boolean | null
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          alert_type: string
+          created_at: string
+          description: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          severity: string
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          severity: string
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          severity?: string
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       security_audit_log: {
         Row: {
           action: string
@@ -1464,6 +1569,10 @@ export type Database = {
         }
         Returns: number
       }
+      check_rate_limit: {
+        Args: { p_attempt_type: string; p_email: string; p_ip_address: string }
+        Returns: Json
+      }
       get_masked_employee_data: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1508,6 +1617,14 @@ export type Database = {
           zip_code: string
         }[]
       }
+      has_financial_permission: {
+        Args: {
+          p_department?: string
+          p_permission_type: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1522,6 +1639,17 @@ export type Database = {
       is_admin_or_manager: {
         Args: { _user_id: string }
         Returns: boolean
+      }
+      log_auth_attempt: {
+        Args: {
+          p_attempt_type: string
+          p_email: string
+          p_failure_reason?: string
+          p_ip_address: string
+          p_success: boolean
+          p_user_agent?: string
+        }
+        Returns: undefined
       }
       log_pii_access: {
         Args: {
@@ -1555,7 +1683,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "manager" | "user"
+      app_role: "admin" | "manager" | "user" | "financial"
       event_category:
         | "Coffee Break"
         | "Brunch"
@@ -1699,7 +1827,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "manager", "user"],
+      app_role: ["admin", "manager", "user", "financial"],
       event_category: [
         "Coffee Break",
         "Brunch",

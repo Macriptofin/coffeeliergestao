@@ -9,12 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Shield, Users, UserPlus } from "lucide-react";
 
-interface UserRole {
-  id: string;
-  user_id: string;
-  role: 'admin' | 'manager' | 'user';
-  created_at: string;
-}
+  interface UserRole {
+    id: string;
+    user_id: string;
+    role: 'admin' | 'manager' | 'financial' | 'user';
+    created_at: string;
+  }
 
 interface User {
   id: string;
@@ -25,13 +25,13 @@ export function UserRoleManager() {
   const [users, setUsers] = useState<User[]>([]);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [selectedRole, setSelectedRole] = useState<'admin' | 'manager' | 'user'>('user');
+  const [selectedRole, setSelectedRole] = useState<'admin' | 'manager' | 'financial' | 'user'>('user');
   const [userEmail, setUserEmail] = useState<string>('');
   const [inviteEmail, setInviteEmail] = useState<string>('');
-  const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'user'>('user');
+  const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'financial' | 'user'>('user');
   const [newUserEmail, setNewUserEmail] = useState<string>('');
   const [newUserPassword, setNewUserPassword] = useState<string>('');
-  const [newUserRole, setNewUserRole] = useState<'admin' | 'manager' | 'user'>('user');
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'manager' | 'financial' | 'user'>('user');
   const [loading, setLoading] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
@@ -295,13 +295,14 @@ export function UserRoleManager() {
             </div>
             <div>
               <Label htmlFor="newUserRole">Role</Label>
-              <Select value={newUserRole} onValueChange={(value: 'admin' | 'manager' | 'user') => setNewUserRole(value)}>
+              <Select value={newUserRole} onValueChange={(value: 'admin' | 'manager' | 'financial' | 'user') => setNewUserRole(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin - Acesso total</SelectItem>
                   <SelectItem value="manager">Manager - Gestão operacional</SelectItem>
+                  <SelectItem value="financial">Financial - Gestão financeira</SelectItem>
                   <SelectItem value="user">User - Acesso básico</SelectItem>
                 </SelectContent>
               </Select>
@@ -342,12 +343,15 @@ export function UserRoleManager() {
             </div>
             <div>
               <Label htmlFor="role">Role</Label>
-              <Select value={selectedRole} onValueChange={(value: 'admin' | 'manager' | 'user') => setSelectedRole(value)}>
+              <Select value={selectedRole} onValueChange={(value: 'admin' | 'manager' | 'financial' | 'user') => setSelectedRole(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin - Acesso total</SelectItem>
+                  <SelectItem value="manager">Manager - Gestão operacional</SelectItem>
+                  <SelectItem value="financial">Financial - Gestão financeira</SelectItem>
+                  <SelectItem value="user">User - Acesso básico</SelectItem>
                   <SelectItem value="manager">Manager - Gestão operacional</SelectItem>
                   <SelectItem value="user">User - Acesso básico</SelectItem>
                 </SelectContent>
