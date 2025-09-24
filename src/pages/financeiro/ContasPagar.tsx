@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Search, DollarSign, Calendar, Receipt } from "lucide-react";
+import { Plus, Search, DollarSign, Calendar, Receipt, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -62,6 +62,14 @@ const ContasPagar = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<AccountPayable | null>(null);
+  const [paymentData, setPaymentData] = useState({
+    payment_date: format(new Date(), 'yyyy-MM-dd'),
+    payment_method: 'Dinheiro',
+    amount: '',
+    notes: ''
+  });
   const [formData, setFormData] = useState({
     supplier_id: "",
     invoice_number: "",
@@ -138,6 +146,27 @@ const ContasPagar = () => {
 
       if (error) throw error;
 
+      // Criar transação no fluxo de caixa para a nova conta a pagar
+      const { error: cashTransactionError } = await supabase
+        .from('cash_transactions')
+        .insert({
+          transaction_date: formData.due_date,
+          description: `Conta a pagar - ${suppliers.find(s => s.id === formData.supplier_id)?.company_name || 'Fornecedor'} - ${formData.description}`,
+          transaction_type: 'Saída',
+          category: 'Contas a Pagar',
+          amount: originalAmount + interestAmount - discountAmount,
+          payment_method: 'A definir',
+          reference_type: 'Conta a Pagar',
+          cost_center_id: formData.cost_center_id || null,
+          account_id: formData.account_id || null,
+          document_number: formData.document_number,
+          notes: formData.notes
+        });
+
+      if (cashTransactionError) {
+        console.error('Erro ao criar transação de caixa:', cashTransactionError);
+      }
+
       toast.success('Conta a pagar cadastrada com sucesso!');
       setIsDialogOpen(false);
       resetForm();
@@ -163,6 +192,77 @@ const ContasPagar = () => {
       account_id: "",
       notes: ""
     });
+  };
+
+  const handlePayment = (account: AccountPayable) => {
+    setSelectedAccount(account);
+    setPaymentData({
+      payment_date: format(new Date(), 'yyyy-MM-dd'),
+      payment_method: 'Dinheiro',
+      amount: account.remaining_amount.toString(),
+      notes: ''
+    });
+    setPaymentDialogOpen(true);
+  };
+
+  const processPayment = async () => {
+    if (!selectedAccount) return;
+
+    try {
+      const paymentAmount = parseFloat(paymentData.amount);
+      
+      // Criar transação de pagamento
+      const { data: paymentTransaction, error: paymentError } = await supabase
+        .from('payment_transactions')
+        .insert({
+          account_payable_id: selectedAccount.id,
+          payment_date: paymentData.payment_date,
+          amount: paymentAmount,
+          payment_method: paymentData.payment_method,
+          notes: paymentData.notes
+        })
+        .select()
+        .single();
+
+      if (paymentError) throw paymentError;
+
+      // Criar transação no fluxo de caixa (efetivação do pagamento)
+      const supplierName = suppliers.find(s => s.id === selectedAccount.supplier_id)?.company_name || 'Fornecedor';
+      const { error: cashTransactionError } = await supabase
+        .from('cash_transactions')
+        .insert({
+          transaction_date: paymentData.payment_date,
+          description: `Pagamento - ${supplierName} - ${selectedAccount.description}`,
+          transaction_type: 'Saída',
+          category: 'Pagamentos',
+          amount: paymentAmount,
+          payment_method: paymentData.payment_method,
+          reference_type: 'Pagamento',
+          reference_id: paymentTransaction.id,
+          cost_center_id: selectedAccount.cost_center_id,
+          account_id: selectedAccount.account_id,
+          document_number: selectedAccount.document_number,
+          notes: `Pagamento de conta a pagar: ${selectedAccount.id}`
+        });
+
+      if (cashTransactionError) {
+        console.error('Erro ao criar transação de caixa:', cashTransactionError);
+      }
+
+      toast.success('Pagamento registrado com sucesso!');
+      setPaymentDialogOpen(false);
+      setSelectedAccount(null);
+      setPaymentData({
+        payment_date: format(new Date(), 'yyyy-MM-dd'),
+        payment_method: 'Dinheiro',
+        amount: '',
+        notes: ''
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      toast.error('Erro ao registrar pagamento');
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -457,6 +557,7 @@ const ContasPagar = () => {
                 <TableHead>Valor Pago</TableHead>
                 <TableHead>Saldo</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -480,12 +581,106 @@ const ContasPagar = () => {
                     {account.remaining_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </TableCell>
                   <TableCell>{getStatusBadge(account.status)}</TableCell>
+                  <TableCell>
+                    {account.status === 'Pendente' && account.remaining_amount > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handlePayment(account)}
+                        className="flex items-center gap-2"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        Pagar
+                      </Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Dialog de Pagamento */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Efetuar Pagamento</DialogTitle>
+            <DialogDescription>
+              Registrar pagamento da conta: {selectedAccount?.description}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="payment_date">Data do Pagamento *</Label>
+              <Input
+                id="payment_date"
+                type="date"
+                value={paymentData.payment_date}
+                onChange={(e) => setPaymentData(prev => ({ ...prev, payment_date: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="payment_method">Forma de Pagamento *</Label>
+              <Select
+                value={paymentData.payment_method}
+                onValueChange={(value) => setPaymentData(prev => ({ ...prev, payment_method: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="PIX">PIX</SelectItem>
+                  <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
+                  <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
+                  <SelectItem value="Transferência Bancária">Transferência Bancária</SelectItem>
+                  <SelectItem value="Boleto">Boleto</SelectItem>
+                  <SelectItem value="Cheque">Cheque</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="payment_amount">Valor do Pagamento *</Label>
+              <Input
+                id="payment_amount"
+                type="number"
+                step="0.01"
+                value={paymentData.amount}
+                onChange={(e) => setPaymentData(prev => ({ ...prev, amount: e.target.value }))}
+                placeholder="0,00"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Saldo pendente: {selectedAccount?.remaining_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="payment_notes">Observações</Label>
+              <Textarea
+                id="payment_notes"
+                value={paymentData.notes}
+                onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Observações sobre o pagamento"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={processPayment}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Confirmar Pagamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

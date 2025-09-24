@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Search, DollarSign, Calendar, Receipt } from "lucide-react";
+import { Plus, Search, DollarSign, Calendar, Receipt, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -70,6 +70,14 @@ const ContasReceber = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<AccountReceivable | null>(null);
+  const [receiptData, setReceiptData] = useState({
+    receipt_date: format(new Date(), 'yyyy-MM-dd'),
+    receipt_method: 'Dinheiro',
+    amount: '',
+    notes: ''
+  });
   const [formData, setFormData] = useState({
     client_id: "",
     proposal_id: "",
@@ -152,6 +160,28 @@ const ContasReceber = () => {
 
       if (error) throw error;
 
+      // Criar transação no fluxo de caixa para a nova conta a receber
+      const clientName = clients.find(c => c.id === formData.client_id)?.name || 'Cliente';
+      const { error: cashTransactionError } = await supabase
+        .from('cash_transactions')
+        .insert({
+          transaction_date: formData.due_date,
+          description: `Conta a receber - ${clientName} - ${formData.description}`,
+          transaction_type: 'Entrada',
+          category: 'Contas a Receber',
+          amount: originalAmount + interestAmount - discountAmount,
+          payment_method: 'A definir',
+          reference_type: 'Conta a Receber',
+          cost_center_id: formData.cost_center_id || null,
+          account_id: formData.account_id || null,
+          document_number: formData.document_number,
+          notes: formData.notes
+        });
+
+      if (cashTransactionError) {
+        console.error('Erro ao criar transação de caixa:', cashTransactionError);
+      }
+
       toast.success('Conta a receber cadastrada com sucesso!');
       setIsDialogOpen(false);
       resetForm();
@@ -178,6 +208,77 @@ const ContasReceber = () => {
       account_id: "",
       notes: ""
     });
+  };
+
+  const handleReceipt = (account: AccountReceivable) => {
+    setSelectedAccount(account);
+    setReceiptData({
+      receipt_date: format(new Date(), 'yyyy-MM-dd'),
+      receipt_method: 'Dinheiro',
+      amount: account.remaining_amount.toString(),
+      notes: ''
+    });
+    setReceiptDialogOpen(true);
+  };
+
+  const processReceipt = async () => {
+    if (!selectedAccount) return;
+
+    try {
+      const receiptAmount = parseFloat(receiptData.amount);
+      
+      // Criar transação de recebimento
+      const { data: receiptTransaction, error: receiptError } = await supabase
+        .from('receipt_transactions')
+        .insert({
+          account_receivable_id: selectedAccount.id,
+          receipt_date: receiptData.receipt_date,
+          amount: receiptAmount,
+          receipt_method: receiptData.receipt_method,
+          notes: receiptData.notes
+        })
+        .select()
+        .single();
+
+      if (receiptError) throw receiptError;
+
+      // Criar transação no fluxo de caixa (efetivação do recebimento)
+      const clientName = clients.find(c => c.id === selectedAccount.client_id)?.name || 'Cliente';
+      const { error: cashTransactionError } = await supabase
+        .from('cash_transactions')
+        .insert({
+          transaction_date: receiptData.receipt_date,
+          description: `Recebimento - ${clientName} - ${selectedAccount.description}`,
+          transaction_type: 'Entrada',
+          category: 'Recebimentos',
+          amount: receiptAmount,
+          payment_method: receiptData.receipt_method,
+          reference_type: 'Recebimento',
+          reference_id: receiptTransaction.id,
+          cost_center_id: selectedAccount.cost_center_id,
+          account_id: selectedAccount.account_id,
+          document_number: selectedAccount.document_number,
+          notes: `Recebimento de conta a receber: ${selectedAccount.id}`
+        });
+
+      if (cashTransactionError) {
+        console.error('Erro ao criar transação de caixa:', cashTransactionError);
+      }
+
+      toast.success('Recebimento registrado com sucesso!');
+      setReceiptDialogOpen(false);
+      setSelectedAccount(null);
+      setReceiptData({
+        receipt_date: format(new Date(), 'yyyy-MM-dd'),
+        receipt_method: 'Dinheiro',
+        amount: '',
+        notes: ''
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Error processing receipt:', error);
+      toast.error('Erro ao registrar recebimento');
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -499,6 +600,7 @@ const ContasReceber = () => {
                 <TableHead>Valor Recebido</TableHead>
                 <TableHead>Saldo</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -522,12 +624,92 @@ const ContasReceber = () => {
                     {account.remaining_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </TableCell>
                   <TableCell>{getStatusBadge(account.status)}</TableCell>
+                  <TableCell>
+                    {account.status === 'Pendente' && account.remaining_amount > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleReceipt(account)}
+                        className="flex items-center gap-2"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        Receber
+                      </Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Dialog de Recebimento */}
+      <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Efetuar Recebimento</DialogTitle>
+            <DialogDescription>
+              Registrar recebimento da conta: {selectedAccount?.description}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="receipt_date">Data do Recebimento *</Label>
+              <Input
+                id="receipt_date"
+                type="date"
+                value={receiptData.receipt_date}
+                onChange={(e) => setReceiptData(prev => ({ ...prev, receipt_date: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="receipt_method">Forma de Recebimento *</Label>
+              <Select
+                value={receiptData.receipt_method}
+                onValueChange={(value) => setReceiptData(prev => ({ ...prev, receipt_method: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="PIX">PIX</SelectItem>
+                  <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
+                  <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
+                  <SelectItem value="Transferência Bancária">Transferência Bancária</SelectItem>
+                  <SelectItem value="Boleto">Boleto</SelectItem>
+                  <SelectItem value="Cheque">Cheque</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="receipt_amount">Valor do Recebimento *</Label>
+              <Input
+                id="receipt_amount"
+                type="number"
+                step="0.01"
+                value={receiptData.amount}
+                onChange={(e) => setReceiptData(prev => ({ ...prev, amount: e.target.value }))}
+                placeholder="0,00"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReceiptDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={processReceipt}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Confirmar Recebimento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

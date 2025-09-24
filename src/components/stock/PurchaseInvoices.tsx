@@ -641,20 +641,41 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           console.error('Erro ao criar conta a pagar:', payableError);
           // Não interrompe o processo, apenas alerta
           toast.error('Estoque lançado, mas houve erro ao criar conta a pagar');
-        } else if (isPaid && payableAccount) {
-          // Se foi marcada como paga, criar transação de pagamento
-          const { error: paymentError } = await supabase
-            .from('payment_transactions')
+        } else {
+          // Criar transação no fluxo de caixa
+          const { error: cashTransactionError } = await supabase
+            .from('cash_transactions')
             .insert({
-              account_payable_id: payableAccount.id,
-              payment_date: currentDate,
+              transaction_date: isPaid ? currentDate : dueDate,
+              description: `Compra - ${invoice.suppliers.company_name} - NF ${invoice.invoice_number}`,
+              transaction_type: 'Saída',
+              category: 'Compras',
               amount: invoiceAmount,
               payment_method: paymentData.paymentMethod,
-              notes: `Pagamento automático - ${paymentData.paymentMethod}${paymentData.responsiblePerson ? ` - Responsável: ${paymentData.responsiblePerson}` : ''}`
+              reference_type: 'Compra',
+              reference_id: payableAccount.id,
+              notes: `Conta a pagar: ${payableAccount.id}${paymentData.responsiblePerson ? ` - Responsável: ${paymentData.responsiblePerson}` : ''}`
             });
 
-          if (paymentError) {
-            console.error('Erro ao criar transação de pagamento:', paymentError);
+          if (cashTransactionError) {
+            console.error('Erro ao criar transação de caixa:', cashTransactionError);
+          }
+
+          // Se foi marcada como paga, criar transação de pagamento
+          if (isPaid && payableAccount) {
+            const { error: paymentError } = await supabase
+              .from('payment_transactions')
+              .insert({
+                account_payable_id: payableAccount.id,
+                payment_date: currentDate,
+                amount: invoiceAmount,
+                payment_method: paymentData.paymentMethod,
+                notes: `Pagamento automático - ${paymentData.paymentMethod}${paymentData.responsiblePerson ? ` - Responsável: ${paymentData.responsiblePerson}` : ''}`
+              });
+
+            if (paymentError) {
+              console.error('Erro ao criar transação de pagamento:', paymentError);
+            }
           }
         }
       }
@@ -751,6 +772,25 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         .single();
 
       if (payableError) throw payableError;
+
+      // Criar transação no fluxo de caixa
+      const { error: cashTransactionError } = await supabase
+        .from('cash_transactions')
+        .insert({
+          transaction_date: isPaid ? currentDate : dueDate,
+          description: `Compra - ${selectedInvoiceForRetroactive.supplier?.companyName} - NF ${selectedInvoiceForRetroactive.invoiceNumber}`,
+          transaction_type: 'Saída',
+          category: 'Compras',
+          amount: invoiceAmount,
+          payment_method: retroactivePaymentData.paymentMethod,
+          reference_type: 'Compra',
+          reference_id: payableAccount.id,
+          notes: `Conta a pagar: ${payableAccount.id}${retroactivePaymentData.responsiblePerson ? ` - Responsável: ${retroactivePaymentData.responsiblePerson}` : ''}`
+        });
+
+      if (cashTransactionError) {
+        console.error('Erro ao criar transação de caixa:', cashTransactionError);
+      }
 
       // Se foi marcada como paga, criar transação de pagamento
       if (isPaid && payableAccount) {
