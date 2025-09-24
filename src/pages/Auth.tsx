@@ -7,14 +7,19 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CoffeelierLogo } from '@/components/CoffeelierLogo';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { usePasswordSecurity } from '@/hooks/usePasswordSecurity';
 import { toast } from 'sonner';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [passwordValidationMessage, setPasswordValidationMessage] = useState('');
   const navigate = useNavigate();
+  const { validatePassword, isValidating } = usePasswordSecurity();
 
   useEffect(() => {
     // Check if user is already logged in
@@ -37,6 +42,18 @@ const Auth = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const handlePasswordChange = async (newPassword: string) => {
+    setPassword(newPassword);
+    setPasswordValidationMessage('');
+    
+    if (newPassword.length >= 6) {
+      const validation = await validatePassword(newPassword);
+      if (!validation.valid) {
+        setPasswordValidationMessage(validation.message);
+      }
+    }
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +82,52 @@ const Auth = () => {
     }
   };
 
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    if (password !== confirmPassword) {
+      setError('As senhas não coincidem.');
+      setLoading(false);
+      return;
+    }
+
+    // Validar senha antes do registro
+    const validation = await validatePassword(password);
+    if (!validation.valid) {
+      setError(validation.message);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl
+        }
+      });
+
+      if (error) {
+        if (error.message.includes('User already registered')) {
+          setError('Este email já está cadastrado. Tente fazer login.');
+        } else {
+          setError(error.message);
+        }
+      } else {
+        toast.success('Cadastro realizado! Verifique seu email para confirmar a conta.');
+      }
+    } catch (error: any) {
+      setError('Erro inesperado. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -74,42 +137,109 @@ const Auth = () => {
           </div>
           <CardTitle className="text-2xl font-bold">Sistema de Confeitaria</CardTitle>
           <CardDescription>
-            Faça login para acessar o sistema
+            Faça login ou crie sua conta para acessar o sistema
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSignIn} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="signin-email">Email</Label>
-              <Input
-                id="signin-email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="signin-password">Senha</Label>
-              <Input
-                id="signin-password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar'}
-            </Button>
-          </form>
+          <Tabs defaultValue="signin" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="signin">Entrar</TabsTrigger>
+              <TabsTrigger value="signup">Cadastrar</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="signin" className="space-y-4 mt-6">
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signin-email">Email</Label>
+                  <Input
+                    id="signin-email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signin-password">Senha</Label>
+                  <Input
+                    id="signin-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'Entrando...' : 'Entrar'}
+                </Button>
+              </form>
+            </TabsContent>
+            
+            <TabsContent value="signup" className="space-y-4 mt-6">
+              <form onSubmit={handleSignUp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email">Email</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password">Senha</Label>
+                  <Input
+                    id="signup-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => handlePasswordChange(e.target.value)}
+                    required
+                  />
+                  {passwordValidationMessage && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{passwordValidationMessage}</AlertDescription>
+                    </Alert>
+                  )}
+                  {isValidating && (
+                    <p className="text-sm text-muted-foreground">Verificando segurança da senha...</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-confirm-password">Confirmar Senha</Label>
+                  <Input
+                    id="signup-confirm-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={loading || isValidating || !!passwordValidationMessage}
+                >
+                  {loading ? 'Criando conta...' : 'Criar Conta'}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>

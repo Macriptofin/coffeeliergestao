@@ -1,13 +1,17 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createHash } from "https://deno.land/std@0.190.0/hash/mod.ts";
-import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 
-const hookSecret = Deno.env.get("PASSWORD_VERIFICATION_HOOK_SECRET");
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-interface WebhookPayload {
-  user_id: string;
+interface PasswordValidationRequest {
   password: string;
+}
+
+interface PasswordValidationResponse {
   valid: boolean;
+  message: string;
 }
 
 // Função para verificar se a senha foi comprometida usando HaveIBeenPwned API
@@ -82,35 +86,28 @@ function isPasswordStrong(password: string): { valid: boolean; message?: string 
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   if (req.method !== 'POST') {
-    return new Response('Método não permitido', { status: 405 });
+    return new Response('Método não permitido', { 
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 
   try {
-    const payload = await req.text();
-    const headers = Object.fromEntries(req.headers);
-    
-    // Verificar webhook signature
-    if (hookSecret) {
-      const wh = new Webhook(hookSecret);
-      try {
-        wh.verify(payload, headers);
-      } catch (error) {
-        console.error('Erro na verificação do webhook:', error);
-        return new Response('Unauthorized', { status: 401 });
-      }
-    }
+    const { password }: PasswordValidationRequest = await req.json();
 
-    const { user_id, password, valid }: WebhookPayload = JSON.parse(payload);
-
-    // Se a senha já é inválida por outras razões, manter como inválida
-    if (!valid) {
+    if (!password) {
       return new Response(JSON.stringify({
-        decision: 'reject',
-        message: 'Senha inválida'
+        valid: false,
+        message: 'Senha é obrigatória'
       }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
@@ -118,11 +115,11 @@ serve(async (req) => {
     const strengthCheck = isPasswordStrong(password);
     if (!strengthCheck.valid) {
       return new Response(JSON.stringify({
-        decision: 'reject',
+        valid: false,
         message: strengthCheck.message
       }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
@@ -130,33 +127,33 @@ serve(async (req) => {
     const isPwned = await isPasswordPwned(password);
     if (isPwned) {
       return new Response(JSON.stringify({
-        decision: 'reject',
+        valid: false,
         message: 'Esta senha foi encontrada em vazamentos de dados e não é segura. Por favor, escolha uma senha diferente.'
       }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     // Senha aprovada em todas as verificações
     return new Response(JSON.stringify({
-      decision: 'continue',
+      valid: true,
       message: 'Senha aprovada'
     }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error('Erro no hook de verificação de senha:', error);
+    console.error('Erro na validação de senha:', error);
     
-    // Em caso de erro, continuar por segurança (evitar lock-out de usuários)
+    // Em caso de erro, aceitar por precaução
     return new Response(JSON.stringify({
-      decision: 'continue',
-      message: 'Verificação de senha temporariamente indisponível'
+      valid: true,
+      message: 'Verificação de senha temporariamente indisponível, continuando por precaução'
     }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });
