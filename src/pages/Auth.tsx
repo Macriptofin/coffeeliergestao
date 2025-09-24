@@ -166,18 +166,18 @@ const Auth = () => {
   return (
     <div className="min-h-screen bg-gray-100 flex">
       {/* Left side - Login Form */}
-      <div className="w-full lg:w-2/5 flex flex-col justify-center px-8 py-12 sm:px-16 lg:px-20 xl:px-24">
-        <div className="mx-auto w-full max-w-sm lg:w-96">
-          <div className="mb-8">
+      <div className="w-full lg:w-2/5 flex flex-col justify-center px-6 py-8 sm:px-12 lg:px-16 xl:px-20">
+        <div className="mx-auto w-full max-w-sm">
+          <div className="mb-6">
             <CoffeelierLogo />
           </div>
           
           <div>
-            <h2 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-6">
+            <h2 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-4">
               {isSignUp ? 'E-MAIL E SENHA' : 'NOME DE USUÁRIO OU E-MAIL'}
             </h2>
             
-            <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-6">
+            <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-4">
               <div>
                 <Input
                   type="email"
@@ -185,12 +185,12 @@ const Auth = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-3 py-3 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
               
               <div>
-                <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-3">
+                <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
                   SENHA
                 </h3>
                 <Input
@@ -199,21 +199,21 @@ const Auth = () => {
                   value={password}
                   onChange={(e) => isSignUp ? handlePasswordChange(e.target.value) : setPassword(e.target.value)}
                   required
-                  className="w-full px-3 py-3 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
                 {isSignUp && passwordValidationMessage && (
                   <Alert variant="destructive" className="mt-2">
-                    <AlertDescription>{passwordValidationMessage}</AlertDescription>
+                    <AlertDescription className="text-xs">{passwordValidationMessage}</AlertDescription>
                   </Alert>
                 )}
                 {isSignUp && isValidating && (
-                  <p className="text-sm text-muted-foreground mt-1">Verificando segurança da senha...</p>
+                  <p className="text-xs text-muted-foreground mt-1">Verificando segurança da senha...</p>
                 )}
               </div>
 
               {isSignUp && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-3">
+                  <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
                     CONFIRMAR SENHA
                   </h3>
                   <Input
@@ -222,16 +222,16 @@ const Auth = () => {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    className="w-full px-3 py-3 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                 </div>
               )}
 
               {/* Success message */}
               {!error && (
-                <div className="flex items-center text-green-600 text-sm">
-                  <div className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center mr-2">
-                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <div className="flex items-center text-green-600 text-xs">
+                  <div className="w-4 h-4 bg-green-600 rounded-full flex items-center justify-center mr-2">
+                    <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                   </div>
@@ -241,13 +241,13 @@ const Auth = () => {
 
               {error && (
                 <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription className="text-xs">{error}</AlertDescription>
                 </Alert>
               )}
 
               <Button 
                 type="submit" 
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-md transition-colors duration-200"
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200"
                 disabled={loading || isChecking || (isSignUp && (isValidating || !!passwordValidationMessage))}
               >
                 {loading || isChecking ? 'Verificando...' : (isSignUp ? 'Criar Conta' : 'Entrar')}
@@ -257,10 +257,10 @@ const Auth = () => {
                 <Button 
                   type="button"
                   variant="outline"
-                  className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 py-3 px-4 rounded-md transition-colors duration-200"
+                  className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 py-2 px-4 rounded-md transition-colors duration-200"
                   disabled
                 >
-                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
@@ -270,7 +270,7 @@ const Auth = () => {
                 </Button>
               )}
 
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-xs">
                 <button 
                   type="button"
                   className="text-gray-600 hover:text-gray-800 transition-colors duration-200"
@@ -297,15 +297,15 @@ const Auth = () => {
           </div>
 
           {/* Footer links */}
-          <div className="mt-16">
-            <div className="text-sm text-gray-500 mb-4">
+          <div className="mt-12">
+            <div className="text-xs text-gray-500 mb-3">
               Baixe nosso app:
             </div>
-            <div className="flex space-x-4">
-              <div className="w-8 h-8 bg-gray-800 rounded flex items-center justify-center">
+            <div className="flex space-x-3">
+              <div className="w-6 h-6 bg-gray-800 rounded flex items-center justify-center">
                 <span className="text-white text-xs">▶</span>
               </div>
-              <div className="w-8 h-8 bg-gray-800 rounded flex items-center justify-center">
+              <div className="w-6 h-6 bg-gray-800 rounded flex items-center justify-center">
                 <span className="text-white text-xs">🍎</span>
               </div>
             </div>
