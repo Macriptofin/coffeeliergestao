@@ -313,56 +313,13 @@ const Auth = () => {
         </div>
       </div>
 
-      {/* Right side - Promotional content */}
+      {/* Right side - Promotional image */}
       <div className="hidden lg:block relative w-0 flex-1">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center p-12">
-          <div className="text-center text-white max-w-lg">
-            <div className="mb-6">
-              <div className="inline-flex items-center bg-yellow-400 text-blue-900 px-3 py-1 rounded-full text-sm font-medium mb-4">
-                ÚLTIMA CHANCE
-              </div>
-              <div className="flex items-center justify-center mb-4">
-                <CoffeelierLogo />
-                <span className="ml-2 bg-blue-900 text-white px-2 py-1 rounded text-sm">
-                  Aniversário Coffeelier
-                </span>
-              </div>
-            </div>
-            
-            <h2 className="text-3xl font-bold mb-2">
-              Tem mais de uma confeitaria?
-            </h2>
-            <p className="text-xl mb-8 text-blue-100">
-              Temos uma condição especial<br />
-              para a sua segunda conta!
-            </p>
-            
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-left">
-                  <div className="text-sm text-blue-200">💰 Contas a receber</div>
-                  <div className="text-sm text-green-300">📈 Hoje</div>
-                  <div className="text-lg font-bold">↗ R$ 345,50</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm text-blue-200">📊 Esta semana</div>
-                  <div className="text-lg font-bold">↗ R$ 3.458,98</div>
-                </div>
-              </div>
-              <div className="w-full bg-blue-900/50 rounded-lg p-4">
-                <div className="w-32 h-20 bg-white/20 rounded mx-auto"></div>
-              </div>
-            </div>
-
-            <Button className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-lg font-medium">
-              Abrir segunda conta
-            </Button>
-            
-            <p className="text-xs text-blue-200 mt-4">
-              Válido para contratações de planos anuais até novos clientes ou segunda conta até 24/09/2025
-            </p>
-          </div>
-        </div>
+        <img 
+          src="/lovable-uploads/Capa sistema.png.png" 
+          alt="Mesa especial Coffeelier com diversos pratos gourmet"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
       </div>
     </div>
   );
