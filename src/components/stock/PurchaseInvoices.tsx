@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FileText, Plus, ShoppingCart, X, Package, Shield, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FileText, Plus, ShoppingCart, X, Package, Shield, Trash2, CreditCard } from "lucide-react";
 import type { PurchaseInvoice } from "@/pages/Stock";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -56,6 +57,12 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     dueDate: '',
     totalAmount: 0,
     notes: ''
+  });
+  const [paymentData, setPaymentData] = useState({
+    paymentMethod: 'Dinheiro',
+    responsiblePerson: '',
+    paymentDate: new Date().toISOString().split('T')[0],
+    createPayable: true
   });
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [currentItem, setCurrentItem] = useState({
@@ -286,17 +293,23 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       // Resetar formulário
       setShowForm(false);
       setEditingInvoice(null);
-      setFormData({
-        invoiceNumber: '',
-        supplierId: '',
-        supplierName: '',
-        invoiceDate: new Date().toISOString().split('T')[0],
-        dueDate: '',
-        totalAmount: 0,
-        notes: ''
-      });
-      setInvoiceItems([]);
-      setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
+        setFormData({
+          invoiceNumber: '',
+          supplierId: '',
+          supplierName: '',
+          invoiceDate: new Date().toISOString().split('T')[0],
+          dueDate: '',
+          totalAmount: 0,
+          notes: ''
+        });
+        setPaymentData({
+          paymentMethod: 'Dinheiro',
+          responsiblePerson: '',
+          paymentDate: new Date().toISOString().split('T')[0],
+          createPayable: true
+        });
+        setInvoiceItems([]);
+        setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
       onRefresh();
     } catch (error) {
       console.error('Erro ao processar nota fiscal:', error);
@@ -486,6 +499,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         .select(`
           stock_posted, 
           invoice_number,
+          invoice_date,
+          total_amount,
           suppliers:supplier_id (
             id,
             company_name
@@ -579,6 +594,33 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         }
       }
 
+      // Criar conta a pagar se configurado
+      if (paymentData.createPayable) {
+        const { error: payableError } = await supabase
+          .from('accounts_payable')
+          .insert({
+            supplier_id: invoice.suppliers.id,
+            invoice_number: invoice.invoice_number,
+            document_number: invoice.invoice_number,
+            description: `Nota fiscal ${invoice.invoice_number} - ${invoice.suppliers.company_name}`,
+            issue_date: invoice.invoice_date || new Date().toISOString().split('T')[0],
+            due_date: paymentData.paymentDate,
+            original_amount: parseFloat(invoice.total_amount?.toString() || '0'),
+            remaining_amount: parseFloat(invoice.total_amount?.toString() || '0'),
+            paid_amount: 0,
+            discount_amount: 0,
+            interest_amount: 0,
+            status: 'Pendente',
+            notes: `Gerado automaticamente do lançamento da nota fiscal. Método: ${paymentData.paymentMethod}${paymentData.responsiblePerson ? `, Responsável: ${paymentData.responsiblePerson}` : ''}`
+          });
+
+        if (payableError) {
+          console.error('Erro ao criar conta a pagar:', payableError);
+          // Não interrompe o processo, apenas alerta
+          toast.error('Estoque lançado, mas houve erro ao criar conta a pagar');
+        }
+      }
+
       // Marcar nota fiscal como lançada no estoque
       const { error: updateError } = await supabase
         .from('purchase_invoices')
@@ -590,7 +632,11 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       if (updateError) throw updateError;
 
-      toast.success('Nota fiscal lançada no estoque com sucesso');
+      const successMessage = paymentData.createPayable 
+        ? 'Nota fiscal lançada no estoque e conta a pagar criada com sucesso'
+        : 'Nota fiscal lançada no estoque com sucesso';
+      
+      toast.success(successMessage);
       onRefresh();
     } catch (error) {
       console.error('Erro ao lançar no estoque:', error);
@@ -886,6 +932,70 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
                   <Separator />
 
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium flex items-center gap-2">
+                      <CreditCard className="h-5 w-5" />
+                      Informações de Pagamento
+                    </h3>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="createPayable"
+                        checked={paymentData.createPayable}
+                        onCheckedChange={(checked) => setPaymentData(prev => ({ ...prev, createPayable: checked as boolean }))}
+                      />
+                      <Label htmlFor="createPayable" className="text-sm font-medium">
+                        Criar conta a pagar automaticamente
+                      </Label>
+                    </div>
+
+                    {paymentData.createPayable && (
+                      <div className="grid grid-cols-3 gap-3 p-4 bg-muted/50 rounded-lg">
+                        <div>
+                          <Label htmlFor="paymentMethod">Forma de Pagamento</Label>
+                          <Select
+                            value={paymentData.paymentMethod}
+                            onValueChange={(value) => setPaymentData(prev => ({ ...prev, paymentMethod: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                              <SelectItem value="PIX">PIX</SelectItem>
+                              <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
+                              <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
+                              <SelectItem value="Transferência Bancária">Transferência Bancária</SelectItem>
+                              <SelectItem value="Boleto Bancário">Boleto Bancário</SelectItem>
+                              <SelectItem value="Cheque">Cheque</SelectItem>
+                              <SelectItem value="Prazo">A Prazo</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="responsiblePerson">Responsável (Opcional)</Label>
+                          <Input
+                            id="responsiblePerson"
+                            value={paymentData.responsiblePerson}
+                            onChange={(e) => setPaymentData(prev => ({ ...prev, responsiblePerson: e.target.value }))}
+                            placeholder="Nome do responsável"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="paymentDate">Data de Vencimento</Label>
+                          <Input
+                            id="paymentDate"
+                            type="date"
+                            value={paymentData.paymentDate}
+                            onChange={(e) => setPaymentData(prev => ({ ...prev, paymentDate: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
                   <div>
                     <Label htmlFor="notes">Observações</Label>
                     <Textarea
@@ -906,12 +1016,18 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                          supplierId: '',
                          supplierName: '',
                          invoiceDate: new Date().toISOString().split('T')[0],
-                         dueDate: '',
-                         totalAmount: 0,
-                         notes: ''
-                       });
-                       setInvoiceItems([]);
-                       setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
+                          dueDate: '',
+                          totalAmount: 0,
+                          notes: ''
+                        });
+                        setPaymentData({
+                          paymentMethod: 'Dinheiro',
+                          responsiblePerson: '',
+                          paymentDate: new Date().toISOString().split('T')[0],
+                          createPayable: true
+                        });
+                        setInvoiceItems([]);
+                        setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
                       }} className="flex-1">
                        Cancelar
                      </Button>
