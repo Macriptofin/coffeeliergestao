@@ -64,6 +64,14 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     paymentDate: new Date().toISOString().split('T')[0],
     createPayable: true
   });
+  const [retroactivePaymentData, setRetroactivePaymentData] = useState({
+    paymentMethod: 'Dinheiro',
+    responsiblePerson: '',
+    paymentDate: new Date().toISOString().split('T')[0]
+  });
+  const [showRetroactiveDialog, setShowRetroactiveDialog] = useState(false);
+  const [selectedInvoiceForRetroactive, setSelectedInvoiceForRetroactive] = useState<any>(null);
+  const [existingPayables, setExistingPayables] = useState<any[]>([]);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [currentItem, setCurrentItem] = useState({
     ingredientName: '',
@@ -77,6 +85,12 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     loadSuppliers();
     loadIngredients();
   }, []);
+
+  useEffect(() => {
+    if (invoices.length > 0) {
+      checkExistingPayables();
+    }
+  }, [invoices]);
 
   const loadSuppliers = async () => {
     try {
@@ -676,6 +690,103 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     }
   };
 
+  // Verificar quais notas já possuem contas a pagar
+  const checkExistingPayables = async () => {
+    const invoiceNumbers = invoices.map(inv => inv.invoiceNumber);
+    const { data: existingPayables } = await supabase
+      .from('accounts_payable')
+      .select('invoice_number, supplier_id')
+      .in('invoice_number', invoiceNumbers);
+    
+    setExistingPayables(existingPayables || []);
+  };
+
+  const invoiceHasPayable = (invoice: any) => {
+    return existingPayables.some(payable => 
+      payable.invoice_number === invoice.invoiceNumber && 
+      payable.supplier_id === invoice.supplier?.id
+    );
+  };
+
+  const handleRetroactivePayableCreation = async (invoice: any) => {
+    setSelectedInvoiceForRetroactive(invoice);
+    setShowRetroactiveDialog(true);
+    setRetroactivePaymentData({
+      paymentMethod: 'Dinheiro',
+      responsiblePerson: '',
+      paymentDate: new Date().toISOString().split('T')[0]
+    });
+  };
+
+  const createRetroactivePayable = async () => {
+    if (!selectedInvoiceForRetroactive) return;
+
+    try {
+      setLoading(true);
+      const currentDate = new Date().toISOString().split('T')[0];
+      const dueDate = retroactivePaymentData.paymentDate;
+      const invoiceAmount = parseFloat(selectedInvoiceForRetroactive.totalAmount?.toString() || '0');
+      
+      // Verificar se deve ser criada como paga
+      const isPaid = dueDate <= currentDate;
+      
+      const { data: payableAccount, error: payableError } = await supabase
+        .from('accounts_payable')
+        .insert({
+          supplier_id: selectedInvoiceForRetroactive.supplier?.id,
+          invoice_number: selectedInvoiceForRetroactive.invoiceNumber,
+          document_number: selectedInvoiceForRetroactive.invoiceNumber,
+          description: `Nota fiscal ${selectedInvoiceForRetroactive.invoiceNumber} - ${selectedInvoiceForRetroactive.supplier?.companyName}`,
+          issue_date: selectedInvoiceForRetroactive.invoiceDate || currentDate,
+          due_date: dueDate,
+          original_amount: invoiceAmount,
+          remaining_amount: isPaid ? 0 : invoiceAmount,
+          paid_amount: isPaid ? invoiceAmount : 0,
+          discount_amount: 0,
+          interest_amount: 0,
+          status: isPaid ? 'Pago' : 'Pendente',
+          notes: `Gerado retroativamente para nota já lançada. Método: ${retroactivePaymentData.paymentMethod}${retroactivePaymentData.responsiblePerson ? `, Responsável: ${retroactivePaymentData.responsiblePerson}` : ''}${isPaid ? ' - Pago automaticamente (vencimento até a data atual)' : ''}`
+        })
+        .select()
+        .single();
+
+      if (payableError) throw payableError;
+
+      // Se foi marcada como paga, criar transação de pagamento
+      if (isPaid && payableAccount) {
+        const { error: paymentError } = await supabase
+          .from('payment_transactions')
+          .insert({
+            account_payable_id: payableAccount.id,
+            payment_date: currentDate,
+            amount: invoiceAmount,
+            payment_method: retroactivePaymentData.paymentMethod,
+            notes: `Pagamento retroativo - ${retroactivePaymentData.paymentMethod}${retroactivePaymentData.responsiblePerson ? ` - Responsável: ${retroactivePaymentData.responsiblePerson}` : ''}`
+          });
+
+        if (paymentError) {
+          console.error('Erro ao criar transação de pagamento:', paymentError);
+        }
+      }
+
+      const successMessage = isPaid 
+        ? 'Conta a pagar criada e marcada como PAGA com sucesso'
+        : 'Conta a pagar criada com sucesso';
+      
+      toast.success(successMessage);
+      setShowRetroactiveDialog(false);
+      setSelectedInvoiceForRetroactive(null);
+      checkExistingPayables(); // Atualizar lista de contas existentes
+      onRefresh();
+
+    } catch (error) {
+      console.error('Erro ao criar conta a pagar retroativa:', error);
+      toast.error('Erro ao criar conta a pagar');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStatusColor = (status: PurchaseInvoice['status']) => {
     switch (status) {
       case 'Pago': return 'default';
@@ -1132,7 +1243,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                        <FileText className="h-4 w-4" />
                        Editar
                      </Button>
-                     {!invoice.stockPosted && (
+                     {!invoice.stockPosted ? (
                        <Button
                          variant="default"
                          size="sm"
@@ -1143,6 +1254,19 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                          <Package className="h-4 w-4" />
                          Lançar no Estoque
                        </Button>
+                     ) : (
+                       !invoiceHasPayable(invoice) && (
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           onClick={() => handleRetroactivePayableCreation(invoice)}
+                           disabled={loading}
+                           className="flex items-center gap-2"
+                         >
+                           <CreditCard className="h-4 w-4" />
+                           Gerar Conta a Pagar
+                         </Button>
+                       )
                      )}
                      <Button
                        variant="destructive"
@@ -1161,6 +1285,77 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog para criar conta a pagar retroativa */}
+      <Dialog open={showRetroactiveDialog} onOpenChange={setShowRetroactiveDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Gerar Conta a Pagar</DialogTitle>
+            <DialogDescription>
+              Criar conta a pagar para a nota fiscal #{selectedInvoiceForRetroactive?.invoiceNumber}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="retroactive-payment-method">Forma de Pagamento *</Label>
+              <Select
+                value={retroactivePaymentData.paymentMethod}
+                onValueChange={(value) => setRetroactivePaymentData(prev => ({ ...prev, paymentMethod: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="PIX">PIX</SelectItem>
+                  <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
+                  <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
+                  <SelectItem value="Transferência Bancária">Transferência Bancária</SelectItem>
+                  <SelectItem value="Boleto">Boleto</SelectItem>
+                  <SelectItem value="Cheque">Cheque</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="retroactive-responsible">Responsável</Label>
+              <Input
+                id="retroactive-responsible"
+                placeholder="Nome do responsável pelo pagamento"
+                value={retroactivePaymentData.responsiblePerson}
+                onChange={(e) => setRetroactivePaymentData(prev => ({ ...prev, responsiblePerson: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="retroactive-due-date">Data de Vencimento *</Label>
+              <Input
+                id="retroactive-due-date"
+                type="date"
+                value={retroactivePaymentData.paymentDate}
+                onChange={(e) => setRetroactivePaymentData(prev => ({ ...prev, paymentDate: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {retroactivePaymentData.paymentDate <= new Date().toISOString().split('T')[0] 
+                  ? '✅ Será criada como PAGA (vencimento hoje ou anterior)'
+                  : '⏳ Será criada como PENDENTE (vencimento futuro)'
+                }
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowRetroactiveDialog(false)} className="flex-1">
+              Cancelar
+            </Button>
+            <Button onClick={createRetroactivePayable} disabled={loading} className="flex-1">
+              <CreditCard className="h-4 w-4 mr-2" />
+              {loading ? 'Criando...' : 'Criar Conta a Pagar'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
