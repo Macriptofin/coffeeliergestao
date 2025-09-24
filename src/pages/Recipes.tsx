@@ -91,24 +91,37 @@ const Recipes = () => {
     setRecipes(formattedRecipes);
   };
 
+  const calculateTotalsWithStockPrices = async (recipeIngredients: { ingredientId: string, quantity: number }[]) => {
+    let totalCost = 0;
+    let totalWeight = 0;
+
+    for (const recipeIngredient of recipeIngredients) {
+      const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
+      if (ingredient) {
+        // Buscar preço médio do estoque
+        const { data: stockItem } = await supabase
+          .from('stock_items')
+          .select('average_price')
+          .eq('material_id', ingredient.id)
+          .single();
+
+        // Usar preço do estoque ou preço de cadastro como fallback
+        const pricePerPurchaseUnit = stockItem?.average_price || ingredient.pricePerPurchaseUnit;
+        const pricePerUsageUnit = pricePerPurchaseUnit / ingredient.conversionFactor;
+        const cost = pricePerUsageUnit * recipeIngredient.quantity;
+        
+        const weight = calculateIngredientWeight(ingredient, recipeIngredient.quantity);
+        totalCost += cost;
+        totalWeight += weight;
+      }
+    }
+
+    return { totalCost, totalWeight };
+  };
+
   const addRecipe = async (recipe: Omit<Recipe, 'id' | 'totalCost'>) => {
     try {
-      const totalCost = recipe.ingredients.reduce((total, recipeIngredient) => {
-        const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
-        if (ingredient) {
-          return total + calculateIngredientCost(ingredient, recipeIngredient.quantity);
-        }
-        return total;
-      }, 0);
-
-      // Calcular peso total dos ingredientes  
-      const totalWeight = recipe.ingredients.reduce((total, recipeIngredient) => {
-        const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
-        if (ingredient) {
-          return total + calculateIngredientWeight(ingredient, recipeIngredient.quantity);
-        }
-        return total;
-      }, 0);
+      const { totalCost, totalWeight } = await calculateTotalsWithStockPrices(recipe.ingredients);
 
       const { data, error } = await supabase
         .from('recipes')
@@ -172,22 +185,7 @@ const Recipes = () => {
 
   const updateRecipe = async (recipe: Recipe) => {
     try {
-      const totalCost = recipe.ingredients.reduce((total, recipeIngredient) => {
-        const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
-        if (ingredient) {
-          return total + calculateIngredientCost(ingredient, recipeIngredient.quantity);
-        }
-        return total;
-      }, 0);
-
-      // Calcular peso total dos ingredientes  
-      const totalWeight = recipe.ingredients.reduce((total, recipeIngredient) => {
-        const ingredient = ingredients.find(ing => ing.id === recipeIngredient.ingredientId);
-        if (ingredient) {
-          return total + calculateIngredientWeight(ingredient, recipeIngredient.quantity);
-        }
-        return total;
-      }, 0);
+      const { totalCost, totalWeight } = await calculateTotalsWithStockPrices(recipe.ingredients);
 
       // Atualizar receita principal
       const { error: recipeError } = await supabase
