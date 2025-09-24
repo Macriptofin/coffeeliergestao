@@ -32,6 +32,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     unitWeight: material?.unitWeight?.toString() || '',
   });
   const [duplicateError, setDuplicateError] = useState('');
+  const originalName = material?.name || '';
 
   const units = [
     'kg', 'g', 'L', 'mL', 'unidade', 'pacote', 'caixa', 'lata', 'saco', 'envelope', 'dúzia', 'centena'
@@ -60,15 +61,17 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     e.preventDefault();
     if (!formData.name || !formData.purchaseUnit || !formData.usageUnit || !formData.conversionFactor) return;
 
-    // Verificar duplicidade (ignorar o próprio material se estivermos editando)
-    const duplicateMaterial = existingMaterials.find(mat => 
-      mat.name.toLowerCase() === formData.name.toLowerCase() && 
-      (!material || mat.id !== material.id)
-    );
+    // Verificar duplicidade apenas se o nome foi alterado do original
+    if (formData.name.toLowerCase() !== originalName.toLowerCase()) {
+      const duplicateMaterial = existingMaterials.find(mat => 
+        mat.name.toLowerCase() === formData.name.toLowerCase() && 
+        (!material || mat.id !== material.id)
+      );
 
-    if (duplicateMaterial) {
-      setDuplicateError(`Já existe um material cadastrado com o nome "${duplicateMaterial.name}"`);
-      return;
+      if (duplicateMaterial) {
+        setDuplicateError(`Já existe um material cadastrado com o nome "${duplicateMaterial.name}"`);
+        return;
+      }
     }
 
     setDuplicateError('');
@@ -97,10 +100,11 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
 
   const handleNameSelect = (selectedName: string) => {
     // Quando selecionar um nome existente, mostrar aviso apenas se não for o próprio material
+    // e se o nome for diferente do original
     const existing = existingMaterials.find(mat => 
       mat.name.toLowerCase() === selectedName.toLowerCase()
     );
-    if (existing && (!material || existing.id !== material.id)) {
+    if (existing && (!material || existing.id !== material.id) && selectedName.toLowerCase() !== originalName.toLowerCase()) {
       setDuplicateError(`Material "${selectedName}" já está cadastrado`);
     }
   };
