@@ -12,6 +12,7 @@ interface AutocompleteInputProps {
   className?: string;
   id?: string;
   required?: boolean;
+  originalValue?: string; // quando em edição, valor original para suprimir alerta
 }
 
 export const AutocompleteInput = ({
@@ -22,7 +23,8 @@ export const AutocompleteInput = ({
   placeholder,
   className,
   id,
-  required
+  required,
+  originalValue,
 }: AutocompleteInputProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
@@ -87,7 +89,9 @@ export const AutocompleteInput = ({
     setTimeout(() => setIsOpen(false), 150);
   };
 
-  const isDuplicate = suggestions.some(s => s.toLowerCase() === value.toLowerCase());
+  const isOriginal = (originalValue ?? '').trim().toLowerCase() === value.trim().toLowerCase();
+  const isDuplicateRaw = suggestions.some(s => s.toLowerCase() === value.toLowerCase());
+  const showDuplicate = !isOriginal && isDuplicateRaw;
 
   return (
     <div className="relative">
@@ -99,15 +103,15 @@ export const AutocompleteInput = ({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
-          onFocus={() => value.length > 0 && setIsOpen(filteredSuggestions.length > 0)}
+          onFocus={() => value.length > 0 && !isOriginal && setIsOpen(filteredSuggestions.length > 0)}
           placeholder={placeholder}
-          className={cn(
-            className,
-            isDuplicate && value.length > 0 && "border-amber-300 focus:border-amber-500"
-          )}
+            className={cn(
+              className,
+              showDuplicate && value.length > 0 && "border-amber-300 focus:border-amber-500"
+            )}
           required={required}
         />
-        {isDuplicate && value.length > 0 && (
+        {showDuplicate && value.length > 0 && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
           </div>
@@ -129,13 +133,13 @@ export const AutocompleteInput = ({
                 className={cn(
                   "flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors",
                   isHighlighted && "bg-accent",
-                  isExactMatch && "bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+                  isExactMatch && !isOriginal && "bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
                 )}
                 onClick={() => handleSuggestionClick(suggestion)}
                 onMouseEnter={() => setHighlightedIndex(index)}
               >
                 <span className="flex-1">{suggestion}</span>
-                {isExactMatch && (
+                {isExactMatch && !isOriginal && (
                   <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-3 w-3" />
                     <span className="text-xs font-medium">Já existe</span>

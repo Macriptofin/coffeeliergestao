@@ -174,6 +174,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
               suggestions={existingMaterials.map(mat => mat.name)}
               placeholder="Ex: Farinha de trigo, Caixa de papelão, Brigadeiro"
               required
+              originalValue={originalName}
               className={duplicateError ? "border-red-300 focus:border-red-500" : ""}
             />
           </div>
