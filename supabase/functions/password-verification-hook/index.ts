@@ -60,10 +60,16 @@ async function isPasswordPwned(password: string): Promise<boolean> {
   }
 }
 
-// Função para validar força da senha
+// Função para validar força da senha com critérios mais rigorosos
 function isPasswordStrong(password: string): { valid: boolean; message?: string } {
-  if (password.length < 8) {
-    return { valid: false, message: 'A senha deve ter pelo menos 8 caracteres' };
+  // Mínimo de 12 caracteres (mais rigoroso)
+  if (password.length < 12) {
+    return { valid: false, message: 'A senha deve ter pelo menos 12 caracteres' };
+  }
+  
+  // Máximo de 128 caracteres para evitar ataques DoS
+  if (password.length > 128) {
+    return { valid: false, message: 'A senha deve ter no máximo 128 caracteres' };
   }
   
   if (!/[a-z]/.test(password)) {
@@ -79,7 +85,36 @@ function isPasswordStrong(password: string): { valid: boolean; message?: string 
   }
   
   if (!/[^a-zA-Z0-9]/.test(password)) {
-    return { valid: false, message: 'A senha deve conter pelo menos um caractere especial' };
+    return { valid: false, message: 'A senha deve conter pelo menos um caractere especial (!@#$%^&*()_+-=[]{}|;:,.<>?)' };
+  }
+  
+  // Verificar se tem pelo menos 2 caracteres especiais
+  const specialChars = password.match(/[^a-zA-Z0-9]/g);
+  if (!specialChars || specialChars.length < 2) {
+    return { valid: false, message: 'A senha deve conter pelo menos 2 caracteres especiais' };
+  }
+  
+  // Verificar se não contém sequências simples
+  const commonSequences = ['123', 'abc', 'qwe', 'asd', 'zxc', '456', '789'];
+  const lowerPassword = password.toLowerCase();
+  for (const seq of commonSequences) {
+    if (lowerPassword.includes(seq)) {
+      return { valid: false, message: 'A senha não pode conter sequências simples como "123", "abc", etc.' };
+    }
+  }
+  
+  // Verificar se não contém palavras comuns
+  const commonWords = ['password', 'senha', '123456', 'qwerty', 'admin', 'usuario', 'coffeelier'];
+  for (const word of commonWords) {
+    if (lowerPassword.includes(word)) {
+      return { valid: false, message: 'A senha não pode conter palavras comuns ou previsíveis' };
+    }
+  }
+  
+  // Verificar se não tem mais de 2 caracteres repetidos consecutivos
+  const repeatedPattern = /(.)\1{2,}/;
+  if (repeatedPattern.test(password)) {
+    return { valid: false, message: 'A senha não pode ter mais de 2 caracteres iguais consecutivos' };
   }
   
   return { valid: true };
