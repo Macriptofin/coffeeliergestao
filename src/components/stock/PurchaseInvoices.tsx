@@ -596,28 +596,52 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       // Criar conta a pagar se configurado
       if (paymentData.createPayable) {
-        const { error: payableError } = await supabase
+        const currentDate = new Date().toISOString().split('T')[0];
+        const dueDate = paymentData.paymentDate;
+        const invoiceAmount = parseFloat(invoice.total_amount?.toString() || '0');
+        
+        // Verificar se deve ser criada como paga (data de vencimento igual ou anterior à data atual)
+        const isPaid = dueDate <= currentDate;
+        
+        const { data: payableAccount, error: payableError } = await supabase
           .from('accounts_payable')
           .insert({
             supplier_id: invoice.suppliers.id,
             invoice_number: invoice.invoice_number,
             document_number: invoice.invoice_number,
             description: `Nota fiscal ${invoice.invoice_number} - ${invoice.suppliers.company_name}`,
-            issue_date: invoice.invoice_date || new Date().toISOString().split('T')[0],
-            due_date: paymentData.paymentDate,
-            original_amount: parseFloat(invoice.total_amount?.toString() || '0'),
-            remaining_amount: parseFloat(invoice.total_amount?.toString() || '0'),
-            paid_amount: 0,
+            issue_date: invoice.invoice_date || currentDate,
+            due_date: dueDate,
+            original_amount: invoiceAmount,
+            remaining_amount: isPaid ? 0 : invoiceAmount,
+            paid_amount: isPaid ? invoiceAmount : 0,
             discount_amount: 0,
             interest_amount: 0,
-            status: 'Pendente',
-            notes: `Gerado automaticamente do lançamento da nota fiscal. Método: ${paymentData.paymentMethod}${paymentData.responsiblePerson ? `, Responsável: ${paymentData.responsiblePerson}` : ''}`
-          });
+            status: isPaid ? 'Pago' : 'Pendente',
+            notes: `Gerado automaticamente do lançamento da nota fiscal. Método: ${paymentData.paymentMethod}${paymentData.responsiblePerson ? `, Responsável: ${paymentData.responsiblePerson}` : ''}${isPaid ? ' - Pago automaticamente (vencimento até a data atual)' : ''}`
+          })
+          .select()
+          .single();
 
         if (payableError) {
           console.error('Erro ao criar conta a pagar:', payableError);
           // Não interrompe o processo, apenas alerta
           toast.error('Estoque lançado, mas houve erro ao criar conta a pagar');
+        } else if (isPaid && payableAccount) {
+          // Se foi marcada como paga, criar transação de pagamento
+          const { error: paymentError } = await supabase
+            .from('payment_transactions')
+            .insert({
+              account_payable_id: payableAccount.id,
+              payment_date: currentDate,
+              amount: invoiceAmount,
+              payment_method: paymentData.paymentMethod,
+              notes: `Pagamento automático - ${paymentData.paymentMethod}${paymentData.responsiblePerson ? ` - Responsável: ${paymentData.responsiblePerson}` : ''}`
+            });
+
+          if (paymentError) {
+            console.error('Erro ao criar transação de pagamento:', paymentError);
+          }
         }
       }
 
@@ -632,9 +656,15 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       if (updateError) throw updateError;
 
-      const successMessage = paymentData.createPayable 
-        ? 'Nota fiscal lançada no estoque e conta a pagar criada com sucesso'
-        : 'Nota fiscal lançada no estoque com sucesso';
+      const currentDate = new Date().toISOString().split('T')[0];
+      const isPaid = paymentData.createPayable && paymentData.paymentDate <= currentDate;
+      
+      let successMessage = 'Nota fiscal lançada no estoque com sucesso';
+      if (paymentData.createPayable) {
+        successMessage = isPaid 
+          ? 'Nota fiscal lançada no estoque e conta marcada como PAGA com sucesso'
+          : 'Nota fiscal lançada no estoque e conta a pagar criada com sucesso';
+      }
       
       toast.success(successMessage);
       onRefresh();
@@ -989,6 +1019,12 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                             value={paymentData.paymentDate}
                             onChange={(e) => setPaymentData(prev => ({ ...prev, paymentDate: e.target.value }))}
                           />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {paymentData.paymentDate <= new Date().toISOString().split('T')[0] 
+                              ? '✅ Será criada como PAGA (vencimento hoje ou anterior)'
+                              : '⏳ Será criada como PENDENTE (vencimento futuro)'
+                            }
+                          </p>
                         </div>
                       </div>
                     )}
