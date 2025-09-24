@@ -4,17 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSecureEmployeeData } from "@/hooks/useSecureEmployeeData";
 
 interface Employee {
   id: string;
   employee_number: string;
   full_name: string;
   cpf?: string;
+  cpf_display?: string;
+  rg_display?: string;
   department: string;
   position: string;
   hire_date: string;
@@ -23,6 +25,7 @@ interface Employee {
   status: string;
   employment_type: string;
   salary?: number;
+  salary_amount?: number;
 }
 
 interface EmployeesListProps {
@@ -38,63 +41,30 @@ export const EmployeesList = ({
   selectedStatus, 
   onEditEmployee 
 }: EmployeesListProps) => {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-
-  const fetchEmployees = async () => {
-    try {
-      let query = supabase.from("employees").select("*").order("created_at", { ascending: false });
-
-      // Aplicar filtros
-      if (selectedDepartment !== "all") {
-        query = query.eq("department", selectedDepartment);
-      }
-
-      if (selectedStatus !== "all") {
-        query = query.eq("status", selectedStatus);
-      }
-
-      if (searchTerm) {
-        query = query.or(`full_name.ilike.%${searchTerm}%,cpf.ilike.%${searchTerm}%,employee_number.ilike.%${searchTerm}%`);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setEmployees(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar colaboradores: " + error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { 
+    employees, 
+    loading, 
+    fetchEmployees, 
+    deleteEmployee, 
+    canViewSalary 
+  } = useSecureEmployeeData();
 
   useEffect(() => {
-    fetchEmployees();
+    fetchEmployees({
+      searchTerm,
+      department: selectedDepartment,
+      status: selectedStatus
+    });
   }, [searchTerm, selectedDepartment, selectedStatus]);
 
   const handleDelete = async (id: string) => {
-    try {
-      const { error } = await supabase.from("employees").delete().eq("id", id);
-      
-      if (error) throw error;
-      
-      toast({
-        title: "Colaborador removido",
-        description: "O colaborador foi removido com sucesso.",
-      });
-      
-      fetchEmployees();
-    } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: "Erro ao remover colaborador: " + error.message,
-        variant: "destructive",
+    const success = await deleteEmployee(id);
+    if (success) {
+      fetchEmployees({
+        searchTerm,
+        department: selectedDepartment,
+        status: selectedStatus
       });
     }
   };
@@ -167,7 +137,7 @@ export const EmployeesList = ({
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span>Matrícula: {employee.employee_number}</span>
-                  {employee.cpf && <span>CPF: {employee.cpf}</span>}
+                  {employee.cpf_display && <span>CPF: {employee.cpf_display}</span>}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -233,11 +203,11 @@ export const EmployeesList = ({
                 </div>
               )}
 
-              {employee.salary && (
+              {canViewSalary && employee.salary_amount && (
                 <div>
                   <h4 className="font-semibold text-sm mb-1">Salário</h4>
                   <p className="text-sm font-medium text-green-600">
-                    R$ {employee.salary.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    R$ {employee.salary_amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               )}

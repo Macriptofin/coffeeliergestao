@@ -432,13 +432,6 @@ export type Database = {
             referencedRelation: "employees"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "employee_salary_info_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: true
-            referencedRelation: "employees_masked"
-            referencedColumns: ["id"]
-          },
         ]
       }
       employees: {
@@ -1456,51 +1449,7 @@ export type Database = {
       }
     }
     Views: {
-      employees_masked: {
-        Row: {
-          account_type: string | null
-          address: string | null
-          bank_account: string | null
-          bank_branch: string | null
-          bank_name: string | null
-          benefits: string[] | null
-          birth_date: string | null
-          city: string | null
-          cpf: string | null
-          cpf_display: string | null
-          created_at: string | null
-          ctps_number: string | null
-          ctps_series: string | null
-          department: string | null
-          email: string | null
-          emergency_contact_name: string | null
-          emergency_contact_phone: string | null
-          employee_number: string | null
-          employment_type: string | null
-          full_name: string | null
-          gender: string | null
-          hire_date: string | null
-          id: string | null
-          marital_status: string | null
-          military_service: string | null
-          mobile_phone: string | null
-          notes: string | null
-          phone: string | null
-          pis_pasep: string | null
-          position: string | null
-          rg: string | null
-          rg_display: string | null
-          salary: number | null
-          salary_amount: number | null
-          state: string | null
-          status: string | null
-          termination_date: string | null
-          updated_at: string | null
-          voter_registration: string | null
-          zip_code: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       admin_exists: {
@@ -1514,6 +1463,50 @@ export type Database = {
           p_new_quantity: number
         }
         Returns: number
+      }
+      get_masked_employee_data: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          account_type: string
+          address: string
+          bank_account: string
+          bank_branch: string
+          bank_name: string
+          benefits: string[]
+          birth_date: string
+          city: string
+          cpf: string
+          cpf_display: string
+          created_at: string
+          ctps_number: string
+          ctps_series: string
+          department: string
+          email: string
+          emergency_contact_name: string
+          emergency_contact_phone: string
+          employee_number: string
+          employment_type: string
+          full_name: string
+          gender: string
+          hire_date: string
+          id: string
+          marital_status: string
+          military_service: string
+          mobile_phone: string
+          notes: string
+          phone: string
+          pis_pasep: string
+          position: string
+          rg: string
+          rg_display: string
+          salary_amount: number
+          state: string
+          status: string
+          termination_date: string
+          updated_at: string
+          voter_registration: string
+          zip_code: string
+        }[]
       }
       has_role: {
         Args: {

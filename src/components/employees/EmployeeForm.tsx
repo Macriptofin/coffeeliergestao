@@ -10,13 +10,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Save, X } from "lucide-react";
+import { CalendarIcon, Save, X, Shield } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useSecureEmployeeData } from "@/hooks/useSecureEmployeeData";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const employeeSchema = z.object({
   employee_number: z.string().optional(),
@@ -64,6 +66,8 @@ interface EmployeeFormProps {
 export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const { saveEmployee, logPIIAccess } = useSecureEmployeeData();
+  const { isAdmin } = useUserRole();
 
   const form = useForm<z.infer<typeof employeeSchema>>({
     resolver: zodResolver(employeeSchema),
@@ -89,7 +93,7 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
       hire_date: employee?.hire_date ? new Date(employee.hire_date) : new Date(),
       termination_date: employee?.termination_date ? new Date(employee.termination_date) : undefined,
       employment_type: employee?.employment_type || "CLT",
-      salary: employee?.salary?.toString() || "",
+      salary: employee?.salary_amount?.toString() || "",
       benefits: employee?.benefits?.join(", ") || "",
       pis_pasep: employee?.pis_pasep || "",
       ctps_number: employee?.ctps_number || "",
@@ -110,45 +114,30 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
     try {
       const employeeData = {
         ...values,
-        salary: values.salary ? parseFloat(values.salary) : null,
+        salary_amount: values.salary ? parseFloat(values.salary) : null,
         benefits: values.benefits ? values.benefits.split(",").map(b => b.trim()).filter(Boolean) : [],
         birth_date: values.birth_date ? format(values.birth_date, "yyyy-MM-dd") : null,
         hire_date: format(values.hire_date, "yyyy-MM-dd"),
         termination_date: values.termination_date ? format(values.termination_date, "yyyy-MM-dd") : null,
-      } as any;
+      };
 
+      // Log PII access before saving
       if (employee?.id) {
-        const { error } = await supabase
-          .from("employees")
-          .update(employeeData)
-          .eq("id", employee.id);
-
-        if (error) throw error;
-
-        toast({
-          title: "Colaborador atualizado",
-          description: "Os dados do colaborador foram atualizados com sucesso.",
-        });
-      } else {
-        const { error } = await supabase
-          .from("employees")
-          .insert(employeeData);
-
-        if (error) throw error;
-
-        toast({
-          title: "Colaborador cadastrado",
-          description: "O novo colaborador foi cadastrado com sucesso.",
-        });
+        await logPIIAccess(employee.id, 'FORM_EDIT', ['personal_data', 'salary']);
       }
+
+      await saveEmployee(employeeData, !!employee?.id);
+
+      toast({
+        title: employee ? "Colaborador atualizado" : "Colaborador cadastrado",
+        description: employee 
+          ? "Os dados do colaborador foram atualizados com sucesso."
+          : "O novo colaborador foi cadastrado com sucesso.",
+      });
 
       onSuccess();
     } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: error.message || "Ocorreu um erro ao salvar o colaborador.",
-        variant: "destructive",
-      });
+      // Error handling is done in the hook
     } finally {
       setLoading(false);
     }
@@ -618,10 +607,35 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
                     name="salary"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Salário</FormLabel>
+                        <FormLabel className="flex items-center gap-2">
+                          Salário 
+                          {!isAdmin && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Shield className="h-4 w-4 text-amber-500" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Acesso restrito - Apenas administradores</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                          <Input 
+                            type="number" 
+                            step="0.01" 
+                            placeholder={isAdmin ? "0.00" : "Acesso restrito"}
+                            disabled={!isAdmin}
+                            {...field} 
+                          />
                         </FormControl>
+                        {!isAdmin && (
+                          <p className="text-xs text-muted-foreground">
+                            Apenas administradores podem ver/editar informações salariais
+                          </p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}
