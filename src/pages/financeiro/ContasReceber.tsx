@@ -160,28 +160,6 @@ const ContasReceber = () => {
 
       if (error) throw error;
 
-      // Criar transação no fluxo de caixa para a nova conta a receber
-      const clientName = clients.find(c => c.id === formData.client_id)?.name || 'Cliente';
-      const { error: cashTransactionError } = await supabase
-        .from('cash_transactions')
-        .insert({
-          transaction_date: formData.due_date,
-          description: `Conta a receber - ${clientName} - ${formData.description}`,
-          transaction_type: 'Entrada',
-          category: 'Contas a Receber',
-          amount: originalAmount + interestAmount - discountAmount,
-          payment_method: 'A definir',
-          reference_type: 'Conta a Receber',
-          cost_center_id: formData.cost_center_id || null,
-          account_id: formData.account_id || null,
-          document_number: formData.document_number,
-          notes: formData.notes
-        });
-
-      if (cashTransactionError) {
-        console.error('Erro ao criar transação de caixa:', cashTransactionError);
-      }
-
       toast.success('Conta a receber cadastrada com sucesso!');
       setIsDialogOpen(false);
       resetForm();
@@ -241,29 +219,6 @@ const ContasReceber = () => {
         .single();
 
       if (receiptError) throw receiptError;
-
-      // Criar transação no fluxo de caixa (efetivação do recebimento)
-      const clientName = clients.find(c => c.id === selectedAccount.client_id)?.name || 'Cliente';
-      const { error: cashTransactionError } = await supabase
-        .from('cash_transactions')
-        .insert({
-          transaction_date: receiptData.receipt_date,
-          description: `Recebimento - ${clientName} - ${selectedAccount.description}`,
-          transaction_type: 'Entrada',
-          category: 'Recebimentos',
-          amount: receiptAmount,
-          payment_method: receiptData.receipt_method,
-          reference_type: 'Recebimento',
-          reference_id: receiptTransaction.id,
-          cost_center_id: selectedAccount.cost_center_id,
-          account_id: selectedAccount.account_id,
-          document_number: selectedAccount.document_number,
-          notes: `Recebimento de conta a receber: ${selectedAccount.id}`
-        });
-
-      if (cashTransactionError) {
-        console.error('Erro ao criar transação de caixa:', cashTransactionError);
-      }
 
       toast.success('Recebimento registrado com sucesso!');
       setReceiptDialogOpen(false);

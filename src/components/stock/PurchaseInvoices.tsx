@@ -642,25 +642,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           // Não interrompe o processo, apenas alerta
           toast.error('Estoque lançado, mas houve erro ao criar conta a pagar');
         } else {
-          // Criar transação no fluxo de caixa
-          const { error: cashTransactionError } = await supabase
-            .from('cash_transactions')
-            .insert({
-              transaction_date: isPaid ? currentDate : dueDate,
-              description: `Compra - ${invoice.suppliers.company_name} - NF ${invoice.invoice_number}`,
-              transaction_type: 'Saída',
-              category: 'Compras',
-              amount: invoiceAmount,
-              payment_method: paymentData.paymentMethod,
-              reference_type: 'Compra',
-              reference_id: payableAccount.id,
-              notes: `Conta a pagar: ${payableAccount.id}${paymentData.responsiblePerson ? ` - Responsável: ${paymentData.responsiblePerson}` : ''}`
-            });
-
-          if (cashTransactionError) {
-            console.error('Erro ao criar transação de caixa:', cashTransactionError);
-          }
-
           // Se foi marcada como paga, criar transação de pagamento
           if (isPaid && payableAccount) {
             const { error: paymentError } = await supabase
@@ -772,25 +753,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         .single();
 
       if (payableError) throw payableError;
-
-      // Criar transação no fluxo de caixa
-      const { error: cashTransactionError } = await supabase
-        .from('cash_transactions')
-        .insert({
-          transaction_date: isPaid ? currentDate : dueDate,
-          description: `Compra - ${selectedInvoiceForRetroactive.supplier?.companyName} - NF ${selectedInvoiceForRetroactive.invoiceNumber}`,
-          transaction_type: 'Saída',
-          category: 'Compras',
-          amount: invoiceAmount,
-          payment_method: retroactivePaymentData.paymentMethod,
-          reference_type: 'Compra',
-          reference_id: payableAccount.id,
-          notes: `Conta a pagar: ${payableAccount.id}${retroactivePaymentData.responsiblePerson ? ` - Responsável: ${retroactivePaymentData.responsiblePerson}` : ''}`
-        });
-
-      if (cashTransactionError) {
-        console.error('Erro ao criar transação de caixa:', cashTransactionError);
-      }
 
       // Se foi marcada como paga, criar transação de pagamento
       if (isPaid && payableAccount) {

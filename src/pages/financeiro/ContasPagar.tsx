@@ -146,27 +146,6 @@ const ContasPagar = () => {
 
       if (error) throw error;
 
-      // Criar transação no fluxo de caixa para a nova conta a pagar
-      const { error: cashTransactionError } = await supabase
-        .from('cash_transactions')
-        .insert({
-          transaction_date: formData.due_date,
-          description: `Conta a pagar - ${suppliers.find(s => s.id === formData.supplier_id)?.company_name || 'Fornecedor'} - ${formData.description}`,
-          transaction_type: 'Saída',
-          category: 'Contas a Pagar',
-          amount: originalAmount + interestAmount - discountAmount,
-          payment_method: 'A definir',
-          reference_type: 'Conta a Pagar',
-          cost_center_id: formData.cost_center_id || null,
-          account_id: formData.account_id || null,
-          document_number: formData.document_number,
-          notes: formData.notes
-        });
-
-      if (cashTransactionError) {
-        console.error('Erro ao criar transação de caixa:', cashTransactionError);
-      }
-
       toast.success('Conta a pagar cadastrada com sucesso!');
       setIsDialogOpen(false);
       resetForm();
@@ -225,29 +204,6 @@ const ContasPagar = () => {
         .single();
 
       if (paymentError) throw paymentError;
-
-      // Criar transação no fluxo de caixa (efetivação do pagamento)
-      const supplierName = suppliers.find(s => s.id === selectedAccount.supplier_id)?.company_name || 'Fornecedor';
-      const { error: cashTransactionError } = await supabase
-        .from('cash_transactions')
-        .insert({
-          transaction_date: paymentData.payment_date,
-          description: `Pagamento - ${supplierName} - ${selectedAccount.description}`,
-          transaction_type: 'Saída',
-          category: 'Pagamentos',
-          amount: paymentAmount,
-          payment_method: paymentData.payment_method,
-          reference_type: 'Pagamento',
-          reference_id: paymentTransaction.id,
-          cost_center_id: selectedAccount.cost_center_id,
-          account_id: selectedAccount.account_id,
-          document_number: selectedAccount.document_number,
-          notes: `Pagamento de conta a pagar: ${selectedAccount.id}`
-        });
-
-      if (cashTransactionError) {
-        console.error('Erro ao criar transação de caixa:', cashTransactionError);
-      }
 
       toast.success('Pagamento registrado com sucesso!');
       setPaymentDialogOpen(false);
