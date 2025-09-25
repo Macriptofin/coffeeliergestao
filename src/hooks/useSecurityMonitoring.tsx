@@ -58,27 +58,36 @@ export function useSecurityMonitoring() {
   };
 
   const logPIIAccess = async (
-    employeeId: string,
+    resourceId: string | null,
     accessType: string,
     fields: string[]
   ) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!validateAuthenticatedAction(user?.id || null)) return;
+
+      const ipAddress = await getClientIP();
+      
+      // Determine table name based on access type
+      const tableName = accessType.includes('CLIENT') ? 'clients' : 'employees';
+      
       await supabase.rpc('log_pii_access', {
-        p_table_name: 'employees',
-        p_employee_id: employeeId,
+        p_table_name: tableName,
+        p_employee_id: resourceId,
         p_access_type: accessType,
         p_pii_fields: fields
       });
 
-      // Alert on bulk PII access
-      if (fields.length > 3 || accessType === 'BULK_EXPORT') {
+      // Check for bulk access patterns and create alerts
+      if (accessType.includes('BULK') || fields.length > 5) {
         await createSecurityAlert(
           'BULK_PII_ACCESS',
-          'employees',
+          tableName,
           {
-            employee_id: employeeId,
-            fields_accessed: fields,
-            access_type: accessType
+            resource_id: resourceId,
+            access_type: accessType,
+            fields_count: fields.length,
+            ip_address: ipAddress
           }
         );
       }

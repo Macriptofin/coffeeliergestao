@@ -1772,6 +1772,28 @@ export type Database = {
         }
         Returns: string
       }
+      get_masked_client_data: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          address: string
+          city: string
+          cnpj_cpf: string
+          cnpj_cpf_display: string
+          contact_person: string
+          created_at: string
+          email: string
+          email_display: string
+          id: string
+          name: string
+          notes: string
+          phone: string
+          phone_display: string
+          state: string
+          status: string
+          updated_at: string
+          zip_code: string
+        }[]
+      }
       get_masked_employee_data: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1868,8 +1890,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      mask_cnpj_cpf: {
+        Args: { cnpj_cpf_value: string }
+        Returns: string
+      }
       mask_cpf: {
         Args: { cpf_value: string }
+        Returns: string
+      }
+      mask_email: {
+        Args: { email_value: string }
+        Returns: string
+      }
+      mask_phone: {
+        Args: { phone_value: string }
         Returns: string
       }
       mask_rg: {
