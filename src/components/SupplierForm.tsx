@@ -30,6 +30,7 @@ interface SupplierFormProps {
   supplier?: Supplier;
   onSubmit: (supplier: Omit<Supplier, 'id' | 'code'>) => void;
   onCancel: () => void;
+  isSubmitting?: boolean;
 }
 
 const categories = [
@@ -47,7 +48,7 @@ const states = [
   'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
-export const SupplierForm = ({ supplier, onSubmit, onCancel }: SupplierFormProps) => {
+export const SupplierForm = ({ supplier, onSubmit, onCancel, isSubmitting = false }: SupplierFormProps) => {
   const [formData, setFormData] = useState({
     status: supplier?.status || 'Ativo' as const,
     companyName: supplier?.companyName || '',
@@ -302,10 +303,17 @@ export const SupplierForm = ({ supplier, onSubmit, onCancel }: SupplierFormProps
 
           {/* Botões */}
           <div className="flex gap-3 pt-4">
-            <Button type="submit" className="flex-1">
-              {supplier ? 'Atualizar Fornecedor' : 'Cadastrar Fornecedor'}
+            <Button type="submit" className="flex-1" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  {supplier ? 'Atualizando...' : 'Cadastrando...'}
+                </>
+              ) : (
+                supplier ? 'Atualizar Fornecedor' : 'Cadastrar Fornecedor'
+              )}
             </Button>
-            <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
+            <Button type="button" variant="outline" onClick={onCancel} className="flex-1" disabled={isSubmitting}>
               Cancelar
             </Button>
           </div>

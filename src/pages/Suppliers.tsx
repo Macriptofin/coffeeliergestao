@@ -15,6 +15,7 @@ const Suppliers = () => {
   const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     loadSuppliers();
@@ -60,21 +61,11 @@ const Suppliers = () => {
 
   const addSupplier = async (supplier: Omit<Supplier, 'id' | 'code'>) => {
     try {
-      // Gerar código automático
-      const { data: existingSuppliers } = await supabase
-        .from('suppliers')
-        .select('code')
-        .order('code', { ascending: false })
-        .limit(1);
-      
-      const lastCode = existingSuppliers?.[0]?.code || 'FORN-0000';
-      const nextNumber = parseInt(lastCode.split('-')[1]) + 1;
-      const newCode = `FORN-${nextNumber.toString().padStart(4, '0')}`;
-
+      setSubmitting(true);
       const { data, error } = await supabase
         .from('suppliers')
         .insert({
-          code: newCode,
+          code: null, // O trigger irá gerar automaticamente
           status: supplier.status,
           company_name: supplier.companyName,
           trade_name: supplier.tradeName,
@@ -121,12 +112,21 @@ const Suppliers = () => {
       toast.success('Fornecedor cadastrado com sucesso!');
     } catch (error) {
       console.error('Erro ao adicionar fornecedor:', error);
-      toast.error('Erro ao cadastrar fornecedor');
+      
+      // Verificar se é erro de chave duplicada
+      if (error?.code === '23505' && error?.message?.includes('suppliers_code_key')) {
+        toast.error('Erro interno ao gerar código do fornecedor. Tente novamente.');
+      } else {
+        toast.error('Erro ao cadastrar fornecedor');
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const updateSupplier = async (updatedSupplier: Supplier) => {
     try {
+      setSubmitting(true);
       const { error } = await supabase
         .from('suppliers')
         .update({
@@ -159,6 +159,8 @@ const Suppliers = () => {
     } catch (error) {
       console.error('Erro ao atualizar fornecedor:', error);
       toast.error('Erro ao atualizar fornecedor');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -260,6 +262,7 @@ const Suppliers = () => {
             supplier={editingSupplier}
             onSubmit={handleSupplierSubmit}
             onCancel={cancelSupplierForm}
+            isSubmitting={submitting}
           />
         </div>
       )}
