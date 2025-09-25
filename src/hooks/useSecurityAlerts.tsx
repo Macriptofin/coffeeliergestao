@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from './useUserRole';
+import { getClientIP, sanitizeForLogging } from '@/lib/security-utils';
 
 interface SecurityAlert {
   id: string;
@@ -43,13 +44,13 @@ export function useSecurityAlerts() {
         .limit(50);
 
       if (error) {
-        console.error('Error fetching security alerts:', error);
+        console.error('Error fetching security alerts:', sanitizeForLogging(error));
         return;
       }
 
       setAlerts((data || []) as SecurityAlert[]);
     } catch (error) {
-      console.error('Error in fetchAlerts:', error);
+      console.error('Error in fetchAlerts:', sanitizeForLogging(error));
     } finally {
       setLoading(false);
     }
@@ -78,31 +79,47 @@ export function useSecurityAlerts() {
 
   const acknowledgeAlert = async (alertId: string) => {
     try {
+      const ipAddress = await getClientIP();
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { error } = await supabase
         .from('security_alerts')
         .update({ 
           acknowledged: true,
-          acknowledged_at: new Date().toISOString()
+          acknowledged_at: new Date().toISOString(),
+          acknowledged_by: user?.id
         })
         .eq('id', alertId);
 
       if (error) {
-        console.error('Error acknowledging alert:', error);
+        console.error('Error acknowledging alert:', sanitizeForLogging(error));
         return false;
       }
+
+      // Log the acknowledgment for audit trail
+      await supabase.rpc('log_sensitive_data_access', {
+        p_action: 'ALERT_ACKNOWLEDGED',
+        p_resource_type: 'security_alerts',
+        p_resource_id: alertId,
+        p_details: {
+          ip_address: ipAddress,
+          timestamp: new Date().toISOString(),
+          user_id: user?.id
+        }
+      });
 
       // Update local state
       setAlerts(current =>
         current.map(alert =>
           alert.id === alertId
-            ? { ...alert, acknowledged: true, acknowledged_at: new Date().toISOString() }
+            ? { ...alert, acknowledged: true, acknowledged_at: new Date().toISOString(), acknowledged_by: user?.id }
             : alert
         )
       );
 
       return true;
     } catch (error) {
-      console.error('Error in acknowledgeAlert:', error);
+      console.error('Error in acknowledgeAlert:', sanitizeForLogging(error));
       return false;
     }
   };

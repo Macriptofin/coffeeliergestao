@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getClientIP, sanitizeForLogging } from '@/lib/security-utils';
 
 interface RateLimitResult {
   allowed: boolean;
@@ -22,8 +23,8 @@ export function useRateLimiting() {
     setIsChecking(true);
 
     try {
-      // Get client IP (best effort - fallback to placeholder)
-      const ipAddress = '127.0.0.1'; // In production, this would come from headers
+      // Get real client IP address
+      const ipAddress = await getClientIP();
       
       const { data, error } = await supabase.rpc('check_rate_limit', {
         p_email: email,
@@ -32,13 +33,13 @@ export function useRateLimiting() {
       });
 
       if (error) {
-        console.warn('Rate limit check failed, allowing attempt:', error);
+        console.warn('Rate limit check failed, allowing attempt:', sanitizeForLogging(error));
         return { allowed: true };
       }
 
       return (data || { allowed: true }) as unknown as RateLimitResult;
     } catch (error) {
-      console.error('Rate limiting error:', error);
+      console.error('Rate limiting error:', sanitizeForLogging(error));
       // Fail open for availability
       return { allowed: true };
     } finally {
@@ -53,7 +54,7 @@ export function useRateLimiting() {
     failureReason?: string
   ) => {
     try {
-      const ipAddress = '127.0.0.1'; // In production, this would come from headers
+      const ipAddress = await getClientIP();
       const userAgent = navigator.userAgent;
 
       await supabase.rpc('log_auth_attempt', {
@@ -65,7 +66,7 @@ export function useRateLimiting() {
         p_failure_reason: failureReason
       });
     } catch (error) {
-      console.error('Failed to log auth attempt:', error);
+      console.error('Failed to log auth attempt:', sanitizeForLogging(error));
       // Don't throw - logging failures shouldn't block auth
     }
   };

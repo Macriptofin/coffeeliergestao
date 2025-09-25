@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
+import { getClientIP, sanitizeForLogging, validateAuthenticatedAction } from '@/lib/security-utils';
 
 interface SecurityEvent {
   id: string;
@@ -25,6 +26,13 @@ export function useSecurityMonitoring() {
     details?: any
   ) => {
     try {
+      // Validate that user is authenticated for this action
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!validateAuthenticatedAction(user?.id || null)) {
+        console.warn('Attempted security event logging without authentication');
+        return;
+      }
+
       const ipAddress = await getClientIP();
       
       await supabase.rpc('log_sensitive_data_access', {
@@ -32,10 +40,11 @@ export function useSecurityMonitoring() {
         p_resource_type: resourceType,
         p_resource_id: resourceId,
         p_details: {
-          ...details,
+          ...sanitizeForLogging(details),
           ip_address: ipAddress,
           user_agent: navigator.userAgent,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          user_id: user.id
         }
       });
 
@@ -44,7 +53,7 @@ export function useSecurityMonitoring() {
         await createSecurityAlert(action, resourceType, details);
       }
     } catch (error) {
-      console.error('Failed to log security event:', error);
+      console.error('Failed to log security event:', sanitizeForLogging(error));
     }
   };
 
@@ -74,7 +83,7 @@ export function useSecurityMonitoring() {
         );
       }
     } catch (error) {
-      console.error('Failed to log PII access:', error);
+      console.error('Failed to log PII access:', sanitizeForLogging(error));
     }
   };
 
@@ -98,19 +107,11 @@ export function useSecurityMonitoring() {
         p_metadata: metadata
       });
     } catch (error) {
-      console.error('Failed to create security alert:', error);
+      console.error('Failed to create security alert:', sanitizeForLogging(error));
     }
   };
 
-  const getClientIP = async (): Promise<string> => {
-    try {
-      // In production, this would come from request headers
-      // For now, using a placeholder
-      return '127.0.0.1';
-    } catch {
-      return 'unknown';
-    }
-  };
+  // Remove the local getClientIP function since we now import it from utils
 
   const isHighRiskAction = (action: string): boolean => {
     const highRiskActions = [
