@@ -2056,7 +2056,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      secure_user_profiles: {
+        Row: {
+          created_at: string | null
+          display_name: string | null
+          email: string | null
+          id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_name?: string | null
+          email?: never
+          id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string | null
+          email?: never
+          id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_exists: {
@@ -2278,6 +2304,10 @@ export type Database = {
           p_physical_quantity: number
           p_reference_document?: string
         }
+        Returns: string
+      }
+      sanitize_error_message: {
+        Args: { error_msg: string }
         Returns: string
       }
     }

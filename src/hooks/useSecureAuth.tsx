@@ -54,7 +54,7 @@ export function useSecureAuth() {
               break;
             case 'SIGNED_OUT':
               await logSecurityEvent('USER_LOGOUT', 'auth', user?.id, {
-                session_duration: session ? Date.now() - Date.parse(session.expires_at || '') : 0
+                session_duration: session ? (Date.now() - Date.parse(session.expires_at || new Date().toISOString())) : 0
               });
               break;
             case 'TOKEN_REFRESHED':
