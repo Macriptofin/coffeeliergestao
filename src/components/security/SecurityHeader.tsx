@@ -4,46 +4,56 @@ import { useEffect } from 'react';
 const SecurityHeader = () => {
   useEffect(() => {
     // Content Security Policy - relaxed for preview/iframe, strict for standalone prod
-    const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const host = window.location.hostname;
     const inIframe = window.top !== window.self;
-    // Skip all security headers when embedded in Lovable preview iframe to prevent CSP-breaking the preview
-    if (inIframe) {
-      return;
-    }
+    const isLocalDev = host === 'localhost' || host === '127.0.0.1';
+    const isLovableHost = /\.lovable(app|dev)$/.test(host) || /\.lovableproject\.com$/.test(host);
+    const isPreviewEnv = inIframe || isLocalDev || isLovableHost;
 
     const allowedDomains = [
       'https://njxxqdcwvehlvqufuyww.supabase.co',
-      'wss://njxxqdcwvehlvqufuyww.supabase.co'
+      'wss://njxxqdcwvehlvqufuyww.supabase.co',
+      'https://*.lovable.app',
+      'https://*.lovable.dev'
     ];
 
-    // Add production domain when deployed
-    if (!isDevelopment) {
+    // Add production domain when deployed (standalone only)
+    if (!isLocalDev && !isLovableHost && !inIframe) {
       allowedDomains.push('https://receita-maestro-digital.lovable.app');
     }
 
-    // Allow Lovable preview host to embed the app during development/preview
+    // Frame ancestors: allow lovable preview when embedded, deny otherwise
     const frameAncestors = inIframe
-      ? "frame-ancestors 'self' https://*.lovableproject.com https://*.lovable.app"
+      ? "frame-ancestors 'self' https://*.lovableproject.com https://*.lovable.app https://*.lovable.dev"
       : "frame-ancestors 'none'";
 
-    const csp = [
-      "default-src 'self'",
-      // Allow inline/eval in dev or when inside Lovable preview to avoid blocking tooling
-      (isDevelopment || inIframe)
-        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-        : "script-src 'self'",
-      (isDevelopment || inIframe)
-        ? "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com"
-        : "style-src 'self' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob:",
-      `connect-src 'self' ${allowedDomains.join(' ')}`,
-      frameAncestors,
-      "base-uri 'self'",
-      "form-action 'self'",
-      "object-src 'none'",
-      "media-src 'self'"
-    ].join('; ');
+    const csp = isPreviewEnv
+      ? [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+          "img-src 'self' data: https:",
+          "font-src 'self' data: https://fonts.gstatic.com",
+          `connect-src 'self' ${allowedDomains.join(' ')}`,
+          frameAncestors,
+          "base-uri 'self'",
+          "form-action 'self'",
+          "object-src 'none'",
+          "media-src 'self'"
+        ].join('; ')
+      : [
+          "default-src 'self'",
+          "script-src 'self'",
+          "style-src 'self' https://fonts.googleapis.com",
+          "font-src 'self' https://fonts.gstatic.com",
+          "img-src 'self' data: blob:",
+          `connect-src 'self' ${allowedDomains.join(' ')}`,
+          frameAncestors,
+          "base-uri 'self'",
+          "form-action 'self'",
+          "object-src 'none'",
+          "media-src 'self'"
+        ].join('; ');
 
     // Add meta tag for CSP (idempotent)
     const existingCsp = document.querySelector('meta[http-equiv="Content-Security-Policy"]') as HTMLMetaElement | null;
@@ -89,7 +99,7 @@ const SecurityHeader = () => {
     });
 
     // Enhanced production security (only when standalone)
-    const isProdStandalone = !isDevelopment && !inIframe;
+    const isProdStandalone = !isPreviewEnv;
     if (isProdStandalone) {
       // Disable console to prevent information leakage
       const noop = () => {};

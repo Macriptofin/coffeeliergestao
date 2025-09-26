@@ -18,6 +18,10 @@ export function useSecurityMonitoring() {
   const [events, setEvents] = useState<SecurityEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const { isAdmin } = useUserRole();
+  const host = typeof window !== 'undefined' ? window.location.hostname : '';
+  const inIframe = typeof window !== 'undefined' ? window.top !== window.self : false;
+  const isLovableHost = /\.lovable(app|dev)$/.test(host) || /\.lovableproject\.com$/.test(host);
+  const isPreviewEnv = inIframe || host === 'localhost' || host === '127.0.0.1' || isLovableHost;
 
   const logSecurityEvent = async (
     action: string,
@@ -26,6 +30,9 @@ export function useSecurityMonitoring() {
     details?: any
   ) => {
     try {
+      // In preview, only log high-risk events to reduce noise
+      if (isPreviewEnv && !isHighRiskAction(action)) return;
+
       // Validate that user is authenticated for this action
       const { data: { user } } = await supabase.auth.getUser();
       if (!validateAuthenticatedAction(user?.id || null)) {
@@ -63,6 +70,11 @@ export function useSecurityMonitoring() {
     fields: string[]
   ) => {
     try {
+      // In preview, only log manual reveals or potentially risky/bulk access
+      if (isPreviewEnv && !(accessType.includes('MANUAL_REVEAL') || accessType.includes('BULK') || fields.length > 3)) {
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!validateAuthenticatedAction(user?.id || null)) return;
 
