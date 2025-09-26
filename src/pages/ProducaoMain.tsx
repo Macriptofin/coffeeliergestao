@@ -18,14 +18,14 @@ const ProducaoMain = () => {
       title: "Ordens de Produção",
       description: "Planejamento e controle da produção diária",
       icon: ClipboardList,
-      href: "/producao",
+      href: "/producao/ordens",
       color: "bg-blue-500"
     },
     {
       title: "Cálculo de Custos",
       description: "Análise de custos de produção e precificação",
       icon: Calculator,
-      href: "/producao/custos",
+      href: "/producao/calculo-custos",
       color: "bg-green-500"
     },
     {

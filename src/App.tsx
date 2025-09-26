@@ -32,6 +32,10 @@ import EnhancedSecurity from "./pages/EnhancedSecurity";
 import SecurityAnomalies from "./pages/SecurityAnomalies";
 import SecurityHeader from "./components/security/SecurityHeader";
 import InventarioAjustes from "./pages/InventarioAjustes";
+import ProductionOrders from "./pages/production/ProductionOrders";
+import CostCalculation from "./pages/production/CostCalculation";
+import ProductionPlanning from "./pages/production/ProductionPlanning";
+import ProductionReports from "./pages/production/ProductionReports";
 
 const queryClient = new QueryClient();
 
@@ -60,7 +64,10 @@ function App() {
               {/* Categoria Produção */}
               <Route path="producao" element={<ProducaoMain />} />
               <Route path="receitas" element={<Recipes />} />
-              <Route path="producao/*" element={<Production />} />
+              <Route path="producao/ordens" element={<ProductionOrders />} />
+              <Route path="producao/calculo-custos" element={<CostCalculation />} />
+              <Route path="producao/planejamento" element={<ProductionPlanning />} />
+              <Route path="producao/relatorios" element={<ProductionReports />} />
               {/* Fornecedores */}
               <Route path="fornecedores" element={<Suppliers />} />
               {/* Categoria Financeiro */}
