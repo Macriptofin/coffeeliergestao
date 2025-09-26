@@ -4,13 +4,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
 import { useSecurityAlerts } from '@/hooks/useSecurityAlerts';
+import { useSecurityNotifications } from '@/hooks/useSecurityNotifications';
+import { useSecurityScanner } from '@/hooks/useSecurityScanner';
 import { useUserRole } from '@/hooks/useUserRole';
-import { AlertTriangle, Shield, Clock, CheckCircle } from 'lucide-react';
+import { AlertTriangle, Shield, Clock, CheckCircle, Scan, Bell, BellOff, Play, Pause } from 'lucide-react';
 import { toast } from 'sonner';
 
 const SecurityDashboard = () => {
-  const { isAdminOrManager } = useUserRole();
+  const { isAdminOrManager, isAdmin } = useUserRole();
   const { 
     alerts, 
     loading, 
@@ -19,6 +22,23 @@ const SecurityDashboard = () => {
     getCriticalAlertsCount,
     getHighPriorityAlertsCount 
   } = useSecurityAlerts();
+
+  const {
+    notifications,
+    isEnabled: notificationsEnabled,
+    enableNotifications,
+    disableNotifications,
+    getUnreadCount
+  } = useSecurityNotifications();
+
+  const {
+    scanning,
+    lastScanResults,
+    autoScanEnabled,
+    performComprehensiveScan,
+    enableAutoScan,
+    disableAutoScan
+  } = useSecurityScanner();
 
   const [acknowledgingAlert, setAcknowledgingAlert] = useState<string | null>(null);
 
@@ -88,6 +108,101 @@ const SecurityDashboard = () => {
         </p>
       </div>
 
+      {/* Security Controls */}
+      {isAdmin() && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Controles de Segurança
+            </CardTitle>
+            <CardDescription>
+              Configure monitoramento e notificações de segurança
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <h4 className="text-sm font-medium">Notificações de Segurança</h4>
+                <p className="text-xs text-muted-foreground">
+                  Receber alertas em tempo real para eventos críticos
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={notificationsEnabled}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      enableNotifications();
+                    } else {
+                      disableNotifications();
+                    }
+                  }}
+                />
+                {notificationsEnabled ? (
+                  <Bell className="h-4 w-4 text-green-500" />
+                ) : (
+                  <BellOff className="h-4 w-4 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <h4 className="text-sm font-medium">Scan Automatizado</h4>
+                <p className="text-xs text-muted-foreground">
+                  Executar verificações de segurança a cada 6 horas
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={autoScanEnabled}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      enableAutoScan();
+                    } else {
+                      disableAutoScan();
+                    }
+                  }}
+                />
+                {autoScanEnabled ? (
+                  <Play className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Pause className="h-4 w-4 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t">
+              <div className="space-y-1">
+                <h4 className="text-sm font-medium">Scan Manual</h4>
+                <p className="text-xs text-muted-foreground">
+                  Executar verificação completa de segurança agora
+                </p>
+              </div>
+              <Button
+                onClick={performComprehensiveScan}
+                disabled={scanning}
+                size="sm"
+                variant="outline"
+              >
+                {scanning ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                    Escaneando...
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Scan className="h-4 w-4" />
+                    Iniciar Scan
+                  </div>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Security Stats */}
       <div className="grid gap-4 md:grid-cols-4 mb-8">
         <Card>
@@ -141,6 +256,116 @@ const SecurityDashboard = () => {
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Security Scan Results */}
+      {isAdmin() && lastScanResults.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Scan className="h-5 w-5" />
+              Resultado do Último Scan
+            </CardTitle>
+            <CardDescription>
+              Verificações de segurança automatizadas mais recentes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {lastScanResults.map((result) => (
+                <div key={result.id} className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium capitalize">
+                      {result.scanType.replace('_', ' ')}
+                    </h4>
+                    <Badge 
+                      variant={
+                        result.riskLevel === 'critical' ? 'destructive' :
+                        result.riskLevel === 'high' ? 'destructive' :
+                        result.riskLevel === 'medium' ? 'secondary' : 'default'
+                      }
+                    >
+                      {result.riskLevel.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {result.findings.length} problemas encontrados
+                  </p>
+                  {result.completedAt && (
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(result.completedAt).toLocaleString('pt-BR')}
+                    </p>
+                  )}
+                  {result.findings.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {result.findings.slice(0, 2).map((finding, index) => (
+                        <div key={index} className="text-xs p-2 bg-muted/50 rounded">
+                          <span className="font-medium">{finding.type.replace('_', ' ')}: </span>
+                          {finding.description}
+                        </div>
+                      ))}
+                      {result.findings.length > 2 && (
+                        <p className="text-xs text-muted-foreground">
+                          +{result.findings.length - 2} outros problemas
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recent Notifications */}
+      {notificationsEnabled && notifications.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              Notificações Recentes
+              {getUnreadCount() > 0 && (
+                <Badge variant="destructive" className="ml-2">
+                  {getUnreadCount()}
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Últimas notificações de segurança em tempo real
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {notifications.slice(0, 5).map((notification) => (
+                <div key={notification.id} className="flex items-center justify-between p-2 border rounded">
+                  <div className="flex items-center gap-2">
+                    {notification.severity === 'critical' && (
+                      <AlertTriangle className="h-4 w-4 text-destructive" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">{notification.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(notification.timestamp).toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant={
+                    notification.severity === 'critical' ? 'destructive' :
+                    notification.severity === 'high' ? 'destructive' :
+                    notification.severity === 'medium' ? 'secondary' : 'default'
+                  }>
+                    {notification.severity.toUpperCase()}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Reset grid for alerts */}
+      <div>
       </div>
 
       {/* Security Alerts List */}
