@@ -23,9 +23,13 @@ const Auth = () => {
   useEffect(() => {
     // Check if user is already logged in
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
+      console.log('Auth:getSession result', { session, error });
       if (session) {
+        toast.success('getSession: sessão ativa encontrada');
         navigate('/');
+      } else {
+        toast.info('getSession: nenhuma sessão ativa');
       }
     };
     checkSession();
@@ -33,7 +37,9 @@ const Auth = () => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (session) {
+        console.log('Auth:onAuthStateChange', { event, hasSession: !!session });
+        if (event === 'SIGNED_IN' && session) {
+          toast.success('Auth: usuário autenticado');
           navigate('/');
         }
       }
