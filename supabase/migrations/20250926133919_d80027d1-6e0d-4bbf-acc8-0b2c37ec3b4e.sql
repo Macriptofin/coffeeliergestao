@@ -1,0 +1,2 @@
+-- Só fazer a limpeza dos usuários desnecessários (manter admin atual e Rafaela)
+DELETE FROM user_roles WHERE user_id IN ('2591715a-7d3a-4227-bb10-86bef22aad3d', '0fb3e551-20bb-4223-833d-02b382b46911');
