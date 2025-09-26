@@ -433,6 +433,63 @@ export type Database = {
         }
         Relationships: []
       }
+      cost_adjustments: {
+        Row: {
+          adjustment_date: string
+          adjustment_reason: string
+          adjustment_time: string
+          cost_difference: number | null
+          created_at: string
+          current_quantity: number
+          id: string
+          material_id: string
+          new_total_value: number | null
+          new_unit_cost: number
+          notes: string | null
+          old_total_value: number | null
+          old_unit_cost: number
+          reference_document: string | null
+          responsible_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          adjustment_date?: string
+          adjustment_reason: string
+          adjustment_time?: string
+          cost_difference?: number | null
+          created_at?: string
+          current_quantity: number
+          id?: string
+          material_id: string
+          new_total_value?: number | null
+          new_unit_cost: number
+          notes?: string | null
+          old_total_value?: number | null
+          old_unit_cost: number
+          reference_document?: string | null
+          responsible_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          adjustment_date?: string
+          adjustment_reason?: string
+          adjustment_time?: string
+          cost_difference?: number | null
+          created_at?: string
+          current_quantity?: number
+          id?: string
+          material_id?: string
+          new_total_value?: number | null
+          new_unit_cost?: number
+          notes?: string | null
+          old_total_value?: number | null
+          old_unit_cost?: number
+          reference_document?: string | null
+          responsible_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cost_centers: {
         Row: {
           code: string
@@ -864,6 +921,54 @@ export type Database = {
           id?: string
           permission_type?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      inventory_adjustments: {
+        Row: {
+          adjustment_date: string
+          adjustment_reason: string
+          adjustment_time: string
+          created_at: string
+          id: string
+          material_id: string
+          notes: string | null
+          physical_quantity: number
+          quantity_difference: number | null
+          reference_document: string | null
+          responsible_user_id: string | null
+          system_quantity: number
+          updated_at: string
+        }
+        Insert: {
+          adjustment_date?: string
+          adjustment_reason: string
+          adjustment_time?: string
+          created_at?: string
+          id?: string
+          material_id: string
+          notes?: string | null
+          physical_quantity: number
+          quantity_difference?: number | null
+          reference_document?: string | null
+          responsible_user_id?: string | null
+          system_quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          adjustment_date?: string
+          adjustment_reason?: string
+          adjustment_time?: string
+          created_at?: string
+          id?: string
+          material_id?: string
+          notes?: string | null
+          physical_quantity?: number
+          quantity_difference?: number | null
+          reference_document?: string | null
+          responsible_user_id?: string | null
+          system_quantity?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2151,6 +2256,26 @@ export type Database = {
       no_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      process_cost_adjustment: {
+        Args: {
+          p_adjustment_reason: string
+          p_material_id: string
+          p_new_unit_cost: number
+          p_notes?: string
+          p_reference_document?: string
+        }
+        Returns: string
+      }
+      process_inventory_adjustment: {
+        Args: {
+          p_adjustment_reason: string
+          p_material_id: string
+          p_notes?: string
+          p_physical_quantity: number
+          p_reference_document?: string
+        }
+        Returns: string
       }
     }
     Enums: {

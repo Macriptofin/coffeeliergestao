@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Package, Plus, TrendingUp, BarChart3, FileInput } from "lucide-react";
+import { Package, Plus, TrendingUp, BarChart3, FileInput, ClipboardCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Estoque = () => {
@@ -41,6 +41,13 @@ const Estoque = () => {
       icon: FileInput,
       href: "/estoque/importacao",
       color: "bg-cyan-500"
+    },
+    {
+      title: "Inventário & Ajustes",
+      description: "Inventário físico, ajustes de quantidade e custo auditáveis",
+      icon: ClipboardCheck,
+      href: "/estoque/inventario-ajustes",
+      color: "bg-indigo-500"
     }
   ];
 

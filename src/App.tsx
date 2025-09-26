@@ -31,6 +31,7 @@ import Agenda from "./pages/Agenda";
 import EnhancedSecurity from "./pages/EnhancedSecurity";
 import SecurityAnomalies from "./pages/SecurityAnomalies";
 import SecurityHeader from "./components/security/SecurityHeader";
+import InventarioAjustes from "./pages/InventarioAjustes";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,7 @@ function App() {
               <Route path="estoque" element={<Estoque />} />
               <Route path="ingredientes" element={<Materials />} />
               <Route path="estoque/movimentacoes" element={<EstoqueMovimentacoes />} />
+              <Route path="estoque/inventario-ajustes" element={<InventarioAjustes />} />
               <Route path="estoque/*" element={<Stock />} />
               {/* Categoria Compras */}
               <Route path="compras" element={<Purchases />} />
