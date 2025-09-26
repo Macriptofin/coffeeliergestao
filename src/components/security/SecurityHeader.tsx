@@ -6,6 +6,10 @@ const SecurityHeader = () => {
     // Content Security Policy - relaxed for preview/iframe, strict for standalone prod
     const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const inIframe = window.top !== window.self;
+    // Skip all security headers when embedded in Lovable preview iframe to prevent CSP-breaking the preview
+    if (inIframe) {
+      return;
+    }
 
     const allowedDomains = [
       'https://njxxqdcwvehlvqufuyww.supabase.co',

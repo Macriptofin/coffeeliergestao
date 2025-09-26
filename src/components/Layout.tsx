@@ -53,7 +53,7 @@ export const Layout = () => {
   return (
     <SecureErrorBoundary>
       <div className="min-h-screen bg-gradient-subtle">
-        <SecurityHeader />
+        
       {/* Header */}
       <div className="bg-gradient-primary text-primary-foreground shadow-warm relative z-50">
         <div className="container mx-auto px-4 py-6">
