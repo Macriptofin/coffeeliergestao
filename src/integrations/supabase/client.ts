@@ -20,20 +20,14 @@ class SecureCookieStorage {
 
   async setItem(key: string, value: string): Promise<void> {
     if (typeof document === 'undefined') return;
-
+    
+    // Set secure cookie with HttpOnly-like behavior (as much as possible on client)
     const cookieName = this.prefix + key;
     const cookieValue = encodeURIComponent(value);
-
-    const isHttps = window.location.protocol === 'https:';
-    const host = window.location.hostname;
-    const inIframe = window.top !== window.self;
-    const isLovableHost = /\.lovable(app|dev)$/.test(host) || /\.lovableproject\.com$/.test(host);
-    const isPreviewEnv = inIframe || host === 'localhost' || host === '127.0.0.1' || isLovableHost;
-    const sameSite = isPreviewEnv ? 'Lax' : 'Strict';
-
+    
+    // Use secure settings - expires in 7 days, secure, samesite
     const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
-    // Note: HttpOnly cannot be set via client-side scripts
-    document.cookie = `${cookieName}=${cookieValue}; Expires=${expires}; Path=/; ${isHttps ? 'Secure; ' : ''}SameSite=${sameSite}`;
+    document.cookie = `${cookieName}=${cookieValue}; expires=${expires}; path=/; ${window.location.protocol === 'https:' ? 'secure;' : ''} samesite=strict`;
   }
 
   async removeItem(key: string): Promise<void> {

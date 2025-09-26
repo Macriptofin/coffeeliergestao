@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -46,7 +46,7 @@ const maskingRules = {
   }
 };
 
-function PIIDataMaskComponent({ 
+export function PIIDataMask({ 
   data, 
   type, 
   resourceId, 
@@ -102,5 +102,3 @@ function PIIDataMaskComponent({
     </div>
   );
 }
-
-export const PIIDataMask = memo(PIIDataMaskComponent);
