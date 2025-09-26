@@ -5,13 +5,51 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://njxxqdcwvehlvqufuyww.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qeHhxZGN3dmVobHZxdWZ1eXd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MjgzMzAsImV4cCI6MjA3NDIwNDMzMH0.IlS_EBzrNr2i2gqd9zRGL75YK4PYr3QGIsjslfuipwg";
 
+// Secure storage configuration for authentication
+class SecureCookieStorage {
+  private prefix = 'coffeelier_auth_';
+  
+  async getItem(key: string): Promise<string | null> {
+    // For server-side or when cookies are not available, fall back to memory
+    if (typeof document === 'undefined') return null;
+    
+    const cookies = document.cookie.split(';');
+    const cookie = cookies.find(c => c.trim().startsWith(this.prefix + key + '='));
+    return cookie ? decodeURIComponent(cookie.split('=')[1]) : null;
+  }
+
+  async setItem(key: string, value: string): Promise<void> {
+    if (typeof document === 'undefined') return;
+    
+    // Set secure cookie with HttpOnly-like behavior (as much as possible on client)
+    const cookieName = this.prefix + key;
+    const cookieValue = encodeURIComponent(value);
+    
+    // Use secure settings - expires in 7 days, secure, samesite
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
+    document.cookie = `${cookieName}=${cookieValue}; expires=${expires}; path=/; ${window.location.protocol === 'https:' ? 'secure;' : ''} samesite=strict`;
+  }
+
+  async removeItem(key: string): Promise<void> {
+    if (typeof document === 'undefined') return;
+    
+    const cookieName = this.prefix + key;
+    document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`;
+  }
+}
+
+// Custom storage that avoids localStorage for sensitive data
+const secureStorage = new SecureCookieStorage();
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    storage: secureStorage,
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: false, // Prevent token leakage in URL
+    flowType: 'pkce' // Use PKCE flow for better security
   }
 });

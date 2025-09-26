@@ -1,54 +1,35 @@
 import { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import type { User, Session } from '@supabase/supabase-js';
 import { Button } from "@/components/ui/button";
 import { LogOut, Menu, X } from "lucide-react";
 import { CoffeelierLogo } from "@/components/CoffeelierLogo";
 import { Sidebar } from "@/components/Sidebar";
+import { useSecureAuth } from "@/hooks/useSecureAuth";
+import { useSessionSecurity } from "@/hooks/useSessionSecurity";
+import SecurityHeader from "@/components/security/SecurityHeader";
 
 export const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, session, loading: authLoading, signOut } = useSecureAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  // Initialize session security monitoring
+  useSessionSecurity();
 
-  // Authentication check and setup
+  // Redirect to auth if no session
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setAuthLoading(false);
-        
-        if (!session) {
-          navigate('/auth');
-        }
-      }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
-      
-      if (!session) {
-        navigate('/auth');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+    if (!authLoading && !session) {
+      navigate('/auth');
+    }
+  }, [authLoading, session, navigate]);
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      await signOut();
       toast.success('Logout realizado com sucesso!');
+      navigate('/auth');
     } catch (error) {
       toast.error('Erro ao fazer logout');
     }
@@ -70,6 +51,7 @@ export const Layout = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      <SecurityHeader />
       {/* Header */}
       <div className="bg-gradient-primary text-primary-foreground shadow-warm relative z-50">
         <div className="container mx-auto px-4 py-6">

@@ -3,17 +3,34 @@ import { useEffect } from 'react';
 // Security headers component to add CSP and other security measures
 const SecurityHeader = () => {
   useEffect(() => {
-    // Content Security Policy
+    // Content Security Policy - Stricter rules for production security
+    const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const allowedDomains = [
+      'https://njxxqdcwvehlvqufuyww.supabase.co',
+      'wss://njxxqdcwvehlvqufuyww.supabase.co'
+    ];
+    
+    // Add production domain when deployed
+    if (!isDevelopment) {
+      allowedDomains.push('https://receita-maestro-digital.lovable.app');
+    }
+    
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      isDevelopment 
+        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'" 
+        : "script-src 'self'",
+      isDevelopment 
+        ? "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com" 
+        : "style-src 'self' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https:",
-      "connect-src 'self' https://njxxqdcwvehlvqufuyww.supabase.co wss://njxxqdcwvehlvqufuyww.supabase.co https://api.ipify.org https://ipapi.co https://ipinfo.io",
+      "img-src 'self' data: blob:",
+      `connect-src 'self' ${allowedDomains.join(' ')}`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
-      "form-action 'self'"
+      "form-action 'self'",
+      "object-src 'none'",
+      "media-src 'self'"
     ].join('; ');
 
     // Add meta tag for CSP if not already present
@@ -24,13 +41,16 @@ const SecurityHeader = () => {
       document.head.appendChild(meta);
     }
 
-    // Add other security headers via meta tags
+    // Enhanced security headers
     const securityMetas = [
       { httpEquiv: 'X-Content-Type-Options', content: 'nosniff' },
       { httpEquiv: 'X-Frame-Options', content: 'DENY' },
       { httpEquiv: 'X-XSS-Protection', content: '1; mode=block' },
       { httpEquiv: 'Referrer-Policy', content: 'strict-origin-when-cross-origin' },
-      { httpEquiv: 'Permissions-Policy', content: 'geolocation=(), microphone=(), camera=()' }
+      { httpEquiv: 'Permissions-Policy', content: 'geolocation=(), microphone=(), camera=(), payment=(), usb=()' },
+      { httpEquiv: 'Cross-Origin-Embedder-Policy', content: 'require-corp' },
+      { httpEquiv: 'Cross-Origin-Opener-Policy', content: 'same-origin' },
+      { httpEquiv: 'Cross-Origin-Resource-Policy', content: 'same-origin' }
     ];
 
     securityMetas.forEach(({ httpEquiv, content }) => {
@@ -42,11 +62,35 @@ const SecurityHeader = () => {
       }
     });
 
-    // Disable console in production (basic protection)
+    // Enhanced production security
     if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      console.log = () => {};
-      console.warn = () => {};
-      console.error = () => {};
+      // Disable console to prevent information leakage
+      const noop = () => {};
+      console.log = noop;
+      console.warn = noop;
+      console.error = noop;
+      console.info = noop;
+      console.debug = noop;
+      
+      // Disable right-click context menu
+      document.addEventListener('contextmenu', (e) => e.preventDefault());
+      
+      // Disable F12 and other developer shortcuts
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'F12' || 
+            (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+            (e.ctrlKey && e.shiftKey && e.key === 'C') ||
+            (e.ctrlKey && e.key === 'U')) {
+          e.preventDefault();
+        }
+      });
+      
+      // Clear sensitive data from memory periodically
+      setInterval(() => {
+        if (window.gc) {
+          window.gc();
+        }
+      }, 300000); // Every 5 minutes
     }
 
     // Basic XSS protection
