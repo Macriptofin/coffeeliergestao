@@ -2056,33 +2056,7 @@ export type Database = {
       }
     }
     Views: {
-      secure_user_profiles: {
-        Row: {
-          created_at: string | null
-          display_name: string | null
-          email: string | null
-          id: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          display_name?: string | null
-          email?: never
-          id?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          display_name?: string | null
-          email?: never
-          id?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       admin_exists: {
@@ -2200,6 +2174,17 @@ export type Database = {
           updated_at: string
           voter_registration: string
           zip_code: string
+        }[]
+      }
+      get_secure_user_profiles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          display_name: string
+          email: string
+          id: string
+          updated_at: string
+          user_id: string
         }[]
       }
       has_financial_permission: {

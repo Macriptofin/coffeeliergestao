@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { useSecureAuth } from "@/hooks/useSecureAuth";
 import { useSessionSecurity } from "@/hooks/useSessionSecurity";
 import SecurityHeader from "@/components/security/SecurityHeader";
+import SecureErrorBoundary from "@/components/security/SecureErrorBoundary";
 
 export const Layout = () => {
   const navigate = useNavigate();
@@ -50,8 +51,9 @@ export const Layout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
-      <SecurityHeader />
+    <SecureErrorBoundary>
+      <div className="min-h-screen bg-gradient-subtle">
+        <SecurityHeader />
       {/* Header */}
       <div className="bg-gradient-primary text-primary-foreground shadow-warm relative z-50">
         <div className="container mx-auto px-4 py-6">
@@ -122,5 +124,6 @@ export const Layout = () => {
         </main>
       </div>
     </div>
+  </SecureErrorBoundary>
   );
 };
