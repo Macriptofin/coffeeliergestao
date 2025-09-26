@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Edit, Trash2, Mail } from "lucide-react";
+import { Users, Edit, Trash2, Mail, KeyRound } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -93,8 +93,8 @@ export function UsersList({ onEditUser }: UsersListProps) {
         const userRoles = rolesData.filter(r => r.user_id === userId);
         const profile = profiles?.find(p => p.user_id === userId);
         
-        // Para usuários sem perfil, criar um email temporário para exibição
-        const displayEmail = profile?.user_id ? `user-${userId.slice(0, 8)}@system.local` : 'email-não-encontrado';
+        // Para usuários sem perfil, tentar obter dados do auth metadata ou usar email padrão
+        const displayEmail = `user-${userId.slice(0, 8)}@system.local`;
 
         usersWithData.push({
           id: userId,
@@ -146,7 +146,36 @@ export function UsersList({ onEditUser }: UsersListProps) {
   };
 
   const getUserDisplayName = (user: UserWithProfile) => {
-    return user.display_name || user.full_name || user.email;
+    return user.display_name || user.full_name || user.email.split('@')[0];
+  };
+
+  const sendPasswordReset = async (userEmail: string) => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch('/functions/v1/password-reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          redirectTo: `${window.location.origin}/auth`
+        }),
+      });
+
+      if (response.ok) {
+        toast.success(`Email de redefinição de senha enviado para ${userEmail}`);
+      } else {
+        toast.error('Erro ao enviar email de redefinição');
+      }
+    } catch (error) {
+      console.error('Erro ao enviar reset de senha:', error);
+      toast.error('Erro ao enviar email de redefinição');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (currentUserRole !== 'admin') {
@@ -247,6 +276,16 @@ export function UsersList({ onEditUser }: UsersListProps) {
                   >
                     <Edit className="h-4 w-4" />
                     Editar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => sendPasswordReset(user.email)}
+                    className="flex items-center gap-1"
+                    disabled={loading}
+                  >
+                    <KeyRound className="h-4 w-4" />
+                    Reset Senha
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>

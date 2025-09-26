@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserX, Save, ArrowLeft, User, Shield } from "lucide-react";
+import { UserX, Save, ArrowLeft, User, Shield, KeyRound } from "lucide-react";
 import { PermissionsSelector } from "./PermissionsSelector";
 
 interface UserWithProfile {
@@ -92,6 +92,35 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
     } catch (error) {
       console.error('Erro ao atualizar role:', error);
       toast.error('Erro ao atualizar role');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendPasswordReset = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch('/functions/v1/password-reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: JSON.stringify({
+          email: user.email,
+          redirectTo: `${window.location.origin}/auth`
+        }),
+      });
+
+      if (response.ok) {
+        toast.success(`Email de redefinição de senha enviado para ${user.email}`);
+      } else {
+        toast.error('Erro ao enviar email de redefinição');
+      }
+    } catch (error) {
+      console.error('Erro ao enviar reset de senha:', error);
+      toast.error('Erro ao enviar email de redefinição');
     } finally {
       setLoading(false);
     }
@@ -208,7 +237,16 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
                 <p><strong>Criado em:</strong> {new Date(user.created_at).toLocaleString('pt-BR')}</p>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-between">
+                <Button 
+                  variant="outline" 
+                  onClick={sendPasswordReset} 
+                  disabled={loading}
+                  className="flex items-center gap-2"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Resetar Senha
+                </Button>
                 <Button onClick={saveProfile} disabled={loading}>
                   <Save className="h-4 w-4 mr-2" />
                   Salvar Perfil

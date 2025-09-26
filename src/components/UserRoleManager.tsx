@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Shield, Users, UserPlus } from "lucide-react";
 import { UsersList } from "./users/UsersList";
 import { UserEditor } from "./users/UserEditor";
+import { UserForm } from "./users/UserForm";
 
 interface UserWithProfile {
   id: string;
@@ -25,12 +26,9 @@ interface UserWithProfile {
 }
 
 export function UserRoleManager() {
-  const [newUserEmail, setNewUserEmail] = useState<string>('');
-  const [newUserPassword, setNewUserPassword] = useState<string>('');
-  const [newUserRole, setNewUserRole] = useState<'admin' | 'manager' | 'financial' | 'user'>('user');
-  const [loading, setLoading] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserWithProfile | null>(null);
+  const [showUserForm, setShowUserForm] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
@@ -63,81 +61,17 @@ export function UserRoleManager() {
     setRefreshTrigger(prev => prev + 1);
   };
 
-  const createNewUser = async () => {
-    console.log('createNewUser chamado com:', { newUserEmail, newUserPassword: '***', newUserRole });
-    
-    if (!newUserEmail || !newUserPassword || !newUserRole) {
-      toast.error('Por favor, preencha todos os campos.');
-      return;
-    }
+  const handleCreateUser = () => {
+    setShowUserForm(true);
+  };
 
-    // Validate password strength
-    if (newUserPassword.length < 8) {
-      toast.error('A senha deve ter pelo menos 8 caracteres.');
-      return;
-    }
+  const handleUserFormSuccess = () => {
+    setShowUserForm(false);
+    refreshUsersList();
+  };
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newUserEmail)) {
-      toast.error('Por favor, insira um email válido.');
-      return;
-    }
-
-    if (currentUserRole !== 'admin') {
-      toast.error('Apenas administradores podem criar usuários.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      console.log('Tentando criar usuário...');
-      
-      const { data, error } = await supabase.auth.signUp({
-        email: newUserEmail,
-        password: newUserPassword,
-      });
-
-      console.log('Resultado signUp:', { data, error });
-
-      if (error) {
-        console.error('Erro ao criar usuário:', error);
-        if (error.message?.includes('User already registered')) {
-          toast.error('Este email já está cadastrado no sistema');
-        } else {
-          toast.error(`Erro ao criar usuário: ${error.message}`);
-        }
-        return;
-      }
-
-      if (data.user) {
-        console.log('Usuário criado, adicionando role...');
-        
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: data.user.id,
-            role: newUserRole
-          });
-
-        if (roleError) {
-          console.error('Erro ao criar role do usuário:', roleError);
-          toast.error('Usuário criado, mas erro ao definir role. Tente definir manualmente.');
-        } else {
-          toast.success(`Usuário criado com sucesso com o role ${newUserRole}!`);
-        }
-
-        setNewUserEmail('');
-        setNewUserPassword('');
-        setNewUserRole('user');
-        refreshUsersList();
-      }
-    } catch (error: any) {
-      console.error('Erro ao criar usuário:', error);
-      toast.error('Erro inesperado ao criar usuário');
-    } finally {
-      setLoading(false);
-    }
+  const handleUserFormCancel = () => {
+    setShowUserForm(false);
   };
 
   const handleEditUser = (user: UserWithProfile) => {
@@ -149,14 +83,15 @@ export function UserRoleManager() {
     refreshUsersList();
   };
 
-  const getRoleBadgeVariant = (role: string) => {
-    switch (role) {
-      case 'admin': return 'destructive';
-      case 'manager': return 'default';
-      case 'user': return 'secondary';
-      default: return 'outline';
-    }
-  };
+  // Se estiver criando um usuário, mostrar o formulário
+  if (showUserForm) {
+    return (
+      <UserForm
+        onSuccess={handleUserFormSuccess}
+        onCancel={handleUserFormCancel}
+      />
+    );
+  }
 
   // Se estiver editando um usuário, mostrar o editor
   if (editingUser) {
@@ -198,62 +133,22 @@ export function UserRoleManager() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
-            Criar Novo Usuário
-          </CardTitle>
-          <CardDescription>
-            Cadastre novos usuários diretamente no sistema
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="newUserEmail">Email</Label>
-              <Input
-                id="newUserEmail"
-                type="email"
-                value={newUserEmail}
-                onChange={(e) => setNewUserEmail(e.target.value)}
-                placeholder="usuario@exemplo.com"
-              />
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Gerenciamento de Usuários
+              </CardTitle>
+              <CardDescription>
+                Gerencie usuários, permissões e acesso ao sistema
+              </CardDescription>
             </div>
-            <div>
-              <Label htmlFor="newUserPassword">Senha</Label>
-              <Input
-                id="newUserPassword"
-                type="password"
-                value={newUserPassword}
-                onChange={(e) => setNewUserPassword(e.target.value)}
-                placeholder="••••••••"
-                minLength={8}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Mínimo 8 caracteres
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="newUserRole">Role</Label>
-              <Select value={newUserRole} onValueChange={(value: 'admin' | 'manager' | 'financial' | 'user') => setNewUserRole(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin - Acesso total</SelectItem>
-                  <SelectItem value="manager">Manager - Gestão operacional</SelectItem>
-                  <SelectItem value="financial">Financial - Gestão financeira</SelectItem>
-                  <SelectItem value="user">User - Acesso básico</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button onClick={createNewUser} disabled={loading} className="w-full">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Criar Usuário
-              </Button>
-            </div>
+            <Button onClick={handleCreateUser} className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4" />
+              Criar Novo Usuário
+            </Button>
           </div>
-        </CardContent>
+        </CardHeader>
       </Card>
 
       <UsersList key={refreshTrigger} onEditUser={handleEditUser} />
