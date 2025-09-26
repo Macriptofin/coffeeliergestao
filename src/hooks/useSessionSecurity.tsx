@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -18,8 +18,8 @@ export function useSessionSecurity() {
     isActive: true
   });
 
-  const [sessionTimeout, setSessionTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [warningTimeout, setWarningTimeout] = useState<NodeJS.Timeout | null>(null);
+  const sessionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const warningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const updateActivity = useCallback(() => {
     const now = Date.now();
@@ -30,23 +30,20 @@ export function useSessionSecurity() {
     }));
     
     // Reset timeouts
-    if (sessionTimeout) clearTimeout(sessionTimeout);
-    if (warningTimeout) clearTimeout(warningTimeout);
+    if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current);
+    if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
     
     // Set warning timeout (25 minutes)
-    const newWarningTimeout = setTimeout(() => {
+    warningTimeoutRef.current = setTimeout(() => {
       setSessionState(prev => ({ ...prev, warningShown: true }));
       showSessionWarning();
     }, SESSION_TIMEOUT - WARNING_TIME);
     
     // Set session timeout (30 minutes)
-    const newSessionTimeout = setTimeout(() => {
+    sessionTimeoutRef.current = setTimeout(() => {
       handleSessionExpiry();
     }, SESSION_TIMEOUT);
-    
-    setWarningTimeout(newWarningTimeout);
-    setSessionTimeout(newSessionTimeout);
-  }, [sessionTimeout, warningTimeout]);
+  }, []);
 
   const showSessionWarning = () => {
     toast.warning('Sua sessão expirará em 5 minutos', {
@@ -110,10 +107,10 @@ export function useSessionSecurity() {
       activities.forEach(activity => {
         document.removeEventListener(activity, throttledUpdate, true);
       });
-      if (sessionTimeout) clearTimeout(sessionTimeout);
-      if (warningTimeout) clearTimeout(warningTimeout);
+      if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current);
+      if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
     };
-  }, [updateActivity, sessionTimeout, warningTimeout]);
+  }, [updateActivity]);
 
   // Initialize session on mount
   useEffect(() => {
