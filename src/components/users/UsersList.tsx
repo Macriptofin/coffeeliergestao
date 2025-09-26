@@ -61,38 +61,50 @@ export function UsersList({ onEditUser }: UsersListProps) {
     try {
       setLoading(true);
 
-      // Buscar todos os usuários do auth com seus perfis e roles
-      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+      // Buscar usuários através das roles (quem tem role tem acesso ao sistema)
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select(`
+          user_id,
+          role,
+          created_at,
+          id
+        `);
       
-      if (authError) throw authError;
+      if (rolesError) throw rolesError;
+
+      if (!rolesData || rolesData.length === 0) {
+        setUsers([]);
+        return;
+      }
 
       // Buscar perfis dos usuários
-      const userIds = authUsers.users.map(u => u.id);
+      const userIds = rolesData.map(r => r.user_id);
       const { data: profiles } = await supabase
         .from('user_profiles')
         .select('*')
         .in('user_id', userIds);
 
-      // Buscar roles dos usuários
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('*')
-        .in('user_id', userIds);
+      // Criar lista única de usuários
+      const uniqueUserIds = [...new Set(userIds)];
+      const usersWithData: UserWithProfile[] = [];
 
-      // Combinar dados
-      const usersWithData: UserWithProfile[] = authUsers.users.map(authUser => {
-        const profile = profiles?.find(p => p.user_id === authUser.id);
-        const userRoles = roles?.filter(r => r.user_id === authUser.id) || [];
+      for (const userId of uniqueUserIds) {
+        const userRoles = rolesData.filter(r => r.user_id === userId);
+        const profile = profiles?.find(p => p.user_id === userId);
+        
+        // Para usuários sem perfil, criar um email temporário para exibição
+        const displayEmail = profile?.user_id ? `user-${userId.slice(0, 8)}@system.local` : 'email-não-encontrado';
 
-        return {
-          id: authUser.id,
-          email: authUser.email || '',
+        usersWithData.push({
+          id: userId,
+          email: displayEmail,
           full_name: profile?.full_name,
           display_name: profile?.display_name,
-          created_at: authUser.created_at,
+          created_at: profile?.created_at || new Date().toISOString(),
           roles: userRoles
-        };
-      });
+        });
+      }
 
       setUsers(usersWithData);
     } catch (error) {
@@ -107,21 +119,17 @@ export function UsersList({ onEditUser }: UsersListProps) {
     try {
       setLoading(true);
       
-      // Remover perfil e roles primeiro (por causa das foreign keys)
-      await supabase.from('user_profiles').delete().eq('user_id', userId);
-      await supabase.from('user_roles').delete().eq('user_id', userId);
+      // Remover apenas perfil, roles e permissões (não o usuário do auth)
+      // Isso efetivamente remove o acesso do usuário ao sistema
       await supabase.from('user_permissions').delete().eq('user_id', userId);
+      await supabase.from('user_roles').delete().eq('user_id', userId);
+      await supabase.from('user_profiles').delete().eq('user_id', userId);
 
-      // Remover usuário do auth
-      const { error } = await supabase.auth.admin.deleteUser(userId);
-      
-      if (error) throw error;
-
-      toast.success('Usuário removido com sucesso');
+      toast.success('Acesso do usuário removido com sucesso');
       loadUsers();
     } catch (error) {
-      console.error('Erro ao remover usuário:', error);
-      toast.error('Erro ao remover usuário');
+      console.error('Erro ao remover acesso do usuário:', error);
+      toast.error('Erro ao remover acesso do usuário');
     } finally {
       setLoading(false);
     }

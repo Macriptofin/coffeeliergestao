@@ -64,6 +64,8 @@ export function UserRoleManager() {
   };
 
   const createNewUser = async () => {
+    console.log('createNewUser chamado com:', { newUserEmail, newUserPassword: '***', newUserRole });
+    
     if (!newUserEmail || !newUserPassword || !newUserRole) {
       toast.error('Por favor, preencha todos os campos.');
       return;
@@ -89,15 +91,14 @@ export function UserRoleManager() {
 
     try {
       setLoading(true);
-      const redirectUrl = `${window.location.origin}/`;
-
+      console.log('Tentando criar usuário...');
+      
       const { data, error } = await supabase.auth.signUp({
         email: newUserEmail,
         password: newUserPassword,
-        options: {
-          emailRedirectTo: redirectUrl
-        }
       });
+
+      console.log('Resultado signUp:', { data, error });
 
       if (error) {
         console.error('Erro ao criar usuário:', error);
@@ -110,8 +111,7 @@ export function UserRoleManager() {
       }
 
       if (data.user) {
-        // Wait a moment for user creation to complete, then assign role
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        console.log('Usuário criado, adicionando role...');
         
         const { error: roleError } = await supabase
           .from('user_roles')
