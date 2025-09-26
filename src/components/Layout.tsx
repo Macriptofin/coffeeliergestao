@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,18 +19,20 @@ export const Layout = () => {
   // Initialize session security monitoring
   useSessionSecurity();
 
-  // Redirect to auth if no session
-  useEffect(() => {
-    if (!authLoading && !session) {
-      navigate('/auth');
-    }
-  }, [authLoading, session, navigate]);
+// Redirect to auth if no session - ensure single navigate
+const hasRedirected = useRef(false);
+useEffect(() => {
+  if (!authLoading && !session && !hasRedirected.current) {
+    hasRedirected.current = true;
+    navigate('/auth', { replace: true });
+  }
+}, [authLoading, session, navigate]);
 
   const handleLogout = async () => {
     try {
       await signOut();
       toast.success('Logout realizado com sucesso!');
-      navigate('/auth');
+navigate('/auth', { replace: true });
     } catch (error) {
       toast.error('Erro ao fazer logout');
     }
@@ -45,10 +47,15 @@ export const Layout = () => {
     );
   }
 
-  // Don't render main content if user is not authenticated
-  if (!session || !user) {
-    return null;
-  }
+// Show visible fallback while redirecting unauthenticated users
+if (!session || !user) {
+  return (
+    <div className="min-h-screen bg-gradient-subtle flex flex-col items-center justify-center gap-3">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <p className="text-muted-foreground text-sm">Redirecionando para login…</p>
+    </div>
+  );
+}
 
   return (
     <SecureErrorBoundary>

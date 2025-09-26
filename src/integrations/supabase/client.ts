@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://njxxqdcwvehlvqufuyww.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qeHhxZGN3dmVobHZxdWZ1eXd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MjgzMzAsImV4cCI6MjA3NDIwNDMzMH0.IlS_EBzrNr2i2gqd9zRGL75YK4PYr3QGIsjslfuipwg";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://njxxqdcwvehlvqufuyww.supabase.co";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qeHhxZGN3dmVobHZxdWZ1eXd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MjgzMzAsImV4cCI6MjA3NDIwNDMzMH0.IlS_EBzrNr2i2gqd9zRGL75YK4PYr3QGIsjslfuipwg";
 
 // Secure storage configuration for authentication
 class SecureCookieStorage {
@@ -27,7 +27,7 @@ class SecureCookieStorage {
     
     // Use secure settings - expires in 7 days, secure, samesite
     const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
-    document.cookie = `${cookieName}=${cookieValue}; expires=${expires}; path=/; ${window.location.protocol === 'https:' ? 'secure;' : ''} samesite=strict`;
+    document.cookie = `${cookieName}=${cookieValue}; expires=${expires}; path=/; ${window.location.protocol === 'https:' ? 'secure;' : ''} samesite=lax`;
   }
 
   async removeItem(key: string): Promise<void> {
@@ -44,7 +44,7 @@ const secureStorage = new SecureCookieStorage();
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     storage: secureStorage,
     persistSession: true,
