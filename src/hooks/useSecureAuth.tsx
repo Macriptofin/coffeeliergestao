@@ -37,31 +37,31 @@ export function useSecureAuth() {
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!mounted) return;
 
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Log authentication events
+        // Log authentication events (defer to avoid blocking callback)
         try {
-          switch (event) {
-            case 'SIGNED_IN':
-              await logSecurityEvent('USER_LOGIN', 'auth', session?.user?.id, {
-                method: 'supabase_auth'
-              });
-              break;
-            case 'SIGNED_OUT':
-              await logSecurityEvent('USER_LOGOUT', 'auth', user?.id);
-              break;
-            case 'TOKEN_REFRESHED':
-              // Don't log token refresh as it's too frequent and not security-relevant
-              break;
-            case 'USER_UPDATED':
-              await logSecurityEvent('USER_UPDATED', 'auth', session?.user?.id);
-              break;
-          }
+          setTimeout(() => {
+            switch (event) {
+              case 'SIGNED_IN':
+                logSecurityEvent('USER_LOGIN', 'auth', session?.user?.id, { method: 'supabase_auth' });
+                break;
+              case 'SIGNED_OUT':
+                logSecurityEvent('USER_LOGOUT', 'auth', undefined);
+                break;
+              case 'TOKEN_REFRESHED':
+                // skip
+                break;
+              case 'USER_UPDATED':
+                logSecurityEvent('USER_UPDATED', 'auth', session?.user?.id);
+                break;
+            }
+          }, 0);
         } catch (error) {
           console.error('Failed to log auth event:', error);
         }
@@ -74,7 +74,7 @@ export function useSecureAuth() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [logSecurityEvent, user?.id]);
+  }, [logSecurityEvent]);
 
   const signOut = async () => {
     try {

@@ -95,6 +95,7 @@ const Auth = () => {
       } else {
         await logAuthAttempt(email, 'signin', true);
         toast.success('Login realizado com sucesso!');
+        navigate('/');
       }
     } catch (error: any) {
       await logAuthAttempt(email, 'signin', false, 'unexpected_error');
