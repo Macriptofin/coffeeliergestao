@@ -86,14 +86,7 @@ export function AdminSetup() {
   }
 
   if (isSetup) {
-    return (
-      <Alert className="border-green-200 bg-green-50">
-        <CheckCircle className="h-4 w-4 text-green-600" />
-        <AlertDescription className="text-green-800">
-          Sistema configurado com sucesso! Administradores já foram definidos.
-        </AlertDescription>
-      </Alert>
-    );
+    return null; // Não mostrar nada quando o sistema já está configurado
   }
 
   return (
