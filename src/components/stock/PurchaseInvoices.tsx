@@ -981,7 +981,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                         <Input
                           id="quantity"
                           type="number"
-                          step="0.01"
+                          step="0.001"
                           value={currentItem.quantity || ''}
                           onChange={(e) => setCurrentItem(prev => ({ ...prev, quantity: parseFloat(e.target.value) || 0 }))}
                           placeholder="0"
@@ -992,10 +992,10 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                         <Input
                           id="unitPrice"
                           type="number"
-                          step="0.01"
+                          step="0.0001"
                           value={currentItem.unitPrice || ''}
                           onChange={(e) => setCurrentItem(prev => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))}
-                          placeholder="0,00"
+                          placeholder="0,0000"
                         />
                       </div>
                       <div className="flex items-end">
