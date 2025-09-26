@@ -3,7 +3,18 @@ import { useEffect } from 'react';
 // Security headers component to add CSP and other security measures
 const SecurityHeader = () => {
   useEffect(() => {
-    // Content Security Policy - Stricter rules for production security
+    // Check if we're in preview environment and skip most security measures
+    const isPreview = window.location.hostname.includes('lovableproject.com') || 
+                      window.location.hostname.includes('lovable.app') ||
+                      window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1';
+    
+    // Skip security headers in preview to avoid blocking the iframe
+    if (isPreview) {
+      return;
+    }
+    
+    // Content Security Policy - Only for production
     const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const allowedDomains = [
       'https://njxxqdcwvehlvqufuyww.supabase.co',

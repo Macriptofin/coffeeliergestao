@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -46,7 +46,7 @@ const maskingRules = {
   }
 };
 
-export function PIIDataMask({ 
+export const PIIDataMask = memo(function PIIDataMask({ 
   data, 
   type, 
   resourceId, 
@@ -63,8 +63,12 @@ export function PIIDataMask({
   const shouldMask = !canViewSensitiveData && !isRevealed;
 
   const handleToggleVisibility = async () => {
-    if (!isRevealed && !canViewSensitiveData) {
-      // Log PII access attempt
+    // Skip logging in preview environment to prevent loops
+    const isPreview = window.location.hostname.includes('lovableproject.com') || 
+                      window.location.hostname.includes('lovable.app');
+    
+    if (!isRevealed && !canViewSensitiveData && !isPreview) {
+      // Log PII access attempt only in production
       await logPIIAccess(
         resourceId || null,
         'MANUAL_REVEAL',
@@ -101,4 +105,4 @@ export function PIIDataMask({
       )}
     </div>
   );
-}
+});

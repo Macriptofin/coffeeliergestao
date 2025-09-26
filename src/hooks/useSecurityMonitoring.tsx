@@ -210,7 +210,11 @@ export function useSecurityMonitoring() {
   };
 
   useEffect(() => {
-    if (isAdmin) {
+    // Disable auto-fetching to prevent loops in preview
+    const isPreview = window.location.hostname.includes('lovableproject.com') || 
+                      window.location.hostname.includes('lovable.app');
+    
+    if (isAdmin && !isPreview) {
       fetchSecurityEvents();
     }
   }, [isAdmin]);
