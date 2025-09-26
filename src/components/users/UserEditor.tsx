@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserX, Save, ArrowLeft, User, Shield, KeyRound } from "lucide-react";
+import { UserX, Save, ArrowLeft, User, Shield, KeyRound, Mail, CheckCircle2, AlertCircle } from "lucide-react";
 import { PermissionsSelector } from "./PermissionsSelector";
 
 interface UserWithProfile {
@@ -18,6 +18,7 @@ interface UserWithProfile {
   full_name?: string;
   display_name?: string;
   created_at: string;
+  email_confirmed?: boolean;
   roles: Array<{
     id: string;
     role: 'admin' | 'manager' | 'financial' | 'user';
@@ -101,26 +102,43 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
     try {
       setLoading(true);
       
-      const response = await fetch('/functions/v1/password-reset', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-        body: JSON.stringify({
+      const { error } = await supabase.functions.invoke('password-reset', {
+        body: {
           email: user.email,
           redirectTo: `${window.location.origin}/auth`
-        }),
+        }
       });
 
-      if (response.ok) {
-        toast.success(`Email de redefinição de senha enviado para ${user.email}`);
+      if (error) {
+        toast.error(`Erro ao enviar email: ${error.message}`);
       } else {
-        toast.error('Erro ao enviar email de redefinição');
+        toast.success(`Email de redefinição de senha enviado para ${user.email}`);
       }
     } catch (error) {
       console.error('Erro ao enviar reset de senha:', error);
       toast.error('Erro ao enviar email de redefinição');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendEmailVerification = async () => {
+    try {
+      setLoading(true);
+      
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: user.email
+      });
+
+      if (error) {
+        toast.error(`Erro ao reenviar verificação: ${error.message}`);
+      } else {
+        toast.success(`Email de verificação reenviado para ${user.email}`);
+      }
+    } catch (error) {
+      console.error('Erro ao reenviar verificação:', error);
+      toast.error('Erro ao reenviar email de verificação');
     } finally {
       setLoading(false);
     }
@@ -154,8 +172,19 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
                   <User className="h-5 w-5" />
                   Editar Usuário
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="flex items-center gap-2">
                   {getUserDisplayName()} • {user.email}
+                  {user.email_confirmed ? (
+                    <div className="flex items-center gap-1 text-green-600">
+                      <CheckCircle2 className="h-3 w-3" />
+                      <span className="text-xs">Verificado</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-amber-600">
+                      <AlertCircle className="h-3 w-3" />
+                      <span className="text-xs">Não verificado</span>
+                    </div>
+                  )}
                 </CardDescription>
               </div>
             </div>
@@ -238,15 +267,28 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
               </div>
 
               <div className="flex justify-between">
-                <Button 
-                  variant="outline" 
-                  onClick={sendPasswordReset} 
-                  disabled={loading}
-                  className="flex items-center gap-2"
-                >
-                  <KeyRound className="h-4 w-4" />
-                  Resetar Senha
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={sendPasswordReset} 
+                    disabled={loading}
+                    className="flex items-center gap-2"
+                  >
+                    <KeyRound className="h-4 w-4" />
+                    Resetar Senha
+                  </Button>
+                  {!user.email_confirmed && (
+                    <Button 
+                      variant="outline" 
+                      onClick={sendEmailVerification} 
+                      disabled={loading}
+                      className="flex items-center gap-2"
+                    >
+                      <Mail className="h-4 w-4" />
+                      Reenviar Verificação
+                    </Button>
+                  )}
+                </div>
                 <Button onClick={saveProfile} disabled={loading}>
                   <Save className="h-4 w-4 mr-2" />
                   Salvar Perfil

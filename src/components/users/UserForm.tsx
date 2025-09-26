@@ -68,13 +68,14 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
 
       const userId = data.user.id;
 
-      // Create user profile
+      // Create user profile - o e-mail será sincronizado automaticamente pelo trigger
       const { error: profileError } = await supabase
         .from('user_profiles')
-        .insert({
+        .upsert({
           user_id: userId,
           full_name: formData.fullName,
-          display_name: formData.displayName || formData.fullName
+          display_name: formData.displayName || formData.fullName,
+          email: formData.email // Garantir que o e-mail está correto
         });
 
       if (profileError) {
@@ -98,20 +99,15 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
       // Send password reset email if requested
       if (sendPasswordReset) {
         try {
-          const response = await fetch('/functions/v1/password-reset', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-            },
-            body: JSON.stringify({
+          const { error } = await supabase.functions.invoke('password-reset', {
+            body: {
               email: formData.email,
               redirectTo: `${window.location.origin}/auth`
-            }),
+            }
           });
 
-          if (!response.ok) {
-            console.warn('Erro ao enviar email de configuração de senha');
+          if (error) {
+            console.warn('Erro ao enviar email de configuração de senha:', error);
           }
         } catch (error) {
           console.warn('Erro ao enviar email de configuração:', error);

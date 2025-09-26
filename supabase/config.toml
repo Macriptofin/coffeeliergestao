@@ -2,3 +2,6 @@ project_id = "njxxqdcwvehlvqufuyww"
 
 [functions.password-verification-hook]
 verify_jwt = false
+
+[functions.password-reset]
+verify_jwt = false

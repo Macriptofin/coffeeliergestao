@@ -18,6 +18,7 @@ interface UserWithProfile {
   full_name?: string;
   display_name?: string;
   created_at: string;
+  email_confirmed?: boolean;
   roles: Array<{
     id: string;
     role: 'admin' | 'manager' | 'financial' | 'user';

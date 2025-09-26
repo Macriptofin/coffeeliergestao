@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Edit, Trash2, Mail, KeyRound } from "lucide-react";
+import { Users, Edit, Trash2, Mail, KeyRound, Shield, CheckCircle2, AlertCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -14,6 +14,7 @@ interface UserWithProfile {
   full_name?: string;
   display_name?: string;
   created_at: string;
+  email_confirmed?: boolean;
   roles: Array<{
     id: string;
     role: 'admin' | 'manager' | 'financial' | 'user';
@@ -78,7 +79,7 @@ export function UsersList({ onEditUser }: UsersListProps) {
         return;
       }
 
-      // Buscar perfis dos usuários
+      // Buscar perfis dos usuários com e-mail sincronizado
       const userIds = rolesData.map(r => r.user_id);
       const { data: profiles } = await supabase
         .from('user_profiles')
@@ -93,16 +94,18 @@ export function UsersList({ onEditUser }: UsersListProps) {
         const userRoles = rolesData.filter(r => r.user_id === userId);
         const profile = profiles?.find(p => p.user_id === userId);
         
-        // Para usuários sem perfil, tentar obter dados do auth metadata ou usar email padrão
-        const displayEmail = `user-${userId.slice(0, 8)}@system.local`;
+        // Usar e-mail sincronizado do profile ou fallback se necessário
+        const email = profile?.email || `user-${userId.slice(0, 8)}@system.local`;
+        const isEmailConfirmed = profile?.email_confirmed_at !== null;
 
         usersWithData.push({
           id: userId,
-          email: displayEmail,
+          email: email,
           full_name: profile?.full_name,
           display_name: profile?.display_name,
           created_at: profile?.created_at || new Date().toISOString(),
-          roles: userRoles
+          roles: userRoles,
+          email_confirmed: isEmailConfirmed
         });
       }
 
@@ -153,26 +156,43 @@ export function UsersList({ onEditUser }: UsersListProps) {
     try {
       setLoading(true);
       
-      const response = await fetch('/functions/v1/password-reset', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-        body: JSON.stringify({
+      const { error } = await supabase.functions.invoke('password-reset', {
+        body: {
           email: userEmail,
           redirectTo: `${window.location.origin}/auth`
-        }),
+        }
       });
 
-      if (response.ok) {
-        toast.success(`Email de redefinição de senha enviado para ${userEmail}`);
+      if (error) {
+        toast.error(`Erro ao enviar email: ${error.message}`);
       } else {
-        toast.error('Erro ao enviar email de redefinição');
+        toast.success(`Email de redefinição de senha enviado para ${userEmail}`);
       }
     } catch (error) {
       console.error('Erro ao enviar reset de senha:', error);
       toast.error('Erro ao enviar email de redefinição');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendEmailVerification = async (userEmail: string) => {
+    try {
+      setLoading(true);
+      
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: userEmail
+      });
+
+      if (error) {
+        toast.error(`Erro ao reenviar verificação: ${error.message}`);
+      } else {
+        toast.success(`Email de verificação reenviado para ${userEmail}`);
+      }
+    } catch (error) {
+      console.error('Erro ao reenviar verificação:', error);
+      toast.error('Erro ao reenviar email de verificação');
     } finally {
       setLoading(false);
     }
@@ -244,29 +264,43 @@ export function UsersList({ onEditUser }: UsersListProps) {
           <div className="space-y-3">
             {users.map(user => (
               <div key={user.id} className="flex items-center justify-between p-4 bg-accent rounded-lg">
-                <div className="flex items-center gap-3 flex-1">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-medium">{getUserDisplayName(user)}</p>
-                      <Mail className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium">{getUserDisplayName(user)}</p>
+                        <div className="flex items-center gap-1">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          {user.email_confirmed ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 text-amber-500" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                        {!user.email_confirmed && (
+                          <Badge variant="outline" className="text-xs">
+                            Não verificado
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Criado em: {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Criado em: {new Date(user.created_at).toLocaleDateString('pt-BR')}
-                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {user.roles.length > 0 ? (
+                        user.roles.map(role => (
+                          <Badge key={role.id} variant={getRoleBadgeVariant(role.role)}>
+                            {role.role}
+                          </Badge>
+                        ))
+                      ) : (
+                        <Badge variant="outline">Sem permissões</Badge>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    {user.roles.length > 0 ? (
-                      user.roles.map(role => (
-                        <Badge key={role.id} variant={getRoleBadgeVariant(role.role)}>
-                          {role.role}
-                        </Badge>
-                      ))
-                    ) : (
-                      <Badge variant="outline">Sem permissões</Badge>
-                    )}
-                  </div>
-                </div>
                 <div className="flex gap-2 ml-4">
                   <Button
                     variant="outline"
@@ -277,16 +311,28 @@ export function UsersList({ onEditUser }: UsersListProps) {
                     <Edit className="h-4 w-4" />
                     Editar
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => sendPasswordReset(user.email)}
-                    className="flex items-center gap-1"
-                    disabled={loading}
-                  >
-                    <KeyRound className="h-4 w-4" />
-                    Reset Senha
-                  </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => sendPasswordReset(user.email)}
+                      className="flex items-center gap-1"
+                      disabled={loading}
+                    >
+                      <KeyRound className="h-4 w-4" />
+                      Reset Senha
+                    </Button>
+                    {!user.email_confirmed && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => sendEmailVerification(user.email)}
+                        className="flex items-center gap-1"
+                        disabled={loading}
+                      >
+                        <Mail className="h-4 w-4" />
+                        Reenviar
+                      </Button>
+                    )}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button

@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 interface PasswordResetRequest {
@@ -11,74 +12,96 @@ interface PasswordResetRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
+  console.log(`${req.method} ${req.url}`);
+
   // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  if (req.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed' }),
+      { 
+        status: 405, 
+        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+      }
+    );
   }
 
   try {
     const { email, redirectTo }: PasswordResetRequest = await req.json();
-
+    
     if (!email) {
       return new Response(
-        JSON.stringify({ error: "Email é obrigatório" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
+        JSON.stringify({ error: 'Email is required' }),
+        { 
+          status: 400, 
+          headers: { 'Content-Type': 'application/json', ...corsHeaders } 
         }
       );
     }
 
-    // Use Supabase Auth to send password reset email
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    console.log(`Sending password reset email to: ${email}`);
 
-    const response = await fetch(`${supabaseUrl}/auth/v1/recover`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${serviceKey}`,
-        "apikey": serviceKey,
-      },
-      body: JSON.stringify({
-        email,
-        options: {
-          redirectTo: redirectTo || `${new URL(req.url).origin}/auth`,
-        },
-      }),
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { 
+          status: 500, 
+          headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+        }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error("Erro ao enviar reset de senha:", error);
+    // Send password reset email
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectTo || `${supabaseUrl}/auth/callback`
+    });
+
+    if (error) {
+      console.error('Password reset error:', error);
       return new Response(
-        JSON.stringify({ error: "Erro ao enviar email de recuperação" }),
-        {
-          status: response.status,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
+        JSON.stringify({ error: error.message }),
+        { 
+          status: 400, 
+          headers: { 'Content-Type': 'application/json', ...corsHeaders } 
         }
       );
     }
 
-    console.log(`Email de reset de senha enviado para: ${email}`);
+    console.log(`Password reset email sent successfully to: ${email}`);
 
     return new Response(
       JSON.stringify({ 
-        message: "Email de recuperação de senha enviado com sucesso",
-        email: email
+        success: true, 
+        message: `Password reset email sent to ${email}` 
       }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
       }
     );
+
   } catch (error: any) {
-    console.error("Erro na função password-reset:", error);
+    console.error('Error in password-reset function:', error);
     return new Response(
-      JSON.stringify({ error: error.message || "Erro interno do servidor" }),
+      JSON.stringify({ error: error.message || 'Internal server error' }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
       }
     );
   }
