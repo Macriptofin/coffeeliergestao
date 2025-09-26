@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_lockouts: {
+        Row: {
+          created_at: string
+          failed_attempts: number
+          id: string
+          lock_reason: string
+          locked_at: string
+          locked_until: string
+          unlock_method: string | null
+          unlocked_at: string | null
+          unlocked_by: string | null
+          user_email: string
+        }
+        Insert: {
+          created_at?: string
+          failed_attempts?: number
+          id?: string
+          lock_reason?: string
+          locked_at?: string
+          locked_until: string
+          unlock_method?: string | null
+          unlocked_at?: string | null
+          unlocked_by?: string | null
+          user_email: string
+        }
+        Update: {
+          created_at?: string
+          failed_attempts?: number
+          id?: string
+          lock_reason?: string
+          locked_at?: string
+          locked_until?: string
+          unlock_method?: string | null
+          unlocked_at?: string | null
+          unlocked_by?: string | null
+          user_email?: string
+        }
+        Relationships: []
+      }
       accounts_payable: {
         Row: {
           account_id: string | null
@@ -938,6 +977,48 @@ export type Database = {
           },
         ]
       }
+      mfa_settings: {
+        Row: {
+          backup_codes: string[] | null
+          created_at: string
+          disabled_at: string | null
+          enabled_at: string | null
+          id: string
+          is_enabled: boolean
+          last_used_at: string | null
+          recovery_email: string | null
+          totp_secret: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          backup_codes?: string[] | null
+          created_at?: string
+          disabled_at?: string | null
+          enabled_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          last_used_at?: string | null
+          recovery_email?: string | null
+          totp_secret?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          backup_codes?: string[] | null
+          created_at?: string
+          disabled_at?: string | null
+          enabled_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          last_used_at?: string | null
+          recovery_email?: string | null
+          totp_secret?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       payment_transactions: {
         Row: {
           account_payable_id: string
@@ -981,6 +1062,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pii_access_anomalies: {
+        Row: {
+          anomaly_type: string
+          created_at: string
+          details: Json
+          detection_time: string
+          id: string
+          investigated_at: string | null
+          investigated_by: string | null
+          investigation_notes: string | null
+          ip_address: string | null
+          is_investigated: boolean | null
+          resource_count: number | null
+          resource_type: string
+          severity: string
+          time_window_minutes: number | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          anomaly_type: string
+          created_at?: string
+          details?: Json
+          detection_time?: string
+          id?: string
+          investigated_at?: string | null
+          investigated_by?: string | null
+          investigation_notes?: string | null
+          ip_address?: string | null
+          is_investigated?: boolean | null
+          resource_count?: number | null
+          resource_type: string
+          severity?: string
+          time_window_minutes?: number | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          anomaly_type?: string
+          created_at?: string
+          details?: Json
+          detection_time?: string
+          id?: string
+          investigated_at?: string | null
+          investigated_by?: string | null
+          investigation_notes?: string | null
+          ip_address?: string | null
+          is_investigated?: boolean | null
+          resource_count?: number | null
+          resource_type?: string
+          severity?: string
+          time_window_minutes?: number | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       products: {
         Row: {
@@ -1459,42 +1597,54 @@ export type Database = {
       security_audit_log: {
         Row: {
           action: string
+          anomaly_flags: string[] | null
           created_at: string
           details: Json | null
+          device_fingerprint: string | null
           id: string
           ip_address: string | null
           new_role: string | null
           old_role: string | null
           resource_id: string | null
           resource_type: string | null
+          risk_score: number | null
+          session_id: string | null
           target_user_id: string | null
           user_agent: string | null
           user_id: string | null
         }
         Insert: {
           action: string
+          anomaly_flags?: string[] | null
           created_at?: string
           details?: Json | null
+          device_fingerprint?: string | null
           id?: string
           ip_address?: string | null
           new_role?: string | null
           old_role?: string | null
           resource_id?: string | null
           resource_type?: string | null
+          risk_score?: number | null
+          session_id?: string | null
           target_user_id?: string | null
           user_agent?: string | null
           user_id?: string | null
         }
         Update: {
           action?: string
+          anomaly_flags?: string[] | null
           created_at?: string
           details?: Json | null
+          device_fingerprint?: string | null
           id?: string
           ip_address?: string | null
           new_role?: string | null
           old_role?: string | null
           resource_id?: string | null
           resource_type?: string | null
+          risk_score?: number | null
+          session_id?: string | null
           target_user_id?: string | null
           user_agent?: string | null
           user_id?: string | null
@@ -1813,9 +1963,21 @@ export type Database = {
         }
         Returns: number
       }
+      check_account_lockout: {
+        Args: { p_email: string }
+        Returns: Json
+      }
       check_rate_limit: {
         Args: { p_attempt_type: string; p_email: string; p_ip_address: string }
         Returns: Json
+      }
+      create_account_lockout: {
+        Args: {
+          p_email: string
+          p_failed_attempts?: number
+          p_lockout_duration_minutes?: number
+        }
+        Returns: undefined
       }
       create_event_notifications: {
         Args: { p_event_id: string }
@@ -1831,6 +1993,14 @@ export type Database = {
           p_title: string
         }
         Returns: string
+      }
+      detect_pii_anomaly: {
+        Args: {
+          p_access_count?: number
+          p_resource_type: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       get_masked_client_data: {
         Args: Record<PropertyKey, never>

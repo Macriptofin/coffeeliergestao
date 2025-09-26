@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUserRole } from './useUserRole';
 import { useSecurityMonitoring } from './useSecurityMonitoring';
+import { useEnhancedSecurityMonitoring } from './useEnhancedSecurityMonitoring';
 
 interface SecureClientData {
   id: string;
@@ -30,6 +31,7 @@ export function useSecureClientData() {
   const { toast } = useToast();
   const { isAdmin } = useUserRole();
   const { logPIIAccess } = useSecurityMonitoring();
+  const { logPIIAccessWithAnomalyDetection } = useEnhancedSecurityMonitoring();
 
   const fetchClients = async (filters?: {
     searchTerm?: string;
@@ -72,8 +74,8 @@ export function useSecureClientData() {
 
   const getClientById = async (id: string): Promise<SecureClientData | null> => {
     try {
-      // Log PII access for detailed view
-      await logPIIAccess(id, 'CLIENT_DETAIL_VIEW', ['cnpj_cpf', 'email', 'phone', 'address']);
+      // Log PII access for detailed view with anomaly detection
+      await logPIIAccessWithAnomalyDetection(id, 'CLIENT_DETAIL_VIEW', ['cnpj_cpf', 'email', 'phone', 'address'], 'clients');
 
       const { data, error } = await supabase.rpc("get_masked_client_data");
       

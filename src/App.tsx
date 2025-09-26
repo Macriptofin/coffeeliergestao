@@ -28,12 +28,16 @@ import RecursosHumanos from "./pages/RecursosHumanos";
 import Colaboradores from "./pages/Colaboradores";
 import EstoqueMovimentacoes from "./pages/EstoqueMovimentacoes";
 import Agenda from "./pages/Agenda";
+import EnhancedSecurity from "./pages/EnhancedSecurity";
+import SecurityAnomalies from "./pages/SecurityAnomalies";
+import SecurityHeader from "./components/security/SecurityHeader";
 
 const queryClient = new QueryClient();
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <SecurityHeader />
       <BrowserRouter>
         <Toaster />
         <Routes>
@@ -70,6 +74,8 @@ function App() {
               <Route path="rh/colaboradores" element={<Colaboradores />} />
               <Route path="usuarios" element={<UserManagement />} />
               <Route path="seguranca" element={<SecurityMonitoring />} />
+              <Route path="seguranca/avancado" element={<EnhancedSecurity />} />
+              <Route path="seguranca/anomalias" element={<SecurityAnomalies />} />
               {/* Relatórios */}
               <Route path="relatorios" element={<Reports />} />
             </Route>

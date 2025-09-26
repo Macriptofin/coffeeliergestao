@@ -23,6 +23,20 @@ export function useRateLimiting() {
     setIsChecking(true);
 
     try {
+      // Check for account lockout first
+      const { data: lockoutData } = await supabase.rpc('check_account_lockout', {
+        p_email: email
+      });
+
+      if ((lockoutData as any)?.is_locked) {
+        return {
+          allowed: false,
+          reason: 'account_locked',
+          message: `Conta bloqueada até ${new Date((lockoutData as any).locked_until).toLocaleString('pt-BR')}`,
+          retry_after: (lockoutData as any).locked_until
+        };
+      }
+
       // Get real client IP address
       const ipAddress = await getClientIP();
       
