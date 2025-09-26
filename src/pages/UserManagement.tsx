@@ -26,7 +26,7 @@ const UserManagement = () => {
 
       <div className="space-y-6">
         <AdminSetup />
-        {userRole === 'admin' && <UserRoleManager />}
+        <UserRoleManager />
       </div>
     </div>
   );

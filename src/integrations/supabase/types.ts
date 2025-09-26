@@ -1715,6 +1715,60 @@ export type Database = {
         }
         Relationships: []
       }
+      user_permissions: {
+        Row: {
+          category: Database["public"]["Enums"]["permission_category"]
+          created_at: string
+          granted_by: string | null
+          id: string
+          subcategory: Database["public"]["Enums"]["permission_subcategory"]
+          user_id: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["permission_category"]
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          subcategory: Database["public"]["Enums"]["permission_subcategory"]
+          user_id: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["permission_category"]
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          subcategory?: Database["public"]["Enums"]["permission_subcategory"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1846,6 +1900,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_permission: {
+        Args: {
+          p_category: Database["public"]["Enums"]["permission_category"]
+          p_subcategory?: Database["public"]["Enums"]["permission_subcategory"]
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1926,6 +1988,63 @@ export type Database = {
         | "Festa Infantil"
         | "Casamento"
         | "Reuniao Corporativa"
+      permission_category:
+        | "estoque"
+        | "compras"
+        | "vendas"
+        | "agenda"
+        | "producao"
+        | "fornecedores"
+        | "financeiro"
+        | "relatorios"
+        | "usuarios"
+      permission_subcategory:
+        | "estoque_visualizar"
+        | "estoque_criar"
+        | "estoque_editar"
+        | "estoque_excluir"
+        | "estoque_movimentacoes"
+        | "compras_visualizar"
+        | "compras_criar"
+        | "compras_editar"
+        | "compras_excluir"
+        | "compras_aprovar"
+        | "vendas_visualizar"
+        | "vendas_criar"
+        | "vendas_editar"
+        | "vendas_excluir"
+        | "vendas_propostas"
+        | "vendas_clientes"
+        | "agenda_visualizar"
+        | "agenda_criar"
+        | "agenda_editar"
+        | "agenda_excluir"
+        | "agenda_eventos"
+        | "producao_visualizar"
+        | "producao_criar"
+        | "producao_editar"
+        | "producao_excluir"
+        | "producao_receitas"
+        | "producao_materiais"
+        | "fornecedores_visualizar"
+        | "fornecedores_criar"
+        | "fornecedores_editar"
+        | "fornecedores_excluir"
+        | "fornecedores_produtos"
+        | "financeiro_visualizar"
+        | "financeiro_contas_pagar"
+        | "financeiro_contas_receber"
+        | "financeiro_fluxo_caixa"
+        | "financeiro_relatorios"
+        | "relatorios_visualizar"
+        | "relatorios_financeiros"
+        | "relatorios_operacionais"
+        | "relatorios_exportar"
+        | "usuarios_visualizar"
+        | "usuarios_criar"
+        | "usuarios_editar"
+        | "usuarios_excluir"
+        | "usuarios_permissoes"
       product_category:
         | "Salgados"
         | "Doces"
@@ -2070,6 +2189,65 @@ export const Constants = {
         "Festa Infantil",
         "Casamento",
         "Reuniao Corporativa",
+      ],
+      permission_category: [
+        "estoque",
+        "compras",
+        "vendas",
+        "agenda",
+        "producao",
+        "fornecedores",
+        "financeiro",
+        "relatorios",
+        "usuarios",
+      ],
+      permission_subcategory: [
+        "estoque_visualizar",
+        "estoque_criar",
+        "estoque_editar",
+        "estoque_excluir",
+        "estoque_movimentacoes",
+        "compras_visualizar",
+        "compras_criar",
+        "compras_editar",
+        "compras_excluir",
+        "compras_aprovar",
+        "vendas_visualizar",
+        "vendas_criar",
+        "vendas_editar",
+        "vendas_excluir",
+        "vendas_propostas",
+        "vendas_clientes",
+        "agenda_visualizar",
+        "agenda_criar",
+        "agenda_editar",
+        "agenda_excluir",
+        "agenda_eventos",
+        "producao_visualizar",
+        "producao_criar",
+        "producao_editar",
+        "producao_excluir",
+        "producao_receitas",
+        "producao_materiais",
+        "fornecedores_visualizar",
+        "fornecedores_criar",
+        "fornecedores_editar",
+        "fornecedores_excluir",
+        "fornecedores_produtos",
+        "financeiro_visualizar",
+        "financeiro_contas_pagar",
+        "financeiro_contas_receber",
+        "financeiro_fluxo_caixa",
+        "financeiro_relatorios",
+        "relatorios_visualizar",
+        "relatorios_financeiros",
+        "relatorios_operacionais",
+        "relatorios_exportar",
+        "usuarios_visualizar",
+        "usuarios_criar",
+        "usuarios_editar",
+        "usuarios_excluir",
+        "usuarios_permissoes",
       ],
       product_category: [
         "Salgados",
