@@ -40,7 +40,7 @@ export const PrintableRecipe = forwardRef<HTMLDivElement, PrintableRecipeProps>(
               </div>
               <div className="flex justify-between">
                 <span className="font-semibold">Rendimento:</span>
-                <span>{recipe.yield} unidade(s)</span>
+                <span>{recipe.yield} {recipe.yieldUnit || 'unidade'}</span>
               </div>
             </div>
           </div>
@@ -55,7 +55,7 @@ export const PrintableRecipe = forwardRef<HTMLDivElement, PrintableRecipeProps>(
                 <span className="font-bold">R$ {totalCost.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="font-semibold">Custo por Unidade:</span>
+                <span className="font-semibold">Custo por {recipe.yieldUnit || 'unidade'}:</span>
                 <span className="font-bold">R$ {costPerUnit.toFixed(2)}</span>
               </div>
               {recipe.suggestedPrice && (

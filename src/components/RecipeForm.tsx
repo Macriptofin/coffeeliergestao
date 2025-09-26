@@ -26,6 +26,7 @@ export const RecipeForm = ({ recipe, ingredients, onSubmit, onCancel }: RecipeFo
     preparationTime: recipe?.preparationTime?.toString() || '',
     difficulty: recipe?.difficulty || '' as Recipe['difficulty'],
     yield: recipe?.yield?.toString() || '',
+    yieldUnit: recipe?.yieldUnit || 'unidade',
     suggestedPrice: recipe?.suggestedPrice?.toString() || '',
     profitMargin: recipe?.profitMargin?.toString() || '',
   });
@@ -36,6 +37,10 @@ export const RecipeForm = ({ recipe, ingredients, onSubmit, onCancel }: RecipeFo
 
   const categories = [
     'Bolos', 'Tortas', 'Cupcakes', 'Cookies', 'Pães', 'Docinhos', 'Sobremesas', 'Salgados', 'Outros'
+  ];
+
+  const yieldUnits = [
+    'unidade', 'fatia', 'porção', 'litro', 'ml', 'kg', 'g', 'serve'
   ];
 
   const addIngredient = () => {
@@ -95,6 +100,7 @@ export const RecipeForm = ({ recipe, ingredients, onSubmit, onCancel }: RecipeFo
       preparationTime: parseInt(formData.preparationTime) || 0,
       difficulty: formData.difficulty,
       yield: parseInt(formData.yield) || 1,
+      yieldUnit: formData.yieldUnit,
       suggestedPrice: formData.suggestedPrice ? parseFloat(formData.suggestedPrice) : undefined,
       profitMargin: formData.profitMargin ? parseFloat(formData.profitMargin) : undefined,
     });
@@ -189,13 +195,28 @@ export const RecipeForm = ({ recipe, ingredients, onSubmit, onCancel }: RecipeFo
               
               <div className="space-y-2">
                 <Label htmlFor="yield">Rendimento</Label>
-                <Input
-                  id="yield"
-                  type="number"
-                  value={formData.yield}
-                  onChange={(e) => setFormData({ ...formData, yield: e.target.value })}
-                  placeholder="1"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="yield"
+                    type="number"
+                    value={formData.yield}
+                    onChange={(e) => setFormData({ ...formData, yield: e.target.value })}
+                    placeholder="1"
+                    className="flex-1"
+                  />
+                  <Select value={formData.yieldUnit} onValueChange={(value) => setFormData({ ...formData, yieldUnit: value })}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {yieldUnits.map((unit) => (
+                        <SelectItem key={unit} value={unit}>
+                          {unit}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </div>

@@ -25,6 +25,7 @@ export interface Recipe {
   preparationTime: number;
   difficulty: 'Fácil' | 'Médio' | 'Difícil';
   yield: number;
+  yieldUnit?: string; // Unidade de medida do rendimento
   totalCost?: number;
   totalWeight?: number; // Peso total em gramas
   suggestedPrice?: number;

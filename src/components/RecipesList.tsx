@@ -73,7 +73,7 @@ export const RecipesList = ({ recipes, ingredients, onEdit, onDelete }: RecipesL
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <span>Rende {recipe.yield}</span>
+                <span>Rende {recipe.yield} {recipe.yieldUnit || 'unidade'}</span>
               </div>
             </div>
 
@@ -84,6 +84,15 @@ export const RecipesList = ({ recipes, ingredients, onEdit, onDelete }: RecipesL
                   R$ {recipe.totalCost?.toFixed(2) || '0,00'}
                 </span>
               </div>
+              
+              {recipe.totalCost && recipe.yield > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Custo por {recipe.yieldUnit || 'unidade'}:</span>
+                  <span className="font-bold text-blue-600">
+                    R$ {(recipe.totalCost / recipe.yield).toFixed(2)}
+                  </span>
+                </div>
+              )}
               
               {recipe.suggestedPrice && (
                 <div className="flex justify-between items-center">
@@ -134,7 +143,7 @@ export const RecipesList = ({ recipes, ingredients, onEdit, onDelete }: RecipesL
                     </div>
                     <div className="text-center">
                       <div className="text-sm text-muted-foreground">Rendimento</div>
-                      <div className="font-semibold">{recipe.yield}</div>
+                      <div className="font-semibold">{recipe.yield} {recipe.yieldUnit || 'unidade'}</div>
                     </div>
                   </div>
 
@@ -174,16 +183,25 @@ export const RecipesList = ({ recipes, ingredients, onEdit, onDelete }: RecipesL
                   </div>
 
                   {/* Análise Financeira */}
-                  {(recipe.suggestedPrice || recipe.profitMargin) && (
+                  {(recipe.suggestedPrice || recipe.profitMargin || recipe.totalCost) && (
                     <div>
                       <h3 className="text-lg font-semibold mb-3 border-b pb-2">Análise Financeira</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="p-3 bg-blue-50 rounded-lg">
-                          <div className="text-sm text-blue-600">Custo</div>
+                          <div className="text-sm text-blue-600">Custo Total</div>
                           <div className="text-lg font-bold text-blue-800">
                             R$ {recipe.totalCost?.toFixed(2) || '0,00'}
                           </div>
                         </div>
+                        
+                        {recipe.totalCost && recipe.yield > 0 && (
+                          <div className="p-3 bg-purple-50 rounded-lg">
+                            <div className="text-sm text-purple-600">Custo por {recipe.yieldUnit || 'unidade'}</div>
+                            <div className="text-lg font-bold text-purple-800">
+                              R$ {(recipe.totalCost / recipe.yield).toFixed(2)}
+                            </div>
+                          </div>
+                        )}
                         
                         {recipe.suggestedPrice && (
                           <div className="p-3 bg-green-50 rounded-lg">

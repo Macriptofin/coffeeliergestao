@@ -1619,6 +1619,7 @@ export type Database = {
           total_weight: number | null
           updated_at: string | null
           yield_amount: number
+          yield_unit: string | null
         }
         Insert: {
           category: string
@@ -1635,6 +1636,7 @@ export type Database = {
           total_weight?: number | null
           updated_at?: string | null
           yield_amount: number
+          yield_unit?: string | null
         }
         Update: {
           category?: string
@@ -1651,6 +1653,7 @@ export type Database = {
           total_weight?: number | null
           updated_at?: string | null
           yield_amount?: number
+          yield_unit?: string | null
         }
         Relationships: []
       }
