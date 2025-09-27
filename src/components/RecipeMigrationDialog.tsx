@@ -20,6 +20,7 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
   const [progress, setProgress] = useState(0);
   const [currentRecipe, setCurrentRecipe] = useState<string>("");
   const [migratedCount, setMigratedCount] = useState(0);
+  const [cleaning, setCleaning] = useState(false);
 
   const migrateRecipes = async () => {
     setMigrating(true);
@@ -47,11 +48,14 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
         let materialData: any | null = null;
         let materialError: any | null = null;
 
-        const { data: existingMaterial, error: fetchMatError } = await supabase
+        const { data: existingMaterials, error: fetchMatError } = await supabase
           .from('materials')
           .select('*')
           .eq('name', recipe.name)
-          .maybeSingle();
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        const existingMaterial = existingMaterials?.[0] || null;
 
         if (fetchMatError) {
           console.error(`Erro ao buscar material existente para ${recipe.name}:`, fetchMatError);
@@ -224,6 +228,64 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
     } finally {
       setMigrating(false);
       setCurrentRecipe("");
+    }
+  };
+
+  // Limpar duplicatas criadas em migrações anteriores
+  const handleCleanup = async () => {
+    try {
+      setCleaning(true);
+      const names = recipes.map(r => r.name);
+      if (names.length === 0) {
+        toast.info('Sem receitas para verificar.');
+        return;
+      }
+      const { data: mats, error: matsErr } = await supabase
+        .from('materials')
+        .select('id,name,created_at')
+        .in('name', names);
+      if (matsErr) {
+        console.error('Erro ao buscar materiais para limpeza:', matsErr);
+        toast.error('Falha ao buscar materiais para limpeza');
+        return;
+      }
+      const byName: Record<string, Array<{id:string; name:string; created_at:string}>> = {};
+      (mats || []).forEach((m: any) => {
+        if (!byName[m.name]) byName[m.name] = [] as any;
+        byName[m.name].push(m as any);
+      });
+      const deleteIds: string[] = [];
+      Object.values(byName).forEach((list: any[]) => {
+        if (list.length > 1) {
+          list.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          const toRemove = list.slice(1).map((x: any) => x.id);
+          deleteIds.push(...toRemove);
+        }
+      });
+      if (deleteIds.length === 0) {
+        toast.info('Nenhuma duplicata encontrada.');
+        return;
+      }
+      const { data: boms, error: bomsErr } = await supabase
+        .from('recipes_bom')
+        .select('id')
+        .in('finished_material_id', deleteIds);
+      if (bomsErr) {
+        console.error('Erro ao buscar BOMs para limpeza:', bomsErr);
+      }
+      const bomIds = (boms || []).map((b: any) => b.id);
+      if (bomIds.length > 0) {
+        await supabase.from('recipe_bom_items').delete().in('recipe_id', bomIds);
+        await supabase.from('recipes_bom').delete().in('id', bomIds);
+      }
+      await supabase.from('materials').delete().in('id', deleteIds);
+      toast.success(`Duplicatas removidas: ${deleteIds.length}`);
+      onMigrationComplete();
+    } catch (e) {
+      console.error('Erro durante limpeza de duplicatas:', e);
+      toast.error('Erro ao limpar duplicatas');
+    } finally {
+      setCleaning(false);
     }
   };
 
