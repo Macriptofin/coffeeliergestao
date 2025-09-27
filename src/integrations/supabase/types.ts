@@ -2219,12 +2219,32 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_finished_product_cost: {
+        Row: {
+          material_id: string | null
+          standard_cost_per_yield: number | null
+          yield_quantity: number | null
+          yield_unit: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      assemble_composite: {
+        Args: { p_composite_material: string; p_qty: number }
+        Returns: undefined
       }
       calculate_weighted_average_price: {
         Args: {
@@ -2434,6 +2454,16 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      process_component_consumption: {
+        Args: {
+          p_material_id: string
+          p_movement_type: string
+          p_quantity: number
+          p_reference_material: string
+          p_unit: string
+        }
+        Returns: undefined
+      }
       process_cost_adjustment: {
         Args: {
           p_adjustment_reason: string
@@ -2444,6 +2474,14 @@ export type Database = {
         }
         Returns: string
       }
+      process_finish_input: {
+        Args: {
+          p_material_id: string
+          p_movement_type: string
+          p_quantity: number
+        }
+        Returns: undefined
+      }
       process_inventory_adjustment: {
         Args: {
           p_adjustment_reason: string
@@ -2453,6 +2491,10 @@ export type Database = {
           p_reference_document?: string
         }
         Returns: string
+      }
+      produce_finished_product: {
+        Args: { p_finished_material: string; p_output_qty: number }
+        Returns: undefined
       }
       sanitize_error_message: {
         Args: { error_msg: string }
