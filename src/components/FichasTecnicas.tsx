@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { MaterialForm } from "@/components/MaterialForm";
 import { ProductionExecutor } from "@/components/bom/ProductionExecutor";
 import { EventProductionIntegration } from "@/components/EventProductionIntegration";
@@ -34,6 +35,7 @@ const FichasTecnicas = () => {
   const [loading, setLoading] = useState(true);
   const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [showOnlyWithBOM, setShowOnlyWithBOM] = useState(false);
 
   useEffect(() => {
     loadMaterials();
@@ -436,13 +438,19 @@ const FichasTecnicas = () => {
                     Produtos que requerem receita e processo de produção
                   </p>
                 </div>
-                <Button 
-                  onClick={() => handleAddMaterial('finished_product')}
-                  className="bg-gradient-primary hover:bg-primary/90"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Produto Acabado
-                </Button>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Switch checked={showOnlyWithBOM} onCheckedChange={setShowOnlyWithBOM} id="only-bom-finished" />
+                    <label htmlFor="only-bom-finished">Somente com BOM</label>
+                  </div>
+                  <Button 
+                    onClick={() => handleAddMaterial('finished_product')}
+                    className="bg-gradient-primary hover:bg-primary/90"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Novo Produto Acabado
+                  </Button>
+                </div>
               </div>
 
               {getFinishedProducts().length === 0 ? (
@@ -502,13 +510,19 @@ const FichasTecnicas = () => {
                     Kits e conjuntos montados a partir de outros produtos
                   </p>
                 </div>
-                <Button 
-                  onClick={() => handleAddMaterial('composite_product')}
-                  className="bg-gradient-primary hover:bg-primary/90"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Produto Composto
-                </Button>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Switch checked={showOnlyWithBOM} onCheckedChange={setShowOnlyWithBOM} id="only-bom-composite" />
+                    <label htmlFor="only-bom-composite">Somente com BOM</label>
+                  </div>
+                  <Button 
+                    onClick={() => handleAddMaterial('composite_product')}
+                    className="bg-gradient-primary hover:bg-primary/90"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Novo Produto Composto
+                  </Button>
+                </div>
               </div>
 
               {getCompositeProducts().length === 0 ? (
