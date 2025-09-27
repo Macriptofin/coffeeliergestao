@@ -485,6 +485,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "composite_bom_items_component_material_id_fkey"
+            columns: ["component_material_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_cost"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "composite_bom_items_composite_id_fkey"
             columns: ["composite_id"]
             isOneToOne: false
@@ -521,6 +528,13 @@ export type Database = {
             columns: ["composite_material_id"]
             isOneToOne: true
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composites_bom_composite_material_id_fkey"
+            columns: ["composite_material_id"]
+            isOneToOne: true
+            referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
         ]
@@ -1010,6 +1024,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_production_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_cost"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "event_production_order_items_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -1114,6 +1135,13 @@ export type Database = {
             referencedRelation: "materials"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_table_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_cost"
+            referencedColumns: ["id"]
+          },
         ]
       }
       event_table_template_items: {
@@ -1156,6 +1184,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_table_template_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
           {
@@ -1462,6 +1497,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invoice_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_cost"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "invoice_items_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
@@ -1479,6 +1521,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          is_sellable: boolean | null
           material_type: string
           name: string
           price_per_purchase_unit: number
@@ -1497,6 +1540,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_sellable?: boolean | null
           material_type?: string
           name: string
           price_per_purchase_unit: number
@@ -1515,6 +1559,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_sellable?: boolean | null
           material_type?: string
           name?: string
           price_per_purchase_unit?: number
@@ -2057,6 +2102,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "recipe_bom_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_cost"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "recipe_bom_items_recipe_id_fkey"
             columns: ["recipe_id"]
             isOneToOne: false
@@ -2093,6 +2145,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_ingredients_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
           {
@@ -2195,6 +2254,13 @@ export type Database = {
             columns: ["finished_material_id"]
             isOneToOne: true
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
         ]
@@ -2343,6 +2409,13 @@ export type Database = {
             referencedRelation: "materials"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "stock_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "v_product_cost"
+            referencedColumns: ["id"]
+          },
         ]
       }
       stock_movements: {
@@ -2388,6 +2461,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
         ]
@@ -2438,6 +2518,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_products_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
           {
@@ -2598,7 +2685,22 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_product_cost: {
+        Row: {
+          category: string | null
+          code: string | null
+          current_quantity: number | null
+          id: string | null
+          is_sellable: boolean | null
+          material_type: string | null
+          name: string | null
+          total_value: number | null
+          unit_cost: number | null
+          updated_at: string | null
+          usage_unit: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_exists: {
@@ -2888,6 +2990,10 @@ export type Database = {
       }
       produce_finished_product: {
         Args: { p_finished_material: string; p_output_qty: number }
+        Returns: undefined
+      }
+      produce_product: {
+        Args: { p_material_id: string; p_output_qty: number }
         Returns: undefined
       }
       sanitize_error_message: {
