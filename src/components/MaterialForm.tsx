@@ -28,7 +28,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     conversionFactor: material?.conversionFactor?.toString() || '',
     supplier: material?.supplier || '',
     allowedBrands: material?.allowedBrands?.join(', ') || '',
-    category: material?.category || 'Insumos',
+    category: material?.category || 'Insumo',
     subcategory: material?.subcategory || '',
     materialType: material?.materialType || 'ingredient' as Material['materialType'],
     unitWeight: material?.unitWeight?.toString() || '',

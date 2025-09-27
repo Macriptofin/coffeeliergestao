@@ -19,7 +19,7 @@ export interface SubcategoryStructure {
 export const materialCategories: CategoryStructure[] = [
   {
     label: "Insumos",
-    value: "Insumos",
+    value: "Insumo",
     color: "blue",
     icon: "Package",
     description: "Ingredientes básicos para produção",
