@@ -341,7 +341,7 @@ const Materials = () => {
           </div>
           
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-48 min-h-[44px] py-3">
+            <SelectTrigger className="w-48 h-10 flex items-center">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent className="bg-background">
@@ -360,7 +360,7 @@ const Materials = () => {
           </Select>
 
           <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-            <SelectTrigger className="w-48 min-h-[44px] py-3">
+            <SelectTrigger className="w-48 h-10 flex items-center">
               <SelectValue placeholder="Fornecedor" />
             </SelectTrigger>
             <SelectContent className="bg-background">
