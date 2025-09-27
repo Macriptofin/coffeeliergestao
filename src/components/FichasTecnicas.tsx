@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Settings, Factory, ArrowRight, AlertCircle, Package, Wrench, Calendar, Trash2, Eye, Edit } from "lucide-react";
+import { Plus, Settings, Factory, ArrowRight, AlertCircle, Package, Wrench, Calendar, Trash2, Eye, Edit, Stethoscope, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useFeatureFlags, logFeatureFlagEvent } from "@/hooks/useFeatureFlags";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,10 +18,30 @@ import { BOMStatusAlert } from "@/components/BOMStatusAlert";
 import { RecipeBOMForm } from "@/components/bom/RecipeBOMForm";
 import { CompositeBOMForm } from "@/components/bom/CompositeBOMForm";
 import { useMaterialBOM } from "@/hooks/useMaterialBOM";
+import BOMDiagnostics from "@/components/BOMDiagnostics";
 import type { Material } from "@/pages/Materials";
 
 const FichasTecnicas = () => {
-  const navigate = useNavigate();
+  // Check for duplicates
+  const [duplicatesInfo, setDuplicatesInfo] = useState<{ [key: string]: boolean }>({});
+
+  const checkForDuplicates = async () => {
+    try {
+      const { data, error } = await supabase.from('vw_diag_material_dupes').select('*');
+      if (error) throw error;
+      
+      const duplicatesMap: { [key: string]: boolean } = {};
+      data.forEach((duplicate: any) => {
+        duplicate.material_ids.forEach((id: string) => {
+          duplicatesMap[id] = true;
+        });
+      });
+      
+      setDuplicatesInfo(duplicatesMap);
+    } catch (error) {
+      console.error('Error checking duplicates:', error);
+    }
+  };
   const { flags } = useFeatureFlags();
   const [activeTab, setActiveTab] = useState("produto-acabado");
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -36,9 +56,11 @@ const FichasTecnicas = () => {
   const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [showOnlyWithBOM, setShowOnlyWithBOM] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   useEffect(() => {
     loadMaterials();
+    checkForDuplicates();
   }, []);
 
   const loadMaterials = async () => {
@@ -206,22 +228,30 @@ const FichasTecnicas = () => {
       <Card className="shadow-soft">
         <CardHeader>
           <div className="flex justify-between items-start gap-3">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={isSelectedMaterial(material.id)}
-                onCheckedChange={() => toggleSelectMaterial(material.id)}
-                aria-label="Selecionar ficha técnica"
-              />
-              <div>
-                <CardTitle className="text-lg">{material.name}</CardTitle>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="outline" className="text-xs">{material.code}</Badge>
-                  <Badge variant={material.materialType === 'finished_product' ? 'default' : 'secondary'}>
-                    {material.materialType === 'finished_product' ? 'Produto Acabado' : 'Produto Composto'}
-                  </Badge>
-                </div>
-              </div>
-            </div>
+             <div className="flex items-center gap-2">
+               <Checkbox
+                 checked={isSelectedMaterial(material.id)}
+                 onCheckedChange={() => toggleSelectMaterial(material.id)}
+                 aria-label="Selecionar ficha técnica"
+               />
+               <div>
+                 <div className="flex items-center gap-2 mb-1">
+                   <CardTitle className="text-lg">{material.name}</CardTitle>
+                   {duplicatesInfo[material.id] && (
+                     <Badge variant="destructive" className="text-xs">
+                       <AlertTriangle className="h-3 w-3 mr-1" />
+                       Possível Duplicado
+                     </Badge>
+                   )}
+                 </div>
+                 <div className="flex items-center gap-2 mt-1">
+                   <Badge variant="outline" className="text-xs">{material.code}</Badge>
+                   <Badge variant={material.materialType === 'finished_product' ? 'default' : 'secondary'}>
+                     {material.materialType === 'finished_product' ? 'Produto Acabado' : 'Produto Composto'}
+                   </Badge>
+                 </div>
+               </div>
+             </div>
           </div>
           {material.description && (
             <CardDescription>{material.description}</CardDescription>
@@ -407,7 +437,21 @@ const FichasTecnicas = () => {
         </div>
       ) : (
         <>
-          {showMaterialForm && (
+      {showDiagnostics && (
+        <div className="fixed inset-0 bg-background z-50 overflow-auto">
+          <div className="container mx-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">Diagnóstico BOM - Sistema de Limpeza</h2>
+              <Button onClick={() => setShowDiagnostics(false)} variant="outline">
+                Voltar às Fichas Técnicas
+              </Button>
+            </div>
+            <BOMDiagnostics />
+          </div>
+        </div>
+      )}
+
+      {showMaterialForm && (
             <div className="mb-8">
               <MaterialForm 
                 material={editingMaterial}
@@ -438,19 +482,27 @@ const FichasTecnicas = () => {
                     Produtos que requerem receita e processo de produção
                   </p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Switch checked={showOnlyWithBOM} onCheckedChange={setShowOnlyWithBOM} id="only-bom-finished" />
-                    <label htmlFor="only-bom-finished">Somente com BOM</label>
-                  </div>
-                  <Button 
-                    onClick={() => handleAddMaterial('finished_product')}
-                    className="bg-gradient-primary hover:bg-primary/90"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Novo Produto Acabado
-                  </Button>
-                </div>
+                 <div className="flex items-center gap-4">
+                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                     <Switch checked={showOnlyWithBOM} onCheckedChange={setShowOnlyWithBOM} id="only-bom-finished" />
+                     <label htmlFor="only-bom-finished">Somente com BOM</label>
+                   </div>
+                   <Button 
+                     onClick={() => setShowDiagnostics(true)}
+                     variant="outline"
+                     className="flex items-center gap-2"
+                   >
+                     <Stethoscope className="h-4 w-4" />
+                     Diagnosticar & Limpeza
+                   </Button>
+                   <Button 
+                     onClick={() => handleAddMaterial('finished_product')}
+                     className="bg-gradient-primary hover:bg-primary/90"
+                   >
+                     <Plus className="h-4 w-4 mr-2" />
+                     Novo Produto Acabado
+                   </Button>
+                 </div>
               </div>
 
               {getFinishedProducts().length === 0 ? (
@@ -510,19 +562,27 @@ const FichasTecnicas = () => {
                     Kits e conjuntos montados a partir de outros produtos
                   </p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Switch checked={showOnlyWithBOM} onCheckedChange={setShowOnlyWithBOM} id="only-bom-composite" />
-                    <label htmlFor="only-bom-composite">Somente com BOM</label>
-                  </div>
-                  <Button 
-                    onClick={() => handleAddMaterial('composite_product')}
-                    className="bg-gradient-primary hover:bg-primary/90"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Novo Produto Composto
-                  </Button>
-                </div>
+                 <div className="flex items-center gap-4">
+                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                     <Switch checked={showOnlyWithBOM} onCheckedChange={setShowOnlyWithBOM} id="only-bom-composite" />
+                     <label htmlFor="only-bom-composite">Somente com BOM</label>
+                   </div>
+                   <Button 
+                     onClick={() => setShowDiagnostics(true)}
+                     variant="outline"
+                     className="flex items-center gap-2"
+                   >
+                     <Stethoscope className="h-4 w-4" />
+                     Diagnosticar & Limpeza
+                   </Button>
+                   <Button 
+                     onClick={() => handleAddMaterial('composite_product')}
+                     className="bg-gradient-primary hover:bg-primary/90"
+                   >
+                     <Plus className="h-4 w-4 mr-2" />
+                     Novo Produto Composto
+                   </Button>
+                 </div>
               </div>
 
               {getCompositeProducts().length === 0 ? (

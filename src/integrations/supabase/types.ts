@@ -2925,6 +2925,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      diag_bom_migration_report: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       execute_event_production: {
         Args: { p_event_table_id: string }
         Returns: undefined
@@ -2939,6 +2943,10 @@ export type Database = {
           planned_unit: string
           source_kind: string
         }[]
+      }
+      finalize_legacy_recipes_to_bom: {
+        Args: { create_intermediates?: boolean; dry_run?: boolean }
+        Returns: Json
       }
       generate_event_production: {
         Args: { p_event_table_id: string; p_target_table?: string }
@@ -3159,9 +3167,21 @@ export type Database = {
         Args: { p_material_id: string; p_output_qty: number }
         Returns: undefined
       }
+      run_bom_cleanup_playbook: {
+        Args: { confirm?: boolean }
+        Returns: Json
+      }
+      sanitize_bom_for_material: {
+        Args: { finished_material: string }
+        Returns: Json
+      }
       sanitize_error_message: {
         Args: { error_msg: string }
         Returns: string
+      }
+      test_bom_cleanup_and_migration: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
     }
     Enums: {
