@@ -2219,23 +2219,7 @@ export type Database = {
       }
     }
     Views: {
-      v_finished_product_cost: {
-        Row: {
-          material_id: string | null
-          standard_cost_per_yield: number | null
-          yield_quantity: number | null
-          yield_unit: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "recipes_bom_finished_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: true
-            referencedRelation: "materials"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       admin_exists: {
