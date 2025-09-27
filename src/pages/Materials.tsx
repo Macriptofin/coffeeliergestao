@@ -493,7 +493,7 @@ const Materials = () => {
     <ErrorBoundary>
       <div className="flex flex-col h-screen bg-gradient-subtle">
         {/* Fixed Header Content */}
-        <div className="bg-gradient-subtle border-b sticky top-0 z-30">
+        <div className="bg-gradient-subtle border-b sticky top-0 z-30 pt-4">
           <div className="px-6 py-6">
             {/* Page Header */}
             <div className="mb-4">
