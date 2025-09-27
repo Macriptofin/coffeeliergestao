@@ -23,29 +23,12 @@ const Auth = () => {
   useEffect(() => {
     // Check if user is already logged in
     const checkSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      console.log('Auth:getSession result', { session, error });
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        toast.success('getSession: sessão ativa encontrada');
         navigate('/');
-      } else {
-        toast.info('getSession: nenhuma sessão ativa');
       }
     };
     checkSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('Auth:onAuthStateChange', { event, hasSession: !!session });
-        if (event === 'SIGNED_IN' && session) {
-          toast.success('Auth: usuário autenticado');
-          navigate('/');
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const handlePasswordChange = async (newPassword: string) => {
@@ -95,7 +78,7 @@ const Auth = () => {
       } else {
         await logAuthAttempt(email, 'signin', true);
         toast.success('Login realizado com sucesso!');
-        navigate('/');
+        // Navigation will be handled by useSecureAuth hook
       }
     } catch (error: any) {
       await logAuthAttempt(email, 'signin', false, 'unexpected_error');
