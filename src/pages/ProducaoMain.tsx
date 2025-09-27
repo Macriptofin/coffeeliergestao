@@ -15,7 +15,8 @@ const ProducaoMain = () => {
       description: "Criação e gestão de receitas com cálculo automático de custos",
       icon: ChefHat,
       href: "/receitas",
-      color: "bg-red-500"
+      color: "bg-red-500",
+      hidden: flags.FF_UNIFY_BOM_RECEITAS
     },
     {
       title: "Ordens de Produção",
@@ -23,14 +24,6 @@ const ProducaoMain = () => {
       icon: ClipboardList,
       href: "/producao/ordens",
       color: "bg-blue-500"
-    },
-    {
-      title: "Cálculo de Custos",
-      description: "Análise de custos de produção e precificação",
-      icon: Calculator,
-      href: "/producao/calculo-custos",
-      color: "bg-green-500",
-      hidden: flags.FF_MOVE_COSTS_TO_REPORTS
     },
     {
       title: "Planejamento",
@@ -49,7 +42,7 @@ const ProducaoMain = () => {
     },
     {
       title: "Relatórios de Produção",
-      description: "Performance, eficiência e análises de produção",
+      description: "Performance, eficiência e análises de produção e custos",
       icon: FileText,
       href: "/producao/relatorios",
       color: "bg-orange-500"
@@ -68,7 +61,7 @@ const ProducaoMain = () => {
   const unifiedModules = [
     {
       title: "Fichas Técnicas (BOM)",
-      description: "Receitas e BOMs unificados com gestão completa de produtos",
+      description: "Gestão unificada de produtos, receitas e composições com custos automáticos",
       icon: Package2,
       href: "/producao/fichas-tecnicas",
       color: "bg-emerald-500",
@@ -76,7 +69,7 @@ const ProducaoMain = () => {
     },
     {
       title: "Ordens de Produção", 
-      description: "Centro operacional - planejamento e execução centralizada",
+      description: "Centro operacional - produção centralizada com integração de eventos",
       icon: ClipboardList,
       href: "/producao/ordens",
       color: "bg-blue-500"
@@ -90,14 +83,14 @@ const ProducaoMain = () => {
     },
     {
       title: "Relatórios",
-      description: "Performance, custos e análises completas",
+      description: "Performance, custos completos e análises detalhadas de produção",
       icon: FileText,
       href: "/producao/relatorios",
       color: "bg-orange-500"
     },
     {
       title: "Mesas/Eventos",
-      description: "Gestão dinâmica de eventos com cálculo automático por pessoa",
+      description: "Gestão de eventos com auto-geração de ordens de produção",
       icon: Calendar,
       href: "/producao/eventos",
       color: "bg-pink-500",
@@ -124,7 +117,7 @@ const ProducaoMain = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Gestão de Produção</h1>
         <p className="text-muted-foreground">
-          Controle completo do processo produtivo, receitas e custos
+          Controle completo da produção unificada: produtos, receitas, custos e execução
         </p>
       </div>
 

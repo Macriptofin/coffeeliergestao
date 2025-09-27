@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Settings, Factory, ArrowRight, AlertCircle, Package, Wrench } from "lucide-react";
+import { Plus, Settings, Factory, ArrowRight, AlertCircle, Package, Wrench, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useFeatureFlags, logFeatureFlagEvent } from "@/hooks/useFeatureFlags";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MaterialForm } from "@/components/MaterialForm";
 import { ProductionExecutor } from "@/components/bom/ProductionExecutor";
+import { EventProductionIntegration } from "@/components/EventProductionIntegration";
+import { useMaterialBOM } from "@/hooks/useMaterialBOM";
 import type { Material } from "@/pages/Materials";
 
 const FichasTecnicas = () => {
@@ -20,6 +22,7 @@ const FichasTecnicas = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
   const [showProductionExecutor, setShowProductionExecutor] = useState(false);
+  const [showEventIntegration, setShowEventIntegration] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -128,11 +131,14 @@ const FichasTecnicas = () => {
   const getCompositeProducts = () => materials.filter(m => m.materialType === 'composite_product');
 
   const renderProductCard = (material: Material) => {
-    const hasBOM = false; // TODO: Check if BOM exists
-    const cost = hasBOM ? 25.50 : null; // TODO: Calculate real cost
+    return <ProductCard key={material.id} material={material} onRefresh={loadMaterials} />;
+  };
+
+  const ProductCard = ({ material, onRefresh }: { material: Material; onRefresh: () => void }) => {
+    const { bomInfo, loading: bomLoading } = useMaterialBOM(material.id, material.materialType);
     
     return (
-      <Card key={material.id} className="shadow-soft">
+      <Card className="shadow-soft">
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
@@ -151,21 +157,39 @@ const FichasTecnicas = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {!hasBOM && (
+            {bomLoading ? (
+              <div className="animate-pulse">
+                <div className="h-4 bg-muted rounded w-3/4"></div>
+              </div>
+            ) : !bomInfo.hasBOM ? (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   BOM não configurada → custo indisponível
                 </AlertDescription>
               </Alert>
-            )}
-            
-            {hasBOM && (
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Custo Unitário:</span>
-                <span className="text-sm font-medium text-primary">
-                  R$ {cost?.toFixed(2) || '0,00'}
-                </span>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Custo Unitário:</span>
+                  <span className="text-sm font-medium text-primary">
+                    R$ {bomInfo.cost?.toFixed(2) || '0,00'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Componentes:</span>
+                  <span className="text-sm font-medium">
+                    {bomInfo.itemsCount} itens
+                  </span>
+                </div>
+                {bomInfo.yieldQuantity && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Rendimento:</span>
+                    <span className="text-sm font-medium">
+                      {bomInfo.yieldQuantity} unidades
+                    </span>
+                  </div>
+                )}
               </div>
             )}
             
@@ -177,10 +201,10 @@ const FichasTecnicas = () => {
                 className="flex-1"
               >
                 <Settings className="h-4 w-4 mr-1" />
-                Configurar BOM
+                {bomInfo.hasBOM ? 'Editar BOM' : 'Configurar BOM'}
               </Button>
               
-              {hasBOM && (
+              {bomInfo.hasBOM && (
                 <Button 
                   size="sm" 
                   onClick={() => setShowProductionExecutor(true)}
@@ -226,6 +250,15 @@ const FichasTecnicas = () => {
           </p>
         </div>
         
+        {showEventIntegration && (
+          <Button 
+            onClick={() => setShowEventIntegration(false)}
+            variant="outline"
+          >
+            Voltar para Cadastro
+          </Button>
+        )}
+        
         {showProductionExecutor && (
           <Button 
             onClick={() => setShowProductionExecutor(false)}
@@ -236,7 +269,18 @@ const FichasTecnicas = () => {
         )}
       </div>
 
-      {showProductionExecutor ? (
+      {showEventIntegration ? (
+        <div className="space-y-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="h-5 w-5" />
+            <h2 className="text-xl font-semibold">Integração com Eventos</h2>
+          </div>
+          <EventProductionIntegration onOrderGenerated={() => {
+            toast.success('Ordem gerada! Verifique em Ordens de Produção.');
+            setShowEventIntegration(false);
+          }} />
+        </div>
+      ) : showProductionExecutor ? (
         <div className="space-y-6">
           <div className="flex items-center gap-2 mb-4">
             <Factory className="h-5 w-5" />
@@ -351,7 +395,7 @@ const FichasTecnicas = () => {
           </Tabs>
 
           {!showMaterialForm && (
-            <div className="mt-8 text-center">
+            <div className="mt-8 flex justify-center gap-4">
               <Button 
                 onClick={() => setShowProductionExecutor(true)}
                 className="bg-gradient-primary hover:bg-primary/90"
@@ -359,6 +403,14 @@ const FichasTecnicas = () => {
               >
                 <Factory className="h-4 w-4 mr-2" />
                 Executar Produção/Montagem
+              </Button>
+              
+              <Button 
+                onClick={() => setShowEventIntegration(true)}
+                variant="outline"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Integração com Eventos
               </Button>
             </div>
           )}
