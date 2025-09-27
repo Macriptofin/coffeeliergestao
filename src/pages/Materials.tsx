@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Plus, Filter, Search, Grid3X3, List, SortAsc, Download } from "lucide-react";
+import { Plus, Filter, Search, Grid3X3, List, SortAsc, Download, Package } from "lucide-react";
 import { MaterialForm } from "@/components/MaterialForm";
 import { MaterialsList } from "@/components/MaterialsList";
-import { MaterialsTable } from "@/components/MaterialsTable";
+import { SafeMaterialsTable } from "@/components/SafeMaterialsTable";
+import { SafeMaterialForm } from "@/components/SafeMaterialForm";
 import { MaterialsActions } from "@/components/MaterialsActions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -104,46 +105,117 @@ const Materials = () => {
 
   const loadMaterials = async () => {
     try {
-      console.log('Iniciando carregamento de materiais...');
+      console.log('🔄 Iniciando carregamento de materiais...');
+      
+      // Primeiro, testar uma query simples
+      const { data: testData, error: testError } = await supabase
+        .from('materials')
+        .select('id, name')
+        .limit(1);
+      
+      if (testError) {
+        console.error('❌ Erro no teste de conexão:', testError);
+        throw new Error(`Erro de conexão: ${testError.message}`);
+      }
+      
+      console.log('✅ Teste de conexão OK, carregando dados completos...');
+      
       const { data, error } = await supabase
         .from('materials')
-        .select('*')
+        .select(`
+          id,
+          name,
+          description,
+          purchase_unit,
+          usage_unit,
+          conversion_factor,
+          price_per_purchase_unit,
+          supplier,
+          allowed_brands,
+          category,
+          subcategory,
+          code,
+          material_type,
+          unit_weight,
+          is_sellable
+        `)
         .order('code');
       
       if (error) {
-        console.error('Erro na consulta Supabase:', error);
+        console.error('❌ Erro na consulta completa:', error);
         throw error;
       }
       
-      console.log('Dados recebidos do Supabase:', data);
+      console.log('📊 Dados recebidos:', data?.length, 'materiais');
       
-      const formattedMaterials = data.map(item => {
-        console.log('Processando item:', item);
-        return {
-          id: item.id,
-          name: item.name,
-          description: item.description || undefined,
-          purchaseUnit: item.purchase_unit,
-          usageUnit: item.usage_unit,
-          conversionFactor: parseFloat(item.conversion_factor?.toString() || '1'),
-          pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit?.toString() || '0'),
-          supplier: item.supplier || undefined,
-          allowedBrands: item.allowed_brands || undefined,
-          category: item.category || 'Insumos',
-          subcategory: item.subcategory || undefined,
-          code: item.code || '',
-          materialType: (item.material_type || 'ingredient') as Material['materialType'],
-          unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
-          isSellable: item.is_sellable || false
-        };
-      }) as Material[];
+      if (!data || data.length === 0) {
+        console.log('📭 Nenhum material encontrado');
+        setMaterials([]);
+        return;
+      }
       
-      console.log('Materiais formatados:', formattedMaterials);
+      const formattedMaterials = data.map((item, index) => {
+        try {
+          console.log(`🔧 Processando item ${index + 1}:`, item.name);
+          
+          const formatted = {
+            id: item.id || '',
+            name: item.name || 'Material sem nome',
+            description: item.description || undefined,
+            purchaseUnit: item.purchase_unit || 'unidade',
+            usageUnit: item.usage_unit || 'unidade',
+            conversionFactor: parseFloat(item.conversion_factor?.toString() || '1'),
+            pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit?.toString() || '0'),
+            supplier: item.supplier || undefined,
+            allowedBrands: item.allowed_brands || undefined,
+            category: item.category || 'Insumos',
+            subcategory: item.subcategory || undefined,
+            code: item.code || `MAT-${Date.now()}-${index}`,
+            materialType: (item.material_type || 'ingredient') as Material['materialType'],
+            unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
+            isSellable: Boolean(item.is_sellable)
+          };
+          
+          return formatted;
+        } catch (itemError) {
+          console.error(`❌ Erro ao processar item ${index + 1}:`, itemError, item);
+          // Retorna um material válido mesmo com erro
+          return {
+            id: item.id || `error-${Date.now()}-${index}`,
+            name: item.name || 'Material com erro',
+            description: undefined,
+            purchaseUnit: 'unidade',
+            usageUnit: 'unidade',
+            conversionFactor: 1,
+            pricePerPurchaseUnit: 0,
+            supplier: undefined,
+            allowedBrands: undefined,
+            category: 'Insumos',
+            subcategory: undefined,
+            code: `ERR-${Date.now()}-${index}`,
+            materialType: 'ingredient' as Material['materialType'],
+            unitWeight: undefined,
+            isSellable: false
+          };
+        }
+      });
+      
+      console.log('✅ Materiais formatados com sucesso:', formattedMaterials.length);
       setMaterials(formattedMaterials);
+      
     } catch (error) {
-      console.error('Erro ao carregar materiais:', error);
-      toast.error('Erro ao carregar materiais');
+      console.error('💥 Erro crítico ao carregar materiais:', error);
+      
+      // Em caso de erro, definir lista vazia para evitar crash
+      setMaterials([]);
+      
+      if (error instanceof Error) {
+        toast.error(`Erro ao carregar materiais: ${error.message}`);
+      } else {
+        toast.error('Erro desconhecido ao carregar materiais');  
+      }
     } finally {
+      console.log('🏁 Finalizando carregamento de materiais');
       setLoading(false);
     }
   };
@@ -379,8 +451,53 @@ const Materials = () => {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Carregando materiais...</p>
+          </div>
         </div>
+      </div>
+    );
+  }
+
+  // Mostrar estado de erro se não conseguiu carregar materiais
+  if (!loading && materials.length === 0 && !showMaterialForm) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Gestão de Materiais</h1>
+            <p className="text-muted-foreground">Cadastre e gerencie todos os materiais da sua confeitaria</p>
+          </div>
+          <Button 
+            onClick={() => setShowMaterialForm(true)}
+            className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Material
+          </Button>
+        </div>
+        
+        <div className="text-center py-12">
+          <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-muted-foreground mb-2">Nenhum material encontrado</h3>
+          <p className="text-muted-foreground mb-4">Clique em "Novo Material" para começar ou recarregue a página</p>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Recarregar Página
+          </Button>
+        </div>
+        
+        {/* Formulário de Material */}
+        {showMaterialForm && (
+          <ErrorBoundary>
+            <SafeMaterialForm
+              material={editingMaterial}
+              existingMaterials={materials}
+              onSubmit={handleMaterialSubmit}
+              onCancel={cancelMaterialForm}
+            />
+          </ErrorBoundary>
+        )}
       </div>
     );
   }
@@ -561,7 +678,7 @@ const Materials = () => {
         </ErrorBoundary>
       ) : (
         <ErrorBoundary>
-          <MaterialsTable 
+          <SafeMaterialsTable 
             materials={filteredMaterials} 
             onEdit={startEditingMaterial}
             onDelete={deleteMaterial}
@@ -575,7 +692,7 @@ const Materials = () => {
       {/* Formulário de Material */}
       {showMaterialForm && (
         <ErrorBoundary>
-          <MaterialForm
+          <SafeMaterialForm
             material={editingMaterial}
             existingMaterials={materials}
             onSubmit={handleMaterialSubmit}
