@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Settings, Factory, ArrowRight, AlertCircle, Package, Wrench, Calendar } from "lucide-react";
+import { Plus, Settings, Factory, ArrowRight, AlertCircle, Package, Wrench, Calendar, Trash2, Eye, Edit } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useFeatureFlags, logFeatureFlagEvent } from "@/hooks/useFeatureFlags";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { MaterialForm } from "@/components/MaterialForm";
 import { ProductionExecutor } from "@/components/bom/ProductionExecutor";
 import { EventProductionIntegration } from "@/components/EventProductionIntegration";
@@ -31,6 +32,8 @@ const FichasTecnicas = () => {
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [bomEditingMaterial, setBomEditingMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadMaterials();
@@ -133,6 +136,60 @@ const FichasTecnicas = () => {
     addMaterial(materialData);
   };
 
+  // Funções de seleção e exclusão
+  const toggleSelectMaterial = (id: string) => {
+    setSelectedMaterials(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const isSelectedMaterial = (id: string) => selectedMaterials.has(id);
+
+  const selectAllMaterials = (ids: string[]) => setSelectedMaterials(new Set(ids));
+
+  const clearSelection = () => setSelectedMaterials(new Set());
+
+  const deleteBOMsForMaterials = async (materialIds: string[]) => {
+    try {
+      setDeleting(true);
+      if (materialIds.length === 0) return;
+      
+      const { data: bomRows, error: bomErr } = await supabase
+        .from('recipes_bom')
+        .select('id, finished_material_id')
+        .in('finished_material_id', materialIds);
+      if (bomErr) throw bomErr;
+      
+      const bomIds = (bomRows || []).map(r => r.id);
+      if (bomIds.length > 0) {
+        const { error: delItemsErr } = await supabase
+          .from('recipe_bom_items')
+          .delete()
+          .in('recipe_id', bomIds);
+        if (delItemsErr) throw delItemsErr;
+        
+        const { error: delBomErr } = await supabase
+          .from('recipes_bom')
+          .delete()
+          .in('id', bomIds);
+        if (delBomErr) throw delBomErr;
+      }
+      
+      toast.success('Fichas técnicas excluídas com sucesso');
+      clearSelection();
+      await loadMaterials();
+    } catch (err) {
+      console.error('Erro ao excluir fichas técnicas:', err);
+      toast.error('Falha ao excluir fichas técnicas');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const deleteSingleBOM = (materialId: string) => deleteBOMsForMaterials([materialId]);
+
   const getFinishedProducts = () => materials.filter(m => m.materialType === 'finished_product');
   const getCompositeProducts = () => materials.filter(m => m.materialType === 'composite_product');
 
@@ -146,14 +203,21 @@ const FichasTecnicas = () => {
     return (
       <Card className="shadow-soft">
         <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="text-lg">{material.name}</CardTitle>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className="text-xs">{material.code}</Badge>
-                <Badge variant={material.materialType === 'finished_product' ? 'default' : 'secondary'}>
-                  {material.materialType === 'finished_product' ? 'Produto Acabado' : 'Produto Composto'}
-                </Badge>
+          <div className="flex justify-between items-start gap-3">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={isSelectedMaterial(material.id)}
+                onCheckedChange={() => toggleSelectMaterial(material.id)}
+                aria-label="Selecionar ficha técnica"
+              />
+              <div>
+                <CardTitle className="text-lg">{material.name}</CardTitle>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className="text-xs">{material.code}</Badge>
+                  <Badge variant={material.materialType === 'finished_product' ? 'default' : 'secondary'}>
+                    {material.materialType === 'finished_product' ? 'Produto Acabado' : 'Produto Composto'}
+                  </Badge>
+                </div>
               </div>
             </div>
           </div>
@@ -212,6 +276,17 @@ const FichasTecnicas = () => {
                       Montar
                     </>
                   )}
+                </Button>
+              )}
+              
+              {bomInfo.hasBOM && (
+                <Button 
+                  size="sm" 
+                  variant="destructive" 
+                  onClick={() => deleteSingleBOM(material.id)}
+                  disabled={deleting}
+                >
+                  <Trash2 className="h-3 w-3" />
                 </Button>
               )}
             </div>
@@ -387,9 +462,35 @@ const FichasTecnicas = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {getFinishedProducts().map(renderProductCard)}
-                </div>
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-sm text-muted-foreground">
+                      {selectedMaterials.size} selecionada(s)
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => selectAllMaterials(getFinishedProducts().map(p => p.id))}
+                        disabled={getFinishedProducts().length === 0}
+                      >
+                        Selecionar todos
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => deleteBOMsForMaterials(Array.from(selectedMaterials))}
+                        disabled={deleting || selectedMaterials.size === 0}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Excluir selecionadas
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {getFinishedProducts().map(renderProductCard)}
+                  </div>
+                </>
               )}
             </TabsContent>
 
@@ -427,9 +528,35 @@ const FichasTecnicas = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {getCompositeProducts().map(renderProductCard)}
-                </div>
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-sm text-muted-foreground">
+                      {selectedMaterials.size} selecionada(s)
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => selectAllMaterials(getCompositeProducts().map(p => p.id))}
+                        disabled={getCompositeProducts().length === 0}
+                      >
+                        Selecionar todos
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => deleteBOMsForMaterials(Array.from(selectedMaterials))}
+                        disabled={deleting || selectedMaterials.size === 0}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Excluir selecionadas
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {getCompositeProducts().map(renderProductCard)}
+                  </div>
+                </>
               )}
             </TabsContent>
           </Tabs>
