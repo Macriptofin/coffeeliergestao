@@ -193,12 +193,12 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
           {availableSubcategories.length > 0 && (
             <div className="space-y-3">
               <Label htmlFor="subcategory">Subcategoria (Opcional)</Label>
-              <Select value={formData.subcategory} onValueChange={(value) => setFormData({ ...formData, subcategory: value })}>
+              <Select value={formData.subcategory || 'none'} onValueChange={(value) => setFormData({ ...formData, subcategory: value === 'none' ? '' : value })}>
                 <SelectTrigger className="bg-card">
                   <SelectValue placeholder="Selecione uma subcategoria" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border z-50">
-                  <SelectItem value="">Nenhuma subcategoria</SelectItem>
+                  <SelectItem value="none">Nenhuma subcategoria</SelectItem>
                   {availableSubcategories.map((subcategory) => (
                     <SelectItem key={subcategory.value} value={subcategory.value}>
                       <div>
