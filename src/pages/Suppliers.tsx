@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, Shield } from "lucide-react";
+import { Plus, Shield, Download } from "lucide-react";
 import { SupplierForm, Supplier } from "@/components/SupplierForm";
 import { SuppliersList } from "@/components/SuppliersList";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -199,6 +199,74 @@ const Suppliers = () => {
     setShowSupplierForm(false);
   };
 
+  const exportSuppliersToCSV = () => {
+    try {
+      // Prepare CSV data
+      const csvData = [];
+      csvData.push([
+        'Código',
+        'Status',
+        'Razão Social',
+        'Nome Fantasia',
+        'CNPJ/CPF',
+        'Contato',
+        'Telefone',
+        'Email',
+        'Endereço',
+        'Cidade',
+        'Estado',
+        'CEP',
+        'Categoria Principal',
+        'Prazo de Pagamento (dias)',
+        'Valor Mínimo do Pedido',
+        'Observações'
+      ]);
+      
+      // Add supplier data
+      suppliers.forEach(supplier => {
+        csvData.push([
+          supplier.code || '',
+          supplier.status,
+          supplier.companyName,
+          supplier.tradeName || '',
+          supplier.cnpjCpf || '',
+          supplier.contactName || '',
+          supplier.phone || '',
+          supplier.email || '',
+          supplier.address || '',
+          supplier.city || '',
+          supplier.state || '',
+          supplier.zipCode || '',
+          supplier.mainCategory || '',
+          supplier.paymentTerms.toString(),
+          supplier.minimumOrderValue.toString(),
+          supplier.notes || ''
+        ]);
+      });
+      
+      // Convert to CSV string
+      const csvContent = csvData.map(row => 
+        row.map(field => `"${field}"`).join(',')
+      ).join('\n');
+      
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `fornecedores_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`CSV com ${suppliers.length} fornecedores exportado com sucesso!`);
+    } catch (error) {
+      console.error('Erro ao exportar CSV:', error);
+      toast.error('Erro ao exportar CSV dos fornecedores');
+    }
+  };
+
   if (loading || roleLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -247,13 +315,23 @@ const Suppliers = () => {
           <h1 className="text-3xl font-bold mb-2">Gestão de Fornecedores</h1>
           <p className="text-muted-foreground">Cadastre e gerencie os fornecedores da sua confeitaria</p>
         </div>
-        <Button 
-          onClick={() => setShowSupplierForm(true)}
-          className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Fornecedor
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={exportSuppliersToCSV}
+            variant="outline"
+            disabled={loading || suppliers.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Exportar CSV
+          </Button>
+          <Button 
+            onClick={() => setShowSupplierForm(true)}
+            className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Fornecedor
+          </Button>
+        </div>
       </div>
 
       {showSupplierForm && (
