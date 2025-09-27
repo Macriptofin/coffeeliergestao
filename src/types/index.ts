@@ -15,6 +15,25 @@ export interface RecipeIngredient {
   quantity: number;
 }
 
+// Material interface for new hierarchical category system
+export interface Material {
+  id: string;
+  name: string;
+  description?: string;
+  purchaseUnit: string;
+  usageUnit: string;
+  conversionFactor: number;
+  pricePerPurchaseUnit: number;
+  supplier?: string;
+  allowedBrands?: string[];
+  category: string;
+  subcategory?: string; // New hierarchical subcategory
+  code: string;
+  materialType: 'ingredient' | 'packaging' | 'intermediate_product' | 'finished_product' | 'composite_product';
+  unitWeight?: number;
+  isSellable?: boolean;
+}
+
 export interface Recipe {
   id: string;
   name: string;

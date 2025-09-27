@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Edit, Trash2, Package, Tag, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import type { Material } from "@/pages/Materials";
+import type { Material } from "@/types";
+import { materialCategories, getSubcategoryByValue } from "@/lib/material-categories";
 
 interface MaterialsTableProps {
   materials: Material[];
@@ -146,6 +147,7 @@ export const MaterialsTable = ({
                 {getSortIcon('category')}
               </div>
             </TableHead>
+            <TableHead>Subcategoria</TableHead>
             <TableHead>Unid. Compra</TableHead>
             <TableHead>Unid. Uso</TableHead>
             <TableHead>Fator Conv.</TableHead>
@@ -200,6 +202,15 @@ export const MaterialsTable = ({
                   {getCategoryIcon(material.category)}
                   {material.category}
                 </Badge>
+              </TableCell>
+              <TableCell className="text-sm">
+                {material.subcategory ? (
+                  <Badge variant="secondary" className="text-xs">
+                    {getSubcategoryByValue(material.category, material.subcategory)?.label || material.subcategory}
+                  </Badge>
+                ) : (
+                  <span className="text-muted-foreground italic">-</span>
+                )}
               </TableCell>
               <TableCell className="text-sm">{material.purchaseUnit}</TableCell>
               <TableCell className="text-sm">{material.usageUnit}</TableCell>

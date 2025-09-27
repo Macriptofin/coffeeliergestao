@@ -1570,6 +1570,7 @@ export type Database = {
           name: string
           price_per_purchase_unit: number
           purchase_unit: string
+          subcategory: string | null
           supplier: string | null
           supplier_id: string | null
           unit_weight: number | null
@@ -1591,6 +1592,7 @@ export type Database = {
           name: string
           price_per_purchase_unit: number
           purchase_unit: string
+          subcategory?: string | null
           supplier?: string | null
           supplier_id?: string | null
           unit_weight?: number | null
@@ -1612,6 +1614,7 @@ export type Database = {
           name?: string
           price_per_purchase_unit?: number
           purchase_unit?: string
+          subcategory?: string | null
           supplier?: string | null
           supplier_id?: string | null
           unit_weight?: number | null

@@ -11,23 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-
-export interface Material {
-  id: string;
-  name: string;
-  description?: string;
-  purchaseUnit: string;
-  usageUnit: string;
-  conversionFactor: number;
-  pricePerPurchaseUnit: number;
-  supplier?: string;
-  allowedBrands?: string[];
-  category: 'Insumo' | 'Embalagem' | 'Produto Intermediário' | 'Produto Acabado' | 'Produto Composto';
-  code: string;
-  materialType: 'ingredient' | 'packaging' | 'intermediate_product' | 'finished_product' | 'composite_product';
-  unitWeight?: number;
-  isSellable?: boolean;
-}
+import { Material } from "@/types";
+import { materialCategories, getSubcategoriesByCategory } from "@/lib/material-categories";
 
 const Materials = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -36,18 +21,35 @@ const Materials = () => {
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
 
-  const categories = [
-    { value: "all", label: "Todas as Categorias", color: "default" },
-    { value: "Insumo", label: "Insumos", color: "blue" },
-    { value: "Embalagem", label: "Embalagens", color: "green" },
-    { value: "Produto Intermediário", label: "Produtos Intermediários", color: "amber" },
-    { value: "Produto Acabado", label: "Produtos Acabados", color: "purple" },
-    { value: "Produto Composto", label: "Produtos Compostos", color: "orange" }
+  // Get categories with counts
+  const categoriesWithCounts = [
+    { value: "all", label: "Todas as Categorias", color: "default", count: materials.length },
+    ...materialCategories.map(cat => ({
+      value: cat.value,
+      label: cat.label,
+      color: cat.color,
+      count: materials.filter(m => m.category === cat.value).length
+    }))
+  ];
+
+  // Get subcategories for selected category
+  const availableSubcategories = selectedCategory !== "all" 
+    ? getSubcategoriesByCategory(selectedCategory)
+    : [];
+
+  const subcategoriesWithCounts = [
+    { value: "all", label: "Todas as Subcategorias", count: materials.filter(m => m.category === selectedCategory).length },
+    ...availableSubcategories.map(sub => ({
+      value: sub.value,
+      label: sub.label,
+      count: materials.filter(m => m.category === selectedCategory && m.subcategory === sub.value).length
+    }))
   ];
 
   const suppliers = [...new Set(materials.map(m => m.supplier).filter(Boolean))].sort();
@@ -58,7 +60,7 @@ const Materials = () => {
 
   useEffect(() => {
     filterMaterials();
-  }, [materials, selectedCategory, searchTerm, supplierFilter]);
+  }, [materials, selectedCategory, selectedSubcategory, searchTerm, supplierFilter]);
 
   const filterMaterials = () => {
     let filtered = materials;
@@ -66,6 +68,11 @@ const Materials = () => {
     // Filtrar por categoria
     if (selectedCategory !== "all") {
       filtered = filtered.filter(material => material.category === selectedCategory);
+    }
+    
+    // Filtrar por subcategoria
+    if (selectedSubcategory !== "all" && selectedCategory !== "all") {
+      filtered = filtered.filter(material => material.subcategory === selectedSubcategory);
     }
     
     // Filtrar por fornecedor
@@ -88,6 +95,12 @@ const Materials = () => {
     setFilteredMaterials(filtered);
   };
 
+  // Reset subcategory when category changes
+  const handleCategoryChange = (newCategory: string) => {
+    setSelectedCategory(newCategory);
+    setSelectedSubcategory("all");
+  };
+
   const loadMaterials = async () => {
     try {
       const { data, error } = await supabase
@@ -107,7 +120,8 @@ const Materials = () => {
         pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit.toString()),
         supplier: item.supplier || undefined,
         allowedBrands: item.allowed_brands || undefined,
-        category: item.category as Material['category'],
+        category: item.category,
+        subcategory: item.subcategory || undefined,
         code: item.code,
         materialType: item.material_type as Material['materialType'],
         unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
@@ -137,6 +151,7 @@ const Materials = () => {
           supplier: material.supplier,
           allowed_brands: material.allowedBrands,
           category: material.category,
+          subcategory: material.subcategory,
           material_type: material.materialType,
           unit_weight: material.unitWeight,
           is_sellable: material.materialType === 'finished_product' ? true : false
@@ -156,7 +171,8 @@ const Materials = () => {
         pricePerPurchaseUnit: parseFloat(data.price_per_purchase_unit.toString()),
         supplier: data.supplier || undefined,
         allowedBrands: data.allowed_brands || undefined,
-        category: data.category as Material['category'],
+        category: data.category,
+        subcategory: data.subcategory || undefined,
         code: data.code,
         materialType: data.material_type as Material['materialType'],
         unitWeight: data.unit_weight ? parseFloat(data.unit_weight.toString()) : undefined,
@@ -186,6 +202,7 @@ const Materials = () => {
           supplier: updatedMaterial.supplier,
           allowed_brands: updatedMaterial.allowedBrands,
           category: updatedMaterial.category,
+          subcategory: updatedMaterial.subcategory,
           material_type: updatedMaterial.materialType,
           unit_weight: updatedMaterial.unitWeight,
           is_sellable: updatedMaterial.materialType === 'finished_product' ? true : false
@@ -284,6 +301,7 @@ const Materials = () => {
         'Nome',
         'Descrição',
         'Categoria',
+        'Subcategoria',
         'Tipo',
         'Unidade de Compra',
         'Unidade de Uso',
@@ -302,6 +320,7 @@ const Materials = () => {
           material.name,
           material.description || '',
           material.category,
+          material.subcategory || '',
           material.materialType,
           material.purchaseUnit,
           material.usageUnit,
@@ -347,7 +366,7 @@ const Materials = () => {
     );
   }
 
-  const selectedCategoryData = categories.find(cat => cat.value === selectedCategory);
+  const selectedCategoryData = categoriesWithCounts.find(cat => cat.value === selectedCategory);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -418,24 +437,42 @@ const Materials = () => {
             <span className="text-sm text-muted-foreground">Filtros:</span>
           </div>
           
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+          <Select value={selectedCategory} onValueChange={handleCategoryChange}>
             <SelectTrigger className="w-48 h-10 flex items-center">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent className="bg-background">
-              {categories.map((category) => (
+              {categoriesWithCounts.map((category) => (
                 <SelectItem key={category.value} value={category.value} className="min-h-[40px]">
                   <div className="flex items-center gap-2 py-2">
                     <Badge variant={category.color as any} className="text-xs">
                       {category.label}
                     </Badge>
-                    {category.value === "all" && `(${materials.length})`}
-                    {category.value !== "all" && `(${materials.filter(m => m.category === category.value).length})`}
+                    <span>({category.count})</span>
                   </div>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+
+          {/* Subcategory Filter */}
+          {availableSubcategories.length > 0 && selectedCategory !== "all" && (
+            <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
+              <SelectTrigger className="w-48 h-10 flex items-center">
+                <SelectValue placeholder="Subcategoria" />
+              </SelectTrigger>
+              <SelectContent className="bg-background">
+                {subcategoriesWithCounts.map((subcategory) => (
+                  <SelectItem key={subcategory.value} value={subcategory.value} className="min-h-[40px]">
+                    <div className="flex items-center gap-2 py-2">
+                      <span className="text-sm">{subcategory.label}</span>
+                      <span className="text-xs text-muted-foreground">({subcategory.count})</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           <Select value={supplierFilter} onValueChange={setSupplierFilter}>
             <SelectTrigger className="w-48 h-10 flex items-center">
@@ -457,12 +494,13 @@ const Materials = () => {
             </SelectContent>
           </Select>
 
-          {(selectedCategory !== "all" || supplierFilter !== "all") && (
+          {(selectedCategory !== "all" || selectedSubcategory !== "all" || supplierFilter !== "all") && (
             <Button 
               variant="outline" 
               size="sm" 
               onClick={() => {
                 setSelectedCategory("all");
+                setSelectedSubcategory("all");
                 setSupplierFilter("all");
               }}
             >

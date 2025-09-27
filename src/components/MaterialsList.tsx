@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Package, Tag, Code } from "lucide-react";
-import type { Material } from "@/pages/Materials";
+import { Edit, Trash2, Package, Tag, Code, Wrench, Building } from "lucide-react";
+import type { Material } from "@/types";
+import { materialCategories, getSubcategoryByValue } from "@/lib/material-categories";
 
 interface MaterialsListProps {
   materials: Material[];
@@ -21,34 +22,27 @@ export const MaterialsList = ({ materials, onEdit, onDelete }: MaterialsListProp
     );
   }
 
-  const getCategoryIcon = (category: Material['category']) => {
-    switch (category) {
-      case 'Insumo':
+  const getCategoryIcon = (category: string) => {
+    // Map category to icon based on new structure
+    const categoryData = materialCategories.find(cat => cat.value === category);
+    switch (categoryData?.icon || 'Package') {
+      case 'Package':
         return <Package className="h-4 w-4" />;
-      case 'Embalagem':
-        return <Package className="h-4 w-4" />;
-      case 'Produto Acabado':
+      case 'Tag':
         return <Tag className="h-4 w-4" />;
-      case 'Produto Composto':
-        return <Tag className="h-4 w-4" />;
+      case 'Wrench':
+        return <Wrench className="h-4 w-4" />;
+      case 'Building':
+        return <Building className="h-4 w-4" />;
       default:
         return <Package className="h-4 w-4" />;
     }
   };
 
-  const getCategoryColor = (category: Material['category']) => {
-    switch (category) {
-      case 'Insumo':
-        return 'blue';
-      case 'Embalagem':
-        return 'green';
-      case 'Produto Acabado':
-        return 'purple';
-      case 'Produto Composto':
-        return 'orange';
-      default:
-        return 'default';
-    }
+  const getCategoryColor = (category: string) => {
+    // Map category to color based on new structure
+    const categoryData = materialCategories.find(cat => cat.value === category);
+    return categoryData?.color || 'default';
   };
 
 
@@ -70,6 +64,11 @@ export const MaterialsList = ({ materials, onEdit, onDelete }: MaterialsListProp
                   >
                     {material.category}
                   </Badge>
+                  {material.subcategory && (
+                    <Badge variant="secondary" className="text-xs">
+                      {getSubcategoryByValue(material.category, material.subcategory)?.label || material.subcategory}
+                    </Badge>
+                  )}
                   <Badge variant="outline" className="text-xs flex items-center gap-1">
                     <Code className="h-3 w-3" />
                     {material.code}

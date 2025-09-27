@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { Textarea } from "@/components/ui/textarea";
-import { X, AlertTriangle, Package, Tag } from "lucide-react";
+import { X, AlertTriangle, Package, Tag, Wrench, Building } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { Material } from "@/pages/Materials";
+import type { Material } from "@/types";
+import { materialCategories, getSubcategoriesByCategory } from "@/lib/material-categories";
 
 interface MaterialFormProps {
   material?: Material | null;
@@ -27,7 +28,8 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     conversionFactor: material?.conversionFactor?.toString() || '',
     supplier: material?.supplier || '',
     allowedBrands: material?.allowedBrands?.join(', ') || '',
-    category: material?.category || 'Insumo' as Material['category'],
+    category: material?.category || 'Insumos',
+    subcategory: material?.subcategory || '',
     materialType: material?.materialType || 'ingredient' as Material['materialType'],
     unitWeight: material?.unitWeight?.toString() || '',
   });
@@ -42,13 +44,19 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   const isWeightUnit = weightUnits.includes(formData.usageUnit);
   const needsUnitWeight = !isWeightUnit && formData.usageUnit;
 
-  const categories = [
-    { value: 'Insumo' as const, label: 'Insumos', description: 'Ingredientes básicos para produção', icon: Package },
-    { value: 'Embalagem' as const, label: 'Embalagens', description: 'Materiais de embalagem e apresentação', icon: Package },
-    { value: 'Produto Intermediário' as const, label: 'Produtos Intermediários', description: 'Receitas-base reutilizáveis (não para venda)', icon: Tag },
-    { value: 'Produto Acabado' as const, label: 'Produtos Acabados', description: 'Produtos finais prontos para venda', icon: Tag },
-    { value: 'Produto Composto' as const, label: 'Produtos Compostos', description: 'Produtos feitos com outros materiais', icon: Tag }
-  ];
+  // Get icon component by name
+  const getIconComponent = (iconName: string) => {
+    switch (iconName) {
+      case 'Package': return Package;
+      case 'Tag': return Tag;
+      case 'Wrench': return Wrench;
+      case 'Building': return Building;
+      default: return Package;
+    }
+  };
+
+  // Get available subcategories for selected category
+  const availableSubcategories = getSubcategoriesByCategory(formData.category);
 
   const materialTypes = [
     { value: 'ingredient' as const, label: 'Ingrediente' },
@@ -87,6 +95,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       supplier: formData.supplier || undefined,
       allowedBrands: formData.allowedBrands ? formData.allowedBrands.split(',').map(b => b.trim()).filter(b => b) : undefined,
       category: formData.category,
+      subcategory: formData.subcategory || undefined,
       materialType: formData.materialType,
       unitWeight: formData.unitWeight ? parseFloat(formData.unitWeight) : undefined,
     });
@@ -111,14 +120,26 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     }
   };
 
-  const selectedCategory = categories.find(cat => cat.value === formData.category);
+  const selectedCategory = materialCategories.find(cat => cat.value === formData.category);
+  
+  // Reset subcategory when category changes
+  const handleCategoryChange = (newCategory: string) => {
+    setFormData({ 
+      ...formData, 
+      category: newCategory,
+      subcategory: '' // Reset subcategory when category changes
+    });
+  };
 
   return (
     <Card className="shadow-elegant border-primary/20">
       <CardHeader className="pb-4">
         <div className="flex justify-between items-center">
           <CardTitle className="text-primary flex items-center gap-2">
-            {selectedCategory?.icon && <selectedCategory.icon className="h-5 w-5" />}
+            {selectedCategory && (() => {
+              const IconComponent = getIconComponent(selectedCategory.icon);
+              return <IconComponent className="h-5 w-5" />;
+            })()}
             {material ? 'Editar Material' : 'Novo Material'}
             {material && (
               <Badge variant="outline" className="ml-2">
@@ -145,25 +166,51 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
           {/* Categoria */}
           <div className="space-y-3">
             <Label htmlFor="category">Categoria do Material *</Label>
-            <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value as Material['category'] })}>
+            <Select value={formData.category} onValueChange={handleCategoryChange}>
               <SelectTrigger className="bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-card border-border z-50">
-                {categories.map((category) => (
-                  <SelectItem key={category.value} value={category.value}>
-                    <div className="flex items-center gap-3">
-                      <category.icon className="h-4 w-4" />
-                      <div>
-                        <div className="font-medium">{category.label}</div>
-                        <div className="text-xs text-muted-foreground">{category.description}</div>
+                {materialCategories.map((category) => {
+                  const IconComponent = getIconComponent(category.icon);
+                  return (
+                    <SelectItem key={category.value} value={category.value}>
+                      <div className="flex items-center gap-3">
+                        <IconComponent className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">{category.label}</div>
+                          <div className="text-xs text-muted-foreground">{category.description}</div>
+                        </div>
                       </div>
-                    </div>
-                  </SelectItem>
-                ))}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
+
+          {/* Subcategoria */}
+          {availableSubcategories.length > 0 && (
+            <div className="space-y-3">
+              <Label htmlFor="subcategory">Subcategoria (Opcional)</Label>
+              <Select value={formData.subcategory} onValueChange={(value) => setFormData({ ...formData, subcategory: value })}>
+                <SelectTrigger className="bg-card">
+                  <SelectValue placeholder="Selecione uma subcategoria" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border z-50">
+                  <SelectItem value="">Nenhuma subcategoria</SelectItem>
+                  {availableSubcategories.map((subcategory) => (
+                    <SelectItem key={subcategory.value} value={subcategory.value}>
+                      <div>
+                        <div className="font-medium">{subcategory.label}</div>
+                        <div className="text-xs text-muted-foreground">{subcategory.description}</div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Nome do Material */}
           <div className="space-y-2">

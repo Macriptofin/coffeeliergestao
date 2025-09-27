@@ -19,7 +19,7 @@ import { RecipeBOMForm } from "@/components/bom/RecipeBOMForm";
 import { CompositeBOMForm } from "@/components/bom/CompositeBOMForm";
 import { useMaterialBOM } from "@/hooks/useMaterialBOM";
 import BOMDiagnostics from "@/components/BOMDiagnostics";
-import type { Material } from "@/pages/Materials";
+import type { Material } from "@/types";
 
 const FichasTecnicas = () => {
   // Check for duplicates
