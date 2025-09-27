@@ -78,7 +78,7 @@ const Auth = () => {
       } else {
         await logAuthAttempt(email, 'signin', true);
         toast.success('Login realizado com sucesso!');
-        // Navigation will be handled by useSecureAuth hook
+        navigate('/');
       }
     } catch (error: any) {
       await logAuthAttempt(email, 'signin', false, 'unexpected_error');

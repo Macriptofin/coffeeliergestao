@@ -38,15 +38,17 @@ class SecureCookieStorage {
   }
 }
 
-// Custom storage that avoids localStorage for sensitive data
-const secureStorage = new SecureCookieStorage();
+// Prefer localStorage in browsers to ensure session persistence in iframes/Safari
+const storageAdapter = (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined')
+  ? window.localStorage
+  : undefined;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: secureStorage,
+    storage: storageAdapter,
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false, // Prevent token leakage in URL
