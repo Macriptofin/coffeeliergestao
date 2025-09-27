@@ -341,13 +341,13 @@ const Materials = () => {
           </div>
           
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-48 h-11">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
               {categories.map((category) => (
                 <SelectItem key={category.value} value={category.value}>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 py-1">
                     <Badge variant={category.color as any} className="text-xs">
                       {category.label}
                     </Badge>
@@ -360,14 +360,20 @@ const Materials = () => {
           </Select>
 
           <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-48 h-11">
               <SelectValue placeholder="Fornecedor" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os Fornecedores ({materials.length})</SelectItem>
+              <SelectItem value="all">
+                <div className="py-1">
+                  Todos os Fornecedores ({materials.length})
+                </div>
+              </SelectItem>
               {suppliers.map((supplier) => (
                 <SelectItem key={supplier} value={supplier}>
-                  {supplier} ({materials.filter(m => m.supplier === supplier).length})
+                  <div className="py-1">
+                    {supplier} ({materials.filter(m => m.supplier === supplier).length})
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
