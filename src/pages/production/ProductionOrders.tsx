@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Plus, ClipboardList } from "lucide-react";
 import { ProductionOrder } from "@/components/ProductionOrder";
+import { RecipeMigrationDialog } from "@/components/RecipeMigrationDialog";
 import type { Recipe, Ingredient } from "@/types";
 
 const ProductionOrders = () => {
@@ -103,14 +104,25 @@ const ProductionOrders = () => {
           <h1 className="text-3xl font-bold mb-2">Ordens de Produção</h1>
           <p className="text-muted-foreground">Gerencie as ordens de produção da sua confeitaria</p>
         </div>
-        <Button 
-          onClick={() => setShowProductionOrder(true)}
-          className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
-          disabled={recipes.length === 0}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Ordem
-        </Button>
+        <div className="flex gap-3">
+          {recipes.length > 0 && (
+            <RecipeMigrationDialog 
+              recipes={recipes}
+              onMigrationComplete={() => {
+                loadData();
+                toast.success('Receitas migradas! Acesse Fichas Técnicas para gerenciar os BOMs.');
+              }}
+            />
+          )}
+          <Button 
+            onClick={() => setShowProductionOrder(true)}
+            className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
+            disabled={recipes.length === 0}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Ordem
+          </Button>
+        </div>
       </div>
 
       {recipes.length === 0 && (
