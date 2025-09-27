@@ -6,6 +6,7 @@ interface FeatureFlags {
   FF_MOVE_COSTS_TO_REPORTS: boolean;
   FF_ORDERS_AS_CENTRAL: boolean;
   FF_EVENT_TABLES_ENABLED: boolean;
+  FF_HIDE_LEGACY_RECIPES: boolean;
 }
 
 const defaultFlags: FeatureFlags = {
@@ -13,6 +14,7 @@ const defaultFlags: FeatureFlags = {
   FF_MOVE_COSTS_TO_REPORTS: false,
   FF_ORDERS_AS_CENTRAL: false,
   FF_EVENT_TABLES_ENABLED: false,
+  FF_HIDE_LEGACY_RECIPES: false,
 };
 
 export const useFeatureFlags = () => {

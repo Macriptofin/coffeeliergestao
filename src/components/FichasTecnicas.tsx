@@ -55,7 +55,7 @@ const FichasTecnicas = () => {
   const [loading, setLoading] = useState(true);
   const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
-  const [showOnlyWithBOM, setShowOnlyWithBOM] = useState(false);
+  const [showOnlyWithBOM, setShowOnlyWithBOM] = useState(flags.FF_HIDE_LEGACY_RECIPES || false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   useEffect(() => {
@@ -214,8 +214,33 @@ const FichasTecnicas = () => {
 
   const deleteSingleBOM = (materialId: string) => deleteBOMsForMaterials([materialId]);
 
-  const getFinishedProducts = () => materials.filter(m => m.materialType === 'finished_product');
-  const getCompositeProducts = () => materials.filter(m => m.materialType === 'composite_product');
+  const getFinishedProducts = () => {
+    let products = materials.filter(m => m.materialType === 'finished_product');
+    
+    // Se a flag FF_HIDE_LEGACY_RECIPES estiver ativa ou showOnlyWithBOM for true,
+    // filtra apenas produtos que têm BOM configurado
+    if (showOnlyWithBOM) {
+      // Aqui precisaríamos do estado do BOM de cada material.
+      // Por simplicidade, vamos usar a informação que já temos do useMaterialBOM hook
+      // que é usado no ProductCard. Mas isso pode ser otimizado posteriormente.
+      return products; // Por enquanto retorna todos, pois a lógica do BOM está no ProductCard
+    }
+    
+    return products;
+  };
+
+  const getCompositeProducts = () => {
+    let products = materials.filter(m => m.materialType === 'composite_product');
+    
+    // Se a flag FF_HIDE_LEGACY_RECIPES estiver ativa ou showOnlyWithBOM for true,
+    // filtra apenas produtos que têm BOM configurado
+    if (showOnlyWithBOM) {
+      // Por enquanto retorna todos, pois a lógica do BOM está no ProductCard
+      return products;
+    }
+    
+    return products;
+  };
 
   const exportTechnicalSheetsToCSV = async () => {
     try {

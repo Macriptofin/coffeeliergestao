@@ -1852,6 +1852,13 @@ export type Database = {
             referencedRelation: "recipes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "products_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "vw_legacy_recipes_status"
+            referencedColumns: ["recipe_id"]
+          },
         ]
       }
       proposal_items: {
@@ -2249,6 +2256,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "recipes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_ingredients_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "vw_legacy_recipes_status"
+            referencedColumns: ["recipe_id"]
           },
         ]
       }
@@ -2852,6 +2866,36 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_legacy_recipes_status: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          has_ingredients: boolean | null
+          ingredients_count: number | null
+          name: string | null
+          recipe_id: string | null
+          referenced_by_products: boolean | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          has_ingredients?: never
+          ingredients_count?: never
+          name?: string | null
+          recipe_id?: string | null
+          referenced_by_products?: never
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          has_ingredients?: never
+          ingredients_count?: never
+          name?: string | null
+          recipe_id?: string | null
+          referenced_by_products?: never
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_exists: {
@@ -3120,6 +3164,15 @@ export type Database = {
       no_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      ops_archive_legacy_recipes: {
+        Args: { dry_run?: boolean }
+        Returns: {
+          affected_products: number
+          backup_tables: string
+          removed_ingredients: number
+          removed_recipes: number
+        }[]
       }
       process_component_consumption: {
         Args: {

@@ -10,8 +10,10 @@ import { ProductionOrdersList } from "@/components/ProductionOrdersList";
 import { EventProductionIntegration } from "@/components/EventProductionIntegration";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Recipe, Ingredient } from "@/types";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 const ProductionOrders = () => {
+  const { flags } = useFeatureFlags();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [showProductionOrder, setShowProductionOrder] = useState(false);
@@ -139,10 +141,12 @@ const ProductionOrders = () => {
       )}
 
       <Tabs defaultValue="orders" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={`grid w-full ${flags.FF_HIDE_LEGACY_RECIPES ? 'grid-cols-2' : 'grid-cols-3'}`}>
           <TabsTrigger value="orders">Ordens Geradas</TabsTrigger>
           <TabsTrigger value="events">Gerar de Eventos</TabsTrigger>
-          <TabsTrigger value="recipes">Receitas Disponíveis</TabsTrigger>
+          {!flags.FF_HIDE_LEGACY_RECIPES && (
+            <TabsTrigger value="recipes">Receitas Disponíveis</TabsTrigger>
+          )}
         </TabsList>
         
         <TabsContent value="orders" className="mt-6">
@@ -153,54 +157,73 @@ const ProductionOrders = () => {
           <EventProductionIntegration />
         </TabsContent>
         
-        <TabsContent value="recipes" className="mt-6">
-          {recipes.length === 0 ? (
-            <Card className="shadow-soft border-amber-200">
-              <CardContent className="pt-6">
-                <div className="text-center py-8">
-                  <ClipboardList className="h-12 w-12 text-amber-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Cadastre receitas primeiro</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Para criar ordens de produção, você precisa ter receitas cadastradas no sistema.
-                  </p>
-                  <Button onClick={() => window.location.href = '/receitas'}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Cadastrar Receitas
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {recipes.map((recipe) => (
-                <Card key={recipe.id} className="shadow-soft">
-                  <CardHeader>
-                    <CardTitle className="text-lg">{recipe.name}</CardTitle>
-                    <CardDescription>{recipe.category}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Rendimento:</span>
-                        <span className="text-sm font-medium">{recipe.yield} {recipe.yieldUnit}</span>
+        {!flags.FF_HIDE_LEGACY_RECIPES ? (
+          <TabsContent value="recipes" className="mt-6">
+            {recipes.length === 0 ? (
+              <Card className="shadow-soft border-amber-200">
+                <CardContent className="pt-6">
+                  <div className="text-center py-8">
+                    <ClipboardList className="h-12 w-12 text-amber-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Cadastre receitas primeiro</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Para criar ordens de produção, você precisa ter receitas cadastradas no sistema.
+                    </p>
+                    <Button onClick={() => window.location.href = '/receitas'}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Cadastrar Receitas
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {recipes.map((recipe) => (
+                  <Card key={recipe.id} className="shadow-soft">
+                    <CardHeader>
+                      <CardTitle className="text-lg">{recipe.name}</CardTitle>
+                      <CardDescription>{recipe.category}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Rendimento:</span>
+                          <span className="text-sm font-medium">{recipe.yield} {recipe.yieldUnit}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Custo Total:</span>
+                          <span className="text-sm font-medium text-primary">
+                            R$ {recipe.totalCost?.toFixed(2) || '0,00'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Dificuldade:</span>
+                          <span className="text-sm font-medium">{recipe.difficulty}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Custo Total:</span>
-                        <span className="text-sm font-medium text-primary">
-                          R$ {recipe.totalCost?.toFixed(2) || '0,00'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Dificuldade:</span>
-                        <span className="text-sm font-medium">{recipe.difficulty}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        ) : (
+          <div className="mt-6 p-8 border-2 border-dashed border-muted-foreground/25 rounded-lg text-center bg-muted/20">
+            <ClipboardList className="h-12 w-12 text-primary mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Criar a partir de Fichas Técnicas (BOM)</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Use as fichas técnicas estruturadas para criar ordens de produção baseadas em BOM. 
+              Sistema mais robusto e preciso para gerenciar sua produção.
+            </p>
+            <Button 
+              onClick={() => window.location.href = '/producao/fichas-tecnicas'}
+              variant="default"
+              className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Acessar Fichas Técnicas
+            </Button>
+          </div>
+        )}
       </Tabs>
     </div>
   );
