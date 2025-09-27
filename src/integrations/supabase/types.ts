@@ -433,6 +433,80 @@ export type Database = {
         }
         Relationships: []
       }
+      composite_bom_items: {
+        Row: {
+          component_material_id: string
+          composite_id: string
+          id: string
+          position: number
+          quantity: number
+          unit: string
+        }
+        Insert: {
+          component_material_id: string
+          composite_id: string
+          id?: string
+          position?: number
+          quantity: number
+          unit: string
+        }
+        Update: {
+          component_material_id?: string
+          composite_id?: string
+          id?: string
+          position?: number
+          quantity?: number
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "composite_bom_items_component_material_id_fkey"
+            columns: ["component_material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composite_bom_items_composite_id_fkey"
+            columns: ["composite_id"]
+            isOneToOne: false
+            referencedRelation: "composites_bom"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      composites_bom: {
+        Row: {
+          composite_material_id: string
+          created_at: string | null
+          id: string
+          notes: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          composite_material_id: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          composite_material_id?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "composites_bom_composite_material_id_fkey"
+            columns: ["composite_material_id"]
+            isOneToOne: true
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cost_adjustments: {
         Row: {
           adjustment_date: string
@@ -1564,6 +1638,54 @@ export type Database = {
           },
         ]
       }
+      recipe_bom_items: {
+        Row: {
+          id: string
+          is_packaging: boolean
+          material_id: string
+          position: number
+          quantity: number
+          recipe_id: string
+          unit: string
+          waste_percent: number
+        }
+        Insert: {
+          id?: string
+          is_packaging?: boolean
+          material_id: string
+          position?: number
+          quantity: number
+          recipe_id: string
+          unit: string
+          waste_percent?: number
+        }
+        Update: {
+          id?: string
+          is_packaging?: boolean
+          material_id?: string
+          position?: number
+          quantity?: number
+          recipe_id?: string
+          unit?: string
+          waste_percent?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_bom_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_bom_items_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes_bom"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recipe_ingredients: {
         Row: {
           created_at: string | null
@@ -1656,6 +1778,47 @@ export type Database = {
           yield_unit?: string | null
         }
         Relationships: []
+      }
+      recipes_bom: {
+        Row: {
+          created_at: string | null
+          finished_material_id: string
+          id: string
+          notes: string | null
+          updated_at: string | null
+          waste_percent: number
+          yield_quantity: number
+          yield_unit: string
+        }
+        Insert: {
+          created_at?: string | null
+          finished_material_id: string
+          id?: string
+          notes?: string | null
+          updated_at?: string | null
+          waste_percent?: number
+          yield_quantity: number
+          yield_unit: string
+        }
+        Update: {
+          created_at?: string | null
+          finished_material_id?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string | null
+          waste_percent?: number
+          yield_quantity?: number
+          yield_unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       security_alerts: {
         Row: {
