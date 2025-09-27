@@ -40,25 +40,81 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
         ) || recipe.category.toLowerCase().includes('base');
 
         const materialType = isIntermediate ? 'intermediate_product' : 'finished_product';
-        const category = isIntermediate ? 'Produto Intermediário' : 'Produto Acabado';
+        const category = isIntermediate ? 'Insumo' : 'Produto Acabado';
 
         // 2. Criar material do tipo apropriado
-        const { data: materialData, error: materialError } = await supabase
+        // 2. Buscar ou criar material por nome (evita duplicações)
+        let materialData: any | null = null;
+        let materialError: any | null = null;
+
+        const { data: existingMaterial, error: fetchMatError } = await supabase
           .from('materials')
-          .insert({
-            name: recipe.name,
-            description: recipe.description || `${isIntermediate ? 'Receita-base' : 'Produto acabado'} baseado na receita ${recipe.name}`,
-            category: category,
-            material_type: materialType,
-            purchase_unit: recipe.yieldUnit || 'unidade',
-            usage_unit: recipe.yieldUnit || 'unidade',
-            conversion_factor: 1,
-            price_per_purchase_unit: recipe.totalCost || 0,
-            unit_weight: recipe.totalWeight || 0,
-            is_sellable: !isIntermediate // Intermediários não são vendáveis
-          })
-          .select()
-          .single();
+          .select('*')
+          .eq('name', recipe.name)
+          .maybeSingle();
+
+        if (fetchMatError) {
+          console.error(`Erro ao buscar material existente para ${recipe.name}:`, fetchMatError);
+        }
+
+        if (existingMaterial) {
+          const needsUpdate =
+            existingMaterial.material_type !== materialType ||
+            existingMaterial.category !== category ||
+            existingMaterial.purchase_unit !== (recipe.yieldUnit || 'unidade') ||
+            existingMaterial.usage_unit !== (recipe.yieldUnit || 'unidade');
+
+          if (needsUpdate) {
+            const { data: updated, error: updateErr } = await supabase
+              .from('materials')
+              .update({
+                description:
+                  existingMaterial.description ||
+                  (recipe.description || `${isIntermediate ? 'Receita-base' : 'Produto acabado'} baseado na receita ${recipe.name}`),
+                category,
+                material_type: materialType,
+                purchase_unit: recipe.yieldUnit || 'unidade',
+                usage_unit: recipe.yieldUnit || 'unidade',
+                conversion_factor: 1,
+                price_per_purchase_unit: recipe.totalCost || existingMaterial.price_per_purchase_unit || 0,
+                unit_weight: recipe.totalWeight || existingMaterial.unit_weight || 0,
+                is_sellable: !isIntermediate
+              })
+              .eq('id', existingMaterial.id)
+              .select()
+              .single();
+
+            if (updateErr) {
+              console.error(`Erro ao atualizar material ${recipe.name}:`, updateErr);
+              materialError = updateErr;
+            } else {
+              materialData = updated;
+            }
+          } else {
+            materialData = existingMaterial;
+          }
+        } else {
+          const insertRes = await supabase
+            .from('materials')
+            .insert({
+              name: recipe.name,
+              description:
+                recipe.description || `${isIntermediate ? 'Receita-base' : 'Produto acabado'} baseado na receita ${recipe.name}`,
+              category,
+              material_type: materialType,
+              purchase_unit: recipe.yieldUnit || 'unidade',
+              usage_unit: recipe.yieldUnit || 'unidade',
+              conversion_factor: 1,
+              price_per_purchase_unit: recipe.totalCost || 0,
+              unit_weight: recipe.totalWeight || 0,
+              is_sellable: !isIntermediate
+            })
+            .select()
+            .single();
+
+          materialData = insertRes.data;
+          materialError = insertRes.error;
+        }
 
         if (materialError) {
           console.error(`Erro ao criar material para ${recipe.name}:`, materialError);
@@ -67,35 +123,77 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
 
         // 3. Criar BOM para o produto (acabado ou intermediário)
         console.log(`Creating BOM for ${recipe.name} (${materialData.id})`);
-        const { data: bomData, error: bomError } = await supabase
+        // Upsert da BOM (atualiza se já existir para o material)
+        const { data: existingBom, error: fetchBomErr } = await supabase
           .from('recipes_bom')
-          .insert({
-            finished_material_id: materialData.id,
-            yield_quantity: recipe.yield,
-            yield_unit: recipe.yieldUnit || 'unidade',
-            waste_percentage: 0,
-            notes: `BOM migrado da receita "${recipe.name}". ${isIntermediate ? '[RECEITA-BASE] - ' : ''}${recipe.instructions ? 'Instruções: ' + recipe.instructions : ''}`
-          })
-          .select()
-          .single();
+          .select('*')
+          .eq('finished_material_id', materialData.id)
+          .maybeSingle();
 
-        if (bomError) {
-          console.error(`Erro ao criar BOM para ${recipe.name}:`, bomError);
+        let bomData: any | null = null;
+        let bomError: any | null = null;
+
+        if (fetchBomErr) {
+          console.error(`Erro ao buscar BOM existente para ${recipe.name}:`, fetchBomErr);
+        }
+
+        if (existingBom) {
+          const { data: updatedBom, error: updErr } = await supabase
+            .from('recipes_bom')
+            .update({
+              yield_quantity: recipe.yield,
+              yield_unit: recipe.yieldUnit || 'unidade',
+              waste_percent: 0,
+              notes: `BOM migrado da receita "${recipe.name}". ${isIntermediate ? '[RECEITA-BASE] - ' : ''}${recipe.instructions ? 'Instruções: ' + recipe.instructions : ''}`
+            })
+            .eq('id', existingBom.id)
+            .select()
+            .single();
+          bomData = updatedBom;
+          bomError = updErr;
+        } else {
+          const { data: insertedBom, error: insErr } = await supabase
+            .from('recipes_bom')
+            .insert({
+              finished_material_id: materialData.id,
+              yield_quantity: recipe.yield,
+              yield_unit: recipe.yieldUnit || 'unidade',
+              waste_percent: 0,
+              notes: `BOM migrado da receita "${recipe.name}". ${isIntermediate ? '[RECEITA-BASE] - ' : ''}${recipe.instructions ? 'Instruções: ' + recipe.instructions : ''}`
+            })
+            .select()
+            .single();
+          bomData = insertedBom;
+          bomError = insErr;
+        }
+
+        if (bomError || !bomData) {
+          console.error(`Erro ao criar/atualizar BOM para ${recipe.name}:`, bomError);
           continue;
         }
         
-        console.log(`BOM created successfully for ${recipe.name}:`, bomData);
+        console.log(`BOM upserted successfully for ${recipe.name}:`, bomData);
 
         // 4. Migrar ingredientes da receita para itens do BOM
-        if (recipe.ingredients && recipe.ingredients.length > 0) {
+        if (recipe.ingredients && recipe.ingredients.length > 0 && bomData) {
           console.log(`Migrating ${recipe.ingredients.length} ingredients for ${recipe.name}`);
+
+          // Limpar itens anteriores para evitar duplicações
+          const { error: delErr } = await supabase
+            .from('recipe_bom_items')
+            .delete()
+            .eq('recipe_id', bomData.id);
+          if (delErr) {
+            console.warn(`Não foi possível limpar itens anteriores do BOM de ${recipe.name}:`, delErr);
+          }
+
           const bomItems = recipe.ingredients.map((ingredient, index) => ({
             recipe_id: bomData.id,
             material_id: ingredient.ingredientId,
             quantity: ingredient.quantity,
             unit: 'g', // Assumindo gramas como padrão
             position: index + 1,
-            waste_percentage: 0,
+            waste_percent: 0,
             is_packaging: false
           }));
 
