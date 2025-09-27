@@ -66,6 +66,7 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
         }
 
         // 3. Criar BOM para o produto (acabado ou intermediário)
+        console.log(`Creating BOM for ${recipe.name} (${materialData.id})`);
         const { data: bomData, error: bomError } = await supabase
           .from('recipes_bom')
           .insert({
@@ -82,9 +83,12 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
           console.error(`Erro ao criar BOM para ${recipe.name}:`, bomError);
           continue;
         }
+        
+        console.log(`BOM created successfully for ${recipe.name}:`, bomData);
 
         // 4. Migrar ingredientes da receita para itens do BOM
         if (recipe.ingredients && recipe.ingredients.length > 0) {
+          console.log(`Migrating ${recipe.ingredients.length} ingredients for ${recipe.name}`);
           const bomItems = recipe.ingredients.map((ingredient, index) => ({
             recipe_id: bomData.id,
             material_id: ingredient.ingredientId,
@@ -95,12 +99,16 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
             is_packaging: false
           }));
 
-          const { error: itemsError } = await supabase
+          console.log(`BOM items to insert:`, bomItems);
+          const { data: insertedItems, error: itemsError } = await supabase
             .from('recipe_bom_items')
-            .insert(bomItems);
+            .insert(bomItems)
+            .select();
 
           if (itemsError) {
             console.error(`Erro ao criar itens do BOM para ${recipe.name}:`, itemsError);
+          } else {
+            console.log(`Successfully inserted ${insertedItems?.length || 0} BOM items for ${recipe.name}`);
           }
         }
 
