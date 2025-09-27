@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Plus, Filter, Search, Grid3X3, List, SortAsc } from "lucide-react";
+import { Plus, Filter, Search, Grid3X3, List, SortAsc, Download } from "lucide-react";
 import { MaterialForm } from "@/components/MaterialForm";
 import { MaterialsList } from "@/components/MaterialsList";
 import { MaterialsTable } from "@/components/MaterialsTable";
@@ -275,6 +275,68 @@ const Materials = () => {
     }
   };
 
+  const exportMaterialsToCSV = () => {
+    try {
+      // Prepare CSV data
+      const csvData = [];
+      csvData.push([
+        'Código',
+        'Nome',
+        'Descrição',
+        'Categoria',
+        'Tipo',
+        'Unidade de Compra',
+        'Unidade de Uso',
+        'Fator de Conversão',
+        'Preço por Unidade de Compra',
+        'Fornecedor',
+        'Marcas Permitidas',
+        'Peso Unitário',
+        'Vendível'
+      ]);
+      
+      // Add material data
+      filteredMaterials.forEach(material => {
+        csvData.push([
+          material.code || '',
+          material.name,
+          material.description || '',
+          material.category,
+          material.materialType,
+          material.purchaseUnit,
+          material.usageUnit,
+          material.conversionFactor.toString(),
+          material.pricePerPurchaseUnit.toString(),
+          material.supplier || '',
+          material.allowedBrands?.join('; ') || '',
+          material.unitWeight?.toString() || '',
+          material.isSellable ? 'Sim' : 'Não'
+        ]);
+      });
+      
+      // Convert to CSV string
+      const csvContent = csvData.map(row => 
+        row.map(field => `"${field}"`).join(',')
+      ).join('\n');
+      
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `materiais_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`CSV com ${filteredMaterials.length} materiais exportado com sucesso!`);
+    } catch (error) {
+      console.error('Erro ao exportar CSV:', error);
+      toast.error('Erro ao exportar CSV dos materiais');
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -294,13 +356,23 @@ const Materials = () => {
           <h1 className="text-3xl font-bold mb-2">Gestão de Materiais</h1>
           <p className="text-muted-foreground">Cadastre e gerencie todos os materiais da sua confeitaria</p>
         </div>
-        <Button 
-          onClick={() => setShowMaterialForm(true)}
-          className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Material
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={exportMaterialsToCSV}
+            variant="outline"
+            disabled={loading || filteredMaterials.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Exportar CSV
+          </Button>
+          <Button 
+            onClick={() => setShowMaterialForm(true)}
+            className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Material
+          </Button>
+        </div>
       </div>
 
       {/* Barra de Pesquisa */}
