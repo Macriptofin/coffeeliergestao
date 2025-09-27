@@ -492,6 +492,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "composite_bom_items_component_material_id_fkey"
+            columns: ["component_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_diag_orphans"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "composite_bom_items_composite_id_fkey"
             columns: ["composite_id"]
             isOneToOne: false
@@ -535,6 +542,13 @@ export type Database = {
             columns: ["composite_material_id"]
             isOneToOne: true
             referencedRelation: "v_product_cost"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composites_bom_composite_material_id_fkey"
+            columns: ["composite_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_diag_orphans"
             referencedColumns: ["id"]
           },
         ]
@@ -1031,6 +1045,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_production_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_diag_orphans"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "event_production_order_items_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -1142,6 +1163,13 @@ export type Database = {
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_table_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_diag_orphans"
+            referencedColumns: ["id"]
+          },
         ]
       }
       event_table_template_items: {
@@ -1191,6 +1219,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "v_product_cost"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_table_template_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_diag_orphans"
             referencedColumns: ["id"]
           },
           {
@@ -1504,6 +1539,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invoice_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_diag_orphans"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "invoice_items_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
@@ -1521,7 +1563,9 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          is_archived: boolean | null
           is_sellable: boolean | null
+          is_system_generated: boolean | null
           material_type: string
           name: string
           price_per_purchase_unit: number
@@ -1540,7 +1584,9 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_archived?: boolean | null
           is_sellable?: boolean | null
+          is_system_generated?: boolean | null
           material_type?: string
           name: string
           price_per_purchase_unit: number
@@ -1559,7 +1605,9 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_archived?: boolean | null
           is_sellable?: boolean | null
+          is_system_generated?: boolean | null
           material_type?: string
           name?: string
           price_per_purchase_unit?: number
@@ -1619,6 +1667,33 @@ export type Database = {
           totp_secret?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      ops_bom_audit_log: {
+        Row: {
+          action: string
+          at: string | null
+          created_at: string | null
+          detail: Json | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          at?: string | null
+          created_at?: string | null
+          detail?: Json | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          at?: string | null
+          created_at?: string | null
+          detail?: Json | null
+          id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -2109,6 +2184,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "recipe_bom_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_diag_orphans"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "recipe_bom_items_recipe_id_fkey"
             columns: ["recipe_id"]
             isOneToOne: false
@@ -2152,6 +2234,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "v_product_cost"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_ingredients_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_diag_orphans"
             referencedColumns: ["id"]
           },
           {
@@ -2261,6 +2350,13 @@ export type Database = {
             columns: ["finished_material_id"]
             isOneToOne: true
             referencedRelation: "v_product_cost"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_diag_orphans"
             referencedColumns: ["id"]
           },
         ]
@@ -2416,6 +2512,13 @@ export type Database = {
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "stock_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_diag_orphans"
+            referencedColumns: ["id"]
+          },
         ]
       }
       stock_movements: {
@@ -2468,6 +2571,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "v_product_cost"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_diag_orphans"
             referencedColumns: ["id"]
           },
         ]
@@ -2525,6 +2635,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "v_product_cost"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_products_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_diag_orphans"
             referencedColumns: ["id"]
           },
           {
@@ -2701,11 +2818,49 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_diag_bom_inconsistencies: {
+        Row: {
+          description: string | null
+          finished_material_id: string | null
+          id: string | null
+          issue_type: string | null
+          material_name: string | null
+        }
+        Relationships: []
+      }
+      vw_diag_material_dupes: {
+        Row: {
+          candidate_key: string | null
+          codes: string[] | null
+          created_dates: string[] | null
+          duplicate_count: number | null
+          has_references_flags: boolean[] | null
+          has_stock_flags: boolean[] | null
+          material_ids: string[] | null
+        }
+        Relationships: []
+      }
+      vw_diag_orphans: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          material_type: string | null
+          name: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      archive_material: {
+        Args: { p_id: string }
+        Returns: undefined
       }
       assemble_composite: {
         Args: { p_composite_material: string; p_qty: number }
@@ -2718,6 +2873,10 @@ export type Database = {
           p_new_quantity: number
         }
         Returns: number
+      }
+      can_hard_delete_material: {
+        Args: { p_id: string }
+        Returns: boolean
       }
       check_account_lockout: {
         Args: { p_email: string }
@@ -2945,6 +3104,10 @@ export type Database = {
       mask_rg: {
         Args: { rg_value: string }
         Returns: string
+      }
+      merge_materials: {
+        Args: { dry_run?: boolean; dst: string; src: string }
+        Returns: Json
       }
       no_admin_exists: {
         Args: Record<PropertyKey, never>
