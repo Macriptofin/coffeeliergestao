@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Settings, Factory, ArrowRight, AlertCircle, Package, Wrench, Calendar, Trash2, Eye, Edit, Stethoscope, AlertTriangle } from "lucide-react";
+import { Plus, Settings, Factory, ArrowRight, AlertCircle, Package, Wrench, Calendar, Trash2, Eye, Edit, Stethoscope, AlertTriangle, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useFeatureFlags, logFeatureFlagEvent } from "@/hooks/useFeatureFlags";
 import { supabase } from "@/integrations/supabase/client";
@@ -217,6 +217,139 @@ const FichasTecnicas = () => {
   const getFinishedProducts = () => materials.filter(m => m.materialType === 'finished_product');
   const getCompositeProducts = () => materials.filter(m => m.materialType === 'composite_product');
 
+  const exportTechnicalSheetsToCSV = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch all technical sheets with their BOM data
+      const csvData = [];
+      csvData.push(['Produto', 'Código', 'Tipo', 'Rendimento', 'Item', 'Quantidade', 'Unidade', 'É Embalagem']);
+      
+      for (const material of materials) {
+        if (material.materialType === 'finished_product') {
+          // Get recipe BOM data
+          const { data: bomData, error: bomError } = await supabase
+            .from('recipes_bom')
+            .select(`
+              yield_quantity,
+              recipe_bom_items (
+                quantity,
+                unit,
+                is_packaging,
+                materials!inner (
+                  name
+                )
+              )
+            `)
+            .eq('finished_material_id', material.id)
+            .single();
+            
+          if (bomError && bomError.code !== 'PGRST116') {
+            console.error('Error fetching recipe BOM:', bomError);
+            continue;
+          }
+          
+          if (bomData) {
+            for (const item of bomData.recipe_bom_items) {
+              csvData.push([
+                material.name,
+                material.code || '',
+                'Produto Acabado',
+                bomData.yield_quantity?.toString() || '1',
+                item.materials.name,
+                item.quantity?.toString() || '0',
+                item.unit || '',
+                item.is_packaging ? 'Sim' : 'Não'
+              ]);
+            }
+          } else {
+            // Material without BOM
+            csvData.push([
+              material.name,
+              material.code || '',
+              'Produto Acabado',
+              '1',
+              'SEM BOM CONFIGURADO',
+              '0',
+              '',
+              'Não'
+            ]);
+          }
+        } else if (material.materialType === 'composite_product') {
+          // Get composite BOM data
+          const { data: bomData, error: bomError } = await supabase
+            .from('composites_bom')
+            .select(`
+              composite_bom_items (
+                quantity,
+                unit,
+                materials!inner (
+                  name
+                )
+              )
+            `)
+            .eq('composite_material_id', material.id)
+            .single();
+            
+          if (bomError && bomError.code !== 'PGRST116') {
+            console.error('Error fetching composite BOM:', bomError);
+            continue;
+          }
+          
+          if (bomData) {
+            for (const item of bomData.composite_bom_items) {
+              csvData.push([
+                material.name,
+                material.code || '',
+                'Produto Composto',
+                '1',
+                item.materials.name,
+                item.quantity?.toString() || '0',
+                item.unit || '',
+                'Não'
+              ]);
+            }
+          } else {
+            // Material without BOM
+            csvData.push([
+              material.name,
+              material.code || '',
+              'Produto Composto',
+              '1',
+              'SEM BOM CONFIGURADO',
+              '0',
+              '',
+              'Não'
+            ]);
+          }
+        }
+      }
+      
+      // Convert to CSV string
+      const csvContent = csvData.map(row => 
+        row.map(field => `"${field}"`).join(',')
+      ).join('\n');
+      
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `fichas_tecnicas_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success('CSV das fichas técnicas exportado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao exportar CSV:', error);
+      toast.error('Erro ao exportar CSV das fichas técnicas');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderProductCard = (material: Material) => {
     return <ProductCard key={material.id} material={material} onRefresh={loadMaterials} />;
   };
@@ -346,6 +479,16 @@ const FichasTecnicas = () => {
           <p className="text-muted-foreground">
             Gestão unificada de produtos, receitas e composições
           </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={exportTechnicalSheetsToCSV}
+            variant="outline"
+            disabled={loading || materials.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Exportar CSV
+          </Button>
         </div>
         
         {(showEventIntegration || showProductionExecutor || showRecipeBOMForm || showCompositeBOMForm) && (
