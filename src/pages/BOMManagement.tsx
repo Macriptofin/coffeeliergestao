@@ -55,6 +55,7 @@ const BOMManagement = () => {
 
   const loadFinishedProducts = async () => {
     try {
+      console.log('Carregando produtos acabados...');
       const { data, error } = await supabase
         .from('materials')
         .select(`
@@ -67,7 +68,12 @@ const BOMManagement = () => {
         .eq('material_type', 'finished_product')
         .order('name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao carregar materiais:', error);
+        throw error;
+      }
+
+      console.log('Dados carregados:', data);
 
       const summary: BOMSummary[] = data.map((material: any) => ({
         material: {
