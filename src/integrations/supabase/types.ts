@@ -233,6 +233,24 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string | null
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string | null
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       auth_attempts: {
         Row: {
           attempt_type: string
@@ -2664,6 +2682,10 @@ export type Database = {
       generate_event_production: {
         Args: { p_event_table_id: string; p_target_table?: string }
         Returns: string
+      }
+      get_flag: {
+        Args: { p_key: string }
+        Returns: boolean
       }
       get_masked_client_data: {
         Args: Record<PropertyKey, never>
