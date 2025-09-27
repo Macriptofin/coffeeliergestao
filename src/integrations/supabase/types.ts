@@ -507,6 +507,65 @@ export type Database = {
           },
         ]
       }
+      consumption_profile_mix: {
+        Row: {
+          category_label: string
+          created_at: string
+          id: string
+          percent: number
+          profile_id: string
+        }
+        Insert: {
+          category_label: string
+          created_at?: string
+          id?: string
+          percent: number
+          profile_id: string
+        }
+        Update: {
+          category_label?: string
+          created_at?: string
+          id?: string
+          percent?: number
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consumption_profile_mix_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "consumption_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consumption_profiles: {
+        Row: {
+          created_at: string
+          grams_per_person: number
+          id: string
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          grams_per_person?: number
+          id?: string
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          grams_per_person?: number
+          id?: string
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cost_adjustments: {
         Row: {
           adjustment_date: string
@@ -889,6 +948,308 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_production_order_items: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          material_id: string
+          order_id: string
+          planned_qty: number
+          planned_unit: string
+          position: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          material_id: string
+          order_id: string
+          planned_qty: number
+          planned_unit: string
+          position?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          material_id?: string
+          order_id?: string
+          planned_qty?: number
+          planned_unit?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_production_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_production_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "event_production_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_production_orders: {
+        Row: {
+          created_at: string
+          event_table_id: string
+          id: string
+          notes: string | null
+          order_code: string
+          scheduled_end: string | null
+          scheduled_start: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_table_id: string
+          id?: string
+          notes?: string | null
+          order_code: string
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_table_id?: string
+          id?: string
+          notes?: string | null
+          order_code?: string
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_production_orders_event_table_id_fkey"
+            columns: ["event_table_id"]
+            isOneToOne: false
+            referencedRelation: "event_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_table_items: {
+        Row: {
+          category_label: string
+          created_at: string
+          event_table_id: string
+          fixed_quantity: number | null
+          id: string
+          material_id: string
+          position: number
+          quantity_per_person: number | null
+          source: string
+          unit_override: string | null
+        }
+        Insert: {
+          category_label: string
+          created_at?: string
+          event_table_id: string
+          fixed_quantity?: number | null
+          id?: string
+          material_id: string
+          position?: number
+          quantity_per_person?: number | null
+          source?: string
+          unit_override?: string | null
+        }
+        Update: {
+          category_label?: string
+          created_at?: string
+          event_table_id?: string
+          fixed_quantity?: number | null
+          id?: string
+          material_id?: string
+          position?: number
+          quantity_per_person?: number | null
+          source?: string
+          unit_override?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_table_items_event_table_id_fkey"
+            columns: ["event_table_id"]
+            isOneToOne: false
+            referencedRelation: "event_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_table_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_table_template_items: {
+        Row: {
+          category_label: string
+          created_at: string
+          fixed_quantity: number | null
+          id: string
+          material_id: string
+          position: number
+          quantity_per_person: number | null
+          template_id: string
+          unit_override: string | null
+        }
+        Insert: {
+          category_label: string
+          created_at?: string
+          fixed_quantity?: number | null
+          id?: string
+          material_id: string
+          position?: number
+          quantity_per_person?: number | null
+          template_id: string
+          unit_override?: string | null
+        }
+        Update: {
+          category_label?: string
+          created_at?: string
+          fixed_quantity?: number | null
+          id?: string
+          material_id?: string
+          position?: number
+          quantity_per_person?: number | null
+          template_id?: string
+          unit_override?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_table_template_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_table_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "event_table_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_table_templates: {
+        Row: {
+          created_at: string
+          default_profile_id: string | null
+          id: string
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_profile_id?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_profile_id?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_table_templates_default_profile_id_fkey"
+            columns: ["default_profile_id"]
+            isOneToOne: false
+            referencedRelation: "consumption_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_tables: {
+        Row: {
+          attendees: number
+          client_id: string | null
+          client_name: string
+          created_at: string
+          date_end: string | null
+          date_start: string
+          event_code: string
+          id: string
+          notes: string | null
+          profile_id: string | null
+          status: string
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attendees: number
+          client_id?: string | null
+          client_name: string
+          created_at?: string
+          date_end?: string | null
+          date_start: string
+          event_code: string
+          id?: string
+          notes?: string | null
+          profile_id?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attendees?: number
+          client_id?: string | null
+          client_name?: string
+          created_at?: string
+          date_end?: string | null
+          date_start?: string
+          event_code?: string
+          id?: string
+          notes?: string | null
+          profile_id?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_tables_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_tables_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "consumption_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_tables_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "event_table_templates"
             referencedColumns: ["id"]
           },
         ]
