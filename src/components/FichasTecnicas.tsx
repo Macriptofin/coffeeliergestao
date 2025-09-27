@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MaterialForm } from "@/components/MaterialForm";
 import { ProductionExecutor } from "@/components/bom/ProductionExecutor";
 import { EventProductionIntegration } from "@/components/EventProductionIntegration";
+import { BOMStatusAlert } from "@/components/BOMStatusAlert";
 import { useMaterialBOM } from "@/hooks/useMaterialBOM";
 import type { Material } from "@/pages/Materials";
 
@@ -159,38 +160,16 @@ const FichasTecnicas = () => {
           <div className="space-y-3">
             {bomLoading ? (
               <div className="animate-pulse">
-                <div className="h-4 bg-muted rounded w-3/4"></div>
+                <div className="h-16 bg-muted rounded w-full"></div>
               </div>
-            ) : !bomInfo.hasBOM ? (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  BOM não configurada → custo indisponível
-                </AlertDescription>
-              </Alert>
             ) : (
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Custo Unitário:</span>
-                  <span className="text-sm font-medium text-primary">
-                    R$ {bomInfo.cost?.toFixed(2) || '0,00'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Componentes:</span>
-                  <span className="text-sm font-medium">
-                    {bomInfo.itemsCount} itens
-                  </span>
-                </div>
-                {bomInfo.yieldQuantity && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Rendimento:</span>
-                    <span className="text-sm font-medium">
-                      {bomInfo.yieldQuantity} unidades
-                    </span>
-                  </div>
-                )}
-              </div>
+              <BOMStatusAlert
+                hasBOM={bomInfo.hasBOM}
+                cost={bomInfo.cost}
+                itemsCount={bomInfo.itemsCount}
+                yieldQuantity={bomInfo.yieldQuantity}
+                materialType={material.materialType as 'finished_product' | 'composite_product'}
+              />
             )}
             
             <div className="flex gap-2">
