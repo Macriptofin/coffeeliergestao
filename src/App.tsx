@@ -37,6 +37,7 @@ import CostCalculation from "./pages/production/CostCalculation";
 import ProductionPlanning from "./pages/production/ProductionPlanning";
 import ProductionReports from "./pages/production/ProductionReports";
 import BOMManagement from "./pages/BOMManagement";
+import EventTables from "./pages/EventTables";
 
 const queryClient = new QueryClient();
 
@@ -70,6 +71,7 @@ function App() {
               <Route path="producao/planejamento" element={<ProductionPlanning />} />
               <Route path="producao/relatorios" element={<ProductionReports />} />
               <Route path="producao/bom" element={<BOMManagement />} />
+              <Route path="producao/eventos" element={<EventTables />} />
               {/* Fornecedores */}
               <Route path="fornecedores" element={<Suppliers />} />
               {/* Categoria Financeiro */}

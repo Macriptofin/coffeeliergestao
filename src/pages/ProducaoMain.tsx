@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChefHat, ClipboardList, Calculator, FileText, Settings } from "lucide-react";
+import { ChefHat, ClipboardList, Calculator, FileText, Settings, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const ProducaoMain = () => {
@@ -48,6 +48,13 @@ const ProducaoMain = () => {
       icon: FileText,
       href: "/producao/relatorios",
       color: "bg-orange-500"
+    },
+    {
+      title: "Mesas/Eventos",
+      description: "Gestão dinâmica de eventos com cálculo automático por pessoa",
+      icon: Calendar,
+      href: "/producao/eventos",
+      color: "bg-pink-500"
     }
   ];
 
