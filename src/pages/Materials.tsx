@@ -341,13 +341,13 @@ const Materials = () => {
           </div>
           
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-48 h-11">
+            <SelectTrigger className="w-48 min-h-[44px] py-3">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-background">
               {categories.map((category) => (
-                <SelectItem key={category.value} value={category.value}>
-                  <div className="flex items-center gap-2 py-1">
+                <SelectItem key={category.value} value={category.value} className="min-h-[40px]">
+                  <div className="flex items-center gap-2 py-2">
                     <Badge variant={category.color as any} className="text-xs">
                       {category.label}
                     </Badge>
@@ -360,18 +360,18 @@ const Materials = () => {
           </Select>
 
           <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-            <SelectTrigger className="w-48 h-11">
+            <SelectTrigger className="w-48 min-h-[44px] py-3">
               <SelectValue placeholder="Fornecedor" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                <div className="py-1">
+            <SelectContent className="bg-background">
+              <SelectItem value="all" className="min-h-[40px]">
+                <div className="py-2">
                   Todos os Fornecedores ({materials.length})
                 </div>
               </SelectItem>
               {suppliers.map((supplier) => (
-                <SelectItem key={supplier} value={supplier}>
-                  <div className="py-1">
+                <SelectItem key={supplier} value={supplier} className="min-h-[40px]">
+                  <div className="py-2">
                     {supplier} ({materials.filter(m => m.supplier === supplier).length})
                   </div>
                 </SelectItem>

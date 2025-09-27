@@ -29,11 +29,13 @@ export const AutocompleteInput = ({
   const [isOpen, setIsOpen] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [hasBeenModified, setHasBeenModified] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
-    if (value.length > 0) {
+    // Só filtrar e mostrar sugestões se o campo foi modificado ou se não tem valor original
+    if (value.length > 0 && (hasBeenModified || !originalValue)) {
       const filtered = suggestions.filter(suggestion =>
         suggestion.toLowerCase().includes(value.toLowerCase())
       );
@@ -44,10 +46,21 @@ export const AutocompleteInput = ({
       setIsOpen(false);
     }
     setHighlightedIndex(-1);
-  }, [value, suggestions]);
+  }, [value, suggestions, hasBeenModified, originalValue]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange(e.target.value);
+    const newValue = e.target.value;
+    onChange(newValue);
+    
+    // Marcar como modificado quando o usuário começar a digitar algo diferente do original
+    if (!hasBeenModified && originalValue && newValue !== originalValue) {
+      setHasBeenModified(true);
+    }
+    
+    // Se não tem valor original, sempre considerar como modificado
+    if (!originalValue && !hasBeenModified) {
+      setHasBeenModified(true);
+    }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -103,7 +116,12 @@ export const AutocompleteInput = ({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
-          onFocus={() => value.length > 0 && !isOriginal && setIsOpen(filteredSuggestions.length > 0)}
+          onFocus={() => {
+            // Só abrir sugestões no foco se o campo foi modificado ou se não tem valor original
+            if (value.length > 0 && (hasBeenModified || !originalValue)) {
+              setIsOpen(filteredSuggestions.length > 0);
+            }
+          }}
           placeholder={placeholder}
             className={cn(
               className,
