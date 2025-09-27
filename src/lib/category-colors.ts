@@ -1,31 +1,31 @@
 // Esquema de cores harmonizado para categorias e subcategorias
-// Baseado em verde oliva com variações tonais
+// Baseado em verde oliva sutil da paleta Coffeelier
 
 export const categoryColorScheme = {
   'Insumo': {
-    primary: 'bg-green-100 text-green-800 border-green-200',
-    secondary: 'bg-green-50 text-green-700 border-green-100',
-    icon: 'text-green-600'
+    primary: 'bg-primary/5 text-primary border-primary/10',
+    secondary: 'bg-primary/3 text-primary/80 border-primary/5',
+    icon: 'text-primary/70'
   },
   'Embalagem': {
-    primary: 'bg-blue-100 text-blue-800 border-blue-200',
-    secondary: 'bg-blue-50 text-blue-700 border-blue-100',
-    icon: 'text-blue-600'
+    primary: 'bg-accent-coffee/8 text-accent-coffee border-accent-coffee/15',
+    secondary: 'bg-accent-coffee/4 text-accent-coffee/80 border-accent-coffee/8',
+    icon: 'text-accent-coffee/70'
   },
   'Produto Acabado': {
-    primary: 'bg-purple-100 text-purple-800 border-purple-200',
-    secondary: 'bg-purple-50 text-purple-700 border-purple-100',
-    icon: 'text-purple-600'
+    primary: 'bg-secondary/8 text-secondary border-secondary/15',
+    secondary: 'bg-secondary/4 text-secondary/80 border-secondary/8',
+    icon: 'text-secondary/70'
   },
   'Produto Composto': {
-    primary: 'bg-orange-100 text-orange-800 border-orange-200',
-    secondary: 'bg-orange-50 text-orange-700 border-orange-100',
-    icon: 'text-orange-600'
+    primary: 'bg-accent-mocca/8 text-accent-mocca-foreground border-accent-mocca/15',
+    secondary: 'bg-accent-mocca/4 text-accent-mocca-foreground/80 border-accent-mocca/8',
+    icon: 'text-accent-mocca-foreground/70'
   },
   'Produto Intermediário': {
-    primary: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-    secondary: 'bg-indigo-50 text-indigo-700 border-indigo-100',
-    icon: 'text-indigo-600'
+    primary: 'bg-primary/6 text-primary border-primary/12',
+    secondary: 'bg-primary/3 text-primary/80 border-primary/6',
+    icon: 'text-primary/60'
   }
 } as const;
 

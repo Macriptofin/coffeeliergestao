@@ -63,7 +63,7 @@ if (!session || !user) {
         <SecurityHeader />
       {/* Header */}
       <div className="bg-gradient-primary text-primary-foreground shadow-warm relative z-50">
-        <div className="container mx-auto px-4 py-6">
+        <div className="max-w-full px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button
@@ -75,9 +75,9 @@ if (!session || !user) {
                 <Menu className="h-5 w-5" />
               </Button>
               
-              <CoffeelierLogo size="lg" className="filter brightness-0 invert" />
-              <div>
-                <p className="text-primary-foreground/80 text-sm font-medium">
+              <div className="flex flex-col">
+                <CoffeelierLogo size="lg" className="filter brightness-0 invert" />
+                <p className="text-primary-foreground/70 text-xs font-light mt-1 ml-auto">
                   Sistema de Gestão
                 </p>
               </div>
