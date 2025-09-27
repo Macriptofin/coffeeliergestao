@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Plus, ClipboardList } from "lucide-react";
 import { ProductionOrder } from "@/components/ProductionOrder";
 import { RecipeMigrationDialog } from "@/components/RecipeMigrationDialog";
+import { ProductionOrdersList } from "@/components/ProductionOrdersList";
+import { EventProductionIntegration } from "@/components/EventProductionIntegration";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Recipe, Ingredient } from "@/types";
 
 const ProductionOrders = () => {
@@ -120,28 +123,10 @@ const ProductionOrders = () => {
             disabled={recipes.length === 0}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Nova Ordem
+            Nova Ordem Manual
           </Button>
         </div>
       </div>
-
-      {recipes.length === 0 && (
-        <Card className="shadow-soft border-amber-200 mb-8">
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <ClipboardList className="h-12 w-12 text-amber-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Cadastre receitas primeiro</h3>
-              <p className="text-muted-foreground mb-4">
-                Para criar ordens de produção, você precisa ter receitas cadastradas no sistema.
-              </p>
-              <Button onClick={() => window.location.href = '/receitas'}>
-                <Plus className="h-4 w-4 mr-2" />
-                Cadastrar Receitas
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {showProductionOrder && (
         <div className="mb-8">
@@ -153,36 +138,70 @@ const ProductionOrders = () => {
         </div>
       )}
 
-      {recipes.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {recipes.map((recipe) => (
-            <Card key={recipe.id} className="shadow-soft">
-              <CardHeader>
-                <CardTitle className="text-lg">{recipe.name}</CardTitle>
-                <CardDescription>{recipe.category}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Rendimento:</span>
-                    <span className="text-sm font-medium">{recipe.yield} {recipe.yieldUnit}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Custo Total:</span>
-                    <span className="text-sm font-medium text-primary">
-                      R$ {recipe.totalCost?.toFixed(2) || '0,00'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Dificuldade:</span>
-                    <span className="text-sm font-medium">{recipe.difficulty}</span>
-                  </div>
+      <Tabs defaultValue="orders" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="orders">Ordens Geradas</TabsTrigger>
+          <TabsTrigger value="events">Gerar de Eventos</TabsTrigger>
+          <TabsTrigger value="recipes">Receitas Disponíveis</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="orders" className="mt-6">
+          <ProductionOrdersList />
+        </TabsContent>
+        
+        <TabsContent value="events" className="mt-6">
+          <EventProductionIntegration />
+        </TabsContent>
+        
+        <TabsContent value="recipes" className="mt-6">
+          {recipes.length === 0 ? (
+            <Card className="shadow-soft border-amber-200">
+              <CardContent className="pt-6">
+                <div className="text-center py-8">
+                  <ClipboardList className="h-12 w-12 text-amber-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Cadastre receitas primeiro</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Para criar ordens de produção, você precisa ter receitas cadastradas no sistema.
+                  </p>
+                  <Button onClick={() => window.location.href = '/receitas'}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Cadastrar Receitas
+                  </Button>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recipes.map((recipe) => (
+                <Card key={recipe.id} className="shadow-soft">
+                  <CardHeader>
+                    <CardTitle className="text-lg">{recipe.name}</CardTitle>
+                    <CardDescription>{recipe.category}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Rendimento:</span>
+                        <span className="text-sm font-medium">{recipe.yield} {recipe.yieldUnit}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Custo Total:</span>
+                        <span className="text-sm font-medium text-primary">
+                          R$ {recipe.totalCost?.toFixed(2) || '0,00'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Dificuldade:</span>
+                        <span className="text-sm font-medium">{recipe.difficulty}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
