@@ -19,14 +19,14 @@ export const FeatureFlagRedirect = ({ children }: { children: React.ReactNode })
       return;
     }
 
-    // Apply redirects based on feature flags - temporarily disabled for debugging
-    // if (flags.FF_UNIFY_BOM_RECEITAS) {
-    //   if (currentPath === '/receitas' || currentPath === '/producao/bom') {
-    //     logFeatureFlagEvent('nav.redirect.legacy_to_unified', `${currentPath} -> /producao/fichas-tecnicas`);
-    //     navigate('/producao/fichas-tecnicas', { replace: true });
-    //     return;
-    //   }
-    // }
+    // Apply redirects based on feature flags
+    if (flags.FF_UNIFY_BOM_RECEITAS) {
+      if (currentPath === '/receitas' || currentPath === '/producao/bom') {
+        logFeatureFlagEvent('nav.redirect.legacy_to_unified', `${currentPath} -> /producao/fichas-tecnicas`);
+        navigate('/producao/fichas-tecnicas', { replace: true });
+        return;
+      }
+    }
 
     if (flags.FF_MOVE_COSTS_TO_REPORTS) {
       if (currentPath === '/producao/calculo-custos') {
