@@ -13,6 +13,8 @@ import { MaterialForm } from "@/components/MaterialForm";
 import { ProductionExecutor } from "@/components/bom/ProductionExecutor";
 import { EventProductionIntegration } from "@/components/EventProductionIntegration";
 import { BOMStatusAlert } from "@/components/BOMStatusAlert";
+import { RecipeBOMForm } from "@/components/bom/RecipeBOMForm";
+import { CompositeBOMForm } from "@/components/bom/CompositeBOMForm";
 import { useMaterialBOM } from "@/hooks/useMaterialBOM";
 import type { Material } from "@/pages/Materials";
 
@@ -24,7 +26,10 @@ const FichasTecnicas = () => {
   const [showMaterialForm, setShowMaterialForm] = useState(false);
   const [showProductionExecutor, setShowProductionExecutor] = useState(false);
   const [showEventIntegration, setShowEventIntegration] = useState(false);
+  const [showRecipeBOMForm, setShowRecipeBOMForm] = useState(false);
+  const [showCompositeBOMForm, setShowCompositeBOMForm] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+  const [bomEditingMaterial, setBomEditingMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -176,7 +181,14 @@ const FichasTecnicas = () => {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => navigate(material.materialType === 'finished_product' ? '/receitas' : '/producao/bom')}
+                onClick={() => {
+                  setBomEditingMaterial(material);
+                  if (material.materialType === 'finished_product') {
+                    setShowRecipeBOMForm(true);
+                  } else {
+                    setShowCompositeBOMForm(true);
+                  }
+                }}
                 className="flex-1"
               >
                 <Settings className="h-4 w-4 mr-1" />
@@ -229,18 +241,15 @@ const FichasTecnicas = () => {
           </p>
         </div>
         
-        {showEventIntegration && (
+        {(showEventIntegration || showProductionExecutor || showRecipeBOMForm || showCompositeBOMForm) && (
           <Button 
-            onClick={() => setShowEventIntegration(false)}
-            variant="outline"
-          >
-            Voltar para Cadastro
-          </Button>
-        )}
-        
-        {showProductionExecutor && (
-          <Button 
-            onClick={() => setShowProductionExecutor(false)}
+            onClick={() => {
+              setShowEventIntegration(false);
+              setShowProductionExecutor(false);
+              setShowRecipeBOMForm(false);
+              setShowCompositeBOMForm(false);
+              setBomEditingMaterial(null);
+            }}
             variant="outline"
           >
             Voltar para Cadastro
@@ -266,6 +275,58 @@ const FichasTecnicas = () => {
             <h2 className="text-xl font-semibold">Execução de Produção</h2>
           </div>
           <ProductionExecutor onSuccess={() => setShowProductionExecutor(false)} />
+        </div>
+      ) : showRecipeBOMForm && bomEditingMaterial ? (
+        <div className="space-y-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Settings className="h-5 w-5" />
+            <h2 className="text-xl font-semibold">Configurar BOM - {bomEditingMaterial.name}</h2>
+          </div>
+          <RecipeBOMForm 
+            finishedMaterial={{
+              id: bomEditingMaterial.id,
+              name: bomEditingMaterial.name,
+              code: bomEditingMaterial.code || '',
+              usage_unit: bomEditingMaterial.usageUnit,
+              material_type: bomEditingMaterial.materialType
+            }}
+            onSuccess={() => {
+              setShowRecipeBOMForm(false);
+              setBomEditingMaterial(null);
+              loadMaterials();
+              toast.success('BOM configurado com sucesso!');
+            }}
+            onCancel={() => {
+              setShowRecipeBOMForm(false);
+              setBomEditingMaterial(null);
+            }}
+          />
+        </div>
+      ) : showCompositeBOMForm && bomEditingMaterial ? (
+        <div className="space-y-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Settings className="h-5 w-5" />
+            <h2 className="text-xl font-semibold">Configurar BOM - {bomEditingMaterial.name}</h2>
+          </div>
+          <CompositeBOMForm 
+            compositeMaterial={{
+              id: bomEditingMaterial.id,
+              name: bomEditingMaterial.name,
+              code: bomEditingMaterial.code || '',
+              usage_unit: bomEditingMaterial.usageUnit,
+              material_type: bomEditingMaterial.materialType
+            }}
+            onSuccess={() => {
+              setShowCompositeBOMForm(false);
+              setBomEditingMaterial(null);
+              loadMaterials();
+              toast.success('BOM configurado com sucesso!');
+            }}
+            onCancel={() => {
+              setShowCompositeBOMForm(false);
+              setBomEditingMaterial(null);
+            }}
+          />
         </div>
       ) : (
         <>
@@ -373,7 +434,7 @@ const FichasTecnicas = () => {
             </TabsContent>
           </Tabs>
 
-          {!showMaterialForm && (
+          {!showMaterialForm && !showRecipeBOMForm && !showCompositeBOMForm && (
             <div className="mt-8 flex justify-center gap-4">
               <Button 
                 onClick={() => setShowProductionExecutor(true)}
