@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Material } from "@/types";
 import { materialCategories, getSubcategoriesByCategory } from "@/lib/material-categories";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const Materials = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -103,31 +104,41 @@ const Materials = () => {
 
   const loadMaterials = async () => {
     try {
+      console.log('Iniciando carregamento de materiais...');
       const { data, error } = await supabase
         .from('materials')
         .select('*')
         .order('code');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Erro na consulta Supabase:', error);
+        throw error;
+      }
       
-      const formattedMaterials = data.map(item => ({
-        id: item.id,
-        name: item.name,
-        description: item.description || undefined,
-        purchaseUnit: item.purchase_unit,
-        usageUnit: item.usage_unit,
-        conversionFactor: parseFloat(item.conversion_factor.toString()),
-        pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit.toString()),
-        supplier: item.supplier || undefined,
-        allowedBrands: item.allowed_brands || undefined,
-        category: item.category,
-        subcategory: item.subcategory || undefined,
-        code: item.code,
-        materialType: item.material_type as Material['materialType'],
-        unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
-        isSellable: item.is_sellable
-      }));
+      console.log('Dados recebidos do Supabase:', data);
       
+      const formattedMaterials = data.map(item => {
+        console.log('Processando item:', item);
+        return {
+          id: item.id,
+          name: item.name,
+          description: item.description || undefined,
+          purchaseUnit: item.purchase_unit,
+          usageUnit: item.usage_unit,
+          conversionFactor: parseFloat(item.conversion_factor?.toString() || '1'),
+          pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit?.toString() || '0'),
+          supplier: item.supplier || undefined,
+          allowedBrands: item.allowed_brands || undefined,
+          category: item.category || 'Insumos',
+          subcategory: item.subcategory || undefined,
+          code: item.code || '',
+          materialType: (item.material_type || 'ingredient') as Material['materialType'],
+          unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
+          isSellable: item.is_sellable || false
+        };
+      }) as Material[];
+      
+      console.log('Materiais formatados:', formattedMaterials);
       setMaterials(formattedMaterials);
     } catch (error) {
       console.error('Erro ao carregar materiais:', error);
@@ -139,6 +150,7 @@ const Materials = () => {
 
   const addMaterial = async (material: Omit<Material, 'id' | 'code'>) => {
     try {
+      console.log('Adicionando material:', material);
       const { data, error } = await supabase
         .from('materials')
         .insert({
@@ -154,12 +166,15 @@ const Materials = () => {
           subcategory: material.subcategory,
           material_type: material.materialType,
           unit_weight: material.unitWeight,
-          is_sellable: material.materialType === 'finished_product' ? true : false
+          is_sellable: material.isSellable || false
         })
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao inserir material:', error);
+        throw error;
+      }
       
       const newMaterial: Material = {
         id: data.id,
@@ -167,16 +182,16 @@ const Materials = () => {
         description: data.description || undefined,
         purchaseUnit: data.purchase_unit,
         usageUnit: data.usage_unit,
-        conversionFactor: parseFloat(data.conversion_factor.toString()),
-        pricePerPurchaseUnit: parseFloat(data.price_per_purchase_unit.toString()),
+        conversionFactor: parseFloat(data.conversion_factor?.toString() || '1'),
+        pricePerPurchaseUnit: parseFloat(data.price_per_purchase_unit?.toString() || '0'),
         supplier: data.supplier || undefined,
         allowedBrands: data.allowed_brands || undefined,
-        category: data.category,
+        category: data.category || 'Insumos',
         subcategory: data.subcategory || undefined,
-        code: data.code,
-        materialType: data.material_type as Material['materialType'],
+        code: data.code || '',
+        materialType: (data.material_type || 'ingredient') as Material['materialType'],
         unitWeight: data.unit_weight ? parseFloat(data.unit_weight.toString()) : undefined,
-        isSellable: data.is_sellable
+        isSellable: data.is_sellable || false
       };
       
       setMaterials([...materials, newMaterial]);
@@ -190,6 +205,7 @@ const Materials = () => {
 
   const updateMaterial = async (updatedMaterial: Material) => {
     try {
+      console.log('Atualizando material:', updatedMaterial);
       const { error } = await supabase
         .from('materials')
         .update({
@@ -205,11 +221,14 @@ const Materials = () => {
           subcategory: updatedMaterial.subcategory,
           material_type: updatedMaterial.materialType,
           unit_weight: updatedMaterial.unitWeight,
-          is_sellable: updatedMaterial.materialType === 'finished_product' ? true : false
+          is_sellable: updatedMaterial.isSellable || false
         })
         .eq('id', updatedMaterial.id);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao atualizar material:', error);
+        throw error;
+      }
       
       setMaterials(materials.map(mat => 
         mat.id === updatedMaterial.id ? updatedMaterial : mat
@@ -533,20 +552,47 @@ const Materials = () => {
       )}
 
       {viewMode === 'cards' ? (
-        <MaterialsList 
-          materials={filteredMaterials} 
-          onEdit={startEditingMaterial}
-          onDelete={deleteMaterial}
-        />
+        <ErrorBoundary>
+          <MaterialsList 
+            materials={filteredMaterials} 
+            onEdit={startEditingMaterial}
+            onDelete={deleteMaterial}
+          />
+        </ErrorBoundary>
       ) : (
-        <MaterialsTable 
-          materials={filteredMaterials} 
-          onEdit={startEditingMaterial}
-          onDelete={deleteMaterial}
-          selectedMaterials={selectedMaterials}
-          onSelectMaterial={handleSelectMaterial}
-          onSelectAll={handleSelectAll}
-        />
+        <ErrorBoundary>
+          <MaterialsTable 
+            materials={filteredMaterials} 
+            onEdit={startEditingMaterial}
+            onDelete={deleteMaterial}
+            selectedMaterials={selectedMaterials}
+            onSelectMaterial={handleSelectMaterial}
+            onSelectAll={handleSelectAll}
+          />
+        </ErrorBoundary>
+      )}
+
+      {/* Formulário de Material */}
+      {showMaterialForm && (
+        <ErrorBoundary>
+          <MaterialForm
+            material={editingMaterial}
+            existingMaterials={materials}
+            onSubmit={handleMaterialSubmit}
+            onCancel={cancelMaterialForm}
+          />
+        </ErrorBoundary>
+      )}
+      {/* Formulário de Material */}
+      {showMaterialForm && (
+        <ErrorBoundary>
+          <MaterialForm
+            material={editingMaterial}
+            existingMaterials={materials}
+            onSubmit={handleMaterialSubmit}
+            onCancel={cancelMaterialForm}
+          />
+        </ErrorBoundary>
       )}
     </div>
   );
