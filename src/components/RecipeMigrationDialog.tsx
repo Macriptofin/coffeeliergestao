@@ -421,16 +421,35 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
           )}
 
           <div className="flex justify-between pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsOpen(false)}
-              disabled={migrating}
-            >
-              Cancelar
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsOpen(false)}
+                disabled={migrating || cleaning}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleCleanup}
+                disabled={migrating || cleaning || recipes.length === 0}
+                className="gap-2"
+              >
+                {cleaning ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Limpando...
+                  </>
+                ) : (
+                  <>
+                    🧹 Limpar Duplicatas
+                  </>
+                )}
+              </Button>
+            </div>
             <Button
               onClick={migrateRecipes}
-              disabled={migrating || recipes.length === 0}
+              disabled={migrating || cleaning || recipes.length === 0}
               className="gap-2"
             >
               {migrating ? (
