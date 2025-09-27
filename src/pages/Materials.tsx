@@ -22,10 +22,11 @@ export interface Material {
   pricePerPurchaseUnit: number;
   supplier?: string;
   allowedBrands?: string[];
-  category: 'Insumo' | 'Embalagem' | 'Produto Acabado' | 'Produto Composto';
+  category: 'Insumo' | 'Embalagem' | 'Produto Intermediário' | 'Produto Acabado' | 'Produto Composto';
   code: string;
-  materialType: 'ingredient' | 'packaging' | 'finished_product' | 'composite_product';
+  materialType: 'ingredient' | 'packaging' | 'intermediate_product' | 'finished_product' | 'composite_product';
   unitWeight?: number;
+  isSellable?: boolean;
 }
 
 const Materials = () => {
@@ -44,6 +45,7 @@ const Materials = () => {
     { value: "all", label: "Todas as Categorias", color: "default" },
     { value: "Insumo", label: "Insumos", color: "blue" },
     { value: "Embalagem", label: "Embalagens", color: "green" },
+    { value: "Produto Intermediário", label: "Produtos Intermediários", color: "amber" },
     { value: "Produto Acabado", label: "Produtos Acabados", color: "purple" },
     { value: "Produto Composto", label: "Produtos Compostos", color: "orange" }
   ];
@@ -108,7 +110,8 @@ const Materials = () => {
         category: item.category as Material['category'],
         code: item.code,
         materialType: item.material_type as Material['materialType'],
-        unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined
+        unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
+        isSellable: item.is_sellable
       }));
       
       setMaterials(formattedMaterials);
@@ -135,7 +138,8 @@ const Materials = () => {
           allowed_brands: material.allowedBrands,
           category: material.category,
           material_type: material.materialType,
-          unit_weight: material.unitWeight
+          unit_weight: material.unitWeight,
+          is_sellable: material.materialType === 'finished_product' ? true : false
         })
         .select()
         .single();
@@ -155,7 +159,8 @@ const Materials = () => {
         category: data.category as Material['category'],
         code: data.code,
         materialType: data.material_type as Material['materialType'],
-        unitWeight: data.unit_weight ? parseFloat(data.unit_weight.toString()) : undefined
+        unitWeight: data.unit_weight ? parseFloat(data.unit_weight.toString()) : undefined,
+        isSellable: data.is_sellable
       };
       
       setMaterials([...materials, newMaterial]);
@@ -182,7 +187,8 @@ const Materials = () => {
           allowed_brands: updatedMaterial.allowedBrands,
           category: updatedMaterial.category,
           material_type: updatedMaterial.materialType,
-          unit_weight: updatedMaterial.unitWeight
+          unit_weight: updatedMaterial.unitWeight,
+          is_sellable: updatedMaterial.materialType === 'finished_product' ? true : false
         })
         .eq('id', updatedMaterial.id);
       

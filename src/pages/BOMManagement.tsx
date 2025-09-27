@@ -55,25 +55,19 @@ const BOMManagement = () => {
 
   const loadFinishedProducts = async () => {
     try {
-      console.log('Carregando produtos acabados...');
       const { data, error } = await supabase
         .from('materials')
         .select(`
-          id, name, code, material_type, category, usage_unit,
+          id, name, code, material_type, category, usage_unit, is_sellable,
           recipes_bom (
             id,
             recipe_bom_items (id)
           )
         `)
-        .eq('material_type', 'finished_product')
+        .in('material_type', ['finished_product', 'intermediate_product'])
         .order('name');
 
-      if (error) {
-        console.error('Erro ao carregar materiais:', error);
-        throw error;
-      }
-
-      console.log('Dados carregados:', data);
+      if (error) throw error;
 
       const summary: BOMSummary[] = data.map((material: any) => ({
         material: {
@@ -166,9 +160,14 @@ const BOMManagement = () => {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">{item.material.name}</CardTitle>
-          <Badge variant="outline" className="text-xs">
-            {item.material.code}
-          </Badge>
+            <Badge variant="outline" className="text-xs">
+              {item.material.code}
+            </Badge>
+            {item.material.material_type === 'intermediate_product' && (
+              <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                Intermediário
+              </Badge>
+            )}
         </div>
         <CardDescription>{item.material.category}</CardDescription>
       </CardHeader>
@@ -259,7 +258,7 @@ const BOMManagement = () => {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="finished" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
-            Produtos Acabados
+            Produtos Acabados e Intermediários
           </TabsTrigger>
           <TabsTrigger value="composite" className="flex items-center gap-2">
             <Wrench className="h-4 w-4" />
@@ -274,7 +273,7 @@ const BOMManagement = () => {
         <TabsContent value="finished" className="mt-6">
           <div className="mb-4">
             <p className="text-muted-foreground">
-              Configure BOMs para produtos acabados que são produzidos a partir de ingredientes
+        `Produtos que requerem receita e processo de produção (incluindo receitas-base)`
             </p>
           </div>
 
@@ -284,10 +283,10 @@ const BOMManagement = () => {
                 <div className="text-center py-8">
                   <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">
-                    {searchTerm ? 'Nenhum produto encontrado' : 'Nenhum produto acabado cadastrado'}
+                    {searchTerm ? 'Nenhum produto encontrado' : 'Nenhum produto acabado ou intermediário cadastrado'}
                   </h3>
                   <p className="text-muted-foreground mb-4">
-                    {searchTerm ? 'Tente alterar os termos da pesquisa' : 'Cadastre produtos acabados na página de materiais primeiro'}
+                    {searchTerm ? 'Tente alterar os termos da pesquisa' : 'Cadastre produtos acabados ou intermediários na página de materiais primeiro'}
                   </p>
                   {!searchTerm && (
                     <Button onClick={() => window.location.href = '/materials'}>

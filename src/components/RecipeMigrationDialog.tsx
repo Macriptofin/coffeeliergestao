@@ -32,19 +32,30 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
         setCurrentRecipe(recipe.name);
         setProgress((i / recipes.length) * 100);
 
-        // 1. Criar material do tipo finished_product
+        // 1. Determinar se é produto intermediário ou acabado
+        // Lógica: receitas com nomes que indicam "base", "massa", "recheio" são intermediárias
+        const intermediaryKeywords = ['base', 'massa', 'recheio', 'cobertura', 'creme', 'molho', 'tempero'];
+        const isIntermediate = intermediaryKeywords.some(keyword => 
+          recipe.name.toLowerCase().includes(keyword)
+        ) || recipe.category.toLowerCase().includes('base');
+
+        const materialType = isIntermediate ? 'intermediate_product' : 'finished_product';
+        const category = isIntermediate ? 'Produto Intermediário' : 'Produto Acabado';
+
+        // 2. Criar material do tipo apropriado
         const { data: materialData, error: materialError } = await supabase
           .from('materials')
           .insert({
             name: recipe.name,
-            description: recipe.description || `Produto acabado baseado na receita ${recipe.name}`,
-            category: 'Produto Acabado',
-            material_type: 'finished_product',
+            description: recipe.description || `${isIntermediate ? 'Receita-base' : 'Produto acabado'} baseado na receita ${recipe.name}`,
+            category: category,
+            material_type: materialType,
             purchase_unit: recipe.yieldUnit || 'unidade',
             usage_unit: recipe.yieldUnit || 'unidade',
             conversion_factor: 1,
             price_per_purchase_unit: recipe.totalCost || 0,
-            unit_weight: recipe.totalWeight || 0
+            unit_weight: recipe.totalWeight || 0,
+            is_sellable: !isIntermediate // Intermediários não são vendáveis
           })
           .select()
           .single();
@@ -54,7 +65,7 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
           continue;
         }
 
-        // 2. Criar BOM para o produto acabado
+        // 3. Criar BOM para o produto (acabado ou intermediário)
         const { data: bomData, error: bomError } = await supabase
           .from('recipes_bom')
           .insert({
@@ -62,7 +73,7 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
             yield_quantity: recipe.yield,
             yield_unit: recipe.yieldUnit || 'unidade',
             waste_percentage: 0,
-            notes: `BOM migrado da receita "${recipe.name}". ${recipe.instructions ? 'Instruções: ' + recipe.instructions : ''}`
+            notes: `BOM migrado da receita "${recipe.name}". ${isIntermediate ? '[RECEITA-BASE] - ' : ''}${recipe.instructions ? 'Instruções: ' + recipe.instructions : ''}`
           })
           .select()
           .single();
@@ -72,7 +83,7 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
           continue;
         }
 
-        // 3. Migrar ingredientes da receita para itens do BOM
+        // 4. Migrar ingredientes da receita para itens do BOM
         if (recipe.ingredients && recipe.ingredients.length > 0) {
           const bomItems = recipe.ingredients.map((ingredient, index) => ({
             recipe_id: bomData.id,
@@ -125,8 +136,8 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
             Migrar Receitas para Fichas Técnicas BOM
           </DialogTitle>
           <DialogDescription>
-            Converta suas receitas em fichas técnicas BOM (Bill of Materials) para produtos acabados.
-            Esta ação criará um material e BOM correspondente para cada receita.
+            Converta suas receitas em fichas técnicas BOM. Receitas-base (massas, cremes, etc.) se tornarão Produtos Intermediários, 
+            enquanto produtos finais se tornarão Produtos Acabados. Intermediários não aparecerão nas vendas.
           </DialogDescription>
         </DialogHeader>
 
@@ -144,9 +155,9 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
                   <span className="text-sm font-medium text-blue-600">1</span>
                 </div>
                 <div>
-                  <div className="font-medium">Criar Materiais</div>
+                  <div className="font-medium">Classificar Automaticamente</div>
                   <div className="text-sm text-muted-foreground">
-                    Cada receita será convertida em um material do tipo "Produto Acabado"
+                    Receitas-base (massa, creme, base) → Produtos Intermediários (não vendáveis)
                   </div>
                 </div>
               </div>
@@ -183,19 +194,39 @@ export const RecipeMigrationDialog = ({ recipes, onMigrationComplete }: RecipeMi
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto">
-                {recipes.map((recipe) => (
-                  <div key={recipe.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">{recipe.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {recipe.category} • {recipe.yield} {recipe.yieldUnit || 'unidades'}
+                {recipes.map((recipe) => {
+                  // Determinar se é intermediário
+                  const intermediaryKeywords = ['base', 'massa', 'recheio', 'cobertura', 'creme', 'molho', 'tempero'];
+                  const isIntermediate = intermediaryKeywords.some(keyword => 
+                    recipe.name.toLowerCase().includes(keyword)
+                  ) || recipe.category.toLowerCase().includes('base');
+                  
+                  return (
+                    <div key={recipe.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">{recipe.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {recipe.category} • {recipe.yield} {recipe.yieldUnit || 'unidades'}
+                        </div>
+                        {isIntermediate && (
+                          <div className="text-xs text-amber-600 font-medium mt-1">
+                            → Será classificado como Produto Intermediário (não vendável)
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <Badge variant="outline" className="text-xs">
+                          {recipe.ingredients?.length || 0} ingredientes
+                        </Badge>
+                        {isIntermediate && (
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
+                            Intermediário
+                          </Badge>
+                        )}
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-xs">
-                      {recipe.ingredients?.length || 0} ingredientes
-                    </Badge>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

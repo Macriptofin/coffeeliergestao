@@ -45,6 +45,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   const categories = [
     { value: 'Insumo' as const, label: 'Insumos', description: 'Ingredientes básicos para produção', icon: Package },
     { value: 'Embalagem' as const, label: 'Embalagens', description: 'Materiais de embalagem e apresentação', icon: Package },
+    { value: 'Produto Intermediário' as const, label: 'Produtos Intermediários', description: 'Receitas-base reutilizáveis (não para venda)', icon: Tag },
     { value: 'Produto Acabado' as const, label: 'Produtos Acabados', description: 'Produtos finais prontos para venda', icon: Tag },
     { value: 'Produto Composto' as const, label: 'Produtos Compostos', description: 'Produtos feitos com outros materiais', icon: Tag }
   ];
@@ -52,6 +53,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   const materialTypes = [
     { value: 'ingredient' as const, label: 'Ingrediente' },
     { value: 'packaging' as const, label: 'Embalagem' },
+    { value: 'intermediate_product' as const, label: 'Produto Intermediário (Receita-base)' },
     { value: 'finished_product' as const, label: 'Produto Acabado' },
     { value: 'composite_product' as const, label: 'Produto Composto' }
   ];
