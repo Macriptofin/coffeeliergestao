@@ -2,12 +2,15 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Plus, Filter, Search } from "lucide-react";
+import { Plus, Filter, Search, Grid3X3, List, SortAsc } from "lucide-react";
 import { MaterialForm } from "@/components/MaterialForm";
 import { MaterialsList } from "@/components/MaterialsList";
+import { MaterialsTable } from "@/components/MaterialsTable";
+import { MaterialsActions } from "@/components/MaterialsActions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export interface Material {
   id: string;
@@ -33,6 +36,9 @@ const Materials = () => {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
+  const [supplierFilter, setSupplierFilter] = useState<string>("all");
 
   const categories = [
     { value: "all", label: "Todas as Categorias", color: "default" },
@@ -42,13 +48,15 @@ const Materials = () => {
     { value: "Produto Composto", label: "Produtos Compostos", color: "orange" }
   ];
 
+  const suppliers = [...new Set(materials.map(m => m.supplier).filter(Boolean))].sort();
+
   useEffect(() => {
     loadMaterials();
   }, []);
 
   useEffect(() => {
     filterMaterials();
-  }, [materials, selectedCategory, searchTerm]);
+  }, [materials, selectedCategory, searchTerm, supplierFilter]);
 
   const filterMaterials = () => {
     let filtered = materials;
@@ -56,6 +64,11 @@ const Materials = () => {
     // Filtrar por categoria
     if (selectedCategory !== "all") {
       filtered = filtered.filter(material => material.category === selectedCategory);
+    }
+    
+    // Filtrar por fornecedor
+    if (supplierFilter !== "all") {
+      filtered = filtered.filter(material => material.supplier === supplierFilter);
     }
     
     // Filtrar por termo de pesquisa
@@ -222,6 +235,40 @@ const Materials = () => {
     setShowMaterialForm(false);
   };
 
+  const handleSelectMaterial = (materialId: string, selected: boolean) => {
+    if (selected) {
+      setSelectedMaterials([...selectedMaterials, materialId]);
+    } else {
+      setSelectedMaterials(selectedMaterials.filter(id => id !== materialId));
+    }
+  };
+
+  const handleSelectAll = (selected: boolean) => {
+    if (selected) {
+      setSelectedMaterials(filteredMaterials.map(m => m.id));
+    } else {
+      setSelectedMaterials([]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      const { error } = await supabase
+        .from('materials')
+        .delete()
+        .in('id', selectedMaterials);
+      
+      if (error) throw error;
+      
+      setMaterials(materials.filter(mat => !selectedMaterials.includes(mat.id)));
+      setSelectedMaterials([]);
+      toast.success(`${selectedMaterials.length} materiais excluídos com sucesso!`);
+    } catch (error) {
+      console.error('Erro ao excluir materiais:', error);
+      toast.error('Erro ao excluir materiais');
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -264,36 +311,93 @@ const Materials = () => {
         </div>
       </div>
 
-      {/* Filtros */}
-      <div className="mb-6 flex flex-wrap gap-4 items-center">
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Filtrar por categoria:</span>
+      {/* Controles de Visualização e Filtros */}
+      <div className="mb-6 space-y-4">
+        {/* Alternância de Visualização */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value as 'cards' | 'table')}>
+              <ToggleGroupItem value="table" aria-label="Visualização em lista">
+                <List className="h-4 w-4 mr-2" />
+                Lista
+              </ToggleGroupItem>
+              <ToggleGroupItem value="cards" aria-label="Visualização em blocos">
+                <Grid3X3 className="h-4 w-4 mr-2" />
+                Blocos
+              </ToggleGroupItem>
+            </ToggleGroup>
+            
+            <Badge variant="outline" className="ml-2">
+              {filteredMaterials.length} de {materials.length} materiais
+            </Badge>
+          </div>
         </div>
-        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((category) => (
-              <SelectItem key={category.value} value={category.value}>
-                <div className="flex items-center gap-2">
-                  <Badge variant={category.color as any} className="text-xs">
-                    {category.label}
-                  </Badge>
-                  {category.value === "all" && `(${materials.length})`}
-                  {category.value !== "all" && `(${materials.filter(m => m.category === category.value).length})`}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {selectedCategory !== "all" && (
-          <Badge variant={selectedCategoryData?.color as any} className="ml-2">
-            {filteredMaterials.length} {selectedCategoryData?.label}
-          </Badge>
-        )}
+
+        {/* Filtros Avançados */}
+        <div className="flex flex-wrap gap-4 items-center">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Filtros:</span>
+          </div>
+          
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Categoria" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((category) => (
+                <SelectItem key={category.value} value={category.value}>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={category.color as any} className="text-xs">
+                      {category.label}
+                    </Badge>
+                    {category.value === "all" && `(${materials.length})`}
+                    {category.value !== "all" && `(${materials.filter(m => m.category === category.value).length})`}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Fornecedor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Fornecedores ({materials.length})</SelectItem>
+              {suppliers.map((supplier) => (
+                <SelectItem key={supplier} value={supplier}>
+                  {supplier} ({materials.filter(m => m.supplier === supplier).length})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(selectedCategory !== "all" || supplierFilter !== "all") && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                setSelectedCategory("all");
+                setSupplierFilter("all");
+              }}
+            >
+              Limpar Filtros
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Ações em Massa */}
+      {viewMode === 'table' && (
+        <div className="mb-4">
+          <MaterialsActions 
+            selectedCount={selectedMaterials.length}
+            onBulkDelete={handleBulkDelete}
+            onClearSelection={() => setSelectedMaterials([])}
+          />
+        </div>
+      )}
 
       {showMaterialForm && (
         <div className="mb-8">
@@ -306,11 +410,22 @@ const Materials = () => {
         </div>
       )}
 
-      <MaterialsList 
-        materials={filteredMaterials} 
-        onEdit={startEditingMaterial}
-        onDelete={deleteMaterial}
-      />
+      {viewMode === 'cards' ? (
+        <MaterialsList 
+          materials={filteredMaterials} 
+          onEdit={startEditingMaterial}
+          onDelete={deleteMaterial}
+        />
+      ) : (
+        <MaterialsTable 
+          materials={filteredMaterials} 
+          onEdit={startEditingMaterial}
+          onDelete={deleteMaterial}
+          selectedMaterials={selectedMaterials}
+          onSelectMaterial={handleSelectMaterial}
+          onSelectAll={handleSelectAll}
+        />
+      )}
     </div>
   );
 };
