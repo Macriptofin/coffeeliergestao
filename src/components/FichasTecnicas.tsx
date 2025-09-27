@@ -215,31 +215,11 @@ const FichasTecnicas = () => {
   const deleteSingleBOM = (materialId: string) => deleteBOMsForMaterials([materialId]);
 
   const getFinishedProducts = () => {
-    let products = materials.filter(m => m.materialType === 'finished_product');
-    
-    // Se a flag FF_HIDE_LEGACY_RECIPES estiver ativa ou showOnlyWithBOM for true,
-    // filtra apenas produtos que têm BOM configurado
-    if (showOnlyWithBOM) {
-      // Aqui precisaríamos do estado do BOM de cada material.
-      // Por simplicidade, vamos usar a informação que já temos do useMaterialBOM hook
-      // que é usado no ProductCard. Mas isso pode ser otimizado posteriormente.
-      return products; // Por enquanto retorna todos, pois a lógica do BOM está no ProductCard
-    }
-    
-    return products;
+    return materials.filter(m => m.materialType === 'finished_product');
   };
 
   const getCompositeProducts = () => {
-    let products = materials.filter(m => m.materialType === 'composite_product');
-    
-    // Se a flag FF_HIDE_LEGACY_RECIPES estiver ativa ou showOnlyWithBOM for true,
-    // filtra apenas produtos que têm BOM configurado
-    if (showOnlyWithBOM) {
-      // Por enquanto retorna todos, pois a lógica do BOM está no ProductCard
-      return products;
-    }
-    
-    return products;
+    return materials.filter(m => m.materialType === 'composite_product');
   };
 
   const exportTechnicalSheetsToCSV = async () => {
