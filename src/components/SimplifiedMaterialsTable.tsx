@@ -6,6 +6,7 @@ import { Package, Tag, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import type { Material } from "@/types";
 import { getSubcategoryByValue } from "@/lib/material-categories";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
+import { getCategoryStyles, getCategoryIconStyle } from "@/lib/category-colors";
 
 interface SimplifiedMaterialsTableProps {
   materials: Material[];
@@ -63,27 +64,19 @@ export const SimplifiedMaterialsTable = ({
   };
 
   const getCategoryIcon = (category: Material['category']) => {
+    const iconClass = getCategoryIconStyle(category);
     switch (category) {
       case 'Insumo':
       case 'Embalagem':
-        return <Package className="h-4 w-4 mr-1" />;
+        return <Package className={`h-4 w-4 mr-1 ${iconClass}`} />;
       case 'Produto Acabado':
       case 'Produto Composto':
-        return <Tag className="h-4 w-4 mr-1" />;
+        return <Tag className={`h-4 w-4 mr-1 ${iconClass}`} />;
       default:
-        return <Package className="h-4 w-4 mr-1" />;
+        return <Package className={`h-4 w-4 mr-1 ${iconClass}`} />;
     }
   };
 
-  const getCategoryColor = (category: Material['category']) => {
-    switch (category) {
-      case 'Insumo': return 'blue';
-      case 'Embalagem': return 'green';
-      case 'Produto Acabado': return 'purple';
-      case 'Produto Composto': return 'orange';
-      default: return 'default';
-    }
-  };
 
   const allSelected = materials.length > 0 && selectedMaterials.length === materials.length;
   const someSelected = selectedMaterials.length > 0 && selectedMaterials.length < materials.length;
@@ -211,8 +204,7 @@ export const SimplifiedMaterialsTable = ({
               </TableCell>
               <TableCell>
                 <Badge 
-                  variant={getCategoryColor(material.category) as any}
-                  className="text-xs flex items-center w-fit"
+                  className={`text-xs flex items-center w-fit ${getCategoryStyles(material.category, 'primary')}`}
                 >
                   {getCategoryIcon(material.category)}
                   {material.category}
@@ -220,7 +212,7 @@ export const SimplifiedMaterialsTable = ({
               </TableCell>
               <TableCell className="text-sm">
                 {material.subcategory ? (
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge className={`text-xs ${getCategoryStyles(material.category, 'secondary')}`}>
                     {getSubcategoryByValue(material.category, material.subcategory)?.label || material.subcategory}
                   </Badge>
                 ) : (

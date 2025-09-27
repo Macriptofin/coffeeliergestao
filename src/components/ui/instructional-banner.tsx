@@ -16,13 +16,13 @@ export const InstructionalBanner = ({
   className = "" 
 }: InstructionalBannerProps) => {
   return (
-    <Alert className={`bg-blue-50 border-blue-200 ${className}`}>
+    <Alert className={`bg-green-50 border-green-200 ${className}`}>
       <div className="flex items-start justify-between w-full">
         <div className="flex items-start space-x-3 flex-1">
-          <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <Info className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
-            <h3 className="text-sm font-semibold text-blue-900 mb-1">{title}</h3>
-            <AlertDescription className="text-blue-800 text-sm leading-relaxed">
+            <h3 className="text-sm font-semibold text-gray-800 mb-1">{title}</h3>
+            <AlertDescription className="text-gray-700 text-sm leading-relaxed">
               {description.map((line, index) => (
                 <div key={index} className={index > 0 ? "mt-1" : ""}>
                   {line}
@@ -37,7 +37,7 @@ export const InstructionalBanner = ({
             variant="outline"
             size="sm"
             onClick={onManualClick}
-            className="ml-4 border-blue-300 text-blue-700 hover:bg-blue-100 flex-shrink-0"
+            className="ml-4 border-green-300 text-green-700 hover:bg-green-100 flex-shrink-0"
           >
             <BookOpen className="h-4 w-4 mr-2" />
             📘 Manual Completo

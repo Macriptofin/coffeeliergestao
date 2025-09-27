@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Download, Package, Edit } from "lucide-react";
+import { Plus, Search, Download, Edit } from "lucide-react";
 import { MaterialForm } from "@/components/MaterialForm";
 import { SimplifiedMaterialsTable } from "@/components/SimplifiedMaterialsTable";
 import { MaterialEditor } from "@/components/MaterialEditor";
@@ -478,7 +478,7 @@ const Materials = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-6 py-8">
         <div className="flex justify-center items-center py-12">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
@@ -489,87 +489,14 @@ const Materials = () => {
     );
   }
 
-  // Mostrar estado de erro se não conseguiu carregar materiais
-  if (!loading && materials.length === 0 && !showMaterialForm) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Gestão de Materiais</h1>
-            <p className="text-muted-foreground">Cadastre e gerencie todos os materiais da sua confeitaria</p>
-          </div>
-          <Button 
-            onClick={() => setShowMaterialForm(true)}
-            className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Material
-          </Button>
-        </div>
-        
-        <div className="text-center py-12">
-          <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-muted-foreground mb-2">Nenhum material encontrado</h3>
-          <p className="text-muted-foreground mb-4">Clique em "Novo Material" para começar ou recarregue a página</p>
-          <Button onClick={loadMaterials} variant="outline">
-            Recarregar
-          </Button>
-        </div>
-
-        {/* Material Form Modal */}
-        {showMaterialForm && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-background rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <MaterialForm
-                material={editingMaterial}
-                existingMaterials={materials}
-                onSubmit={handleMaterialSubmit}
-                onCancel={cancelMaterialForm}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gradient-subtle">
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-6 py-8">
           <div className="flex flex-col gap-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-              <div>
-                <h1 className="text-3xl font-bold mb-2">Gestão de Materiais</h1>
-                <p className="text-muted-foreground">Cadastre e gerencie todos os materiais da sua confeitaria</p>
-              </div>
-              <div className="flex flex-wrap gap-2 items-center">
-                <Button 
-                  variant="outline"
-                  onClick={handleEditSelected}
-                  disabled={selectedMaterials.length !== 1}
-                  className="shadow-soft"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Editar Material
-                </Button>
-                <Button 
-                  onClick={() => setShowMaterialForm(true)}
-                  className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Material
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={exportMaterialsToCSV}
-                  className="shadow-soft"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Exportar CSV
-                </Button>
-              </div>
+            {/* Page Title */}
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Gestão de Materiais</h1>
             </div>
 
             {/* Instructional Banner */}
@@ -582,8 +509,36 @@ const Materials = () => {
                 "Para dúvidas, consulte o manual completo."
               ]}
               onManualClick={handleManualClick}
-              className="mb-6"
             />
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3 items-center justify-start">
+              <Button 
+                onClick={() => setShowMaterialForm(true)}
+                className="bg-green-600 hover:bg-green-700 text-white shadow-sm"
+                size="default"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                + Novo Material
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={handleEditSelected}
+                disabled={selectedMaterials.length !== 1}
+                className="border-green-600 text-green-700 hover:bg-green-50"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Editar Material
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={exportMaterialsToCSV}
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exportar CSV
+              </Button>
+            </div>
 
             {/* Filters */}
             <div className="flex flex-col gap-4">
@@ -595,7 +550,7 @@ const Materials = () => {
                       placeholder="Buscar por nome, código, descrição..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 h-10"
                     />
                   </div>
                 </div>
@@ -604,7 +559,7 @@ const Materials = () => {
               <div className="flex flex-col lg:flex-row gap-4">
                 <div className="flex-1">
                   <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-                    <SelectTrigger className="bg-card h-10">
+                    <SelectTrigger className="bg-card h-10 flex items-center">
                       <SelectValue placeholder="Todas as Categorias" />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border z-50">
@@ -626,7 +581,7 @@ const Materials = () => {
                 {selectedCategory !== "all" && availableSubcategories.length > 0 && (
                   <div className="flex-1">
                     <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
-                      <SelectTrigger className="bg-card h-10">
+                      <SelectTrigger className="bg-card h-10 flex items-center">
                         <SelectValue placeholder="Todas as Subcategorias" />
                       </SelectTrigger>
                       <SelectContent className="bg-card border-border z-50">
@@ -648,7 +603,7 @@ const Materials = () => {
                 {/* Supplier Filter */}
                 <div className="flex-1">
                   <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-                    <SelectTrigger className="bg-card h-10">
+                    <SelectTrigger className="bg-card h-10 flex items-center">
                       <SelectValue placeholder="Todos os Fornecedores" />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border z-50">
