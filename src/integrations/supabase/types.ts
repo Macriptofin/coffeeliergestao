@@ -2246,6 +2246,14 @@ export type Database = {
         Args: { p_attempt_type: string; p_email: string; p_ip_address: string }
         Returns: Json
       }
+      compute_event_item_planned_qty: {
+        Args: { p_event_table_id: string; p_item_id?: string }
+        Returns: {
+          material_id: string
+          planned_qty: number
+          planned_unit: string
+        }[]
+      }
       create_account_lockout: {
         Args: {
           p_email: string
@@ -2276,6 +2284,25 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      execute_event_production: {
+        Args: { p_event_table_id: string }
+        Returns: undefined
+      }
+      explode_event_requirements: {
+        Args: { p_event_table_id: string; p_explode_components?: boolean }
+        Returns: {
+          material_id: string
+          material_name: string
+          material_type: string
+          planned_qty: number
+          planned_unit: string
+          source_kind: string
+        }[]
+      }
+      generate_event_production: {
+        Args: { p_event_table_id: string; p_target_table?: string }
+        Returns: string
       }
       get_masked_client_data: {
         Args: Record<PropertyKey, never>
