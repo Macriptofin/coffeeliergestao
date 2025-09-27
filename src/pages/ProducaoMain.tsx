@@ -36,6 +36,13 @@ const ProducaoMain = () => {
       color: "bg-purple-500"
     },
     {
+      title: "BOM & Produção",
+      description: "Configuração de BOMs e execução de produção/montagem",
+      icon: Settings,
+      href: "/producao/bom",
+      color: "bg-indigo-500"
+    },
+    {
       title: "Relatórios de Produção",
       description: "Performance, eficiência e análises de produção",
       icon: FileText,
