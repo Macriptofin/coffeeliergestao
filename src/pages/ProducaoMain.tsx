@@ -6,7 +6,7 @@ import { useFeatureFlags, logFeatureFlagEvent } from "@/hooks/useFeatureFlags";
 
 const ProducaoMain = () => {
   const navigate = useNavigate();
-  const { flags } = useFeatureFlags();
+  const { flags, loading } = useFeatureFlags();
 
   // Legacy modules (shown when flags are OFF)
   const legacyModules = [
@@ -111,6 +111,23 @@ const ProducaoMain = () => {
     logFeatureFlagEvent('nav.module.click', module.href);
     navigate(module.href);
   };
+
+  // Mostrar loading enquanto os feature flags carregam para evitar "pulo" na interface
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Gestão de Produção</h1>
+          <p className="text-muted-foreground">
+            Controle completo da produção unificada: produtos, receitas, custos e execução
+          </p>
+        </div>
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6">
