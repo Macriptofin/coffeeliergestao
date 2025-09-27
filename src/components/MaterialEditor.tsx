@@ -30,6 +30,7 @@ import { materialCategories, getSubcategoriesByCategory } from "@/lib/material-c
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { HelpTooltip } from "@/components/ui/help-tooltip";
 
 interface MaterialEditorProps {
   material?: Material;
@@ -306,7 +307,10 @@ export const MaterialEditor = ({
 
               {/* Categoria */}
               <div className="space-y-3">
-                <Label>Categoria do Material *</Label>
+                <Label className="flex items-center">
+                  Categoria do Material *
+                  <HelpTooltip content='Classifique corretamente o material. Exemplo: Categoria "Insumos" → Subcategoria "Condimentos e Temperos".' />
+                </Label>
                 <Select value={formData.category} onValueChange={handleCategoryChange}>
                   <SelectTrigger>
                     <SelectValue />
@@ -373,7 +377,10 @@ export const MaterialEditor = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Unidade de Compra *</Label>
+                  <Label className="flex items-center">
+                    Unidade de Compra *
+                    <HelpTooltip content="Unidade na qual o material é adquirido (ex: kg, pacote, caixa)." />
+                  </Label>
                   <Select value={formData.purchaseUnit} onValueChange={(value) => setFormData({ ...formData, purchaseUnit: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Como você compra?" />
@@ -389,7 +396,10 @@ export const MaterialEditor = ({
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Unidade de Uso *</Label>
+                  <Label className="flex items-center">
+                    Unidade de Uso *
+                    <HelpTooltip content="Unidade utilizada na produção/receita (ex: g, ml, unidade)." />
+                  </Label>
                   <Select value={formData.usageUnit} onValueChange={(value) => setFormData({ ...formData, usageUnit: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Como você usa?" />
@@ -406,7 +416,10 @@ export const MaterialEditor = ({
               </div>
 
               <div className="space-y-2">
-                <Label>Fator de Conversão *</Label>
+                <Label className="flex items-center">
+                  Fator de Conversão *
+                  <HelpTooltip content="Relação entre a unidade de compra e a unidade de uso. Exemplo: 1kg = 1000g → fator de conversão = 1000." />
+                </Label>
                 <Input
                   type="number"
                   step="0.01"

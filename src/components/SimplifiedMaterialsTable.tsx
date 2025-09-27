@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Package, Tag, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import type { Material } from "@/types";
 import { getSubcategoryByValue } from "@/lib/material-categories";
+import { HelpTooltip } from "@/components/ui/help-tooltip";
 
 interface SimplifiedMaterialsTableProps {
   materials: Material[];
@@ -115,6 +116,7 @@ export const SimplifiedMaterialsTable = ({
             >
               <div className="flex items-center gap-1">
                 Código
+                <HelpTooltip content="Código interno do material, gerado automaticamente. Utilize sempre este código como referência." />
                 {getSortIcon('code')}
               </div>
             </TableHead>
@@ -133,6 +135,7 @@ export const SimplifiedMaterialsTable = ({
             >
               <div className="flex items-center gap-1">
                 Categoria
+                <HelpTooltip content='Classifique corretamente o material. Exemplo: Categoria "Insumos" → Subcategoria "Condimentos e Temperos".' />
                 {getSortIcon('category')}
               </div>
             </TableHead>
@@ -142,6 +145,7 @@ export const SimplifiedMaterialsTable = ({
             >
               <div className="flex items-center gap-1">
                 Subcategoria
+                <HelpTooltip content="Subcategoria específica dentro da categoria principal para melhor organização dos materiais." />
                 {getSortIcon('subcategory')}
               </div>
             </TableHead>
@@ -151,6 +155,7 @@ export const SimplifiedMaterialsTable = ({
             >
               <div className="flex items-center gap-1">
                 Unid. Compra
+                <HelpTooltip content="Unidade na qual o material é adquirido (ex: kg, pacote, caixa)." />
                 {getSortIcon('purchaseUnit')}
               </div>
             </TableHead>
@@ -160,6 +165,7 @@ export const SimplifiedMaterialsTable = ({
             >
               <div className="flex items-center gap-1">
                 Unid. Uso
+                <HelpTooltip content="Unidade utilizada na produção/receita (ex: g, ml, unidade)." />
                 {getSortIcon('usageUnit')}
               </div>
             </TableHead>
@@ -169,10 +175,16 @@ export const SimplifiedMaterialsTable = ({
             >
               <div className="flex items-center gap-1">
                 Fator Conv.
+                <HelpTooltip content="Relação entre a unidade de compra e a unidade de uso. Exemplo: 1kg = 1000g → fator de conversão = 1000." />
                 {getSortIcon('conversionFactor')}
               </div>
             </TableHead>
-            <TableHead>Quantidade Estoque</TableHead>
+            <TableHead>
+              <div className="flex items-center gap-1">
+                Quantidade Estoque
+                <HelpTooltip content="Mostra o saldo atual do material. O controle detalhado de valores e preços está disponível no módulo de Estoque." />
+              </div>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

@@ -8,6 +8,7 @@ import { MaterialForm } from "@/components/MaterialForm";
 import { SimplifiedMaterialsTable } from "@/components/SimplifiedMaterialsTable";
 import { MaterialEditor } from "@/components/MaterialEditor";
 import { MaterialsActions } from "@/components/MaterialsActions";
+import { InstructionalBanner } from "@/components/ui/instructional-banner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -372,6 +373,11 @@ const Materials = () => {
     }
   };
 
+  const handleManualClick = () => {
+    // Placeholder para futura documentação
+    toast.info("Manual completo em desenvolvimento. Em breve estará disponível!");
+  };
+
   const handleSelectMaterial = (materialId: string, selected: boolean) => {
     if (selected) {
       setSelectedMaterials([...selectedMaterials, materialId]);
@@ -565,6 +571,19 @@ const Materials = () => {
                 </Button>
               </div>
             </div>
+
+            {/* Instructional Banner */}
+            <InstructionalBanner
+              title="Gestão de Materiais"
+              description={[
+                "Aqui você encontra todos os materiais cadastrados no sistema.",
+                "Antes de criar um novo material, utilize os filtros ou a busca para verificar se ele já existe, evitando duplicidades.",
+                "Cada material deve estar corretamente classificado em Categoria e Subcategoria.",
+                "Para dúvidas, consulte o manual completo."
+              ]}
+              onManualClick={handleManualClick}
+              className="mb-6"
+            />
 
             {/* Filters */}
             <div className="flex flex-col gap-4">

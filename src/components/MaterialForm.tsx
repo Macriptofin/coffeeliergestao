@@ -11,6 +11,7 @@ import { X, AlertTriangle, Package, Tag, Wrench, Building } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Material } from "@/types";
 import { materialCategories, getSubcategoriesByCategory } from "@/lib/material-categories";
+import { HelpTooltip } from "@/components/ui/help-tooltip";
 
 interface MaterialFormProps {
   material?: Material | null;
@@ -165,7 +166,10 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
           
           {/* Categoria */}
           <div className="space-y-3">
-            <Label htmlFor="category">Categoria do Material *</Label>
+            <Label htmlFor="category" className="flex items-center">
+              Categoria do Material *
+              <HelpTooltip content='Classifique corretamente o material. Exemplo: Categoria "Insumos" → Subcategoria "Condimentos e Temperos".' />
+            </Label>
             <Select value={formData.category} onValueChange={handleCategoryChange}>
               <SelectTrigger className="bg-card">
                 <SelectValue />
@@ -245,7 +249,10 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="purchaseUnit">Unidade de Compra *</Label>
+              <Label htmlFor="purchaseUnit" className="flex items-center">
+                Unidade de Compra *
+                <HelpTooltip content="Unidade na qual o material é adquirido (ex: kg, pacote, caixa)." />
+              </Label>
               <Select value={formData.purchaseUnit} onValueChange={(value) => setFormData({ ...formData, purchaseUnit: value })}>
                 <SelectTrigger className="bg-card">
                   <SelectValue placeholder="Como você compra?" />
@@ -261,7 +268,10 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="usageUnit">Unidade de Uso *</Label>
+              <Label htmlFor="usageUnit" className="flex items-center">
+                Unidade de Uso *
+                <HelpTooltip content="Unidade utilizada na produção/receita (ex: g, ml, unidade)." />
+              </Label>
               <Select value={formData.usageUnit} onValueChange={(value) => setFormData({ ...formData, usageUnit: value })}>
                 <SelectTrigger className="bg-card">
                   <SelectValue placeholder="Como você usa?" />
@@ -279,7 +289,10 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="conversionFactor">Fator de Conversão *</Label>
+              <Label htmlFor="conversionFactor" className="flex items-center">
+                Fator de Conversão *
+                <HelpTooltip content="Relação entre a unidade de compra e a unidade de uso. Exemplo: 1kg = 1000g → fator de conversão = 1000." />
+              </Label>
               <Input
                 id="conversionFactor"
                 type="number"
