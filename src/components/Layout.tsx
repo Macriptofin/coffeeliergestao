@@ -62,8 +62,8 @@ if (!session || !user) {
       <div className="min-h-screen bg-gradient-subtle">
         <SecurityHeader />
       {/* Header */}
-      <div className="bg-gradient-primary text-primary-foreground shadow-warm relative z-50">
-        <div className="max-w-full px-6 py-4">
+      <div className="bg-gradient-primary text-primary-foreground shadow-warm fixed top-0 left-0 right-0 z-50">
+        <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button
@@ -96,9 +96,9 @@ if (!session || !user) {
         </div>
       </div>
 
-      <div className="flex">
+      <div className="flex pt-20"> {/* Add padding-top for fixed header */}
         {/* Desktop Sidebar */}
-        <div className="hidden lg:block">
+        <div className="hidden lg:block fixed left-0 top-20 h-[calc(100vh-5rem)] bg-card border-r z-40">
           <Sidebar />
         </div>
 
@@ -126,7 +126,7 @@ if (!session || !user) {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 min-h-[calc(100vh-120px)]">
+        <main className="flex-1 lg:ml-64 min-h-[calc(100vh-5rem)]"> {/* Add left margin for fixed sidebar */}
           <Outlet />
         </main>
       </div>
