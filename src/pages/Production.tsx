@@ -15,7 +15,10 @@ const Production = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadData();
+    loadData().then(() => {
+      console.log('Dados carregados - recipes.length:', recipes.length);
+      console.log('Receitas carregadas:', recipes);
+    });
   }, []);
 
   const loadData = async () => {
@@ -52,6 +55,7 @@ const Production = () => {
   };
 
   const loadRecipes = async () => {
+    console.log('Carregando receitas...');
     const { data: recipesData, error: recipesError } = await supabase
       .from('recipes')
       .select(`
@@ -63,7 +67,12 @@ const Production = () => {
       `)
       .order('name');
     
-    if (recipesError) throw recipesError;
+    if (recipesError) {
+      console.error('Erro ao carregar receitas:', recipesError);
+      throw recipesError;
+    }
+    
+    console.log('Dados de receitas carregados:', recipesData);
     
     const formattedRecipes = recipesData.map(item => ({
       id: item.id,
@@ -84,6 +93,9 @@ const Production = () => {
         quantity: parseFloat(ri.quantity.toString())
       }))
     }));
+    
+    console.log('Receitas formatadas:', formattedRecipes);
+    console.log('Número de receitas:', formattedRecipes.length);
     
     setRecipes(formattedRecipes);
   };
@@ -106,14 +118,16 @@ const Production = () => {
           <p className="text-muted-foreground">Gerencie as ordens de produção da sua confeitaria</p>
         </div>
         <div className="flex gap-3">
+          {/* Forçando exibição do botão para debug */}
+          <RecipeMigrationDialog 
+            recipes={recipes}
+            onMigrationComplete={() => {
+              loadData();
+              toast.success('Receitas migradas! Acesse Fichas Técnicas para gerenciar os BOMs.');
+            }}
+          />
           {recipes.length > 0 && (
-            <RecipeMigrationDialog 
-              recipes={recipes}
-              onMigrationComplete={() => {
-                loadData();
-                toast.success('Receitas migradas! Acesse Fichas Técnicas para gerenciar os BOMs.');
-              }}
-            />
+            <span className="text-sm text-green-600">Receitas carregadas: {recipes.length}</span>
           )}
           <Button 
             onClick={() => setShowProductionOrder(true)}
