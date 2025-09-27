@@ -39,6 +39,7 @@ import ProductionReports from "./pages/production/ProductionReportsEnhanced";
 import BOMManagement from "./pages/BOMManagement";
 import EventTables from "./pages/EventTables";
 import FichasTecnicas from "./components/FichasTecnicas";
+import { MaterialEdit } from "./pages/MaterialEdit";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,7 @@ function App() {
               {/* Categoria Estoque */}
               <Route path="estoque" element={<Estoque />} />
               <Route path="ingredientes" element={<Materials />} />
+              <Route path="estoque/materiais/:id/editar" element={<MaterialEdit />} />
               <Route path="estoque/movimentacoes" element={<EstoqueMovimentacoes />} />
               <Route path="estoque/inventario-ajustes" element={<InventarioAjustes />} />
               <Route path="estoque/*" element={<Stock />} />

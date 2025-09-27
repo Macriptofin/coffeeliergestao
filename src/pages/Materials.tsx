@@ -1,31 +1,33 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Plus, Filter, Search, Grid3X3, List, SortAsc, Download, Package } from "lucide-react";
+import { Plus, Search, Download, Package, Edit } from "lucide-react";
 import { MaterialForm } from "@/components/MaterialForm";
-import { MaterialsList } from "@/components/MaterialsList";
-import { SafeMaterialsTable } from "@/components/SafeMaterialsTable";
-import { SafeMaterialForm } from "@/components/SafeMaterialForm";
+import { SimplifiedMaterialsTable } from "@/components/SimplifiedMaterialsTable";
+import { MaterialEditor } from "@/components/MaterialEditor";
 import { MaterialsActions } from "@/components/MaterialsActions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Material } from "@/types";
 import { materialCategories, getSubcategoriesByCategory } from "@/lib/material-categories";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Materials = () => {
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [filteredMaterials, setFilteredMaterials] = useState<Material[]>([]);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
+  const [showMaterialEditor, setShowMaterialEditor] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
 
@@ -107,19 +109,6 @@ const Materials = () => {
     try {
       console.log('🔄 Iniciando carregamento de materiais...');
       
-      // Primeiro, testar uma query simples
-      const { data: testData, error: testError } = await supabase
-        .from('materials')
-        .select('id, name')
-        .limit(1);
-      
-      if (testError) {
-        console.error('❌ Erro no teste de conexão:', testError);
-        throw new Error(`Erro de conexão: ${testError.message}`);
-      }
-      
-      console.log('✅ Teste de conexão OK, carregando dados completos...');
-      
       const { data, error } = await supabase
         .from('materials')
         .select(`
@@ -139,10 +128,10 @@ const Materials = () => {
           unit_weight,
           is_sellable
         `)
-        .order('code');
+        .order('name');
       
       if (error) {
-        console.error('❌ Erro na consulta completa:', error);
+        console.error('❌ Erro na consulta:', error);
         throw error;
       }
       
@@ -179,7 +168,6 @@ const Materials = () => {
           return formatted;
         } catch (itemError) {
           console.error(`❌ Erro ao processar item ${index + 1}:`, itemError, item);
-          // Retorna um material válido mesmo com erro
           return {
             id: item.id || `error-${Date.now()}-${index}`,
             name: item.name || 'Material com erro',
@@ -205,8 +193,6 @@ const Materials = () => {
       
     } catch (error) {
       console.error('💥 Erro crítico ao carregar materiais:', error);
-      
-      // Em caso de erro, definir lista vazia para evitar crash
       setMaterials([]);
       
       if (error instanceof Error) {
@@ -307,6 +293,7 @@ const Materials = () => {
       ));
       setEditingMaterial(null);
       setShowMaterialForm(false);
+      setShowMaterialEditor(false);
       toast.success('Material atualizado com sucesso!');
     } catch (error) {
       console.error('Erro ao atualizar material:', error);
@@ -341,12 +328,48 @@ const Materials = () => {
 
   const startEditingMaterial = (material: Material) => {
     setEditingMaterial(material);
-    setShowMaterialForm(true);
+    if (isMobile) {
+      navigate(`/estoque/materiais/${material.id}/editar`);
+    } else {
+      setShowMaterialEditor(true);
+    }
   };
 
   const cancelMaterialForm = () => {
     setEditingMaterial(null);
     setShowMaterialForm(false);
+    setShowMaterialEditor(false);
+  };
+
+  const handleEditSelected = () => {
+    if (selectedMaterials.length === 1) {
+      const material = materials.find(m => m.id === selectedMaterials[0]);
+      if (material) {
+        startEditingMaterial(material);
+      }
+    }
+  };
+
+  const getNavigationContext = () => {
+    if (!editingMaterial) return { prev: false, next: false };
+    
+    const currentIndex = filteredMaterials.findIndex(m => m.id === editingMaterial.id);
+    return {
+      prev: currentIndex > 0,
+      next: currentIndex < filteredMaterials.length - 1
+    };
+  };
+
+  const handleNavigateMaterial = (direction: 'prev' | 'next') => {
+    if (!editingMaterial) return;
+
+    const currentIndex = filteredMaterials.findIndex(m => m.id === editingMaterial.id);
+    let newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+    
+    if (newIndex >= 0 && newIndex < filteredMaterials.length) {
+      const newMaterial = filteredMaterials[newIndex];
+      setEditingMaterial(newMaterial);
+    }
   };
 
   const handleSelectMaterial = (materialId: string, selected: boolean) => {
@@ -482,236 +505,191 @@ const Materials = () => {
           <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium text-muted-foreground mb-2">Nenhum material encontrado</h3>
           <p className="text-muted-foreground mb-4">Clique em "Novo Material" para começar ou recarregue a página</p>
-          <Button onClick={() => window.location.reload()} variant="outline">
-            Recarregar Página
+          <Button onClick={loadMaterials} variant="outline">
+            Recarregar
           </Button>
         </div>
-        
-        {/* Formulário de Material */}
+
+        {/* Material Form Modal */}
         {showMaterialForm && (
-          <ErrorBoundary>
-            <SafeMaterialForm
-              material={editingMaterial}
-              existingMaterials={materials}
-              onSubmit={handleMaterialSubmit}
-              onCancel={cancelMaterialForm}
-            />
-          </ErrorBoundary>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-background rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <MaterialForm
+                material={editingMaterial}
+                existingMaterials={materials}
+                onSubmit={handleMaterialSubmit}
+                onCancel={cancelMaterialForm}
+              />
+            </div>
+          </div>
         )}
       </div>
     );
   }
 
-  const selectedCategoryData = categoriesWithCounts.find(cat => cat.value === selectedCategory);
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Gestão de Materiais</h1>
-          <p className="text-muted-foreground">Cadastre e gerencie todos os materiais da sua confeitaria</p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={exportMaterialsToCSV}
-            variant="outline"
-            disabled={loading || filteredMaterials.length === 0}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Exportar CSV
-          </Button>
-          <Button 
-            onClick={() => setShowMaterialForm(true)}
-            className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Material
-          </Button>
-        </div>
-      </div>
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gradient-subtle">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex flex-col gap-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">Gestão de Materiais</h1>
+                <p className="text-muted-foreground">Cadastre e gerencie todos os materiais da sua confeitaria</p>
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                <Button 
+                  variant="outline"
+                  onClick={handleEditSelected}
+                  disabled={selectedMaterials.length !== 1}
+                  className="shadow-soft"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar Material
+                </Button>
+                <Button 
+                  onClick={() => setShowMaterialForm(true)}
+                  className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Material
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={exportMaterialsToCSV}
+                  className="shadow-soft"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar CSV
+                </Button>
+              </div>
+            </div>
 
-      {/* Barra de Pesquisa */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Pesquisar por nome, código, descrição, fornecedor ou marca..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-card"
-          />
-        </div>
-      </div>
-
-      {/* Controles de Visualização e Filtros */}
-      <div className="mb-6 space-y-4">
-        {/* Alternância de Visualização */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value as 'cards' | 'table')}>
-              <ToggleGroupItem value="table" aria-label="Visualização em lista">
-                <List className="h-4 w-4 mr-2" />
-                Lista
-              </ToggleGroupItem>
-              <ToggleGroupItem value="cards" aria-label="Visualização em blocos">
-                <Grid3X3 className="h-4 w-4 mr-2" />
-                Blocos
-              </ToggleGroupItem>
-            </ToggleGroup>
-            
-            <Badge variant="outline" className="ml-2">
-              {filteredMaterials.length} de {materials.length} materiais
-            </Badge>
-          </div>
-        </div>
-
-        {/* Filtros Avançados */}
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Filtros:</span>
-          </div>
-          
-          <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-            <SelectTrigger className="w-48 h-10 flex items-center">
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent className="bg-background">
-              {categoriesWithCounts.map((category) => (
-                <SelectItem key={category.value} value={category.value} className="min-h-[40px]">
-                  <div className="flex items-center gap-2 py-2">
-                    <Badge variant={category.color as any} className="text-xs">
-                      {category.label}
-                    </Badge>
-                    <span>({category.count})</span>
+            {/* Filters */}
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por nome, código, descrição..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
                   </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Subcategory Filter */}
-          {availableSubcategories.length > 0 && selectedCategory !== "all" && (
-            <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
-              <SelectTrigger className="w-48 h-10 flex items-center">
-                <SelectValue placeholder="Subcategoria" />
-              </SelectTrigger>
-              <SelectContent className="bg-background">
-                {subcategoriesWithCounts.map((subcategory) => (
-                  <SelectItem key={subcategory.value} value={subcategory.value} className="min-h-[40px]">
-                    <div className="flex items-center gap-2 py-2">
-                      <span className="text-sm">{subcategory.label}</span>
-                      <span className="text-xs text-muted-foreground">({subcategory.count})</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-            <SelectTrigger className="w-48 h-10 flex items-center">
-              <SelectValue placeholder="Fornecedor" />
-            </SelectTrigger>
-            <SelectContent className="bg-background">
-              <SelectItem value="all" className="min-h-[40px]">
-                <div className="py-2">
-                  Todos os Fornecedores ({materials.length})
                 </div>
-              </SelectItem>
-              {suppliers.map((supplier) => (
-                <SelectItem key={supplier} value={supplier} className="min-h-[40px]">
-                  <div className="py-2">
-                    {supplier} ({materials.filter(m => m.supplier === supplier).length})
+              </div>
+
+              <div className="flex flex-col lg:flex-row gap-4">
+                <div className="flex-1">
+                  <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+                    <SelectTrigger className="bg-card h-10">
+                      <SelectValue placeholder="Todas as Categorias" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border z-50">
+                      {categoriesWithCounts.map((category) => (
+                        <SelectItem key={category.value} value={category.value}>
+                          <div className="flex items-center justify-between w-full">
+                            <span>{category.label}</span>
+                            <Badge variant="secondary" className="ml-2 text-xs">
+                              {category.count}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Subcategory Filter - Only show if category is selected and has subcategories */}
+                {selectedCategory !== "all" && availableSubcategories.length > 0 && (
+                  <div className="flex-1">
+                    <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
+                      <SelectTrigger className="bg-card h-10">
+                        <SelectValue placeholder="Todas as Subcategorias" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border z-50">
+                        {subcategoriesWithCounts.map((subcategory) => (
+                          <SelectItem key={subcategory.value} value={subcategory.value}>
+                            <div className="flex items-center justify-between w-full">
+                              <span>{subcategory.label}</span>
+                              <Badge variant="secondary" className="ml-2 text-xs">
+                                {subcategory.count}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                )}
 
-          {(selectedCategory !== "all" || selectedSubcategory !== "all" || supplierFilter !== "all") && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => {
-                setSelectedCategory("all");
-                setSelectedSubcategory("all");
-                setSupplierFilter("all");
-              }}
-            >
-              Limpar Filtros
-            </Button>
-          )}
+                {/* Supplier Filter */}
+                <div className="flex-1">
+                  <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                    <SelectTrigger className="bg-card h-10">
+                      <SelectValue placeholder="Todos os Fornecedores" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border z-50">
+                      <SelectItem value="all">Todos os Fornecedores</SelectItem>
+                      {suppliers.map((supplier) => (
+                        <SelectItem key={supplier} value={supplier}>
+                          {supplier}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <MaterialsActions 
+              selectedCount={selectedMaterials.length}
+              onBulkDelete={handleBulkDelete}
+              onClearSelection={() => setSelectedMaterials([])}
+            />
+
+            {/* Content */}
+            <ErrorBoundary>
+              <SimplifiedMaterialsTable
+                materials={filteredMaterials}
+                selectedMaterials={selectedMaterials}
+                onSelectMaterial={handleSelectMaterial}
+                onSelectAll={handleSelectAll}
+              />
+            </ErrorBoundary>
+          </div>
         </div>
+
+        {/* Material Form Modal */}
+        {showMaterialForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-background rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <MaterialForm
+                material={editingMaterial}
+                existingMaterials={materials}
+                onSubmit={handleMaterialSubmit}
+                onCancel={cancelMaterialForm}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Material Editor Modal/Page */}
+        <MaterialEditor
+          material={editingMaterial}
+          materials={filteredMaterials}
+          isOpen={showMaterialEditor}
+          onClose={cancelMaterialForm}
+          onSave={updateMaterial}
+          onNavigate={handleNavigateMaterial}
+          canNavigate={getNavigationContext()}
+        />
       </div>
-
-      {/* Ações em Massa */}
-      {viewMode === 'table' && (
-        <div className="mb-4">
-          <MaterialsActions 
-            selectedCount={selectedMaterials.length}
-            onBulkDelete={handleBulkDelete}
-            onClearSelection={() => setSelectedMaterials([])}
-          />
-        </div>
-      )}
-
-      {showMaterialForm && (
-        <div className="mb-8">
-          <MaterialForm 
-            material={editingMaterial}
-            existingMaterials={materials}
-            onSubmit={handleMaterialSubmit}
-            onCancel={cancelMaterialForm}
-          />
-        </div>
-      )}
-
-      {viewMode === 'cards' ? (
-        <ErrorBoundary>
-          <MaterialsList 
-            materials={filteredMaterials} 
-            onEdit={startEditingMaterial}
-            onDelete={deleteMaterial}
-          />
-        </ErrorBoundary>
-      ) : (
-        <ErrorBoundary>
-          <SafeMaterialsTable 
-            materials={filteredMaterials} 
-            onEdit={startEditingMaterial}
-            onDelete={deleteMaterial}
-            selectedMaterials={selectedMaterials}
-            onSelectMaterial={handleSelectMaterial}
-            onSelectAll={handleSelectAll}
-          />
-        </ErrorBoundary>
-      )}
-
-      {/* Formulário de Material */}
-      {showMaterialForm && (
-        <ErrorBoundary>
-          <SafeMaterialForm
-            material={editingMaterial}
-            existingMaterials={materials}
-            onSubmit={handleMaterialSubmit}
-            onCancel={cancelMaterialForm}
-          />
-        </ErrorBoundary>
-      )}
-      {/* Formulário de Material */}
-      {showMaterialForm && (
-        <ErrorBoundary>
-          <MaterialForm
-            material={editingMaterial}
-            existingMaterials={materials}
-            onSubmit={handleMaterialSubmit}
-            onCancel={cancelMaterialForm}
-          />
-        </ErrorBoundary>
-      )}
-    </div>
+    </ErrorBoundary>
   );
 };
 
