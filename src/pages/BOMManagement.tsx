@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Wrench, Plus, Search, Edit, Eye } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Package, Wrench, Plus, Search, Edit, Eye, Trash2 } from 'lucide-react';
 import { RecipeBOMForm } from '@/components/bom/RecipeBOMForm';
 import { CompositeBOMForm } from '@/components/bom/CompositeBOMForm';
 import { ProductionExecutor } from '@/components/bom/ProductionExecutor';
@@ -36,6 +37,8 @@ const BOMManagement = () => {
   const [showCompositeBOMForm, setShowCompositeBOMForm] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<BOMMaterial | null>(null);
   const [activeTab, setActiveTab] = useState('finished');
+  const [selectedFinished, setSelectedFinished] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -155,11 +158,72 @@ const BOMManagement = () => {
     setSelectedMaterial(null);
   };
 
+  // Seleção e exclusão de Fichas Técnicas (apenas produtos acabados/intermediários)
+  const toggleSelectFinished = (id: string) => {
+    setSelectedFinished(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const isSelectedFinished = (id: string) => selectedFinished.has(id);
+
+  const selectAllFinished = (ids: string[]) => {
+    setSelectedFinished(new Set(ids));
+  };
+
+  const clearSelectionFinished = () => setSelectedFinished(new Set());
+
+  const deleteBOMsForMaterials = async (materialIds: string[]) => {
+    try {
+      setDeleting(true);
+      if (materialIds.length === 0) return;
+      const { data: bomRows, error: bomErr } = await supabase
+        .from('recipes_bom')
+        .select('id, finished_material_id')
+        .in('finished_material_id', materialIds);
+      if (bomErr) throw bomErr;
+      const bomIds = (bomRows || []).map(r => r.id);
+      if (bomIds.length > 0) {
+        const { error: delItemsErr } = await supabase
+          .from('recipe_bom_items')
+          .delete()
+          .in('recipe_id', bomIds);
+        if (delItemsErr) throw delItemsErr;
+        const { error: delBomErr } = await supabase
+          .from('recipes_bom')
+          .delete()
+          .in('id', bomIds);
+        if (delBomErr) throw delBomErr;
+      }
+      toast.success('Fichas técnicas excluídas com sucesso');
+      clearSelectionFinished();
+      await loadFinishedProducts();
+    } catch (err) {
+      console.error('Erro ao excluir fichas técnicas:', err);
+      toast.error('Falha ao excluir fichas técnicas');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const deleteSingleBOM = (materialId: string) => deleteBOMsForMaterials([materialId]);
   const renderMaterialCard = (item: BOMSummary, type: 'finished' | 'composite') => (
     <Card key={item.material.id} className="shadow-soft">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{item.material.name}</CardTitle>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {type === 'finished' && (
+              <Checkbox
+                checked={isSelectedFinished(item.material.id)}
+                onCheckedChange={() => toggleSelectFinished(item.material.id)}
+                aria-label="Selecionar ficha técnica"
+              />
+            )}
+            <CardTitle className="text-lg">{item.material.name}</CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs">
               {item.material.code}
             </Badge>
@@ -168,6 +232,7 @@ const BOMManagement = () => {
                 Intermediário
               </Badge>
             )}
+          </div>
         </div>
         <CardDescription>{item.material.category}</CardDescription>
       </CardHeader>
@@ -211,8 +276,15 @@ const BOMManagement = () => {
             )}
           </Button>
           
+          {item.has_bom && type === 'finished' && (
+            <Button size="sm" variant="destructive" onClick={() => deleteSingleBOM(item.material.id)} disabled={deleting} className="flex-1">
+              <Trash2 className="h-3 w-3 mr-1" />
+              Eliminar Ficha
+            </Button>
+          )}
+
           {item.has_bom && (
-            <Button size="sm" variant="ghost">
+            <Button size="sm" variant="ghost" aria-label="Visualizar">
               <Eye className="h-3 w-3" />
             </Button>
           )}
@@ -275,6 +347,31 @@ const BOMManagement = () => {
             <p className="text-muted-foreground">
         `Produtos que requerem receita e processo de produção (incluindo receitas-base)`
             </p>
+          </div>
+
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm text-muted-foreground">
+              {selectedFinished.size} selecionada(s)
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => selectAllFinished(filterMaterials(finishedProducts).map(i => i.material.id))}
+                disabled={filterMaterials(finishedProducts).length === 0}
+              >
+                Selecionar todos
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => deleteBOMsForMaterials(Array.from(selectedFinished))}
+                disabled={deleting || selectedFinished.size === 0}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Excluir selecionadas
+              </Button>
+            </div>
           </div>
 
           {filterMaterials(finishedProducts).length === 0 ? (
