@@ -26,7 +26,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import type { Material } from "@/types";
-import { materialCategories, getSubcategoriesByCategory } from "@/lib/material-categories";
+import { useTaxonomy } from "@/hooks/useConfig";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -78,7 +78,16 @@ export const MaterialEditor = ({
   const isWeightUnit = weightUnits.includes(formData.usageUnit);
   const needsUnitWeight = !isWeightUnit && formData.usageUnit;
 
-  const availableSubcategories = getSubcategoriesByCategory(formData.category);
+const { loading: taxonomyLoading, getTermsByTaxonomy } = useTaxonomy();
+
+const materialCategories = getTermsByTaxonomy('material_category').filter(t => t.is_active && !t.parent_id);
+const allSubcategories = getTermsByTaxonomy('material_subcategory').filter(t => t.is_active);
+
+const selectedCategoryTerm = materialCategories.find(cat => cat.name === formData.category);
+const availableSubcategories = selectedCategoryTerm
+  ? allSubcategories.filter(sub => sub.parent_id === selectedCategoryTerm.id)
+  : [];
+
 
   const materialTypes = [
     { value: 'ingredient' as const, label: 'Ingrediente' },
@@ -311,17 +320,19 @@ export const MaterialEditor = ({
                   Categoria do Material *
                   <HelpTooltip content='Classifique corretamente o material. Exemplo: Categoria "Insumos" → Subcategoria "Condimentos e Temperos".' />
                 </Label>
-                <Select value={formData.category} onValueChange={handleCategoryChange}>
+                <Select value={formData.category} onValueChange={handleCategoryChange} disabled={taxonomyLoading}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="z-50">
                     {materialCategories.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>
+                      <SelectItem key={category.id} value={category.name}>
                         <div className="flex items-center gap-3">
                           <div>
-                            <div className="font-medium">{category.label}</div>
-                            <div className="text-xs text-muted-foreground">{category.description}</div>
+                            <div className="font-medium">{category.name}</div>
+                            {category.code && (
+                              <div className="text-xs text-muted-foreground">Código: {category.code}</div>
+                            )}
                           </div>
                         </div>
                       </SelectItem>
@@ -341,10 +352,12 @@ export const MaterialEditor = ({
                     <SelectContent className="z-50">
                       <SelectItem value="none">Nenhuma subcategoria</SelectItem>
                       {availableSubcategories.map((subcategory) => (
-                        <SelectItem key={subcategory.value} value={subcategory.value}>
+                        <SelectItem key={subcategory.id} value={subcategory.name}>
                           <div>
-                            <div className="font-medium">{subcategory.label}</div>
-                            <div className="text-xs text-muted-foreground">{subcategory.description}</div>
+                            <div className="font-medium">{subcategory.name}</div>
+                            {subcategory.code && (
+                              <div className="text-xs text-muted-foreground">Código: {subcategory.code}</div>
+                            )}
                           </div>
                         </SelectItem>
                       ))}
