@@ -87,7 +87,7 @@ export const MaterialEdit = () => {
 
   const handleSave = async (updatedMaterial: Material) => {
     try {
-      // Mapear categorias do taxonomia -> categorias canônicas aceitas pelo CHECK do banco
+      // Mapear nomes no plural para o singular canônico, mantendo taxonomia
       const categoryMap: Record<string, string> = {
         'Insumos': 'Insumo',
         'Insumo': 'Insumo',
@@ -99,11 +99,12 @@ export const MaterialEdit = () => {
         'Produto Acabado': 'Produto Acabado',
         'Produtos Compostos': 'Produto Composto',
         'Produto Composto': 'Produto Composto',
-        'Equipamentos': 'Equipamentos & Utensílios',
-        'Equipamentos & Utensílios': 'Equipamentos & Utensílios',
-        'Infraestrutura': 'Infraestrutura & Eventos',
-        'Operacional': 'Infraestrutura & Eventos',
+        // Mantém categorias de taxonomia como estão
+        'Equipamentos': 'Equipamentos',
+        'Utensílios': 'Utensílios',
+        'Têxteis & Apoios': 'Têxteis & Apoios',
         'Infraestrutura & Eventos': 'Infraestrutura & Eventos',
+        'Higiene e Limpeza': 'Higiene e Limpeza'
       };
 
       const canonicalCategory = categoryMap[updatedMaterial.category] || updatedMaterial.category;
