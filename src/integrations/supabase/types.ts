@@ -499,13 +499,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "composite_bom_items_component_material_id_fkey"
-            columns: ["component_material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["material_id"]
-          },
-          {
             foreignKeyName: "composite_bom_items_composite_id_fkey"
             columns: ["composite_id"]
             isOneToOne: false
@@ -557,13 +550,6 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "composites_bom_composite_material_id_fkey"
-            columns: ["composite_material_id"]
-            isOneToOne: true
-            referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -1160,13 +1146,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "event_production_order_items_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["material_id"]
-          },
-          {
             foreignKeyName: "event_production_order_items_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -1285,13 +1264,6 @@ export type Database = {
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "event_table_items_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["material_id"]
-          },
         ]
       }
       event_table_template_items: {
@@ -1349,13 +1321,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_table_template_items_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "event_table_template_items_template_id_fkey"
@@ -1673,13 +1638,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoice_items_ingredient_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "invoice_items_invoice_id_fkey"
@@ -2390,13 +2348,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "recipe_bom_items_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["material_id"]
-          },
-          {
             foreignKeyName: "recipe_bom_items_recipe_id_fkey"
             columns: ["recipe_id"]
             isOneToOne: false
@@ -2448,13 +2399,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "recipe_ingredients_ingredient_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "recipe_ingredients_recipe_id_fkey"
@@ -2578,13 +2522,6 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "recipes_bom_finished_material_id_fkey"
-            columns: ["finished_material_id"]
-            isOneToOne: true
-            referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -2746,13 +2683,6 @@ export type Database = {
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "stock_items_ingredient_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: true
-            referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["material_id"]
-          },
         ]
       }
       stock_movements: {
@@ -2813,13 +2743,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stock_movements_ingredient_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -2884,13 +2807,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "supplier_products_ingredient_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "supplier_products_supplier_id_fkey"
@@ -3188,37 +3104,6 @@ export type Database = {
           unit_cost: number | null
           updated_at: string | null
           usage_unit: string | null
-        }
-        Relationships: []
-      }
-      vw_diag_bom_inconsistencies: {
-        Row: {
-          bom_count: number | null
-          issue_type: string | null
-          material_id: string | null
-          material_name: string | null
-          material_type: string | null
-        }
-        Relationships: []
-      }
-      vw_diag_material_dupes: {
-        Row: {
-          candidate_key: string | null
-          duplicate_count: number | null
-          has_references_flags: boolean[] | null
-          has_stock_flags: boolean[] | null
-          material_ids: string[] | null
-          names: string[] | null
-        }
-        Relationships: []
-      }
-      vw_diag_orphans: {
-        Row: {
-          category: string | null
-          created_at: string | null
-          material_id: string | null
-          material_name: string | null
-          material_type: string | null
         }
         Relationships: []
       }
