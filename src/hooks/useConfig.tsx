@@ -215,7 +215,8 @@ export function useTaxonomy() {
   const getTermsByTaxonomy = (taxonomyKey: string) => {
     const taxonomy = definitions.find(d => d.key === taxonomyKey);
     if (!taxonomy) return [];
-    return terms.filter(t => t.taxonomy_id === taxonomy.id && !t.parent_id);
+    // Return all terms for the taxonomy (both roots and children). Callers can filter by parent_id as needed.
+    return terms.filter(t => t.taxonomy_id === taxonomy.id);
   };
 
   const createTerm = async (taxonomyKey: string, termData: Omit<TaxonomyTerm, 'id' | 'taxonomy_id' | 'created_at' | 'children'>) => {

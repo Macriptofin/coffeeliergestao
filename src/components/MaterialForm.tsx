@@ -58,14 +58,14 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   };
 
   // Get dynamic categories and subcategories from taxonomy
-  const materialCategories = getTermsByTaxonomy('material_category').filter(term => term.is_active);
+  const materialCategories = getTermsByTaxonomy('material_category').filter(term => term.is_active && !term.parent_id);
   const allSubcategories = getTermsByTaxonomy('material_subcategory').filter(term => term.is_active);
   
   // Get available subcategories for selected category
   const selectedCategoryTerm = materialCategories.find(cat => cat.name === formData.category);
   const availableSubcategories = selectedCategoryTerm 
     ? allSubcategories.filter(sub => sub.parent_id === selectedCategoryTerm.id)
-    : [];
+    : allSubcategories.filter(() => false);
 
   const materialTypes = [
     { value: 'ingredient' as const, label: 'Ingrediente' },
@@ -213,33 +213,31 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
           </div>
 
           {/* Subcategoria */}
-          {availableSubcategories.length > 0 && (
-            <div className="space-y-3">
-              <Label htmlFor="subcategory">Subcategoria (Opcional)</Label>
-              <Select value={formData.subcategory || 'none'} onValueChange={(value) => setFormData({ ...formData, subcategory: value === 'none' ? '' : value })} disabled={taxonomyLoading || availableSubcategories.length === 0}>
-                <SelectTrigger className="bg-card">
-                  <SelectValue placeholder={
-                    taxonomyLoading ? "Carregando..." : 
-                    availableSubcategories.length === 0 ? "Nenhuma subcategoria disponível" : 
-                    "Selecione uma subcategoria"
-                  } />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border z-50">
-                  <SelectItem value="none">Nenhuma subcategoria</SelectItem>
-                  {availableSubcategories.map((subcategory) => (
-                    <SelectItem key={subcategory.id} value={subcategory.name}>
-                      <div>
-                        <div className="font-medium">{subcategory.name}</div>
-                        {subcategory.code && (
-                          <div className="text-xs text-muted-foreground">Código: {subcategory.code}</div>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="space-y-3">
+            <Label htmlFor="subcategory">Subcategoria (Opcional)</Label>
+            <Select value={formData.subcategory || 'none'} onValueChange={(value) => setFormData({ ...formData, subcategory: value === 'none' ? '' : value })} disabled={taxonomyLoading || availableSubcategories.length === 0}>
+              <SelectTrigger className="bg-card">
+                <SelectValue placeholder={
+                  taxonomyLoading ? "Carregando..." : 
+                  availableSubcategories.length === 0 ? "Nenhuma subcategoria disponível" : 
+                  "Selecione uma subcategoria"
+                } />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border z-50">
+                <SelectItem value="none">Nenhuma subcategoria</SelectItem>
+                {availableSubcategories.map((subcategory) => (
+                  <SelectItem key={subcategory.id} value={subcategory.name}>
+                    <div>
+                      <div className="font-medium">{subcategory.name}</div>
+                      {subcategory.code && (
+                        <div className="text-xs text-muted-foreground">Código: {subcategory.code}</div>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Nome do Material */}
           <div className="space-y-2">
