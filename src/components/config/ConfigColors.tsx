@@ -164,16 +164,15 @@ export const ConfigColors = ({ namespace }: ConfigColorsProps) => {
             
             <div>
               <h4 className="font-medium mb-3">Variações para subcategorias:</h4>
-              <div className="max-h-96 overflow-y-auto space-y-3">
+              <div className="space-y-3">
                 {Object.entries(colorMap).map(([category, color]) => (
                   <div key={category} className="space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium w-40 flex-shrink-0">{category}:</span>
                       <div className="flex gap-1 flex-wrap">
                         {generateColorVariations(hexToHsl(color)).map((variation, index) => (
-                          <div className="flex flex-col items-center gap-1">
+                          <div className="flex flex-col items-center gap-1" key={`${category}-${index}`}>
                             <div
-                              key={index}
                               className="w-12 h-8 rounded border shadow-sm"
                               style={{ backgroundColor: variation }}
                               title={variation}

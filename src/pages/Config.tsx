@@ -64,9 +64,9 @@ const Config = () => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-auto min-h-0">
           <div className="h-full px-6 py-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-7 mb-6">
                 <TabsTrigger value="gerais" className="flex items-center gap-2">
                   <Settings className="h-4 w-4" />
@@ -98,7 +98,8 @@ const Config = () => {
                 </TabsTrigger>
               </TabsList>
 
-              <div className="h-[calc(100vh-200px)] overflow-y-auto">
+              {/* Scrollable content area */}
+              <div className="pb-20 space-y-6">
                 <TabsContent value="gerais" className="space-y-6 mt-0">
                   <ConfigGeneral />
                 </TabsContent>
