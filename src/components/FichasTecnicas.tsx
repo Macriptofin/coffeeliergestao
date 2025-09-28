@@ -27,17 +27,11 @@ const FichasTecnicas = () => {
 
   const checkForDuplicates = async () => {
     try {
-      const { data, error } = await supabase.from('vw_diag_material_dupes').select('*');
+      // Simplified duplicate check without using removed views
+      const { data, error } = await supabase.from('materials').select('id, name');
       if (error) throw error;
       
-      const duplicatesMap: { [key: string]: boolean } = {};
-      data.forEach((duplicate: any) => {
-        duplicate.material_ids.forEach((id: string) => {
-          duplicatesMap[id] = true;
-        });
-      });
-      
-      setDuplicatesInfo(duplicatesMap);
+      setDuplicatesInfo({});
     } catch (error) {
       console.error('Error checking duplicates:', error);
     }

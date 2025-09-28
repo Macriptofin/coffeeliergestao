@@ -215,28 +215,6 @@ const Materials = () => {
   const addMaterial = async (material: Omit<Material, 'id' | 'code'>) => {
     try {
       console.log('Adicionando material:', material);
-
-      const categoryMap: Record<string, string> = {
-        'Insumos': 'Insumo',
-        'Insumo': 'Insumo',
-        'Embalagens': 'Embalagem',
-        'Embalagem': 'Embalagem',
-        'Produtos Intermediários': 'Produto Intermediário',
-        'Produto Intermediário': 'Produto Intermediário',
-        'Produtos Acabados': 'Produto Acabado',
-        'Produto Acabado': 'Produto Acabado',
-        'Produtos Compostos': 'Produto Composto',
-        'Produto Composto': 'Produto Composto',
-        'Produto de Revenda': 'Produto de Revenda',
-        'Equipamentos': 'Equipamentos & Utensílios',
-        'Utensílios': 'Equipamentos & Utensílios',
-        'Têxteis & Apoios': 'Equipamentos & Utensílios',
-        'Infraestrutura': 'Infraestrutura & Eventos',
-        'Infraestrutura & Eventos': 'Infraestrutura & Eventos',
-        'Higiene e Limpeza': 'Infraestrutura & Eventos'
-      };
-      const canonicalCategory = categoryMap[material.category] || material.category;
-
       const { data, error } = await supabase
         .from('materials')
         .insert({
@@ -248,7 +226,7 @@ const Materials = () => {
           price_per_purchase_unit: material.pricePerPurchaseUnit,
           supplier: material.supplier,
           allowed_brands: material.allowedBrands,
-          category: canonicalCategory,
+          category: material.category,
           subcategory: material.subcategory,
           category_term_id: material.categoryTermId,
           subcategory_term_id: material.subcategoryTermId,
@@ -274,7 +252,7 @@ const Materials = () => {
         pricePerPurchaseUnit: parseFloat(data.price_per_purchase_unit?.toString() || '0'),
         supplier: data.supplier || undefined,
         allowedBrands: data.allowed_brands || undefined,
-        category: data.category || canonicalCategory || 'Insumo',
+        category: data.category || 'Insumo',
         subcategory: data.subcategory || undefined,
         categoryTermId: data.category_term_id || undefined,
         subcategoryTermId: data.subcategory_term_id || undefined,
@@ -297,27 +275,6 @@ const Materials = () => {
     try {
       console.log('Atualizando material:', updatedMaterial);
 
-      const categoryMap: Record<string, string> = {
-        'Insumos': 'Insumo',
-        'Insumo': 'Insumo',
-        'Embalagens': 'Embalagem',
-        'Embalagem': 'Embalagem',
-        'Produtos Intermediários': 'Produto Intermediário',
-        'Produto Intermediário': 'Produto Intermediário',
-        'Produtos Acabados': 'Produto Acabado',
-        'Produto Acabado': 'Produto Acabado',
-        'Produtos Compostos': 'Produto Composto',
-        'Produto Composto': 'Produto Composto',
-        'Produto de Revenda': 'Produto de Revenda',
-        'Equipamentos': 'Equipamentos & Utensílios',
-        'Utensílios': 'Equipamentos & Utensílios',
-        'Têxteis & Apoios': 'Equipamentos & Utensílios',
-        'Infraestrutura': 'Infraestrutura & Eventos',
-        'Infraestrutura & Eventos': 'Infraestrutura & Eventos',
-        'Higiene e Limpeza': 'Infraestrutura & Eventos'
-      };
-      const canonicalCategory = categoryMap[updatedMaterial.category] || updatedMaterial.category;
-
       const { error } = await supabase
         .from('materials')
         .update({
@@ -329,7 +286,7 @@ const Materials = () => {
           price_per_purchase_unit: updatedMaterial.pricePerPurchaseUnit,
           supplier: updatedMaterial.supplier,
           allowed_brands: updatedMaterial.allowedBrands,
-          category: canonicalCategory,
+          category: updatedMaterial.category,
           subcategory: updatedMaterial.subcategory,
           category_term_id: updatedMaterial.categoryTermId,
           subcategory_term_id: updatedMaterial.subcategoryTermId,
@@ -344,9 +301,8 @@ const Materials = () => {
         throw error;
       }
       
-      const saved = { ...updatedMaterial, category: canonicalCategory };
       setMaterials(materials.map(mat => 
-        mat.id === updatedMaterial.id ? saved : mat
+        mat.id === updatedMaterial.id ? updatedMaterial : mat
       ));
       setEditingMaterial(null);
       setShowMaterialForm(false);
