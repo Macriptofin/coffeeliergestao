@@ -87,6 +87,27 @@ export const MaterialEdit = () => {
 
   const handleSave = async (updatedMaterial: Material) => {
     try {
+      // Mapear categorias do taxonomia -> categorias canônicas aceitas pelo CHECK do banco
+      const categoryMap: Record<string, string> = {
+        'Insumos': 'Insumo',
+        'Insumo': 'Insumo',
+        'Embalagens': 'Embalagem',
+        'Embalagem': 'Embalagem',
+        'Produtos Intermediários': 'Produto Intermediário',
+        'Produto Intermediário': 'Produto Intermediário',
+        'Produtos Acabados': 'Produto Acabado',
+        'Produto Acabado': 'Produto Acabado',
+        'Produtos Compostos': 'Produto Composto',
+        'Produto Composto': 'Produto Composto',
+        'Equipamentos': 'Equipamentos & Utensílios',
+        'Equipamentos & Utensílios': 'Equipamentos & Utensílios',
+        'Infraestrutura': 'Infraestrutura & Eventos',
+        'Operacional': 'Infraestrutura & Eventos',
+        'Infraestrutura & Eventos': 'Infraestrutura & Eventos',
+      };
+
+      const canonicalCategory = categoryMap[updatedMaterial.category] || updatedMaterial.category;
+
       const { error } = await supabase
         .from('materials')
         .update({
@@ -98,7 +119,7 @@ export const MaterialEdit = () => {
           price_per_purchase_unit: updatedMaterial.pricePerPurchaseUnit,
           supplier: updatedMaterial.supplier,
           allowed_brands: updatedMaterial.allowedBrands,
-          category: updatedMaterial.category,
+          category: canonicalCategory,
           subcategory: updatedMaterial.subcategory,
           material_type: updatedMaterial.materialType,
           unit_weight: updatedMaterial.unitWeight,
@@ -108,8 +129,9 @@ export const MaterialEdit = () => {
 
       if (error) throw error;
 
-      setMaterial(updatedMaterial);
-      setMaterials(materials.map(m => m.id === updatedMaterial.id ? updatedMaterial : m));
+      const savedMaterial: Material = { ...updatedMaterial, category: canonicalCategory };
+      setMaterial(savedMaterial);
+      setMaterials(materials.map(m => m.id === updatedMaterial.id ? savedMaterial : m));
       toast.success('Material atualizado com sucesso!');
     } catch (error) {
       console.error('Erro ao atualizar material:', error);
