@@ -9,7 +9,8 @@ import {
   DollarSign,
   Users,
   FileText,
-  Calendar
+  Calendar,
+  Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -82,10 +83,20 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       href: "/relatorios",
       icon: FileText,
       current: location.pathname === "/relatorios"
+    },
+    {
+      name: "Configurações",
+      href: "/config",
+      icon: Settings,
+      current: location.pathname.startsWith("/config"),
+      adminOnly: true
     }
   ].filter(item => {
     // Filtrar itens baseado no papel do usuário
     if (item.name === "Recursos Humanos" && !isAdminOrManager()) {
+      return false;
+    }
+    if (item.adminOnly && !isAdminOrManager()) {
       return false;
     }
     return true;

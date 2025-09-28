@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Download, Edit } from "lucide-react";
+import { Plus, Search, Download, Edit, Settings, Database } from "lucide-react";
 import { MaterialForm } from "@/components/MaterialForm";
 import { SimplifiedMaterialsTable } from "@/components/SimplifiedMaterialsTable";
 import { MaterialEditor } from "@/components/MaterialEditor";
@@ -16,6 +16,7 @@ import { Material } from "@/types";
 import { materialCategories, getSubcategoriesByCategory } from "@/lib/material-categories";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { showMigrationDialog } from "@/utils/migrateCategoresToTaxonomy";
 
 const Materials = () => {
   const navigate = useNavigate();
@@ -542,6 +543,26 @@ const Materials = () => {
               >
                 <Download className="mr-2 h-4 w-4" />
                 Exportar CSV
+              </Button>
+              
+              <Button
+                size="sm"
+                variant="outline"
+                className="hidden sm:flex"
+                onClick={() => navigate('/config#estoque')}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Configurações
+              </Button>
+              
+              <Button
+                size="sm"
+                variant="outline"
+                className="hidden sm:flex"
+                onClick={showMigrationDialog}
+              >
+                <Database className="h-4 w-4 mr-2" />
+                Migrar Categorias
               </Button>
             </div>
 
