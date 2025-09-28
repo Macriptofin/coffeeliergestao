@@ -1,0 +1,322 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Save, 
+  X, 
+  List, 
+  Upload,
+  Download,
+  AlertCircle
+} from "lucide-react";
+import { useTaxonomy } from "@/hooks/useConfig";
+import { useState } from "react";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+
+interface TaxonomyManagerProps {
+  taxonomyKey: string;
+  title: string;
+  description: string;
+  showParent?: boolean;
+}
+
+export const TaxonomyManager = ({ 
+  taxonomyKey, 
+  title, 
+  description, 
+  showParent = false 
+}: TaxonomyManagerProps) => {
+  const { 
+    terms, 
+    loading, 
+    getTermsByTaxonomy, 
+    createTerm, 
+    updateTerm, 
+    deleteTerm 
+  } = useTaxonomy();
+  
+  const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTerm, setEditingTerm] = useState<any>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    code: '',
+    parent_id: '',
+    sort_order: 0,
+    is_active: true
+  });
+
+  const taxonomyTerms = getTermsByTaxonomy(taxonomyKey);
+  const allTerms = terms.filter(t => 
+    taxonomyKey === 'material_subcategory' ? 
+      t.parent_id : // Subcategorias (têm parent)
+      !t.parent_id   // Categorias principais (sem parent)
+  );
+
+  const handleCreate = () => {
+    setEditingTerm(null);
+    setFormData({
+      name: '',
+      code: '',
+      parent_id: '',
+      sort_order: taxonomyTerms.length,
+      is_active: true
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleEdit = (term: any) => {
+    setEditingTerm(term);
+    setFormData({
+      name: term.name,
+      code: term.code || '',
+      parent_id: term.parent_id || '',
+      sort_order: term.sort_order,
+      is_active: term.is_active
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!formData.name.trim()) {
+      toast({
+        title: "Nome obrigatório",
+        description: "O nome do termo é obrigatório.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      if (editingTerm) {
+        await updateTerm(editingTerm.id, {
+          name: formData.name.trim(),
+          code: formData.code.trim() || undefined,
+          parent_id: formData.parent_id || undefined,
+          sort_order: formData.sort_order,
+          is_active: formData.is_active
+        });
+      } else {
+        await createTerm(taxonomyKey, {
+          name: formData.name.trim(),
+          code: formData.code.trim() || undefined,
+          parent_id: formData.parent_id || undefined,
+          sort_order: formData.sort_order,
+          is_active: formData.is_active
+        });
+      }
+      setIsDialogOpen(false);
+    } catch (error) {
+      // Error is handled by the hook
+    }
+  };
+
+  const handleDelete = async (termId: string) => {
+    if (confirm('Tem certeza que deseja excluir este termo?')) {
+      await deleteTerm(termId);
+    }
+  };
+
+  const handleExport = () => {
+    const csvContent = [
+      ['Código', 'Nome', 'Pai', 'Ordem', 'Ativo'].join(','),
+      ...allTerms.map(term => [
+        term.code || '',
+        term.name,
+        term.parent_id ? terms.find(p => p.id === term.parent_id)?.name || '' : '',
+        term.sort_order,
+        term.is_active ? 'Sim' : 'Não'
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${taxonomyKey}_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Get parent options for subcategories
+  const parentOptions = showParent ? 
+    terms.filter(t => !t.parent_id && taxonomyKey === 'material_subcategory') : 
+    [];
+
+  if (loading) {
+    return <div className="animate-pulse">Carregando taxonomias...</div>;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <List className="h-5 w-5" />
+              {title}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">{description}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar
+            </Button>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" onClick={handleCreate}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Termo
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingTerm ? 'Editar' : 'Novo'} Termo
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Nome do termo"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="code">Código</Label>
+                    <Input
+                      id="code"
+                      value={formData.code}
+                      onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                      placeholder="Ex: INS, EMB"
+                      maxLength={10}
+                    />
+                  </div>
+
+                  {showParent && parentOptions.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Categoria Pai</Label>
+                      <Select 
+                        value={formData.parent_id} 
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, parent_id: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a categoria pai" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {parentOptions.map(parent => (
+                            <SelectItem key={parent.id} value={parent.id}>
+                              {parent.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="sort_order">Ordem de Classificação</Label>
+                    <Input
+                      id="sort_order"
+                      type="number"
+                      value={formData.sort_order}
+                      onChange={(e) => setFormData(prev => ({ ...prev, sort_order: parseInt(e.target.value) || 0 }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="is_active"
+                      checked={formData.is_active}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
+                    />
+                    <Label htmlFor="is_active">Ativo</Label>
+                  </div>
+
+                  <div className="flex gap-2 pt-4">
+                    <Button onClick={handleSave}>
+                      <Save className="h-4 w-4 mr-2" />
+                      Salvar
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                      <X className="h-4 w-4 mr-2" />
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {allTerms.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Nenhum termo encontrado. Clique em "Novo Termo" para começar.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {allTerms.map((term) => (
+              <div
+                key={term.id}
+                className="flex items-center justify-between p-3 border rounded-lg"
+              >
+                <div className="flex items-center gap-3">
+                  {term.code && (
+                    <Badge variant="outline" className="font-mono">
+                      {term.code}
+                    </Badge>
+                  )}
+                  <span className={`${!term.is_active ? 'text-muted-foreground line-through' : ''}`}>
+                    {term.name}
+                  </span>
+                  {showParent && term.parent_id && (
+                    <span className="text-xs text-muted-foreground">
+                      → {terms.find(p => p.id === term.parent_id)?.name}
+                    </span>
+                  )}
+                  {!term.is_active && (
+                    <Badge variant="secondary" className="text-xs">
+                      Inativo
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleEdit(term)}
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDelete(term.id)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};

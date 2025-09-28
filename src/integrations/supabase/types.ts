@@ -488,6 +488,13 @@ export type Database = {
             foreignKeyName: "composite_bom_items_component_material_id_fkey"
             columns: ["component_material_id"]
             isOneToOne: false
+            referencedRelation: "v_materials_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composite_bom_items_component_material_id_fkey"
+            columns: ["component_material_id"]
+            isOneToOne: false
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
@@ -541,6 +548,13 @@ export type Database = {
             foreignKeyName: "composites_bom_composite_material_id_fkey"
             columns: ["composite_material_id"]
             isOneToOne: true
+            referencedRelation: "v_materials_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composites_bom_composite_material_id_fkey"
+            columns: ["composite_material_id"]
+            isOneToOne: true
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
@@ -549,6 +563,100 @@ export type Database = {
             columns: ["composite_material_id"]
             isOneToOne: true
             referencedRelation: "vw_diag_orphans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      config_namespaces: {
+        Row: {
+          created_at: string | null
+          id: string
+          key: string
+          label: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key: string
+          label: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key?: string
+          label?: string
+        }
+        Relationships: []
+      }
+      config_options: {
+        Row: {
+          created_at: string | null
+          default_value: Json | null
+          description: string | null
+          id: string
+          key: string
+          namespace_id: string
+          value_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          default_value?: Json | null
+          description?: string | null
+          id?: string
+          key: string
+          namespace_id: string
+          value_type: string
+        }
+        Update: {
+          created_at?: string | null
+          default_value?: Json | null
+          description?: string | null
+          id?: string
+          key?: string
+          namespace_id?: string
+          value_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "config_options_namespace_id_fkey"
+            columns: ["namespace_id"]
+            isOneToOne: false
+            referencedRelation: "config_namespaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      config_values: {
+        Row: {
+          id: string
+          key: string
+          namespace_id: string
+          updated_at: string | null
+          updated_by: string | null
+          value_jsonb: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          namespace_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value_jsonb: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          namespace_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value_jsonb?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "config_values_namespace_id_fkey"
+            columns: ["namespace_id"]
+            isOneToOne: false
+            referencedRelation: "config_namespaces"
             referencedColumns: ["id"]
           },
         ]
@@ -1041,6 +1149,13 @@ export type Database = {
             foreignKeyName: "event_production_order_items_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
+            referencedRelation: "v_materials_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_production_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
@@ -1160,6 +1275,13 @@ export type Database = {
             foreignKeyName: "event_table_items_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
+            referencedRelation: "v_materials_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_table_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
@@ -1212,6 +1334,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_table_template_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "v_materials_enriched"
             referencedColumns: ["id"]
           },
           {
@@ -1535,6 +1664,13 @@ export type Database = {
             foreignKeyName: "invoice_items_ingredient_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
+            referencedRelation: "v_materials_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
@@ -1558,6 +1694,7 @@ export type Database = {
         Row: {
           allowed_brands: string[] | null
           category: string
+          category_term_id: string | null
           code: string | null
           conversion_factor: number
           created_at: string | null
@@ -1571,6 +1708,7 @@ export type Database = {
           price_per_purchase_unit: number
           purchase_unit: string
           subcategory: string | null
+          subcategory_term_id: string | null
           supplier: string | null
           supplier_id: string | null
           unit_weight: number | null
@@ -1580,6 +1718,7 @@ export type Database = {
         Insert: {
           allowed_brands?: string[] | null
           category?: string
+          category_term_id?: string | null
           code?: string | null
           conversion_factor?: number
           created_at?: string | null
@@ -1593,6 +1732,7 @@ export type Database = {
           price_per_purchase_unit: number
           purchase_unit: string
           subcategory?: string | null
+          subcategory_term_id?: string | null
           supplier?: string | null
           supplier_id?: string | null
           unit_weight?: number | null
@@ -1602,6 +1742,7 @@ export type Database = {
         Update: {
           allowed_brands?: string[] | null
           category?: string
+          category_term_id?: string | null
           code?: string | null
           conversion_factor?: number
           created_at?: string | null
@@ -1615,6 +1756,7 @@ export type Database = {
           price_per_purchase_unit?: number
           purchase_unit?: string
           subcategory?: string | null
+          subcategory_term_id?: string | null
           supplier?: string | null
           supplier_id?: string | null
           unit_weight?: number | null
@@ -1627,6 +1769,20 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_category_term_id_fkey"
+            columns: ["category_term_id"]
+            isOneToOne: false
+            referencedRelation: "taxonomy_terms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_subcategory_term_id_fkey"
+            columns: ["subcategory_term_id"]
+            isOneToOne: false
+            referencedRelation: "taxonomy_terms"
             referencedColumns: ["id"]
           },
         ]
@@ -1697,6 +1853,39 @@ export type Database = {
           detail?: Json | null
           id?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      ops_config_audit_log: {
+        Row: {
+          action: string
+          actor: string | null
+          after: Json | null
+          before: Json | null
+          created_at: string | null
+          entity: string
+          entity_id: string
+          id: string
+        }
+        Insert: {
+          action: string
+          actor?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string | null
+          entity: string
+          entity_id: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string | null
+          entity?: string
+          entity_id?: string
+          id?: string
         }
         Relationships: []
       }
@@ -2190,6 +2379,13 @@ export type Database = {
             foreignKeyName: "recipe_bom_items_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
+            referencedRelation: "v_materials_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_bom_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
@@ -2237,6 +2433,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_ingredients_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "v_materials_enriched"
             referencedColumns: ["id"]
           },
           {
@@ -2360,6 +2563,13 @@ export type Database = {
             columns: ["finished_material_id"]
             isOneToOne: true
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "v_materials_enriched"
             referencedColumns: ["id"]
           },
           {
@@ -2526,6 +2736,13 @@ export type Database = {
             foreignKeyName: "stock_items_ingredient_id_fkey"
             columns: ["material_id"]
             isOneToOne: true
+            referencedRelation: "v_materials_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
             referencedRelation: "v_product_cost"
             referencedColumns: ["id"]
           },
@@ -2581,6 +2798,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "v_materials_enriched"
             referencedColumns: ["id"]
           },
           {
@@ -2645,6 +2869,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_products_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "v_materials_enriched"
             referencedColumns: ["id"]
           },
           {
@@ -2736,6 +2967,78 @@ export type Database = {
         }
         Relationships: []
       }
+      taxonomy_definitions: {
+        Row: {
+          created_at: string | null
+          id: string
+          key: string
+          label: string
+          module_key: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key: string
+          label: string
+          module_key: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key?: string
+          label?: string
+          module_key?: string
+        }
+        Relationships: []
+      }
+      taxonomy_terms: {
+        Row: {
+          code: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          parent_id: string | null
+          sort_order: number | null
+          taxonomy_id: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          parent_id?: string | null
+          sort_order?: number | null
+          taxonomy_id: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          parent_id?: string | null
+          sort_order?: number | null
+          taxonomy_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "taxonomy_terms_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "taxonomy_terms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "taxonomy_terms_taxonomy_id_fkey"
+            columns: ["taxonomy_id"]
+            isOneToOne: false
+            referencedRelation: "taxonomy_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_permissions: {
         Row: {
           category: Database["public"]["Enums"]["permission_category"]
@@ -2819,6 +3122,59 @@ export type Database = {
       }
     }
     Views: {
+      v_materials_enriched: {
+        Row: {
+          allowed_brands: string[] | null
+          category: string | null
+          category_code: string | null
+          category_name_resolved: string | null
+          category_term_id: string | null
+          code: string | null
+          conversion_factor: number | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          is_archived: boolean | null
+          is_sellable: boolean | null
+          is_system_generated: boolean | null
+          material_type: string | null
+          name: string | null
+          price_per_purchase_unit: number | null
+          purchase_unit: string | null
+          subcategory: string | null
+          subcategory_code: string | null
+          subcategory_name_resolved: string | null
+          subcategory_term_id: string | null
+          supplier: string | null
+          supplier_id: string | null
+          unit_weight: number | null
+          updated_at: string | null
+          usage_unit: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingredients_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_category_term_id_fkey"
+            columns: ["category_term_id"]
+            isOneToOne: false
+            referencedRelation: "taxonomy_terms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_subcategory_term_id_fkey"
+            columns: ["subcategory_term_id"]
+            isOneToOne: false
+            referencedRelation: "taxonomy_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_product_cost: {
         Row: {
           category: string | null
@@ -2998,6 +3354,10 @@ export type Database = {
       generate_event_production: {
         Args: { p_event_table_id: string; p_target_table?: string }
         Returns: string
+      }
+      get_config: {
+        Args: { p_key: string; p_namespace: string }
+        Returns: Json
       }
       get_flag: {
         Args: { p_key: string }
