@@ -42,7 +42,7 @@ const Colaboradores = () => {
   };
 
   return (
-    <div className="container mx-auto p-6">
+    <div>
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>

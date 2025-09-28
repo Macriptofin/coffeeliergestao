@@ -60,7 +60,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary-light/5">
-      <div className="container mx-auto p-4">
+      <div>
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">
             <CoffeelierLogo />

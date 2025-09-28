@@ -115,7 +115,7 @@ const ProducaoMain = () => {
   // Mostrar loading enquanto os feature flags carregam para evitar "pulo" na interface
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
+      <div>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Gestão de Produção</h1>
           <p className="text-muted-foreground">
@@ -130,7 +130,7 @@ const ProducaoMain = () => {
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Gestão de Produção</h1>
         <p className="text-muted-foreground">
