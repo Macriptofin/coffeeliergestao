@@ -3463,6 +3463,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_taxonomy_from_csv: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       is_admin_not_self: {
         Args: { _target_user_id: string; _user_id: string }
         Returns: boolean
@@ -3594,6 +3598,20 @@ export type Database = {
       sanitize_error_message: {
         Args: { error_msg: string }
         Returns: string
+      }
+      suggest_material_taxonomy_migration: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          confidence_score: number
+          current_category: string
+          current_subcategory: string
+          material_id: string
+          material_name: string
+          suggested_category_id: string
+          suggested_category_name: string
+          suggested_subcategory_id: string
+          suggested_subcategory_name: string
+        }[]
       }
       test_bom_cleanup_and_migration: {
         Args: Record<PropertyKey, never>

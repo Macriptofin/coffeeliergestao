@@ -1,10 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Package, Palette, List, Database } from "lucide-react";
+import { Package, Palette, List, Database, FileSpreadsheet } from "lucide-react";
 import { ConfigParams } from "./ConfigParams";
 import { ConfigColors } from "./ConfigColors";
 import { TaxonomyManager } from "./TaxonomyManager";
+import { TaxonomyImporter } from "./TaxonomyImporter";
 import { showMigrationDialog } from "@/utils/migrateCategoresToTaxonomy";
 
 export const ConfigEstoque = () => {
@@ -19,7 +20,7 @@ export const ConfigEstoque = () => {
       </div>
 
       <Tabs defaultValue="parametros" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="parametros" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             Parâmetros
@@ -31,6 +32,10 @@ export const ConfigEstoque = () => {
           <TabsTrigger value="taxonomias" className="flex items-center gap-2">
             <List className="h-4 w-4" />
             Categorias & Subcategorias
+          </TabsTrigger>
+          <TabsTrigger value="importacao" className="flex items-center gap-2">
+            <FileSpreadsheet className="h-4 w-4" />
+            Importação CSV
           </TabsTrigger>
         </TabsList>
 
@@ -73,6 +78,10 @@ export const ConfigEstoque = () => {
               showParent={true}
             />
           </div>
+        </TabsContent>
+
+        <TabsContent value="importacao" className="space-y-4">
+          <TaxonomyImporter />
         </TabsContent>
       </Tabs>
     </div>
