@@ -126,8 +126,10 @@ if (!session || !user) {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 lg:ml-64 min-h-[calc(100vh-6rem)]"> {/* Adjusted for new header height */}
-          <Outlet />
+        <main className="flex-1 lg:ml-64 min-h-[calc(100vh-6rem)] pt-8"> {/* Consistent top padding for all pages */}
+          <div className="container mx-auto px-6 max-w-7xl">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
