@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { X, AlertTriangle, Package, Tag, Wrench, Building } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Material } from "@/types";
-import { materialCategories, getSubcategoriesByCategory } from "@/lib/material-categories";
+import { useTaxonomy } from "@/hooks/useConfig";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 
 interface MaterialFormProps {
@@ -21,6 +21,8 @@ interface MaterialFormProps {
 }
 
 export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }: MaterialFormProps) => {
+  const { terms, loading: taxonomyLoading, getTermsByTaxonomy } = useTaxonomy();
+  
   const [formData, setFormData] = useState({
     name: material?.name || '',
     description: material?.description || '',
@@ -45,19 +47,25 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   const isWeightUnit = weightUnits.includes(formData.usageUnit);
   const needsUnitWeight = !isWeightUnit && formData.usageUnit;
 
-  // Get icon component by name
-  const getIconComponent = (iconName: string) => {
-    switch (iconName) {
-      case 'Package': return Package;
-      case 'Tag': return Tag;
-      case 'Wrench': return Wrench;
-      case 'Building': return Building;
-      default: return Package;
-    }
+  // Get icon component by category
+  const getIconForCategory = (categoryName: string) => {
+    // Map category names to icons
+    if (categoryName?.toLowerCase().includes('embalagem')) return Package;
+    if (categoryName?.toLowerCase().includes('produto')) return Tag;
+    if (categoryName?.toLowerCase().includes('higiene')) return Wrench;
+    if (categoryName?.toLowerCase().includes('infraestrutura')) return Building;
+    return Package; // default
   };
 
+  // Get dynamic categories and subcategories from taxonomy
+  const materialCategories = getTermsByTaxonomy('material_category').filter(term => term.is_active);
+  const allSubcategories = getTermsByTaxonomy('material_subcategory').filter(term => term.is_active);
+  
   // Get available subcategories for selected category
-  const availableSubcategories = getSubcategoriesByCategory(formData.category);
+  const selectedCategoryTerm = materialCategories.find(cat => cat.name === formData.category);
+  const availableSubcategories = selectedCategoryTerm 
+    ? allSubcategories.filter(sub => sub.parent_id === selectedCategoryTerm.id)
+    : [];
 
   const materialTypes = [
     { value: 'ingredient' as const, label: 'Ingrediente' },
@@ -86,6 +94,13 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     }
 
     setDuplicateError('');
+    
+    // Find taxonomy term IDs for the selected category and subcategory
+    const categoryTerm = materialCategories.find(cat => cat.name === formData.category);
+    const subcategoryTerm = formData.subcategory 
+      ? availableSubcategories.find(sub => sub.name === formData.subcategory)
+      : undefined;
+
     onSubmit({
       name: formData.name,
       description: formData.description || undefined,
@@ -97,6 +112,8 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       allowedBrands: formData.allowedBrands ? formData.allowedBrands.split(',').map(b => b.trim()).filter(b => b) : undefined,
       category: formData.category,
       subcategory: formData.subcategory || undefined,
+      categoryTermId: categoryTerm?.id,
+      subcategoryTermId: subcategoryTerm?.id,
       materialType: formData.materialType,
       unitWeight: formData.unitWeight ? parseFloat(formData.unitWeight) : undefined,
     });
@@ -121,7 +138,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     }
   };
 
-  const selectedCategory = materialCategories.find(cat => cat.value === formData.category);
+  const selectedCategory = materialCategories.find(cat => cat.name === formData.category);
   
   // Reset subcategory when category changes
   const handleCategoryChange = (newCategory: string) => {
@@ -137,8 +154,8 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       <CardHeader className="pb-4">
         <div className="flex justify-between items-center">
           <CardTitle className="text-primary flex items-center gap-2">
-            {selectedCategory && (() => {
-              const IconComponent = getIconComponent(selectedCategory.icon);
+            {(() => {
+              const IconComponent = getIconForCategory(formData.category);
               return <IconComponent className="h-5 w-5" />;
             })()}
             {material ? 'Editar Material' : 'Novo Material'}
@@ -170,20 +187,22 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
               Categoria do Material *
               <HelpTooltip content='Classifique corretamente o material. Exemplo: Categoria "Insumos" → Subcategoria "Condimentos e Temperos".' />
             </Label>
-            <Select value={formData.category} onValueChange={handleCategoryChange}>
+            <Select value={formData.category} onValueChange={handleCategoryChange} disabled={taxonomyLoading}>
               <SelectTrigger className="bg-card">
-                <SelectValue />
+                <SelectValue placeholder={taxonomyLoading ? "Carregando..." : "Selecione uma categoria"} />
               </SelectTrigger>
               <SelectContent className="bg-card border-border z-50">
                 {materialCategories.map((category) => {
-                  const IconComponent = getIconComponent(category.icon);
+                  const IconComponent = getIconForCategory(category.name);
                   return (
-                    <SelectItem key={category.value} value={category.value}>
+                    <SelectItem key={category.id} value={category.name}>
                       <div className="flex items-center gap-3">
                         <IconComponent className="h-4 w-4" />
                         <div>
-                          <div className="font-medium">{category.label}</div>
-                          <div className="text-xs text-muted-foreground">{category.description}</div>
+                          <div className="font-medium">{category.name}</div>
+                          {category.code && (
+                            <div className="text-xs text-muted-foreground">Código: {category.code}</div>
+                          )}
                         </div>
                       </div>
                     </SelectItem>
@@ -197,17 +216,23 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
           {availableSubcategories.length > 0 && (
             <div className="space-y-3">
               <Label htmlFor="subcategory">Subcategoria (Opcional)</Label>
-              <Select value={formData.subcategory || 'none'} onValueChange={(value) => setFormData({ ...formData, subcategory: value === 'none' ? '' : value })}>
+              <Select value={formData.subcategory || 'none'} onValueChange={(value) => setFormData({ ...formData, subcategory: value === 'none' ? '' : value })} disabled={taxonomyLoading || availableSubcategories.length === 0}>
                 <SelectTrigger className="bg-card">
-                  <SelectValue placeholder="Selecione uma subcategoria" />
+                  <SelectValue placeholder={
+                    taxonomyLoading ? "Carregando..." : 
+                    availableSubcategories.length === 0 ? "Nenhuma subcategoria disponível" : 
+                    "Selecione uma subcategoria"
+                  } />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border z-50">
                   <SelectItem value="none">Nenhuma subcategoria</SelectItem>
                   {availableSubcategories.map((subcategory) => (
-                    <SelectItem key={subcategory.value} value={subcategory.value}>
+                    <SelectItem key={subcategory.id} value={subcategory.name}>
                       <div>
-                        <div className="font-medium">{subcategory.label}</div>
-                        <div className="text-xs text-muted-foreground">{subcategory.description}</div>
+                        <div className="font-medium">{subcategory.name}</div>
+                        {subcategory.code && (
+                          <div className="text-xs text-muted-foreground">Código: {subcategory.code}</div>
+                        )}
                       </div>
                     </SelectItem>
                   ))}
