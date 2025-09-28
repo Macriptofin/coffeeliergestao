@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +30,7 @@ interface TechnicalSheet {
 const FichasTecnicas = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+  const location = useLocation();
   const [technicalSheets, setTechnicalSheets] = useState<TechnicalSheet[]>([]);
   const [filteredSheets, setFilteredSheets] = useState<TechnicalSheet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +44,7 @@ const FichasTecnicas = () => {
 
   useEffect(() => {
     // Handle routing
-    if (window.location.pathname === '/producao/fichas/novo') {
+    if (location.pathname.includes('/producao/fichas/novo')) {
       setShowWizard(true);
       setEditingSheetId(undefined);
     } else if (id) {
@@ -56,7 +56,7 @@ const FichasTecnicas = () => {
     }
     
     loadTechnicalSheets();
-  }, [id]);
+  }, [id, location.pathname]);
 
   useEffect(() => {
     applyFilters();
