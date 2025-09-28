@@ -146,37 +146,48 @@ export const ConfigColors = ({ namespace }: ConfigColorsProps) => {
           <CardTitle>Preview das Cores</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <h4 className="font-medium">Como ficará na interface:</h4>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(colorMap).map(([category, color]) => (
-                <Badge 
-                  key={category}
-                  style={{ backgroundColor: color, color: 'white' }}
-                  className="px-3 py-1"
-                >
-                  {category}
-                </Badge>
-              ))}
+          <div className="space-y-6">
+            <div>
+              <h4 className="font-medium mb-3">Como ficará na interface:</h4>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(colorMap).map(([category, color]) => (
+                  <Badge 
+                    key={category}
+                    style={{ backgroundColor: color, color: 'white' }}
+                    className="px-3 py-1"
+                  >
+                    {category}
+                  </Badge>
+                ))}
+              </div>
             </div>
             
-            <div className="space-y-2">
-              <h4 className="font-medium">Variações para subcategorias:</h4>
-              {Object.entries(colorMap).slice(0, 2).map(([category, color]) => (
-                <div key={category} className="flex items-center gap-2">
-                  <span className="text-sm w-32">{category}:</span>
-                  <div className="flex gap-1">
-                    {generateColorVariations(hexToHsl(color)).map((variation, index) => (
-                      <div
-                        key={index}
-                        className="w-8 h-6 rounded border"
-                        style={{ backgroundColor: variation }}
-                        title={variation}
-                      />
-                    ))}
+            <div>
+              <h4 className="font-medium mb-3">Variações para subcategorias:</h4>
+              <div className="max-h-96 overflow-y-auto space-y-3">
+                {Object.entries(colorMap).map(([category, color]) => (
+                  <div key={category} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium w-40 flex-shrink-0">{category}:</span>
+                      <div className="flex gap-1 flex-wrap">
+                        {generateColorVariations(hexToHsl(color)).map((variation, index) => (
+                          <div className="flex flex-col items-center gap-1">
+                            <div
+                              key={index}
+                              className="w-12 h-8 rounded border shadow-sm"
+                              style={{ backgroundColor: variation }}
+                              title={variation}
+                            />
+                            <span className="text-xs text-muted-foreground font-mono">
+                              {index === 0 ? 'Escuro' : index === 1 ? 'Médio' : 'Claro'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </CardContent>
