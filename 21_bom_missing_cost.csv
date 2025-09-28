@@ -1,0 +1,30 @@
+material_id,code,name,material_type,category,avg_price,purchase_price
+f14ec31a-39f7-4889-8f52-c1443cc41584,INS0091,Café Especial Moído,ingredient,Insumo,0,0
+b970e479-8702-4ba8-8003-f4d525acaf3e,EMB0002,Copo de papel 80ml,ingredient,Embalagem,0,0
+710f4bb3-2494-4846-8700-f6213c47c2c4,INS0117,Páprica picante,ingredient,Insumo,0,0
+2ac9bb59-2a24-4001-92cd-0ac6490f78ca,INS0114,Pernil,ingredient,Insumo,0,0
+73d79cbf-84b2-4129-9de0-b3c2662b98b3,INS0108,Sal,ingredient,Insumo,0,0
+d96e81b1-9416-43ab-b52a-32f1f74629f1,INS0111,Sal grosso,ingredient,Insumo,0,0
+dcd87dad-0902-4424-b5de-71082669b789,INS0118,Tomate,ingredient,Insumo,0,0
+79275799-5d22-4cb4-8d78-4986e399717d,INS0085,Vinagre de maçã,ingredient,Insumo,0,0
+6bd88207-0c59-4e25-b4ca-3af41b9339f6,INS0116,Alho,ingredient,Insumo,0,0
+c8fb0fc8-accd-458d-9e15-142690c28c38,INS0092,Água mineral sem gás,ingredient,Insumo,0,0
+16acd05e-973f-43b6-a18e-8da00d1f17e2,INS0113,Alho poró,ingredient,Insumo,0,0
+5c93ccbf-e1d8-48fc-a641-f120550f5f17,PAC0004,Café especial coado,ingredient,Produto Acabado,0,0
+649cebce-70f0-48f5-98d2-5ca49e3ea8ea,INS0093,Limão suco,ingredient,Insumo,0,0
+98484378-98c6-4544-9efe-4e7531e99ae1,INS0088,Amido,ingredient,Insumo,0,0
+a7484557-1821-447d-93d0-8b350fe1ee8a,INS0109,Azeite de oliva,ingredient,Insumo,0,0
+ebb6d8a3-4f6f-4ca4-9684-262942ffda54,INS0084,Bicarbonato,ingredient,Insumo,0,0
+bfd17805-9502-4f01-9f54-79d4b251eb34,INS0110,Cebola roxa,ingredient,Insumo,0,0
+c1952de3-fc9c-4ae7-a5bc-c8ecc6381fa4,INS0083,Cacau,ingredient,Insumo,0,0
+a69877bb-241c-4686-b3d1-d1761d8dec70,INS0089,Chocolate nobre,ingredient,Insumo,0,0
+e9832512-634c-4f37-85e9-603ae2ffb6cd,INS0107,Fermento biológico seco,ingredient,Insumo,0,0
+0691ba93-a5f6-452d-8c6f-e97c3e21a533,INS0086,Iogurte natural,ingredient,Insumo,0,0
+8ef60e2d-8595-4045-b7ef-5ff4e981f954,INS0090,Limão raspas,ingredient,Insumo,0,0
+76ab0456-671f-471c-bb36-aeec0384702a,INS0112,Mel,ingredient,Insumo,0,0
+1da8c37c-ea25-4803-9814-273d691b4fa2,INS0115,Pimenta do reino,ingredient,Insumo,0,0
+3d12b974-874e-4ed6-ac56-d8b7797da006,INS0120,Cerveja preta Malzbier,ingredient,Insumo,0,0
+da841277-1f9f-4bf1-a1cc-416dc23319d7,INS0121,Farinha integral,ingredient,Insumo,0,0
+d4df89d8-3639-42d9-a9b6-4e400cb56bf5,INS0119,Molho inglês,ingredient,Insumo,0,0
+
+Total: 27 materiais sem informação de custo (21.3% do total de 122 materiais)

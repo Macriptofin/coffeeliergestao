@@ -1,0 +1,7 @@
+issue_type,count,description
+FINISHED_PRODUCT_MISMATCH,0,Materials com material_type='finished_product' mas category != 'Produto Acabado'
+COMPOSITE_PRODUCT_MISMATCH,0,Materials com material_type='composite_product' mas category != 'Produto Composto'
+INTERMEDIATE_PRODUCT_MISMATCH,0,Materials com material_type='intermediate_product' mas category != 'Produto Intermediário'
+TOTAL_MISMATCHES,0,Sistema consistente entre material_type e category
+
+Status: ✅ SISTEMA CONSISTENTE - Todos os materiais estão alinhados entre material_type e category.

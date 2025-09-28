@@ -1,0 +1,21 @@
+taxonomy,id,parent_id,code,name,sort_order,is_active
+event_type,,,,,0,
+material_category,9a10d072-9b83-4e71-a558-7acbd38b08b9,,INS,Insumo,1,true
+material_category,3cb43de8-862b-464f-a7c9-6d1a33736264,,EMB,Embalagem,2,true
+material_category,96d350cc-8b60-4b6a-8e60-550e593d38b0,,INT,Produto Intermediário,3,true
+material_category,15779b20-b18c-43a7-9440-83e15d2c489f,,FIN,Produto Acabado,4,true
+material_category,8b93b5b9-a23b-4604-9d17-0b92c2796e47,,COM,Produto Composto,5,true
+material_category,fb13d482-07d3-466e-9d56-f954a0b0fa6c,,HIG,Higiene e Limpeza,6,true
+material_category,ea9b4c7d-e848-451f-a8b4-b59876e5aaf2,,REV,Produto de Revenda,6,true
+material_category,0bc6ded0-ecca-4f3c-8067-77aa3f2ac07d,,EQU,Equipamentos,8,true
+material_category,e5ff34c5-04a4-4e8a-a88f-2cde2cb37e2f,,UTE,Utensílios,9,true
+material_category,e34b826b-93dd-4876-a6b1-04f9e6f98060,,TEX,Têxteis & Apoios,10,true
+material_category,9db160c4-4ffd-445d-ad36-ee068166dae2,,INF,Infraestrutura & Eventos,11,true
+material_subcategory,498263bb-1d4b-40c4-b941-b8b7c266ec91,15779b20-b18c-43a7-9440-83e15d2c489f,,Bebidas,0,true
+material_subcategory,490bbd64-3951-4e20-8906-1ccdf3402e53,3cb43de8-862b-464f-a7c9-6d1a33736264,,Descartáveis,0,true
+material_subcategory,dbe1fb02-a6fc-485f-9927-6853822708a5,9a10d072-9b83-4e71-a558-7acbd38b08b9,,Panificados,0,true
+material_subcategory,b02ac114-6e57-42e8-b96d-d9191f1e8a99,ea9b4c7d-e848-451f-a8b4-b59876e5aaf2,REV_BEB,Bebidas (refrigerantes águas sucos),1,true
+material_subcategory,e7ad2243-9649-4206-8045-312f2e44ab44,9a10d072-9b83-4e71-a558-7acbd38b08b9,,Condimentos & Temperos,1,true
+material_subcategory,96420ad8-a386-4399-a141-c4341eb5820e,0bc6ded0-ecca-4f3c-8067-77aa3f2ac07d,EQU_COZ,Cozinha (fornos batedeiras freezers),1,true
+
+Status: ✅ TAXONOMIAS IMPLEMENTADAS - 4 taxonomias com 55 termos hierárquicos estruturados

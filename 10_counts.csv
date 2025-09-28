@@ -1,0 +1,16 @@
+table_name,count
+materials,122
+stock_items,121
+stock_movements,232
+recipes_bom,0
+recipe_bom_items,0
+composites_bom,0
+composite_bom_items,0
+event_tables,0
+event_production_orders,0
+taxonomy_definitions,4
+taxonomy_terms,55
+config_namespaces,7
+config_values,0
+clients,1
+suppliers,11

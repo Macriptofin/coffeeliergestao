@@ -1,0 +1,23 @@
+{
+  "feature_flags": {
+    "FF_EVENT_TABLES_ENABLED": true,
+    "FF_HIDE_LEGACY_RECIPES": true,
+    "FF_MOVE_COSTS_TO_REPORTS": true,
+    "FF_ORDERS_AS_CENTRAL": true,
+    "FF_UNIFY_BOM_RECEITAS": true,
+    "maintenance_production": false
+  },
+  "status": "SYSTEM_MODERNIZED",
+  "description": "Sistema com flags ativadas para unificação BOM, ocultação de receitas legadas, e novos fluxos de evento/produção",
+  "config_center_status": "ESTRUTURA_CRIADA_SEM_DADOS",
+  "config_namespaces_count": 7,
+  "config_values_count": 0,
+  "analysis": {
+    "legacy_cleanup": "✅ Legacy recipes hidden (FF_HIDE_LEGACY_RECIPES=true)",
+    "bom_unification": "✅ BOM system unified (FF_UNIFY_BOM_RECEITAS=true)",
+    "production_flow": "✅ Modern production flow (FF_ORDERS_AS_CENTRAL=true)",
+    "event_system": "✅ Event tables enabled (FF_EVENT_TABLES_ENABLED=true)",
+    "cost_reporting": "✅ Costs moved to reports (FF_MOVE_COSTS_TO_REPORTS=true)",
+    "maintenance": "✅ Production not in maintenance (maintenance_production=false)"
+  }
+}

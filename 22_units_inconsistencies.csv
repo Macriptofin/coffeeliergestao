@@ -1,0 +1,6 @@
+issue_type,count,description
+INVALID_CONVERSION_FACTOR,0,Materiais com conversion_factor nulo ou <= 0
+MISSING_UNITS,0,Materiais com purchase_unit ou usage_unit nulos
+TOTAL_ISSUES,0,Sistema sem inconsistências de unidades
+
+Status: ✅ SISTEMA LIMPO - Todos os materiais possuem unidades e fatores de conversão válidos.

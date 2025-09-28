@@ -1,0 +1,26 @@
+EXTENSÕES ATIVAS NO SUPABASE
+============================
+
+pgcrypto (v1.3)
+- Descrição: cryptographic functions
+- Uso: Funções de criptografia para senhas e dados sensíveis
+
+plpgsql (v1.0) 
+- Descrição: PL/pgSQL procedural language
+- Uso: Linguagem para stored procedures e functions
+
+supabase_vault (v0.3.1)
+- Descrição: Supabase Vault Extension  
+- Uso: Gerenciamento seguro de secrets e configurações
+
+pg_stat_statements (v1.11)
+- Descrição: track planning and execution statistics of all SQL statements executed
+- Uso: Monitoramento de performance de queries
+
+uuid-ossp (v1.1)
+- Descrição: generate universally unique identifiers (UUIDs)
+- Uso: Geração de UUIDs para chaves primárias
+
+pg_graphql (v1.5.11)
+- Descrição: pg_graphql: GraphQL support
+- Uso: Suporte nativo ao GraphQL no Supabase

@@ -1,0 +1,33 @@
+schema_name,table_name,policy_name,command,permissive,roles,using_expression,with_check_expression
+public,materials,Anyone authenticated can view materials,SELECT,PERMISSIVE,public,(auth.uid() IS NOT NULL),
+public,materials,Only admins and managers can manage materials,ALL,PERMISSIVE,public,is_admin_or_manager(auth.uid()),is_admin_or_manager(auth.uid())
+public,stock_items,Anyone authenticated can view stock_items,SELECT,PERMISSIVE,public,(auth.uid() IS NOT NULL),
+public,stock_items,Only admins and managers can manage stock_items,ALL,PERMISSIVE,public,is_admin_or_manager(auth.uid()),is_admin_or_manager(auth.uid())
+public,stock_movements,Anyone authenticated can view stock_movements,SELECT,PERMISSIVE,public,(auth.uid() IS NOT NULL),
+public,stock_movements,Only admins and managers can manage stock_movements,ALL,PERMISSIVE,public,is_admin_or_manager(auth.uid()),is_admin_or_manager(auth.uid())
+public,recipes_bom,Anyone authenticated can view recipes_bom,SELECT,PERMISSIVE,public,(auth.uid() IS NOT NULL),
+public,recipes_bom,Only admins and managers can manage recipes_bom,ALL,PERMISSIVE,public,is_admin_or_manager(auth.uid()),is_admin_or_manager(auth.uid())
+public,recipe_bom_items,Anyone authenticated can view recipe_bom_items,SELECT,PERMISSIVE,public,(auth.uid() IS NOT NULL),
+public,recipe_bom_items,Only admins and managers can manage recipe_bom_items,ALL,PERMISSIVE,public,is_admin_or_manager(auth.uid()),is_admin_or_manager(auth.uid())
+public,composites_bom,Anyone authenticated can view composites_bom,SELECT,PERMISSIVE,public,(auth.uid() IS NOT NULL),
+public,composites_bom,Only admins and managers can manage composites_bom,ALL,PERMISSIVE,public,is_admin_or_manager(auth.uid()),is_admin_or_manager(auth.uid())
+public,composite_bom_items,Anyone authenticated can view composite_bom_items,SELECT,PERMISSIVE,public,(auth.uid() IS NOT NULL),
+public,composite_bom_items,Only admins and managers can manage composite_bom_items,ALL,PERMISSIVE,public,is_admin_or_manager(auth.uid()),is_admin_or_manager(auth.uid())
+public,taxonomy_definitions,Anyone authenticated can view taxonomy_definitions,SELECT,PERMISSIVE,public,(auth.uid() IS NOT NULL),
+public,taxonomy_definitions,Only admins can manage taxonomy_definitions,ALL,PERMISSIVE,public,has_role(auth.uid(), 'admin'::app_role),has_role(auth.uid(), 'admin'::app_role)
+public,taxonomy_terms,Anyone authenticated can view taxonomy_terms,SELECT,PERMISSIVE,public,(auth.uid() IS NOT NULL),
+public,taxonomy_terms,Only admins can manage taxonomy_terms,ALL,PERMISSIVE,public,has_role(auth.uid(), 'admin'::app_role),has_role(auth.uid(), 'admin'::app_role)
+public,config_namespaces,Anyone authenticated can view config_namespaces,SELECT,PERMISSIVE,authenticated,true,
+public,config_namespaces,Only admins can manage config_namespaces,ALL,PERMISSIVE,authenticated,has_role(auth.uid(), 'admin'::app_role),has_role(auth.uid(), 'admin'::app_role)
+public,config_options,Anyone authenticated can view config_options,SELECT,PERMISSIVE,authenticated,true,
+public,config_options,Only admins can manage config_options,ALL,PERMISSIVE,authenticated,has_role(auth.uid(), 'admin'::app_role),has_role(auth.uid(), 'admin'::app_role)
+public,config_values,Anyone authenticated can view config_values,SELECT,PERMISSIVE,authenticated,true,
+public,config_values,Only admins can manage config_values,ALL,PERMISSIVE,authenticated,has_role(auth.uid(), 'admin'::app_role),has_role(auth.uid(), 'admin'::app_role)
+public,clients,Only admins and managers can view clients,SELECT,PERMISSIVE,public,is_admin_or_manager(auth.uid()),
+public,clients,Only admins and managers can insert clients,INSERT,PERMISSIVE,public,,is_admin_or_manager(auth.uid())
+public,clients,Only admins and managers can update clients,UPDATE,PERMISSIVE,public,is_admin_or_manager(auth.uid()),is_admin_or_manager(auth.uid())
+public,clients,Only admins and managers can delete clients,DELETE,PERMISSIVE,public,is_admin_or_manager(auth.uid()),
+public,suppliers,Anyone authenticated can view suppliers,SELECT,PERMISSIVE,public,(auth.uid() IS NOT NULL),
+public,suppliers,Only admins and managers can manage suppliers,ALL,PERMISSIVE,public,is_admin_or_manager(auth.uid()),is_admin_or_manager(auth.uid())
+public,app_settings,Anyone authenticated can read app_settings,SELECT,PERMISSIVE,public,(auth.uid() IS NOT NULL),
+public,app_settings,Only admins can manage app_settings,ALL,PERMISSIVE,public,is_admin_or_manager(auth.uid()),is_admin_or_manager(auth.uid())
