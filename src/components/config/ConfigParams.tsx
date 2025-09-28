@@ -19,7 +19,7 @@ export const ConfigParams = ({ namespace }: ConfigParamsProps) => {
   const options = getOptionsByNamespace(namespace);
 
   useEffect(() => {
-    if (!loading) {
+    if (!loading && options.length > 0) {
       const initialValues: Record<string, any> = {};
       options.forEach(option => {
         const value = getConfigValue(namespace, option.key);
@@ -27,7 +27,7 @@ export const ConfigParams = ({ namespace }: ConfigParamsProps) => {
       });
       setValues(initialValues);
     }
-  }, [loading, options, getConfigValue, namespace]);
+  }, [loading, namespace, options.length]); // Usar apenas o length das options
 
   const handleSave = async () => {
     setSaving(true);
