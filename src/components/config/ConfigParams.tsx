@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Save, Settings } from "lucide-react";
 import { useConfig } from "@/hooks/useConfig";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface ConfigParamsProps {
   namespace: string;
@@ -15,19 +15,26 @@ export const ConfigParams = ({ namespace }: ConfigParamsProps) => {
   const { getConfigValue, setConfigValue, getOptionsByNamespace, loading } = useConfig();
   const [values, setValues] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
+  const initializedRef = useRef(false);
 
   const options = getOptionsByNamespace(namespace);
 
   useEffect(() => {
-    if (!loading && options.length > 0) {
+    if (!loading && options.length > 0 && !initializedRef.current) {
       const initialValues: Record<string, any> = {};
       options.forEach(option => {
         const value = getConfigValue(namespace, option.key);
         initialValues[option.key] = value;
       });
       setValues(initialValues);
+      initializedRef.current = true;
     }
-  }, [loading, namespace, options.length]); // Usar apenas o length das options
+  }, [loading, namespace, options.length]);
+
+  // Reset initialization flag when namespace changes
+  useEffect(() => {
+    initializedRef.current = false;
+  }, [namespace]);
 
   const handleSave = async () => {
     setSaving(true);
