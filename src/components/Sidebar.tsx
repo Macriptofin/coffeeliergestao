@@ -104,7 +104,7 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
 
   return (
     <div className="w-64 bg-card border-r border-border h-full">
-      <nav className="p-4 space-y-2">
+      <nav className="px-4 pt-6 pb-4 space-y-2">
         {navigation.map((item) => {
           const Icon = item.icon;
           return (
