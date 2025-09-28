@@ -40,6 +40,7 @@ import BOMManagement from "./pages/BOMManagement";
 import EventTables from "./pages/EventTables";
 import FichasTecnicas from "./components/FichasTecnicas";
 import { MaterialEdit } from "./pages/MaterialEdit";
+import Config from "./pages/Config";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,8 @@ function App() {
               <Route path="seguranca" element={<SecurityMonitoring />} />
               <Route path="seguranca/avancado" element={<EnhancedSecurity />} />
               <Route path="seguranca/anomalias" element={<SecurityAnomalies />} />
+              {/* Configurações */}
+              <Route path="config" element={<Config />} />
               {/* Relatórios */}
               <Route path="relatorios" element={<Reports />} />
             </Route>
