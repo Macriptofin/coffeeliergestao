@@ -19,6 +19,7 @@ import { RecipeBOMForm } from "@/components/bom/RecipeBOMForm";
 import { CompositeBOMForm } from "@/components/bom/CompositeBOMForm";
 import { useMaterialBOM } from "@/hooks/useMaterialBOM";
 import BOMDiagnostics from "@/components/BOMDiagnostics";
+import TechnicalSheetForm from "@/components/TechnicalSheetForm";
 import type { Material } from "@/types";
 
 const FichasTecnicas = () => {
@@ -40,6 +41,7 @@ const FichasTecnicas = () => {
   const [activeTab, setActiveTab] = useState("produto-acabado");
   const [materials, setMaterials] = useState<Material[]>([]);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
+  const [showTechnicalSheetForm, setShowTechnicalSheetForm] = useState(false);
   const [showProductionExecutor, setShowProductionExecutor] = useState(false);
   const [showEventIntegration, setShowEventIntegration] = useState(false);
   const [showRecipeBOMForm, setShowRecipeBOMForm] = useState(false);
@@ -99,7 +101,7 @@ const FichasTecnicas = () => {
 
   const handleAddMaterial = (type: 'finished_product' | 'composite_product') => {
     setEditingMaterial(null);
-    setShowMaterialForm(true);
+    setShowTechnicalSheetForm(true);
     setActiveTab(type === 'finished_product' ? 'produto-acabado' : 'produto-composto');
   };
 
@@ -593,6 +595,18 @@ const FichasTecnicas = () => {
         </div>
       )}
 
+      {showTechnicalSheetForm && (
+            <div className="mb-8">
+              <TechnicalSheetForm 
+                onSuccess={() => {
+                  setShowTechnicalSheetForm(false);
+                  loadMaterials();
+                }}
+                onCancel={() => setShowTechnicalSheetForm(false)}
+              />
+            </div>
+          )}
+
       {showMaterialForm && (
             <div className="mb-8">
               <MaterialForm 
@@ -777,7 +791,7 @@ const FichasTecnicas = () => {
             </TabsContent>
           </Tabs>
 
-          {!showMaterialForm && !showRecipeBOMForm && !showCompositeBOMForm && (
+          {!showMaterialForm && !showTechnicalSheetForm && !showRecipeBOMForm && !showCompositeBOMForm && (
             <div className="mt-8 flex justify-center gap-4">
               <Button 
                 onClick={() => setShowProductionExecutor(true)}
