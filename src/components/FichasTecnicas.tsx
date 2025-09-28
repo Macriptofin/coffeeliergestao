@@ -1,466 +1,274 @@
-import { useState, useEffect } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Plus, Settings, Factory, ArrowRight, AlertCircle, Package, Wrench, Calendar, Trash2, Eye, Edit, Stethoscope, AlertTriangle, Download } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useFeatureFlags, logFeatureFlagEvent } from "@/hooks/useFeatureFlags";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
-import { MaterialForm } from "@/components/MaterialForm";
-import { ProductionExecutor } from "@/components/bom/ProductionExecutor";
-import { EventProductionIntegration } from "@/components/EventProductionIntegration";
-import { BOMStatusAlert } from "@/components/BOMStatusAlert";
-import { RecipeBOMForm } from "@/components/bom/RecipeBOMForm";
-import { CompositeBOMForm } from "@/components/bom/CompositeBOMForm";
-import { useMaterialBOM } from "@/hooks/useMaterialBOM";
-import BOMDiagnostics from "@/components/BOMDiagnostics";
-import TechnicalSheetForm from "@/components/TechnicalSheetForm";
-import type { Material } from "@/types";
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { Plus, Search, Filter, Package, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
+import { TechnicalSheetWizard } from '@/components/TechnicalSheetWizard';
+
+interface TechnicalSheet {
+  id: string;
+  name: string;
+  product_type: 'finished_product' | 'intermediate_product' | 'composite_product';
+  category: string;
+  subcategory?: string;
+  yield_quantity?: number;
+  yield_unit?: string;
+  items_count: number;
+  cost?: number;
+  material_id: string;
+  material_code?: string;
+  created_at: string;
+  updated_at: string;
+}
 
 const FichasTecnicas = () => {
-  // Check for duplicates
-  const [duplicatesInfo, setDuplicatesInfo] = useState<{ [key: string]: boolean }>({});
-
-  const checkForDuplicates = async () => {
-    try {
-      // Simplified duplicate check without using removed views
-      const { data, error } = await supabase.from('materials').select('id, name');
-      if (error) throw error;
-      
-      setDuplicatesInfo({});
-    } catch (error) {
-      console.error('Error checking duplicates:', error);
-    }
-  };
-  const { flags } = useFeatureFlags();
-  const [activeTab, setActiveTab] = useState("produto-acabado");
-  const [materials, setMaterials] = useState<Material[]>([]);
-  const [showMaterialForm, setShowMaterialForm] = useState(false);
-  const [showTechnicalSheetForm, setShowTechnicalSheetForm] = useState(false);
-  const [showProductionExecutor, setShowProductionExecutor] = useState(false);
-  const [showEventIntegration, setShowEventIntegration] = useState(false);
-  const [showRecipeBOMForm, setShowRecipeBOMForm] = useState(false);
-  const [showCompositeBOMForm, setShowCompositeBOMForm] = useState(false);
-  const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
-  const [bomEditingMaterial, setBomEditingMaterial] = useState<Material | null>(null);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  
+  const [technicalSheets, setTechnicalSheets] = useState<TechnicalSheet[]>([]);
+  const [filteredSheets, setFilteredSheets] = useState<TechnicalSheet[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set());
-  const [deleting, setDeleting] = useState(false);
-  const [showOnlyWithBOM, setShowOnlyWithBOM] = useState(flags.FF_HIDE_LEGACY_RECIPES || false);
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  
+  // Wizard states
+  const [showWizard, setShowWizard] = useState(false);
+  const [editingSheetId, setEditingSheetId] = useState<string | undefined>();
 
   useEffect(() => {
-    loadMaterials();
-    checkForDuplicates();
-  }, []);
-
-  const loadMaterials = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('materials')
-        .select('*')
-        .in('material_type', ['finished_product', 'composite_product'])
-        .order('name');
-      
-      if (error) throw error;
-      
-      const formattedMaterials = data.map(item => ({
-        id: item.id,
-        name: item.name,
-        description: item.description || undefined,
-        purchaseUnit: item.purchase_unit,
-        usageUnit: item.usage_unit,
-        conversionFactor: parseFloat(item.conversion_factor.toString()),
-        pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit.toString()),
-        supplier: item.supplier || undefined,
-        allowedBrands: item.allowed_brands || undefined,
-        category: item.category as Material['category'],
-        code: item.code,
-        materialType: item.material_type as Material['materialType'],
-        unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined
-      }));
-      
-      setMaterials(formattedMaterials);
-    } catch (error) {
-      console.error('Erro ao carregar materiais:', error);
-      toast.error('Erro ao carregar materiais');
-    } finally {
-      setLoading(false);
+    // Handle routing
+    if (window.location.pathname === '/producao/fichas/novo') {
+      setShowWizard(true);
+      setEditingSheetId(undefined);
+    } else if (id) {
+      setShowWizard(true);
+      setEditingSheetId(id);
+    } else {
+      setShowWizard(false);
+      setEditingSheetId(undefined);
     }
-  };
+    
+    loadTechnicalSheets();
+  }, [id]);
 
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    logFeatureFlagEvent('nav.ficha_tecnica.tab_change', value);
-  };
+  useEffect(() => {
+    applyFilters();
+  }, [technicalSheets, searchTerm, typeFilter, categoryFilter]);
 
-  const handleAddMaterial = (type: 'finished_product' | 'composite_product') => {
-    setEditingMaterial(null);
-    setShowTechnicalSheetForm(true);
-    setActiveTab(type === 'finished_product' ? 'produto-acabado' : 'produto-composto');
-  };
-
-  const addMaterial = async (material: Omit<Material, 'id' | 'code'>) => {
-    try {
-      const { data, error } = await supabase
-        .from('materials')
-        .insert({
-          name: material.name,
-          description: material.description,
-          purchase_unit: material.purchaseUnit,
-          usage_unit: material.usageUnit,
-          conversion_factor: material.conversionFactor,
-          price_per_purchase_unit: material.pricePerPurchaseUnit,
-          supplier: material.supplier,
-          allowed_brands: material.allowedBrands,
-          category: material.category,
-          material_type: material.materialType,
-          unit_weight: material.unitWeight
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      const newMaterial: Material = {
-        id: data.id,
-        name: data.name,
-        description: data.description || undefined,
-        purchaseUnit: data.purchase_unit,
-        usageUnit: data.usage_unit,
-        conversionFactor: parseFloat(data.conversion_factor.toString()),
-        pricePerPurchaseUnit: parseFloat(data.price_per_purchase_unit.toString()),
-        supplier: data.supplier || undefined,
-        allowedBrands: data.allowed_brands || undefined,
-        category: data.category as Material['category'],
-        code: data.code,
-        materialType: data.material_type as Material['materialType'],
-        unitWeight: data.unit_weight ? parseFloat(data.unit_weight.toString()) : undefined
-      };
-      
-      setMaterials([...materials, newMaterial]);
-      setShowMaterialForm(false);
-      toast.success('Produto cadastrado com sucesso!');
-    } catch (error) {
-      console.error('Erro ao adicionar material:', error);
-      toast.error('Erro ao cadastrar produto');
-    }
-  };
-
-  const handleMaterialSubmit = (materialData: Omit<Material, 'id' | 'code'>) => {
-    addMaterial(materialData);
-  };
-
-  // Funções de seleção e exclusão
-  const toggleSelectMaterial = (id: string) => {
-    setSelectedMaterials(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  const isSelectedMaterial = (id: string) => selectedMaterials.has(id);
-
-  const selectAllMaterials = (ids: string[]) => setSelectedMaterials(new Set(ids));
-
-  const clearSelection = () => setSelectedMaterials(new Set());
-
-  const deleteBOMsForMaterials = async (materialIds: string[]) => {
-    try {
-      setDeleting(true);
-      if (materialIds.length === 0) return;
-      
-      const { data: bomRows, error: bomErr } = await supabase
-        .from('recipes_bom')
-        .select('id, finished_material_id')
-        .in('finished_material_id', materialIds);
-      if (bomErr) throw bomErr;
-      
-      const bomIds = (bomRows || []).map(r => r.id);
-      if (bomIds.length > 0) {
-        const { error: delItemsErr } = await supabase
-          .from('recipe_bom_items')
-          .delete()
-          .in('recipe_id', bomIds);
-        if (delItemsErr) throw delItemsErr;
-        
-        const { error: delBomErr } = await supabase
-          .from('recipes_bom')
-          .delete()
-          .in('id', bomIds);
-        if (delBomErr) throw delBomErr;
-      }
-      
-      toast.success('Fichas técnicas excluídas com sucesso');
-      clearSelection();
-      await loadMaterials();
-    } catch (err) {
-      console.error('Erro ao excluir fichas técnicas:', err);
-      toast.error('Falha ao excluir fichas técnicas');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const deleteSingleBOM = (materialId: string) => deleteBOMsForMaterials([materialId]);
-
-  const getFinishedProducts = () => {
-    return materials.filter(m => m.materialType === 'finished_product');
-  };
-
-  const getCompositeProducts = () => {
-    return materials.filter(m => m.materialType === 'composite_product');
-  };
-
-  const exportTechnicalSheetsToCSV = async () => {
+  const loadTechnicalSheets = async () => {
     try {
       setLoading(true);
       
-      // Fetch all technical sheets with their BOM data
-      const csvData = [];
-      csvData.push(['Produto', 'Código', 'Tipo', 'Rendimento', 'Item', 'Quantidade', 'Unidade', 'É Embalagem']);
-      
-      for (const material of materials) {
-        if (material.materialType === 'finished_product') {
-          // Get recipe BOM data
-          const { data: bomData, error: bomError } = await supabase
-            .from('recipes_bom')
-            .select(`
-              yield_quantity,
-              recipe_bom_items (
-                quantity,
-                unit,
-                is_packaging,
-                materials!inner (
-                  name
-                )
-              )
-            `)
-            .eq('finished_material_id', material.id)
-            .single();
-            
-          if (bomError && bomError.code !== 'PGRST116') {
-            console.error('Error fetching recipe BOM:', bomError);
-            continue;
-          }
-          
-          if (bomData) {
-            for (const item of bomData.recipe_bom_items) {
-              csvData.push([
-                material.name,
-                material.code || '',
-                'Produto Acabado',
-                bomData.yield_quantity?.toString() || '1',
-                item.materials.name,
-                item.quantity?.toString() || '0',
-                item.unit || '',
-                item.is_packaging ? 'Sim' : 'Não'
-              ]);
-            }
-          } else {
-            // Material without BOM
-            csvData.push([
-              material.name,
-              material.code || '',
-              'Produto Acabado',
-              '1',
-              'SEM BOM CONFIGURADO',
-              '0',
-              '',
-              'Não'
-            ]);
-          }
-        } else if (material.materialType === 'composite_product') {
-          // Get composite BOM data
-          const { data: bomData, error: bomError } = await supabase
-            .from('composites_bom')
-            .select(`
-              composite_bom_items (
-                quantity,
-                unit,
-                materials!inner (
-                  name
-                )
-              )
-            `)
-            .eq('composite_material_id', material.id)
-            .single();
-            
-          if (bomError && bomError.code !== 'PGRST116') {
-            console.error('Error fetching composite BOM:', bomError);
-            continue;
-          }
-          
-          if (bomData) {
-            for (const item of bomData.composite_bom_items) {
-              csvData.push([
-                material.name,
-                material.code || '',
-                'Produto Composto',
-                '1',
-                item.materials.name,
-                item.quantity?.toString() || '0',
-                item.unit || '',
-                'Não'
-              ]);
-            }
-          } else {
-            // Material without BOM
-            csvData.push([
-              material.name,
-              material.code || '',
-              'Produto Composto',
-              '1',
-              'SEM BOM CONFIGURADO',
-              '0',
-              '',
-              'Não'
-            ]);
-          }
-        }
+      const sheets: TechnicalSheet[] = [];
+
+      // Load recipe BOMs (finished and intermediate products)
+      const { data: recipeBOMs, error: recipeError } = await supabase
+        .from('recipes_bom')
+        .select(`
+          id,
+          yield_quantity,
+          yield_unit,
+          created_at,
+          updated_at,
+          materials!recipes_bom_finished_material_id_fkey(
+            id,
+            name,
+            code,
+            category,
+            subcategory,
+            material_type
+          ),
+          recipe_bom_items(id)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (recipeError) throw recipeError;
+
+      for (const bom of recipeBOMs || []) {
+        const productType = bom.materials?.material_type === 'finished_product' 
+          ? 'finished_product' 
+          : 'intermediate_product';
+
+        sheets.push({
+          id: bom.id,
+          name: bom.materials?.name || 'Sem nome',
+          product_type: productType,
+          category: bom.materials?.category || '',
+          subcategory: bom.materials?.subcategory,
+          yield_quantity: bom.yield_quantity,
+          yield_unit: bom.yield_unit,
+          items_count: bom.recipe_bom_items?.length || 0,
+          material_id: bom.materials?.id || '',
+          material_code: bom.materials?.code,
+          created_at: bom.created_at,
+          updated_at: bom.updated_at
+        });
       }
-      
-      // Convert to CSV string
-      const csvContent = csvData.map(row => 
-        row.map(field => `"${field}"`).join(',')
-      ).join('\n');
-      
-      // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `fichas_tecnicas_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.success('CSV das fichas técnicas exportado com sucesso!');
+
+      // Load composite BOMs
+      const { data: compositeBOMs, error: compositeError } = await supabase
+        .from('composites_bom')
+        .select(`
+          id,
+          created_at,
+          updated_at,
+          materials!composites_bom_composite_material_id_fkey(
+            id,
+            name,
+            code,
+            category,
+            subcategory,
+            material_type
+          ),
+          composite_bom_items(id)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (compositeError) throw compositeError;
+
+      for (const bom of compositeBOMs || []) {
+        sheets.push({
+          id: bom.id,
+          name: bom.materials?.name || 'Sem nome',
+          product_type: 'composite_product',
+          category: bom.materials?.category || '',
+          subcategory: bom.materials?.subcategory,
+          items_count: bom.composite_bom_items?.length || 0,
+          material_id: bom.materials?.id || '',
+          material_code: bom.materials?.code,
+          created_at: bom.created_at,
+          updated_at: bom.updated_at
+        });
+      }
+
+      setTechnicalSheets(sheets);
     } catch (error) {
-      console.error('Erro ao exportar CSV:', error);
-      toast.error('Erro ao exportar CSV das fichas técnicas');
+      console.error('Erro ao carregar fichas técnicas:', error);
+      toast.error('Erro ao carregar fichas técnicas');
     } finally {
       setLoading(false);
     }
   };
 
-  const renderProductCard = (material: Material) => {
-    return <ProductCard key={material.id} material={material} onRefresh={loadMaterials} />;
+  const applyFilters = () => {
+    let filtered = technicalSheets;
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(sheet =>
+        sheet.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        sheet.material_code?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Type filter
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(sheet => {
+        switch (typeFilter) {
+          case 'finished':
+            return sheet.product_type === 'finished_product';
+          case 'intermediate':
+            return sheet.product_type === 'intermediate_product';
+          case 'composite':
+            return sheet.product_type === 'composite_product';
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Category filter
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(sheet => sheet.category === categoryFilter);
+    }
+
+    setFilteredSheets(filtered);
   };
 
-  const ProductCard = ({ material, onRefresh }: { material: Material; onRefresh: () => void }) => {
-    const { bomInfo, loading: bomLoading } = useMaterialBOM(material.id, material.materialType);
-    
-    return (
-      <Card className="shadow-soft">
-        <CardHeader>
-          <div className="flex justify-between items-start gap-3">
-             <div className="flex items-center gap-2">
-               <Checkbox
-                 checked={isSelectedMaterial(material.id)}
-                 onCheckedChange={() => toggleSelectMaterial(material.id)}
-                 aria-label="Selecionar ficha técnica"
-               />
-               <div>
-                 <div className="flex items-center gap-2 mb-1">
-                   <CardTitle className="text-lg">{material.name}</CardTitle>
-                   {duplicatesInfo[material.id] && (
-                     <Badge variant="destructive" className="text-xs">
-                       <AlertTriangle className="h-3 w-3 mr-1" />
-                       Possível Duplicado
-                     </Badge>
-                   )}
-                 </div>
-                 <div className="flex items-center gap-2 mt-1">
-                   <Badge variant="outline" className="text-xs">{material.code}</Badge>
-                   <Badge variant={material.materialType === 'finished_product' ? 'default' : 'secondary'}>
-                     {material.materialType === 'finished_product' ? 'Produto Acabado' : 'Produto Composto'}
-                   </Badge>
-                 </div>
-               </div>
-             </div>
-          </div>
-          {material.description && (
-            <CardDescription>{material.description}</CardDescription>
-          )}
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {bomLoading ? (
-              <div className="animate-pulse">
-                <div className="h-16 bg-muted rounded w-full"></div>
-              </div>
-            ) : (
-              <BOMStatusAlert
-                hasBOM={bomInfo.hasBOM}
-                cost={bomInfo.cost}
-                itemsCount={bomInfo.itemsCount}
-                yieldQuantity={bomInfo.yieldQuantity}
-                materialType={material.materialType as 'finished_product' | 'composite_product'}
-              />
-            )}
-            
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => {
-                  setBomEditingMaterial(material);
-                  if (material.materialType === 'finished_product') {
-                    setShowRecipeBOMForm(true);
-                  } else {
-                    setShowCompositeBOMForm(true);
-                  }
-                }}
-                className="flex-1"
-              >
-                <Settings className="h-4 w-4 mr-1" />
-                {bomInfo.hasBOM ? 'Editar BOM' : 'Configurar BOM'}
-              </Button>
-              
-              {bomInfo.hasBOM && (
-                <Button 
-                  size="sm" 
-                  onClick={() => setShowProductionExecutor(true)}
-                  className="flex-1"
-                >
-                  {material.materialType === 'finished_product' ? (
-                    <>
-                      <Package className="h-4 w-4 mr-1" />
-                      Produzir
-                    </>
-                  ) : (
-                    <>
-                      <Wrench className="h-4 w-4 mr-1" />
-                      Montar
-                    </>
-                  )}
-                </Button>
-              )}
-              
-              {bomInfo.hasBOM && (
-                <Button 
-                  size="sm" 
-                  variant="destructive" 
-                  onClick={() => deleteSingleBOM(material.id)}
-                  disabled={deleting}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
+  const handleNewTechnicalSheet = () => {
+    navigate('/producao/fichas/novo');
   };
+
+  const handleEditTechnicalSheet = (sheetId: string) => {
+    navigate(`/producao/fichas/${sheetId}`);
+  };
+
+  const handleDeleteTechnicalSheet = async (sheet: TechnicalSheet) => {
+    if (!confirm(`Confirma a exclusão da ficha técnica "${sheet.name}"?`)) return;
+
+    try {
+      if (sheet.product_type === 'composite_product') {
+        // Delete composite BOM
+        await supabase.from('composite_bom_items').delete().eq('composite_id', sheet.id);
+        await supabase.from('composites_bom').delete().eq('id', sheet.id);
+      } else {
+        // Delete recipe BOM
+        await supabase.from('recipe_bom_items').delete().eq('recipe_id', sheet.id);
+        await supabase.from('recipes_bom').delete().eq('id', sheet.id);
+      }
+
+      toast.success('Ficha técnica excluída com sucesso!');
+      loadTechnicalSheets();
+    } catch (error) {
+      console.error('Erro ao excluir ficha técnica:', error);
+      toast.error('Erro ao excluir ficha técnica');
+    }
+  };
+
+  const handleWizardSuccess = () => {
+    setShowWizard(false);
+    setEditingSheetId(undefined);
+    navigate('/producao/fichas-tecnicas');
+    loadTechnicalSheets();
+  };
+
+  const handleWizardCancel = () => {
+    setShowWizard(false);
+    setEditingSheetId(undefined);
+    navigate('/producao/fichas-tecnicas');
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'finished_product': return 'Produto Acabado';
+      case 'intermediate_product': return 'Produto Intermediário';
+      case 'composite_product': return 'Produto Composto';
+      default: return type;
+    }
+  };
+
+  const getTypeBadgeVariant = (type: string) => {
+    switch (type) {
+      case 'finished_product': return 'default';
+      case 'intermediate_product': return 'secondary';
+      case 'composite_product': return 'outline';
+      default: return 'outline';
+    }
+  };
+
+  // Get unique categories for filter
+  const categories = Array.from(
+    new Set(technicalSheets.map(sheet => sheet.category).filter(Boolean))
+  ).sort();
+
+  if (showWizard) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <TechnicalSheetWizard
+          technicalSheetId={editingSheetId}
+          onSuccess={handleWizardSuccess}
+          onCancel={handleWizardCancel}
+        />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -476,342 +284,164 @@ const FichasTecnicas = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Fichas Técnicas (BOM)</h1>
+          <h1 className="text-3xl font-bold mb-2">Fichas Técnicas</h1>
           <p className="text-muted-foreground">
-            Gestão unificada de produtos, receitas e composições
+            Gerencie as estruturas de materiais (BOM) dos seus produtos
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={exportTechnicalSheetsToCSV}
-            variant="outline"
-            disabled={loading || materials.length === 0}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Exportar CSV
-          </Button>
-        </div>
         
-        {(showEventIntegration || showProductionExecutor || showRecipeBOMForm || showCompositeBOMForm) && (
-          <Button 
-            onClick={() => {
-              setShowEventIntegration(false);
-              setShowProductionExecutor(false);
-              setShowRecipeBOMForm(false);
-              setShowCompositeBOMForm(false);
-              setBomEditingMaterial(null);
-            }}
-            variant="outline"
-          >
-            Voltar para Cadastro
-          </Button>
-        )}
+        <Button onClick={handleNewTechnicalSheet} className="bg-gradient-primary hover:bg-primary/90">
+          <Plus className="h-4 w-4 mr-2" />
+          Nova Ficha Técnica
+        </Button>
       </div>
 
-      {showEventIntegration ? (
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar className="h-5 w-5" />
-            <h2 className="text-xl font-semibold">Integração com Eventos</h2>
+      {/* Filters */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <Input
+                placeholder="Buscar por nome ou código..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            
+            <div>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os tipos</SelectItem>
+                  <SelectItem value="finished">Produto Acabado</SelectItem>
+                  <SelectItem value="intermediate">Produto Intermediário</SelectItem>
+                  <SelectItem value="composite">Produto Composto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as categorias</SelectItem>
+                  {categories.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {filteredSheets.length} fichas encontradas
+              </span>
+            </div>
           </div>
-          <EventProductionIntegration onOrderGenerated={() => {
-            toast.success('Ordem gerada! Verifique em Ordens de Produção.');
-            setShowEventIntegration(false);
-          }} />
-        </div>
-      ) : showProductionExecutor ? (
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Factory className="h-5 w-5" />
-            <h2 className="text-xl font-semibold">Execução de Produção</h2>
-          </div>
-          <ProductionExecutor onSuccess={() => setShowProductionExecutor(false)} />
-        </div>
-      ) : showRecipeBOMForm && bomEditingMaterial ? (
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Settings className="h-5 w-5" />
-            <h2 className="text-xl font-semibold">Configurar BOM - {bomEditingMaterial.name}</h2>
-          </div>
-          <RecipeBOMForm 
-            finishedMaterial={{
-              id: bomEditingMaterial.id,
-              name: bomEditingMaterial.name,
-              code: bomEditingMaterial.code || '',
-              usage_unit: bomEditingMaterial.usageUnit,
-              material_type: bomEditingMaterial.materialType
-            }}
-            onSuccess={() => {
-              setShowRecipeBOMForm(false);
-              setBomEditingMaterial(null);
-              loadMaterials();
-              toast.success('BOM configurado com sucesso!');
-            }}
-            onCancel={() => {
-              setShowRecipeBOMForm(false);
-              setBomEditingMaterial(null);
-            }}
-          />
-        </div>
-      ) : showCompositeBOMForm && bomEditingMaterial ? (
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Settings className="h-5 w-5" />
-            <h2 className="text-xl font-semibold">Configurar BOM - {bomEditingMaterial.name}</h2>
-          </div>
-          <CompositeBOMForm 
-            compositeMaterial={{
-              id: bomEditingMaterial.id,
-              name: bomEditingMaterial.name,
-              code: bomEditingMaterial.code || '',
-              usage_unit: bomEditingMaterial.usageUnit,
-              material_type: bomEditingMaterial.materialType
-            }}
-            onSuccess={() => {
-              setShowCompositeBOMForm(false);
-              setBomEditingMaterial(null);
-              loadMaterials();
-              toast.success('BOM configurado com sucesso!');
-            }}
-            onCancel={() => {
-              setShowCompositeBOMForm(false);
-              setBomEditingMaterial(null);
-            }}
-          />
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* Technical Sheets List */}
+      {filteredSheets.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-12">
+              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">
+                {technicalSheets.length === 0 
+                  ? 'Nenhuma ficha técnica criada'
+                  : 'Nenhuma ficha técnica encontrada'
+                }
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {technicalSheets.length === 0
+                  ? 'Crie sua primeira ficha técnica para começar a gerenciar estruturas de materiais'
+                  : 'Tente ajustar os filtros para encontrar as fichas técnicas desejadas'
+                }
+              </p>
+              {technicalSheets.length === 0 && (
+                <Button onClick={handleNewTechnicalSheet}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Primeira Ficha Técnica
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       ) : (
-        <>
-      {showDiagnostics && (
-        <div className="fixed inset-0 bg-background z-50 overflow-auto">
-          <div className="container mx-auto p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">Diagnóstico BOM - Sistema de Limpeza</h2>
-              <Button onClick={() => setShowDiagnostics(false)} variant="outline">
-                Voltar às Fichas Técnicas
-              </Button>
-            </div>
-            <BOMDiagnostics />
-          </div>
-        </div>
-      )}
-
-      {showTechnicalSheetForm && (
-            <div className="mb-8">
-              <TechnicalSheetForm 
-                onSuccess={() => {
-                  setShowTechnicalSheetForm(false);
-                  loadMaterials();
-                }}
-                onCancel={() => setShowTechnicalSheetForm(false)}
-              />
-            </div>
-          )}
-
-      {showMaterialForm && (
-            <div className="mb-8">
-              <MaterialForm 
-                material={editingMaterial}
-                existingMaterials={materials}
-                onSubmit={handleMaterialSubmit}
-                onCancel={() => setShowMaterialForm(false)}
-              />
-            </div>
-          )}
-
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="produto-acabado" className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Produtos Acabados
-              </TabsTrigger>
-              <TabsTrigger value="produto-composto" className="flex items-center gap-2">
-                <Wrench className="h-4 w-4" />
-                Produtos Compostos
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="produto-acabado" className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-semibold">Produtos Acabados</h2>
-                  <p className="text-muted-foreground">
-                    Produtos que requerem receita e processo de produção
-                  </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredSheets.map((sheet) => (
+            <Card key={sheet.id} className="shadow-soft hover:shadow-md transition-shadow">
+              <CardHeader>
+                <div className="flex justify-between items-start gap-3">
+                  <div className="flex-1">
+                    <CardTitle className="text-lg mb-2">{sheet.name}</CardTitle>
+                    <div className="flex items-center gap-2 mb-2">
+                      {sheet.material_code && (
+                        <Badge variant="outline" className="text-xs">
+                          {sheet.material_code}
+                        </Badge>
+                      )}
+                      <Badge variant={getTypeBadgeVariant(sheet.product_type)}>
+                        {getTypeLabel(sheet.product_type)}
+                      </Badge>
+                    </div>
+                    {sheet.category && (
+                      <p className="text-sm text-muted-foreground">{sheet.category}</p>
+                    )}
+                  </div>
                 </div>
-                 <div className="flex items-center gap-4">
-                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                     <Switch checked={showOnlyWithBOM} onCheckedChange={setShowOnlyWithBOM} id="only-bom-finished" />
-                     <label htmlFor="only-bom-finished">Somente com BOM</label>
-                   </div>
-                   <Button 
-                     onClick={() => setShowDiagnostics(true)}
-                     variant="outline"
-                     className="flex items-center gap-2"
-                   >
-                     <Stethoscope className="h-4 w-4" />
-                     Diagnosticar & Limpeza
-                   </Button>
-                   <Button 
-                     onClick={() => handleAddMaterial('finished_product')}
-                     className="bg-gradient-primary hover:bg-primary/90"
-                   >
-                     <Plus className="h-4 w-4 mr-2" />
-                     Novo Produto Acabado
-                   </Button>
-                 </div>
-              </div>
-
-              {getFinishedProducts().length === 0 ? (
-                <Card className="shadow-soft">
-                  <CardContent className="pt-6">
-                    <div className="text-center py-8">
-                      <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">Nenhum produto acabado cadastrado</h3>
-                      <p className="text-muted-foreground mb-4">
-                        Cadastre produtos acabados para gerenciar suas receitas e produção.
-                      </p>
-                      <Button onClick={() => handleAddMaterial('finished_product')}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Cadastrar Primeiro Produto
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm text-muted-foreground">
-                      {selectedMaterials.size} selecionada(s)
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => selectAllMaterials(getFinishedProducts().map(p => p.id))}
-                        disabled={getFinishedProducts().length === 0}
-                      >
-                        Selecionar todos
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => deleteBOMsForMaterials(Array.from(selectedMaterials))}
-                        disabled={deleting || selectedMaterials.size === 0}
-                      >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Excluir selecionadas
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {getFinishedProducts().map(renderProductCard)}
-                  </div>
-                </>
-              )}
-            </TabsContent>
-
-            <TabsContent value="produto-composto" className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-semibold">Produtos Compostos</h2>
-                  <p className="text-muted-foreground">
-                    Kits e conjuntos montados a partir de outros produtos
-                  </p>
-                </div>
-                 <div className="flex items-center gap-4">
-                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                     <Switch checked={showOnlyWithBOM} onCheckedChange={setShowOnlyWithBOM} id="only-bom-composite" />
-                     <label htmlFor="only-bom-composite">Somente com BOM</label>
-                   </div>
-                   <Button 
-                     onClick={() => setShowDiagnostics(true)}
-                     variant="outline"
-                     className="flex items-center gap-2"
-                   >
-                     <Stethoscope className="h-4 w-4" />
-                     Diagnosticar & Limpeza
-                   </Button>
-                   <Button 
-                     onClick={() => handleAddMaterial('composite_product')}
-                     className="bg-gradient-primary hover:bg-primary/90"
-                   >
-                     <Plus className="h-4 w-4 mr-2" />
-                     Novo Produto Composto
-                   </Button>
-                 </div>
-              </div>
-
-              {getCompositeProducts().length === 0 ? (
-                <Card className="shadow-soft">
-                  <CardContent className="pt-6">
-                    <div className="text-center py-8">
-                      <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">Nenhum produto composto cadastrado</h3>
-                      <p className="text-muted-foreground mb-4">
-                        Cadastre produtos compostos para gerenciar kits e montagens.
-                      </p>
-                      <Button onClick={() => handleAddMaterial('composite_product')}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Cadastrar Primeiro Composto
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm text-muted-foreground">
-                      {selectedMaterials.size} selecionada(s)
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => selectAllMaterials(getCompositeProducts().map(p => p.id))}
-                        disabled={getCompositeProducts().length === 0}
-                      >
-                        Selecionar todos
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => deleteBOMsForMaterials(Array.from(selectedMaterials))}
-                        disabled={deleting || selectedMaterials.size === 0}
-                      >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Excluir selecionadas
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {getCompositeProducts().map(renderProductCard)}
-                  </div>
-                </>
-              )}
-            </TabsContent>
-          </Tabs>
-
-          {!showMaterialForm && !showTechnicalSheetForm && !showRecipeBOMForm && !showCompositeBOMForm && (
-            <div className="mt-8 flex justify-center gap-4">
-              <Button 
-                onClick={() => setShowProductionExecutor(true)}
-                className="bg-gradient-primary hover:bg-primary/90"
-                disabled={materials.length === 0}
-              >
-                <Factory className="h-4 w-4 mr-2" />
-                Executar Produção/Montagem
-              </Button>
+              </CardHeader>
               
-              <Button 
-                onClick={() => setShowEventIntegration(true)}
-                variant="outline"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Integração com Eventos
-              </Button>
-            </div>
-          )}
-        </>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Itens:</span>
+                      <span className="ml-2 font-medium">{sheet.items_count}</span>
+                    </div>
+                    {sheet.yield_quantity && (
+                      <div>
+                        <span className="text-muted-foreground">Rendimento:</span>
+                        <span className="ml-2 font-medium">
+                          {sheet.yield_quantity} {sheet.yield_unit || 'un'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditTechnicalSheet(sheet.id)}
+                      className="flex-1"
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Editar
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteTechnicalSheet(sheet)}
+                      className="px-3"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   );

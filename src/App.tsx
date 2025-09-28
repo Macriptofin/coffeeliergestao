@@ -76,6 +76,8 @@ function App() {
               <Route path="producao/relatorios" element={<ProductionReports />} />
               <Route path="producao/bom" element={<BOMManagement />} />
               <Route path="producao/fichas-tecnicas" element={<FichasTecnicas />} />
+              <Route path="producao/fichas/novo" element={<FichasTecnicas />} />
+              <Route path="producao/fichas/:id" element={<FichasTecnicas />} />
               <Route path="producao/eventos" element={<EventTables />} />
               {/* Fornecedores */}
               <Route path="fornecedores" element={<Suppliers />} />
