@@ -503,7 +503,7 @@ export type Database = {
             columns: ["component_material_id"]
             isOneToOne: false
             referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["id"]
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "composite_bom_items_composite_id_fkey"
@@ -563,7 +563,7 @@ export type Database = {
             columns: ["composite_material_id"]
             isOneToOne: true
             referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["id"]
+            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -1164,7 +1164,7 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["id"]
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "event_production_order_items_order_id_fkey"
@@ -1290,7 +1290,7 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["id"]
+            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -1355,7 +1355,7 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["id"]
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "event_table_template_items_template_id_fkey"
@@ -1679,7 +1679,7 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["id"]
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "invoice_items_invoice_id_fkey"
@@ -2394,7 +2394,7 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["id"]
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "recipe_bom_items_recipe_id_fkey"
@@ -2454,7 +2454,7 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["id"]
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "recipe_ingredients_recipe_id_fkey"
@@ -2584,7 +2584,7 @@ export type Database = {
             columns: ["finished_material_id"]
             isOneToOne: true
             referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["id"]
+            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -2751,7 +2751,7 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: true
             referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["id"]
+            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -2819,7 +2819,7 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["id"]
+            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -2890,7 +2890,7 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_diag_orphans"
-            referencedColumns: ["id"]
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "supplier_products_supplier_id_fkey"
@@ -3193,23 +3193,22 @@ export type Database = {
       }
       vw_diag_bom_inconsistencies: {
         Row: {
-          description: string | null
-          finished_material_id: string | null
-          id: string | null
+          bom_count: number | null
           issue_type: string | null
+          material_id: string | null
           material_name: string | null
+          material_type: string | null
         }
         Relationships: []
       }
       vw_diag_material_dupes: {
         Row: {
           candidate_key: string | null
-          codes: string[] | null
-          created_dates: string[] | null
           duplicate_count: number | null
           has_references_flags: boolean[] | null
           has_stock_flags: boolean[] | null
           material_ids: string[] | null
+          names: string[] | null
         }
         Relationships: []
       }
@@ -3217,11 +3216,9 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string | null
-          description: string | null
-          id: string | null
+          material_id: string | null
+          material_name: string | null
           material_type: string | null
-          name: string | null
-          status: string | null
         }
         Relationships: []
       }
