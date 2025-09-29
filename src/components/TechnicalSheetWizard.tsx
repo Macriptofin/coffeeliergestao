@@ -304,6 +304,11 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
             const material = materials.find(m => m.id === value);
             updatedItem.material = material;
             updatedItem.unit = material?.usage_unit || '';
+            
+            // Automatically set is_packaging based on material type
+            if (formData.product_type !== 'composite_product') {
+              updatedItem.is_packaging = material?.material_type === 'packaging';
+            }
           }
           
           return updatedItem;
@@ -738,86 +743,74 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
               ) : (
                 <div className="space-y-4">
                   {formData.items.map((item, index) => (
-                    <Card key={index} className="p-4">
-                      <div className="grid grid-cols-12 gap-4 items-end">
-                        <div className="col-span-4">
-                          <Label>Material *</Label>
-                          <Combobox
-                            options={materialOptions}
-                            value={item.material_id}
-                            onSelect={(value) => updateBOMItem(index, 'material_id', value)}
-                            placeholder="Buscar material..."
-                          />
-                        </div>
+                  <Card key={index} className="p-4">
+                    <div className="grid grid-cols-12 gap-4 items-end">
+                      <div className="col-span-4">
+                        <Label>Material *</Label>
+                        <Combobox
+                          options={materialOptions}
+                          value={item.material_id}
+                          onSelect={(value) => updateBOMItem(index, 'material_id', value)}
+                          placeholder="Buscar material..."
+                        />
+                      </div>
 
+                      <div className="col-span-2">
+                        <Label>Quantidade *</Label>
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          value={item.quantity}
+                          onChange={(e) => updateBOMItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                        />
+                      </div>
+
+                      <div className="col-span-1">
+                        <Label>Unidade</Label>
+                        <Input
+                          value={item.unit}
+                          onChange={(e) => updateBOMItem(index, 'unit', e.target.value)}
+                          placeholder="un"
+                        />
+                      </div>
+
+                      {formData.product_type !== 'composite_product' && (
                         <div className="col-span-2">
-                          <Label>Quantidade *</Label>
+                          <Label>Perda %</Label>
                           <Input
                             type="number"
-                            step="0.001"
+                            step="0.1"
                             min="0"
-                            value={item.quantity}
-                            onChange={(e) => updateBOMItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                            max="100"
+                            value={item.waste_percent || ''}
+                            onChange={(e) => updateBOMItem(index, 'waste_percent', parseFloat(e.target.value) || 0)}
+                            placeholder="0"
                           />
                         </div>
+                      )}
 
-                        <div className="col-span-1">
-                          <Label>Unidade</Label>
-                          <Input
-                            value={item.unit}
-                            onChange={(e) => updateBOMItem(index, 'unit', e.target.value)}
-                            placeholder="un"
-                          />
-                        </div>
-
-                        {formData.product_type !== 'composite_product' && (
-                          <>
-                            <div className="col-span-1">
-                              <Label>Perda %</Label>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                max="100"
-                                value={item.waste_percent || ''}
-                                onChange={(e) => updateBOMItem(index, 'waste_percent', parseFloat(e.target.value) || 0)}
-                                placeholder="0"
-                              />
-                            </div>
-
-                            <div className="col-span-1">
-                              <Label>Embalagem?</Label>
-                              <div className="flex items-center justify-center pt-2">
-                                <Switch
-                                  checked={item.is_packaging || false}
-                                  onCheckedChange={(checked) => updateBOMItem(index, 'is_packaging', checked)}
-                                />
-                              </div>
-                            </div>
-                          </>
-                        )}
-
-                        <div className="col-span-2">
-                          <Label>Observações</Label>
-                          <Input
-                            value={item.notes || ''}
-                            onChange={(e) => updateBOMItem(index, 'notes', e.target.value)}
-                            placeholder="Opcional"
-                          />
-                        </div>
-
-                        <div className="col-span-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeBOMItem(index)}
-                            className="w-full"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                      <div className={formData.product_type === 'composite_product' ? "col-span-2" : "col-span-2"}>
+                        <Label>Observações</Label>
+                        <Input
+                          value={item.notes || ''}
+                          onChange={(e) => updateBOMItem(index, 'notes', e.target.value)}
+                          placeholder="Opcional"
+                        />
                       </div>
-                    </Card>
+
+                      <div className="col-span-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeBOMItem(index)}
+                          className="w-full"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
                   ))}
                 </div>
             )}
