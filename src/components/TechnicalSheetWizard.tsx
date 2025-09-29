@@ -578,14 +578,13 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          {/* Header Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Informações Gerais</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+      <div className="space-y-6">
+        {/* Header Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Informações Gerais</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
               <div>
                 <Label htmlFor="name">Nome da Ficha Técnica *</Label>
                 <Input
@@ -662,16 +661,16 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                   </Select>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
 
-          {/* Yield Section - Only for non-composite products */}
-          {formData.product_type !== 'composite_product' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Rendimento</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+        {/* Yield Section - Only for non-composite products */}
+        {formData.product_type !== 'composite_product' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Rendimento</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
                 <div className="grid grid-cols-3 gap-4">
                   <div className="col-span-2">
                     <Label htmlFor="yield_quantity">Quantidade de Rendimento *</Label>
@@ -714,22 +713,22 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                     placeholder="0"
                   />
                 </div>
-              </CardContent>
-            </Card>
-          )}
+            </CardContent>
+          </Card>
+        )}
 
-          {/* BOM Items Section */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Itens da BOM</CardTitle>
-                <Button onClick={addBOMItem} size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Item
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
+        {/* BOM Items Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Itens da BOM</CardTitle>
+              <Button onClick={addBOMItem} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Item
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
               {formData.items.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -821,75 +820,72 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                     </Card>
                   ))}
                 </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Notes Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Observações</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={formData.notes || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="Observações gerais sobre a ficha técnica..."
+              rows={3}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Cost Panel - moved to bottom */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Calculator className="h-5 w-5" />
+                Estimativa de Custos
+              </CardTitle>
+              {calculating && (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Notes Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Observações</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={formData.notes || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Observações gerais sobre a ficha técnica..."
-                rows={3}
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Cost Panel */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Calculator className="h-5 w-5" />
-                  Estimativa de Custos
-                </CardTitle>
-                {calculating && (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Custo Total:</span>
+                <span className="font-medium">
+                  R$ {costEstimate.totalCost.toFixed(2)}
+                </span>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
+              
+              {formData.product_type !== 'composite_product' && (
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Custo Total:</span>
-                  <span className="font-medium">
-                    R$ {costEstimate.totalCost.toFixed(2)}
+                  <span className="text-sm text-muted-foreground">Custo Unitário:</span>
+                  <span className="font-medium text-primary">
+                    R$ {costEstimate.unitCost.toFixed(2)}
                   </span>
                 </div>
-                
-                {formData.product_type !== 'composite_product' && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Custo Unitário:</span>
-                    <span className="font-medium text-primary">
-                      R$ {costEstimate.unitCost.toFixed(2)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {costEstimate.alerts.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-amber-600">
-                    <AlertTriangle className="h-4 w-4" />
-                    <span className="font-medium text-sm">Alertas</span>
-                  </div>
-                  {costEstimate.alerts.map((alert, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
-                      {alert}
-                    </Badge>
-                  ))}
-                </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+
+            {costEstimate.alerts.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-amber-600">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="font-medium text-sm">Alertas</span>
+                </div>
+                {costEstimate.alerts.map((alert, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">
+                    {alert}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
