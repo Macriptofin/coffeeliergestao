@@ -8,6 +8,8 @@ import { ShoppingCart, FileText, TrendingUp, Package2, Clock } from "lucide-reac
 import { PurchaseInvoices } from "@/components/stock/PurchaseInvoices";
 import { SupplierProducts } from "@/components/stock/SupplierProducts";
 import { ImportMaterials } from "@/components/ImportMaterials";
+import { PurchaseRequirements } from "@/components/purchase/PurchaseRequirements";
+import { PurchaseRequestsList } from "@/components/purchase/PurchaseRequestsList";
 
 export interface PurchaseInvoice {
   id: string;
@@ -26,7 +28,7 @@ export interface PurchaseInvoice {
 const Purchases = () => {
   const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseInvoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('invoices');
+  const [activeTab, setActiveTab] = useState('requirements');
 
   useEffect(() => {
     loadData();
@@ -221,7 +223,15 @@ const Purchases = () => {
 
       {/* Tabs do Sistema */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="requirements" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            MRP - Necessidades
+          </TabsTrigger>
+          <TabsTrigger value="requests" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Requisições
+          </TabsTrigger>
           <TabsTrigger value="invoices" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Notas Fiscais
@@ -235,6 +245,14 @@ const Purchases = () => {
             Importações
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="requirements" className="mt-6">
+          <PurchaseRequirements />
+        </TabsContent>
+
+        <TabsContent value="requests" className="mt-6">
+          <PurchaseRequestsList />
+        </TabsContent>
 
         <TabsContent value="invoices" className="mt-6">
           <PurchaseInvoices 

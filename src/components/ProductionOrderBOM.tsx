@@ -230,7 +230,7 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
 
       if (consolidatedMaterialsError) throw consolidatedMaterialsError;
 
-      toast.success('Ordem de produção criada com sucesso!');
+      toast.success('Ordem de produção criada com sucesso! Validação de estoque disponível no módulo de compras.');
       
       // Limpar formulário
       setProductionItems([]);
