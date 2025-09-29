@@ -19,18 +19,11 @@ const ProducaoMain = () => {
       hidden: flags.FF_UNIFY_BOM_RECEITAS
     },
     {
-      title: "Ordens de Produção",
-      description: "Planejamento e controle da produção diária",
+      title: "Planejamento e Ordens",
+      description: "Gestão unificada de ordens de produção com dashboard integrado",
       icon: ClipboardList,
-      href: "/producao/ordens",
-      color: "bg-blue-500"
-    },
-    {
-      title: "Planejamento",
-      description: "Programação de produção e otimização de recursos",
-      icon: Settings,
       href: "/producao/planejamento",
-      color: "bg-purple-500"
+      color: "bg-blue-500"
     },
     {
       title: "BOM & Produção",
@@ -68,18 +61,11 @@ const ProducaoMain = () => {
       shown: flags.FF_UNIFY_BOM_RECEITAS
     },
     {
-      title: "Ordens de Produção", 
-      description: "Centro operacional - produção centralizada com integração de eventos",
+      title: "Planejamento e Ordens", 
+      description: "Centro operacional unificado - gestão completa da produção",
       icon: ClipboardList,
-      href: "/producao/ordens",
-      color: "bg-blue-500"
-    },
-    {
-      title: "Planejamento",
-      description: "Programação de produção e otimização de recursos",
-      icon: Settings,
       href: "/producao/planejamento",
-      color: "bg-purple-500"
+      color: "bg-blue-500"
     },
     {
       title: "Relatórios",

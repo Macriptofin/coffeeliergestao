@@ -33,7 +33,7 @@ import Agenda from "./pages/Agenda";
 import EnhancedSecurity from "./pages/EnhancedSecurity";
 import SecurityAnomalies from "./pages/SecurityAnomalies";
 import InventarioAjustes from "./pages/InventarioAjustes";
-import ProductionOrders from "./pages/production/ProductionOrders";
+
 import CostCalculation from "./pages/production/CostCalculation";
 import ProductionPlanning from "./pages/production/ProductionPlanning";
 import ProductionReports from "./pages/production/ProductionReportsEnhanced";
@@ -71,9 +71,8 @@ function App() {
               {/* Categoria Produção */}
               <Route path="producao" element={<ProducaoMain />} />
               <Route path="receitas" element={<Recipes />} />
-              <Route path="producao/ordens" element={<ProductionOrders />} />
-              <Route path="producao/calculo-custos" element={<CostCalculation />} />
               <Route path="producao/planejamento" element={<ProductionPlanning />} />
+              <Route path="producao/calculo-custos" element={<CostCalculation />} />
               <Route path="producao/relatorios" element={<ProductionReports />} />
               <Route path="producao/bom" element={<BOMManagement />} />
               <Route path="producao/fichas-tecnicas" element={<FichasTecnicas />} />
