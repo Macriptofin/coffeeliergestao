@@ -3087,6 +3087,10 @@ export type Database = {
         Args: { p_composite_material: string; p_qty: number }
         Returns: undefined
       }
+      calculate_bom_current_cost: {
+        Args: { p_bom_id: string }
+        Returns: number
+      }
       calculate_weighted_average_price: {
         Args: {
           p_material_id: string
@@ -3391,6 +3395,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      process_finish_input_with_bom_cost: {
+        Args: {
+          p_material_id: string
+          p_movement_type: string
+          p_quantity: number
+        }
+        Returns: undefined
+      }
       process_inventory_adjustment: {
         Args: {
           p_adjustment_reason: string
@@ -3402,6 +3414,10 @@ export type Database = {
         Returns: string
       }
       produce_finished_product: {
+        Args: { p_finished_material: string; p_output_qty: number }
+        Returns: undefined
+      }
+      produce_finished_product_with_correct_cost: {
         Args: { p_finished_material: string; p_output_qty: number }
         Returns: undefined
       }
