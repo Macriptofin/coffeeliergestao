@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Users, Package, Play, CheckCircle, Clock, AlertCircle, Eye, EyeOff, RefreshCcw } from 'lucide-react';
+import { Calendar, Users, Package, Play, CheckCircle, Clock, AlertCircle, Eye, EyeOff, RefreshCcw, Printer } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useReactToPrint } from 'react-to-print';
+import { PrintableBOMProductionOrder } from './PrintableBOMProductionOrder';
 
 interface ProductionOrder {
   id: string;
@@ -68,6 +70,8 @@ export const BOMProductionOrdersList = () => {
   const [processingOrder, setProcessingOrder] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<ProductionOrder | null>(null);
   const [showMaterialsDialog, setShowMaterialsDialog] = useState(false);
+  const [orderToPrint, setOrderToPrint] = useState<ProductionOrder | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadProductionOrders();
@@ -140,6 +144,19 @@ export const BOMProductionOrdersList = () => {
   const showMaterialsDetails = (order: ProductionOrder) => {
     setSelectedOrder(order);
     setShowMaterialsDialog(true);
+  };
+
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Ordem_Producao_BOM_${orderToPrint?.order_name.replace(/\s+/g, '_') || 'Sem_Nome'}`,
+  });
+
+  const prepareForPrint = (order: ProductionOrder) => {
+    setOrderToPrint(order);
+    // Aguardar um momento para o estado ser atualizado antes de imprimir
+    setTimeout(() => {
+      handlePrint();
+    }, 100);
   };
 
   const getStatusColor = (status: string) => {
@@ -325,6 +342,16 @@ export const BOMProductionOrdersList = () => {
                   Ver Materiais ({order.consolidated_materials.length})
                 </Button>
 
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => prepareForPrint(order)}
+                  className="bg-blue-50 hover:bg-blue-100 border-blue-200"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Imprimir Ordem
+                </Button>
+
                 {canTransitionTo(order.status, 'in_progress') && (
                   <Button
                     onClick={() => updateOrderStatus(order.id, 'in_progress')}
@@ -466,6 +493,50 @@ export const BOMProductionOrdersList = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Componente de Impressão (Oculto) */}
+      {orderToPrint && (
+        <div style={{ display: 'none' }}>
+          <div ref={printRef}>
+            <PrintableBOMProductionOrder
+              orderName={orderToPrint.order_name}
+              orderDate={orderToPrint.order_date}
+              productionItems={orderToPrint.items.map(item => ({
+                bomId: item.bom_id,
+                quantity: item.quantity,
+                multiplier: item.multiplier
+              }))}
+              consolidatedIngredients={orderToPrint.consolidated_materials.map(material => ({
+                material: {
+                  id: material.material.id,
+                  name: material.material.name,
+                  code: material.material_id, // usando como fallback
+                  material_type: 'ingredient',
+                  category: material.material.category,
+                  usage_unit: material.material.usage_unit
+                },
+                totalQuantity: material.total_quantity,
+                totalCost: material.total_cost,
+                usedInBOMs: Array.isArray(material.used_in_boms) ? material.used_in_boms : []
+              }))}
+              totalCost={orderToPrint.total_cost}
+              boms={orderToPrint.items.map(item => ({
+                id: item.bom_id,
+                yield_quantity: item.total_yield_quantity / (item.quantity * item.multiplier),
+                yield_unit: item.yield_unit,
+                finished_material: {
+                  id: item.bom.finished_material.id,
+                  name: item.bom.finished_material.name,
+                  code: item.bom.finished_material.code,
+                  material_type: 'finished_product',
+                  category: item.bom.finished_material.category,
+                  usage_unit: 'un'
+                }
+              }))}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
