@@ -7,6 +7,7 @@ import { Plus, ClipboardList } from "lucide-react";
 import { ProductionOrderBOM } from "@/components/ProductionOrderBOM";
 import { RecipeMigrationDialog } from "@/components/RecipeMigrationDialog";
 import { ProductionOrdersList } from "@/components/ProductionOrdersList";
+import { BOMProductionOrdersList } from "@/components/BOMProductionOrdersList";
 import { EventProductionIntegration } from "@/components/EventProductionIntegration";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Recipe, Ingredient } from "@/types";
@@ -135,14 +136,19 @@ const ProductionOrders = () => {
         </div>
       )}
 
-      <Tabs defaultValue="orders" className="w-full">
-        <TabsList className={`grid w-full ${flags.FF_HIDE_LEGACY_RECIPES ? 'grid-cols-2' : 'grid-cols-3'}`}>
-          <TabsTrigger value="orders">Ordens Geradas</TabsTrigger>
+      <Tabs defaultValue="bom-orders" className="w-full">
+        <TabsList className={`grid w-full ${flags.FF_HIDE_LEGACY_RECIPES ? 'grid-cols-3' : 'grid-cols-4'}`}>
+          <TabsTrigger value="bom-orders">Ordens BOM</TabsTrigger>
+          <TabsTrigger value="orders">Ordens de Eventos</TabsTrigger>
           <TabsTrigger value="events">Gerar de Eventos</TabsTrigger>
           {!flags.FF_HIDE_LEGACY_RECIPES && (
             <TabsTrigger value="recipes">Receitas Disponíveis</TabsTrigger>
           )}
         </TabsList>
+        
+        <TabsContent value="bom-orders" className="mt-6">
+          <BOMProductionOrdersList />
+        </TabsContent>
         
         <TabsContent value="orders" className="mt-6">
           <ProductionOrdersList />

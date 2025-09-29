@@ -284,6 +284,219 @@ export type Database = {
         }
         Relationships: []
       }
+      bom_production_consolidated_materials: {
+        Row: {
+          consumed_quantity: number | null
+          created_at: string | null
+          id: string
+          is_consumed: boolean | null
+          is_reserved: boolean | null
+          material_id: string
+          production_order_id: string
+          reserved_quantity: number | null
+          total_cost: number | null
+          total_quantity: number
+          unit: string
+          used_in_boms: Json | null
+        }
+        Insert: {
+          consumed_quantity?: number | null
+          created_at?: string | null
+          id?: string
+          is_consumed?: boolean | null
+          is_reserved?: boolean | null
+          material_id: string
+          production_order_id: string
+          reserved_quantity?: number | null
+          total_cost?: number | null
+          total_quantity: number
+          unit: string
+          used_in_boms?: Json | null
+        }
+        Update: {
+          consumed_quantity?: number | null
+          created_at?: string | null
+          id?: string
+          is_consumed?: boolean | null
+          is_reserved?: boolean | null
+          material_id?: string
+          production_order_id?: string
+          reserved_quantity?: number | null
+          total_cost?: number | null
+          total_quantity?: number
+          unit?: string
+          used_in_boms?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_production_consolidated_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_production_consolidated_materials_production_order_id_fkey"
+            columns: ["production_order_id"]
+            isOneToOne: false
+            referencedRelation: "bom_production_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bom_production_order_items: {
+        Row: {
+          bom_id: string
+          created_at: string | null
+          id: string
+          item_cost: number | null
+          multiplier: number
+          position: number
+          production_order_id: string
+          quantity: number
+          total_yield_quantity: number
+          yield_unit: string
+        }
+        Insert: {
+          bom_id: string
+          created_at?: string | null
+          id?: string
+          item_cost?: number | null
+          multiplier?: number
+          position?: number
+          production_order_id: string
+          quantity?: number
+          total_yield_quantity: number
+          yield_unit: string
+        }
+        Update: {
+          bom_id?: string
+          created_at?: string | null
+          id?: string
+          item_cost?: number | null
+          multiplier?: number
+          position?: number
+          production_order_id?: string
+          quantity?: number
+          total_yield_quantity?: number
+          yield_unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_production_order_items_bom_id_fkey"
+            columns: ["bom_id"]
+            isOneToOne: false
+            referencedRelation: "recipes_bom"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_production_order_items_production_order_id_fkey"
+            columns: ["production_order_id"]
+            isOneToOne: false
+            referencedRelation: "bom_production_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bom_production_orders: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          notes: string | null
+          order_date: string
+          order_name: string
+          started_at: string | null
+          status: string
+          total_cost: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          order_date: string
+          order_name: string
+          started_at?: string | null
+          status?: string
+          total_cost?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          order_name?: string
+          started_at?: string | null
+          status?: string
+          total_cost?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      bom_production_stock_movements: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          material_id: string
+          movement_type: string
+          notes: string | null
+          production_order_id: string
+          quantity: number
+          reference_id: string | null
+          reference_table: string | null
+          unit: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          material_id: string
+          movement_type: string
+          notes?: string | null
+          production_order_id: string
+          quantity: number
+          reference_id?: string | null
+          reference_table?: string | null
+          unit: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          material_id?: string
+          movement_type?: string
+          notes?: string | null
+          production_order_id?: string
+          quantity?: number
+          reference_id?: string | null
+          reference_table?: string | null
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_production_stock_movements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_production_stock_movements_production_order_id_fkey"
+            columns: ["production_order_id"]
+            isOneToOne: false
+            referencedRelation: "bom_production_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cash_transactions: {
         Row: {
           account_id: string | null
@@ -2902,6 +3115,10 @@ export type Database = {
           planned_unit: string
         }[]
       }
+      consume_materials_for_production: {
+        Args: { p_production_order_id: string }
+        Returns: undefined
+      }
       create_account_lockout: {
         Args: {
           p_email: string
@@ -3188,8 +3405,16 @@ export type Database = {
         Args: { p_finished_material: string; p_output_qty: number }
         Returns: undefined
       }
+      produce_finished_products_for_order: {
+        Args: { p_production_order_id: string }
+        Returns: undefined
+      }
       produce_product: {
         Args: { p_material_id: string; p_output_qty: number }
+        Returns: undefined
+      }
+      reserve_materials_for_production: {
+        Args: { p_production_order_id: string }
         Returns: undefined
       }
       run_bom_cleanup_playbook: {
@@ -3221,6 +3446,10 @@ export type Database = {
       test_bom_cleanup_and_migration: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      update_production_order_status: {
+        Args: { p_new_status: string; p_production_order_id: string }
+        Returns: undefined
       }
     }
     Enums: {
