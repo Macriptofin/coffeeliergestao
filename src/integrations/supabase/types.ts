@@ -3413,6 +3413,10 @@ export type Database = {
         Args: { p_material_id: string; p_output_qty: number }
         Returns: undefined
       }
+      recalculate_stock_total_values: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       reserve_materials_for_production: {
         Args: { p_production_order_id: string }
         Returns: undefined
