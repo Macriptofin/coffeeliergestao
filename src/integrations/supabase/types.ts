@@ -2077,6 +2077,36 @@ export type Database = {
         }
         Relationships: []
       }
+      production_stock_validations: {
+        Row: {
+          id: string
+          missing_materials: Json | null
+          production_order_id: string
+          production_order_type: string
+          validated_at: string
+          validated_by: string | null
+          validation_status: string
+        }
+        Insert: {
+          id?: string
+          missing_materials?: Json | null
+          production_order_id: string
+          production_order_type: string
+          validated_at?: string
+          validated_by?: string | null
+          validation_status: string
+        }
+        Update: {
+          id?: string
+          missing_materials?: Json | null
+          production_order_id?: string
+          production_order_type?: string
+          validated_at?: string
+          validated_by?: string | null
+          validation_status?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           category: string | null
@@ -2368,6 +2398,264 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_request_items: {
+        Row: {
+          created_at: string
+          estimated_total_price: number | null
+          estimated_unit_price: number | null
+          id: string
+          material_id: string
+          notes: string | null
+          position: number
+          quantity: number
+          request_id: string
+          unit: string
+        }
+        Insert: {
+          created_at?: string
+          estimated_total_price?: number | null
+          estimated_unit_price?: number | null
+          id?: string
+          material_id: string
+          notes?: string | null
+          position?: number
+          quantity: number
+          request_id: string
+          unit: string
+        }
+        Update: {
+          created_at?: string
+          estimated_total_price?: number | null
+          estimated_unit_price?: number | null
+          id?: string
+          material_id?: string
+          notes?: string | null
+          position?: number
+          quantity?: number
+          request_id?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_request_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_request_items_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          department: string
+          id: string
+          justification: string
+          priority: string
+          rejection_reason: string | null
+          request_number: string
+          requested_by: string
+          requirement_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          department: string
+          id?: string
+          justification: string
+          priority?: string
+          rejection_reason?: string | null
+          request_number: string
+          requested_by: string
+          requirement_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          department?: string
+          id?: string
+          justification?: string
+          priority?: string
+          rejection_reason?: string | null
+          request_number?: string
+          requested_by?: string
+          requirement_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_requests_requirement_id_fkey"
+            columns: ["requirement_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requirements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_requirements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          material_id: string
+          notes: string | null
+          priority: string
+          required_date: string
+          required_quantity: number
+          required_unit: string
+          source_id: string | null
+          source_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          material_id: string
+          notes?: string | null
+          priority?: string
+          required_date: string
+          required_quantity: number
+          required_unit: string
+          source_id?: string | null
+          source_type: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          material_id?: string
+          notes?: string | null
+          priority?: string
+          required_date?: string
+          required_quantity?: number
+          required_unit?: string
+          source_id?: string | null
+          source_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_requirements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_request_suppliers: {
+        Row: {
+          id: string
+          quote_request_id: string
+          responded_at: string | null
+          response_status: string
+          sent_at: string
+          supplier_id: string
+        }
+        Insert: {
+          id?: string
+          quote_request_id: string
+          responded_at?: string | null
+          response_status?: string
+          sent_at?: string
+          supplier_id: string
+        }
+        Update: {
+          id?: string
+          quote_request_id?: string
+          responded_at?: string | null
+          response_status?: string
+          sent_at?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_request_suppliers_quote_request_id_fkey"
+            columns: ["quote_request_id"]
+            isOneToOne: false
+            referencedRelation: "quote_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_request_suppliers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_requests: {
+        Row: {
+          created_at: string
+          created_by: string
+          deadline_date: string
+          delivery_location: string | null
+          id: string
+          payment_terms: string | null
+          quote_number: string
+          request_id: string | null
+          special_conditions: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          deadline_date: string
+          delivery_location?: string | null
+          id?: string
+          payment_terms?: string | null
+          quote_number: string
+          request_id?: string | null
+          special_conditions?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          deadline_date?: string
+          delivery_location?: string | null
+          id?: string
+          payment_terms?: string | null
+          quote_number?: string
+          request_id?: string | null
+          special_conditions?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_requests_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -2851,6 +3139,126 @@ export type Database = {
           },
         ]
       }
+      supplier_quote_items: {
+        Row: {
+          brand: string | null
+          id: string
+          material_id: string
+          position: number
+          quantity: number
+          quote_id: string
+          specifications: string | null
+          total_price: number
+          unit: string
+          unit_price: number
+        }
+        Insert: {
+          brand?: string | null
+          id?: string
+          material_id: string
+          position?: number
+          quantity: number
+          quote_id: string
+          specifications?: string | null
+          total_price: number
+          unit: string
+          unit_price: number
+        }
+        Update: {
+          brand?: string | null
+          id?: string
+          material_id?: string
+          position?: number
+          quantity?: number
+          quote_id?: string
+          specifications?: string | null
+          total_price?: number
+          unit?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_quote_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_items_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_quotes: {
+        Row: {
+          analyzed_at: string | null
+          analyzed_by: string | null
+          delivery_terms: string | null
+          delivery_time_days: number | null
+          id: string
+          notes: string | null
+          payment_terms: string | null
+          quote_reference: string | null
+          quote_request_id: string
+          received_at: string
+          status: string
+          supplier_id: string
+          total_amount: number | null
+          valid_until: string
+        }
+        Insert: {
+          analyzed_at?: string | null
+          analyzed_by?: string | null
+          delivery_terms?: string | null
+          delivery_time_days?: number | null
+          id?: string
+          notes?: string | null
+          payment_terms?: string | null
+          quote_reference?: string | null
+          quote_request_id: string
+          received_at?: string
+          status?: string
+          supplier_id: string
+          total_amount?: number | null
+          valid_until: string
+        }
+        Update: {
+          analyzed_at?: string | null
+          analyzed_by?: string | null
+          delivery_terms?: string | null
+          delivery_time_days?: number | null
+          id?: string
+          notes?: string | null
+          payment_terms?: string | null
+          quote_reference?: string | null
+          quote_request_id?: string
+          received_at?: string
+          status?: string
+          supplier_id?: string
+          total_amount?: number | null
+          valid_until?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_quotes_quote_request_id_fkey"
+            columns: ["quote_request_id"]
+            isOneToOne: false
+            referencedRelation: "quote_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null
@@ -3089,6 +3497,10 @@ export type Database = {
       }
       calculate_bom_current_cost: {
         Args: { p_bom_id: string }
+        Returns: number
+      }
+      calculate_composite_current_cost: {
+        Args: { composite_material_id: string }
         Returns: number
       }
       calculate_weighted_average_price: {
@@ -3410,6 +3822,16 @@ export type Database = {
           p_notes?: string
           p_physical_quantity: number
           p_reference_document?: string
+        }
+        Returns: string
+      }
+      produce_composite_product_with_correct_cost: {
+        Args: {
+          p_composite_material_id: string
+          p_notes?: string
+          p_quantity_produced: number
+          p_reference_document?: string
+          p_unit: string
         }
         Returns: string
       }
