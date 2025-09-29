@@ -25,6 +25,7 @@ interface Material {
   usage_unit: string;
   conversion_factor: number;
   price_per_purchase_unit: number;
+  unit_weight?: number;
 }
 
 interface BOMItem {
@@ -37,6 +38,7 @@ interface BOMItem {
   is_packaging?: boolean;
   position: number;
   notes?: string;
+  item_weight?: number; // peso do item individual (quantity * peso unitário)
 }
 
 interface TechnicalSheet {
@@ -82,6 +84,8 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
   const [costEstimate, setCostEstimate] = useState({
     totalCost: 0,
     unitCost: 0,
+    totalWeight: 0,
+    unitWeight: 0,
     alerts: [] as string[]
   });
 
@@ -220,9 +224,14 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
     setCalculating(true);
     try {
       let totalCost = 0;
+      let totalWeight = 0;
       const alerts: string[] = [];
 
-      for (const item of formData.items) {
+      // Update items with individual weights and calculate totals
+      const updatedItems = [...formData.items];
+
+      for (let i = 0; i < formData.items.length; i++) {
+        const item = formData.items[i];
         if (!item.material) continue;
 
         // Get stock data for cost calculation
@@ -242,21 +251,51 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
             (item.material.conversion_factor || 1);
         } else {
           alerts.push(`${item.material.name}: sem custo disponível`);
-          continue;
         }
 
-        // Calculate item total cost considering waste
+        // Calculate item weight
+        let itemWeight = 0;
+        if (item.material.unit_weight && item.material.unit_weight > 0) {
+          // Material has unit weight defined (for non-weight units like "un")
+          itemWeight = item.quantity * item.material.unit_weight;
+        } else if (item.unit === 'kg') {
+          itemWeight = item.quantity * 1000; // Convert kg to grams
+        } else if (item.unit === 'g') {
+          itemWeight = item.quantity;
+        } else {
+          // For other units, try to infer from usage unit
+          if (item.material.usage_unit === 'kg') {
+            itemWeight = item.quantity * 1000;
+          } else if (item.material.usage_unit === 'g') {
+            itemWeight = item.quantity;
+          }
+        }
+
+        // Apply waste to weight calculation
         const wasteMultiplier = 1 + ((item.waste_percent || 0) / 100);
+        itemWeight = itemWeight * wasteMultiplier;
+        
+        // Update item weight
+        updatedItems[i] = { ...updatedItems[i], item_weight: itemWeight };
+
+        // Calculate item total cost considering waste
         const itemTotalCost = (item.quantity * itemUnitCost) * wasteMultiplier;
         totalCost += itemTotalCost;
+        totalWeight += itemWeight;
       }
 
-      // Calculate unit cost based on yield
+      // Update formData with calculated weights
+      setFormData(prev => ({ ...prev, items: updatedItems }));
+
+      // Calculate unit cost and weight based on yield
       const unitCost = formData.yield_quantity > 0 ? totalCost / formData.yield_quantity : 0;
+      const unitWeight = formData.yield_quantity > 0 ? totalWeight / formData.yield_quantity : 0;
 
       setCostEstimate({
         totalCost,
         unitCost,
+        totalWeight,
+        unitWeight,
         alerts
       });
     } catch (error) {
@@ -382,24 +421,50 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
           'composite_product': 'Produto Composto'
         };
 
+        // Get category and subcategory term IDs for proper taxonomy reference
+        const categoryTerm = taxonomyTerms.find(term => 
+          term.taxonomy_definitions.key === 'material_category' && 
+          term.name === categoryMapping[formData.product_type]
+        );
+        
+        const subcategoryTerm = formData.subcategory ? taxonomyTerms.find(term =>
+          term.taxonomy_definitions.key === 'material_subcategory' &&
+          term.name === formData.subcategory
+        ) : null;
+
         const { data: newMaterial, error: materialError } = await supabase
           .from('materials')
           .insert({
             name: formData.name,
             category: categoryMapping[formData.product_type],
             subcategory: formData.subcategory,
+            category_term_id: categoryTerm?.id,
+            subcategory_term_id: subcategoryTerm?.id,
             material_type: formData.product_type,
             purchase_unit: formData.yield_unit,
             usage_unit: formData.yield_unit,
             conversion_factor: 1,
-            price_per_purchase_unit: 0,
-            is_sellable: formData.product_type === 'finished_product'
+            price_per_purchase_unit: costEstimate.unitCost || 0,
+            unit_weight: costEstimate.unitWeight || null,
+            is_sellable: formData.product_type === 'finished_product',
+            is_system_generated: true
           })
           .select()
           .single();
 
         if (materialError) throw materialError;
         resultMaterialId = newMaterial.id;
+        
+        // Create initial stock entry
+        await supabase
+          .from('stock_items')
+          .insert({
+            material_id: resultMaterialId,
+            current_quantity: 0,
+            minimum_quantity: 0,
+            average_price: costEstimate.unitCost || 0,
+            total_value: 0
+          });
       }
 
       if (formData.product_type === 'composite_product') {
@@ -745,7 +810,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                 <div className="space-y-4">
                   {formData.items.map((item, index) => (
                   <Card key={index} className="p-4">
-                    <div className="grid grid-cols-12 gap-4 items-end">
+                    <div className="grid grid-cols-13 gap-4 items-end">
                       <div className="col-span-4">
                         <Label>Material *</Label>
                         <Combobox
@@ -776,8 +841,17 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                         />
                       </div>
 
+                      <div className="col-span-1">
+                        <Label>Peso (g)</Label>
+                        <Input
+                          value={item.item_weight ? item.item_weight.toFixed(1) : '0'}
+                          readOnly
+                          className="bg-muted"
+                        />
+                      </div>
+
                       {formData.product_type !== 'composite_product' && (
-                        <div className="col-span-2">
+                        <div className="col-span-1">
                           <Label>Perda %</Label>
                           <Input
                             type="number"
@@ -791,7 +865,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                         </div>
                       )}
 
-                      <div className={formData.product_type === 'composite_product' ? "col-span-2" : "col-span-2"}>
+                      <div className={formData.product_type === 'composite_product' ? "col-span-2" : "col-span-1"}>
                         <Label>Observações</Label>
                         <Input
                           value={item.notes || ''}
@@ -860,6 +934,28 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                   <span className="text-sm text-muted-foreground">Custo Unitário:</span>
                   <span className="font-medium text-primary">
                     R$ {costEstimate.unitCost.toFixed(2)}
+                  </span>
+                </div>
+              )}
+              
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Peso Total:</span>
+                <span className="font-medium">
+                  {costEstimate.totalWeight >= 1000 
+                    ? `${(costEstimate.totalWeight / 1000).toFixed(2)} kg`
+                    : `${costEstimate.totalWeight.toFixed(1)} g`
+                  }
+                </span>
+              </div>
+              
+              {formData.product_type !== 'composite_product' && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Peso Unitário:</span>
+                  <span className="font-medium text-primary">
+                    {costEstimate.unitWeight >= 1000 
+                      ? `${(costEstimate.unitWeight / 1000).toFixed(2)} kg`
+                      : `${costEstimate.unitWeight.toFixed(1)} g`
+                    }
                   </span>
                 </div>
               )}
