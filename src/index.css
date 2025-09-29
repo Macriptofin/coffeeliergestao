@@ -249,3 +249,22 @@ All colors MUST be HSL.
     break-inside: avoid;
   }
 }
+
+/* Dropdown and Select styles to ensure proper background and z-index */
+.dropdown-content,
+[data-radix-select-content],
+[data-radix-dropdown-menu-content],
+[data-radix-popover-content] {
+  background: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  z-index: 50 !important;
+  box-shadow: var(--shadow-soft) !important;
+}
+
+.dark .dropdown-content,
+.dark [data-radix-select-content],
+.dark [data-radix-dropdown-menu-content],
+.dark [data-radix-popover-content] {
+  background: hsl(var(--popover)) !important;
+  border-color: hsl(var(--border)) !important;
+}

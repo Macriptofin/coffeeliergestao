@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, ClipboardList } from "lucide-react";
-import { ProductionOrder } from "@/components/ProductionOrder";
+import { ProductionOrderBOM } from "@/components/ProductionOrderBOM";
 import { RecipeMigrationDialog } from "@/components/RecipeMigrationDialog";
 import { ProductionOrdersList } from "@/components/ProductionOrdersList";
 import { EventProductionIntegration } from "@/components/EventProductionIntegration";
@@ -120,19 +120,16 @@ const ProductionOrders = () => {
           <Button 
             onClick={() => setShowProductionOrder(true)}
             className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
-            disabled={recipes.length === 0}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Nova Ordem Manual
+            Nova Ordem (BOM)
           </Button>
         </div>
       </div>
 
       {showProductionOrder && (
         <div className="mb-8">
-          <ProductionOrder
-            recipes={recipes}
-            ingredients={ingredients}
+          <ProductionOrderBOM
             onClose={() => setShowProductionOrder(false)}
           />
         </div>
