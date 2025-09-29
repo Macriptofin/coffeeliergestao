@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useReactToPrint } from "react-to-print";
 import { Plus, Minus, Printer, FileDown, ShoppingCart, X } from "lucide-react";
-import { PrintableProductionOrder } from "./PrintableProductionOrder";
+import { PrintableBOMProductionOrder } from "./PrintableBOMProductionOrder";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -601,12 +601,13 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
       {/* Ordem Impressa (Oculta) */}
       <div style={{ display: 'none' }}>
         <div ref={printRef}>
-          <PrintableProductionOrder
+          <PrintableBOMProductionOrder
             orderName={orderName || 'Ordem de Produção BOM'}
             orderDate={orderDate}
             productionItems={productionItems}
             consolidatedIngredients={consolidatedIngredients}
             totalCost={totalCost}
+            boms={boms}
           />
         </div>
       </div>
