@@ -22,6 +22,7 @@ import {
 interface ComboboxOption {
   value: string
   label: string
+  searchText?: string
 }
 
 interface ComboboxProps {
@@ -70,11 +71,10 @@ export function Combobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.value}
+                  value={option.searchText || option.label}
                   onSelect={(currentValue) => {
-                    const newValue = currentValue === selectedValue ? "" : currentValue
-                    setSelectedValue(newValue)
-                    onSelect?.(newValue)
+                    setSelectedValue(option.value)
+                    onSelect?.(option.value)
                     setOpen(false)
                   }}
                 >

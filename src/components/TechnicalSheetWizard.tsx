@@ -533,7 +533,8 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
 
   const materialOptions = getAvailableMaterials().map(material => ({
     value: material.id,
-    label: `${material.code ? material.code + ' - ' : ''}${material.name}`
+    label: `${material.code ? material.code + ' - ' : ''}${material.name}`,
+    searchText: `${material.code || ''} ${material.name}`.toLowerCase()
   }));
 
   const categoryOptions = taxonomyTerms
