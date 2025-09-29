@@ -4,14 +4,12 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, FileText, TrendingUp, Package2, Clock, Settings } from "lucide-react";
+import { ShoppingCart, FileText, TrendingUp, Package2, Clock, MessageSquare } from "lucide-react";
 import { PurchaseInvoices } from "@/components/stock/PurchaseInvoices";
 import { SupplierProducts } from "@/components/stock/SupplierProducts";
 import { ImportMaterials } from "@/components/ImportMaterials";
 import { PurchaseRequirements } from "@/components/purchase/PurchaseRequirements";
 import { PurchaseRequestsList } from "@/components/purchase/PurchaseRequestsList";
-import { StockParameters } from "@/components/stock/StockParameters";
-import { StockPlanning } from "@/components/stock/StockPlanning";
 import { PurchaseOrders } from "@/components/purchase/PurchaseOrders";
 
 export interface PurchaseInvoice {
@@ -31,7 +29,7 @@ export interface PurchaseInvoice {
 const Purchases = () => {
   const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseInvoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('planning');
+  const [activeTab, setActiveTab] = useState('requirements');
 
   useEffect(() => {
     loadData();
@@ -226,11 +224,7 @@ const Purchases = () => {
 
       {/* Tabs do Sistema */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="planning" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Planejamento
-          </TabsTrigger>
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="requirements" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
             Necessidades
@@ -238,6 +232,10 @@ const Purchases = () => {
           <TabsTrigger value="requests" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Requisições
+          </TabsTrigger>
+          <TabsTrigger value="quotes" className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            Cotações
           </TabsTrigger>
           <TabsTrigger value="orders" className="flex items-center gap-2">
             <ShoppingCart className="h-4 w-4" />
@@ -251,15 +249,7 @@ const Purchases = () => {
             <Package2 className="h-4 w-4" />
             Fornecedores
           </TabsTrigger>
-          <TabsTrigger value="parameters" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Parâmetros
-          </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="planning" className="mt-6">
-          <StockPlanning />
-        </TabsContent>
 
         <TabsContent value="requirements" className="mt-6">
           <PurchaseRequirements />
@@ -267,6 +257,12 @@ const Purchases = () => {
 
         <TabsContent value="requests" className="mt-6">
           <PurchaseRequestsList />
+        </TabsContent>
+
+        <TabsContent value="quotes" className="mt-6">
+          <Card className="p-6">
+            <p className="text-muted-foreground">Módulo de Solicitações de Cotação em desenvolvimento</p>
+          </Card>
         </TabsContent>
 
         <TabsContent value="orders" className="mt-6">
@@ -282,10 +278,6 @@ const Purchases = () => {
 
         <TabsContent value="products" className="mt-6">
           <SupplierProducts onRefresh={loadData} />
-        </TabsContent>
-
-        <TabsContent value="parameters" className="mt-6">
-          <StockParameters />
         </TabsContent>
       </Tabs>
     </div>
