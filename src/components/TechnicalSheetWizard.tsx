@@ -609,15 +609,54 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
       label: term.name
     }));
 
-  const subcategoryOptions = taxonomyTerms
-    .filter(term => 
-      term.taxonomy_definitions.key === 'material_subcategory' &&
-      (!formData.category || term.parent_id) // Only show subcategories with parent
-    )
-    .map(term => ({
-      value: term.name,
-      label: term.name
-    }));
+  // Map product type to category automatically
+  const getProductTypeCategory = (productType: string) => {
+    switch (productType) {
+      case 'finished_product':
+        return 'Produto Acabado';
+      case 'intermediate_product':
+        return 'Produto Intermediário';
+      case 'composite_product':
+        return 'Produto Composto';
+      default:
+        return 'Produto Acabado';
+    }
+  };
+
+  // Filter subcategories based on product type
+  const getFilteredSubcategories = (productType: string) => {
+    const categoryMap: { [key: string]: string[] } = {
+      'finished_product': ['FIN_SAL', 'FIN_DOC', 'FIN_BEB', 'FIN_PAO', 'FIN_OUT'],
+      'intermediate_product': ['INT_MAS', 'INT_REC', 'INT_CAL', 'INT_BEB'],
+      'composite_product': ['COM_KIT', 'COM_MES_CB', 'COM_MES_CQ', 'COM_COMBO']
+    };
+
+    const allowedCodes = categoryMap[productType] || [];
+    
+    return taxonomyTerms
+      .filter(term => 
+        term.taxonomy_definitions?.key === 'material_subcategory' && 
+        allowedCodes.includes(term.code)
+      )
+      .map(term => ({
+        value: term.name,
+        label: term.name
+      }));
+  };
+
+  const subcategoryOptions = getFilteredSubcategories(formData.product_type);
+
+  // Update category automatically when product type changes
+  useEffect(() => {
+    const newCategory = getProductTypeCategory(formData.product_type);
+    if (formData.category !== newCategory) {
+      setFormData(prev => ({ 
+        ...prev, 
+        category: newCategory,
+        subcategory: '' // Clear subcategory when category changes
+      }));
+    }
+  }, [formData.product_type]);
 
   if (loading) {
     return (
@@ -693,44 +732,23 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                 </RadioGroup>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Categoria *</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categoryOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Subcategoria</Label>
-                  <Select
-                    value={formData.subcategory || ''}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, subcategory: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a subcategoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subcategoryOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label>Subcategoria</Label>
+                <Select
+                  value={formData.subcategory || ''}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, subcategory: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a subcategoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subcategoryOptions.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
           </CardContent>
         </Card>
