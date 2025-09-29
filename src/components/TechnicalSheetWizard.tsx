@@ -88,6 +88,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
     unitWeight: 0,
     alerts: [] as string[]
   });
+  const [itemWeights, setItemWeights] = useState<number[]>([]);
 
   useEffect(() => {
     loadInitialData();
@@ -227,43 +228,52 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
       let totalWeight = 0;
       const alerts: string[] = [];
 
-      // Update items with individual weights and calculate totals
-      const updatedItems = [...formData.items];
+      // Cache preços por material para evitar múltiplas consultas
+      const priceCache = new Map<string, number>();
+      const weights: number[] = new Array(formData.items.length).fill(0);
 
       for (let i = 0; i < formData.items.length; i++) {
         const item = formData.items[i];
         if (!item.material) continue;
 
-        // Get stock data for cost calculation
-        const { data: stockData } = await supabase
-          .from('stock_items')
-          .select('average_price')
-          .eq('material_id', item.material_id)
-          .single();
-
+        // Obter custo unitário (com cache)
         let itemUnitCost = 0;
-        
-        if (stockData?.average_price) {
-          itemUnitCost = stockData.average_price;
-        } else if (item.material.price_per_purchase_unit > 0) {
-          // Convert from purchase unit to usage unit
-          itemUnitCost = item.material.price_per_purchase_unit / 
-            (item.material.conversion_factor || 1);
+        const cached = priceCache.get(item.material_id);
+        if (cached !== undefined) {
+          itemUnitCost = cached;
         } else {
-          alerts.push(`${item.material.name}: sem custo disponível`);
+          let fetchedPrice: number | undefined;
+          const { data: stockData } = await supabase
+            .from('stock_items')
+            .select('average_price')
+            .eq('material_id', item.material_id)
+            .single();
+
+          if (stockData?.average_price) {
+            fetchedPrice = stockData.average_price;
+          }
+          if (fetchedPrice !== undefined) {
+            itemUnitCost = fetchedPrice;
+            priceCache.set(item.material_id, fetchedPrice);
+          } else if (item.material.price_per_purchase_unit > 0) {
+            // Converter da unidade de compra para unidade de uso
+            itemUnitCost = item.material.price_per_purchase_unit /
+              (item.material.conversion_factor || 1);
+            priceCache.set(item.material_id, itemUnitCost);
+          } else {
+            alerts.push(`${item.material.name}: sem custo disponível`);
+          }
         }
 
-        // Calculate item weight
+        // Calcular peso do item
         let itemWeight = 0;
         if (item.material.unit_weight && item.material.unit_weight > 0) {
-          // Material has unit weight defined (for non-weight units like "un")
           itemWeight = item.quantity * item.material.unit_weight;
         } else if (item.unit === 'kg') {
-          itemWeight = item.quantity * 1000; // Convert kg to grams
+          itemWeight = item.quantity * 1000; // kg para gramas
         } else if (item.unit === 'g') {
           itemWeight = item.quantity;
         } else {
-          // For other units, try to infer from usage unit
           if (item.material.usage_unit === 'kg') {
             itemWeight = item.quantity * 1000;
           } else if (item.material.usage_unit === 'g') {
@@ -271,23 +281,21 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
           }
         }
 
-        // Apply waste to weight calculation
+        // Aplicar perda
         const wasteMultiplier = 1 + ((item.waste_percent || 0) / 100);
         itemWeight = itemWeight * wasteMultiplier;
-        
-        // Update item weight
-        updatedItems[i] = { ...updatedItems[i], item_weight: itemWeight };
+        weights[i] = itemWeight;
 
-        // Calculate item total cost considering waste
+        // Custo total do item considerando perda
         const itemTotalCost = (item.quantity * itemUnitCost) * wasteMultiplier;
         totalCost += itemTotalCost;
         totalWeight += itemWeight;
       }
 
-      // Update formData with calculated weights
-      setFormData(prev => ({ ...prev, items: updatedItems }));
+      // Atualiza pesos dos itens sem tocar na lista de itens (evita re-render pesado)
+      setItemWeights(weights);
 
-      // Calculate unit cost and weight based on yield
+      // Calcular custos/pesos unitários
       const unitCost = formData.yield_quantity > 0 ? totalCost / formData.yield_quantity : 0;
       const unitWeight = formData.yield_quantity > 0 ? totalWeight / formData.yield_quantity : 0;
 
@@ -308,7 +316,10 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
 
   useEffect(() => {
     if (formData.items.length > 0) {
-      calculateCosts();
+      const t = setTimeout(() => {
+        calculateCosts();
+      }, 250);
+      return () => clearTimeout(t);
     }
   }, [formData.items, formData.yield_quantity]);
 
@@ -867,7 +878,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                         <div className="col-span-2">
                           <Label className="text-xs">Peso (g)</Label>
                           <Input
-                            value={item.item_weight ? item.item_weight.toFixed(1) : '0'}
+                            value={(itemWeights[index] ?? 0).toFixed(1)}
                             readOnly
                             className="bg-muted h-8 text-xs"
                           />
