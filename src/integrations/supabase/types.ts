@@ -2208,6 +2208,7 @@ export type Database = {
           id: string
           is_packaging: boolean
           material_id: string
+          notes: string | null
           position: number
           quantity: number
           recipe_id: string
@@ -2218,6 +2219,7 @@ export type Database = {
           id?: string
           is_packaging?: boolean
           material_id: string
+          notes?: string | null
           position?: number
           quantity: number
           recipe_id: string
@@ -2228,6 +2230,7 @@ export type Database = {
           id?: string
           is_packaging?: boolean
           material_id?: string
+          notes?: string | null
           position?: number
           quantity?: number
           recipe_id?: string
