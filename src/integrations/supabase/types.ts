@@ -336,6 +336,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bom_production_consolidated_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
             foreignKeyName: "bom_production_consolidated_materials_production_order_id_fkey"
             columns: ["production_order_id"]
             isOneToOne: false
@@ -487,6 +494,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_production_stock_movements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "bom_production_stock_movements_production_order_id_fkey"
@@ -698,6 +712,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "composite_bom_items_component_material_id_fkey"
+            columns: ["component_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
             foreignKeyName: "composite_bom_items_composite_id_fkey"
             columns: ["composite_id"]
             isOneToOne: false
@@ -735,6 +756,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composites_bom_composite_material_id_fkey"
+            columns: ["composite_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -1317,6 +1345,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_production_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
             foreignKeyName: "event_production_order_items_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -1421,6 +1456,13 @@ export type Database = {
             referencedRelation: "materials"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_table_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
         ]
       }
       event_table_template_items: {
@@ -1464,6 +1506,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_table_template_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "event_table_template_items_template_id_fkey"
@@ -1767,6 +1816,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "invoice_items_invoice_id_fkey"
@@ -2163,6 +2219,100 @@ export type Database = {
           },
         ]
       }
+      proposal_categories: {
+        Row: {
+          category_label: string
+          created_at: string | null
+          id: string
+          proposal_id: string
+          sort_order: number | null
+        }
+        Insert: {
+          category_label: string
+          created_at?: string | null
+          id?: string
+          proposal_id: string
+          sort_order?: number | null
+        }
+        Update: {
+          category_label?: string
+          created_at?: string | null
+          id?: string
+          proposal_id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_categories_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposal_category_items: {
+        Row: {
+          category_id: string
+          created_at: string | null
+          fixed_qty: number | null
+          id: string
+          item_kind: string
+          material_id: string
+          qty_per_person: number | null
+          unit_override: string | null
+        }
+        Insert: {
+          category_id: string
+          created_at?: string | null
+          fixed_qty?: number | null
+          id?: string
+          item_kind: string
+          material_id: string
+          qty_per_person?: number | null
+          unit_override?: string | null
+        }
+        Update: {
+          category_id?: string
+          created_at?: string | null
+          fixed_qty?: number | null
+          id?: string
+          item_kind?: string
+          material_id?: string
+          qty_per_person?: number | null
+          unit_override?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_category_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_category_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["category_id"]
+          },
+          {
+            foreignKeyName: "proposal_category_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_category_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+        ]
+      }
       proposal_items: {
         Row: {
           created_at: string
@@ -2214,8 +2364,104 @@ export type Database = {
           },
         ]
       }
+      proposal_picklist_items: {
+        Row: {
+          created_at: string | null
+          id: string
+          item_kind: string
+          material_id: string
+          picklist_id: string
+          planned_qty: number
+          planned_unit: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          item_kind: string
+          material_id: string
+          picklist_id: string
+          planned_qty: number
+          planned_unit: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          item_kind?: string
+          material_id?: string
+          picklist_id?: string
+          planned_qty?: number
+          planned_unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_picklist_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_picklist_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "proposal_picklist_items_picklist_id_fkey"
+            columns: ["picklist_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_picklists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposal_picklists: {
+        Row: {
+          created_at: string | null
+          fulfilled_at: string | null
+          fulfilled_by: string | null
+          id: string
+          notes: string | null
+          proposal_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          fulfilled_at?: string | null
+          fulfilled_by?: string | null
+          id?: string
+          notes?: string | null
+          proposal_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          fulfilled_at?: string | null
+          fulfilled_by?: string | null
+          id?: string
+          notes?: string | null
+          proposal_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_picklists_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposals: {
         Row: {
+          auto_generated_bom_order_id: string | null
+          auto_generated_event_id: string | null
+          auto_generated_event_table_id: string | null
           client_id: string
           created_at: string
           event_category: string | null
@@ -2226,6 +2472,7 @@ export type Database = {
           parent_proposal_id: string | null
           products_selected: boolean | null
           proposal_date: string
+          proposal_kind: string | null
           proposal_number: string
           status: string
           target_weight_per_person: number
@@ -2236,6 +2483,9 @@ export type Database = {
           version: number
         }
         Insert: {
+          auto_generated_bom_order_id?: string | null
+          auto_generated_event_id?: string | null
+          auto_generated_event_table_id?: string | null
           client_id: string
           created_at?: string
           event_category?: string | null
@@ -2246,6 +2496,7 @@ export type Database = {
           parent_proposal_id?: string | null
           products_selected?: boolean | null
           proposal_date?: string
+          proposal_kind?: string | null
           proposal_number: string
           status?: string
           target_weight_per_person?: number
@@ -2256,6 +2507,9 @@ export type Database = {
           version?: number
         }
         Update: {
+          auto_generated_bom_order_id?: string | null
+          auto_generated_event_id?: string | null
+          auto_generated_event_table_id?: string | null
           client_id?: string
           created_at?: string
           event_category?: string | null
@@ -2266,6 +2520,7 @@ export type Database = {
           parent_proposal_id?: string | null
           products_selected?: boolean | null
           proposal_date?: string
+          proposal_kind?: string | null
           proposal_number?: string
           status?: string
           target_weight_per_person?: number
@@ -2276,6 +2531,27 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "proposals_auto_generated_bom_order_id_fkey"
+            columns: ["auto_generated_bom_order_id"]
+            isOneToOne: false
+            referencedRelation: "bom_production_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_auto_generated_event_id_fkey"
+            columns: ["auto_generated_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_auto_generated_event_table_id_fkey"
+            columns: ["auto_generated_event_table_id"]
+            isOneToOne: false
+            referencedRelation: "event_tables"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "proposals_client_id_fkey"
             columns: ["client_id"]
@@ -2404,6 +2680,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "purchase_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
             foreignKeyName: "purchase_order_items_purchase_order_id_fkey"
             columns: ["purchase_order_id"]
             isOneToOne: false
@@ -2503,6 +2786,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_request_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "purchase_request_items_request_id_fkey"
@@ -2632,6 +2922,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requirements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -2814,6 +3111,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "recipe_bom_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
             foreignKeyName: "recipe_bom_items_recipe_id_fkey"
             columns: ["recipe_id"]
             isOneToOne: false
@@ -2851,6 +3155,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_ingredients_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "recipe_ingredients_recipe_id_fkey"
@@ -2953,6 +3264,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -3100,6 +3418,13 @@ export type Database = {
             referencedRelation: "materials"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "stock_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
         ]
       }
       stock_movements: {
@@ -3146,6 +3471,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -3205,6 +3537,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_parameters_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -3276,6 +3615,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_planning_results_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "stock_planning_results_planning_run_id_fkey"
@@ -3390,6 +3736,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "supplier_products_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
             foreignKeyName: "supplier_products_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
@@ -3442,6 +3795,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "supplier_quote_items_quote_id_fkey"
@@ -3739,7 +4099,32 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vw_proposal_breakdown: {
+        Row: {
+          category_id: string | null
+          category_label: string | null
+          item_kind: string | null
+          material_code: string | null
+          material_id: string | null
+          material_name: string | null
+          material_type: string | null
+          planned_qty: number | null
+          planned_unit: string | null
+          proposal_id: string | null
+          proposal_item_id: string | null
+          total_cost: number | null
+          unit_cost: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_categories_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_exists: {
@@ -3848,9 +4233,17 @@ export type Database = {
         Args: { create_intermediates?: boolean; dry_run?: boolean }
         Returns: Json
       }
+      finalize_proposal_fulfillment: {
+        Args: { p_proposal_id: string }
+        Returns: Json
+      }
       generate_event_production: {
         Args: { p_event_table_id: string; p_target_table?: string }
         Returns: string
+      }
+      generate_production_from_proposal: {
+        Args: { p_proposal_id: string }
+        Returns: Json
       }
       get_config: {
         Args: { p_key: string; p_namespace: string }
