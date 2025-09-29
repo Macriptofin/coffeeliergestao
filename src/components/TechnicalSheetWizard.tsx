@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -312,7 +312,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
     }
   }, [formData.items, formData.yield_quantity]);
 
-  const addBOMItem = () => {
+  const addBOMItem = useCallback(() => {
     const newItem: BOMItem = {
       material_id: '',
       quantity: 1,
@@ -329,9 +329,9 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
       ...prev,
       items: [...prev.items, newItem]
     }));
-  };
+  }, [formData.items.length, formData.product_type]);
 
-  const updateBOMItem = (index: number, field: keyof BOMItem, value: any) => {
+  const updateBOMItem = useCallback((index: number, field: keyof BOMItem, value: any) => {
     setFormData(prev => ({
       ...prev,
       items: prev.items.map((item, i) => {
@@ -355,14 +355,14 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
         return item;
       })
     }));
-  };
+  }, [materials, formData.product_type]);
 
-  const removeBOMItem = (index: number) => {
+  const removeBOMItem = useCallback((index: number) => {
     setFormData(prev => ({
       ...prev,
       items: prev.items.filter((_, i) => i !== index)
     }));
-  };
+  }, []);
 
   const validateForm = (): boolean => {
     if (!formData.name.trim()) {
@@ -828,8 +828,9 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                 <div className="space-y-4">
                   {formData.items.map((item, index) => (
                   <Card key={index} className="p-4">
-                    <div className="grid grid-cols-13 gap-4 items-end">
-                      <div className="col-span-4">
+                    <div className="space-y-3">
+                      {/* Primeira linha: Material */}
+                      <div>
                         <Label>Material *</Label>
                         <Combobox
                           options={materialOptions}
@@ -839,68 +840,75 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                         />
                       </div>
 
-                      <div className="col-span-2">
-                        <Label>Quantidade *</Label>
-                        <Input
-                          type="number"
-                          step="0.001"
-                          min="0"
-                          value={item.quantity}
-                          onChange={(e) => updateBOMItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                        />
-                      </div>
-
-                      <div className="col-span-1">
-                        <Label>Unidade</Label>
-                        <Input
-                          value={item.unit}
-                          onChange={(e) => updateBOMItem(index, 'unit', e.target.value)}
-                          placeholder="un"
-                        />
-                      </div>
-
-                      <div className="col-span-1">
-                        <Label>Peso (g)</Label>
-                        <Input
-                          value={item.item_weight ? item.item_weight.toFixed(1) : '0'}
-                          readOnly
-                          className="bg-muted"
-                        />
-                      </div>
-
-                      {formData.product_type !== 'composite_product' && (
-                        <div className="col-span-1">
-                          <Label>Perda %</Label>
+                      {/* Segunda linha: Quantidade, Unidade, Peso, Perda%, Observações e Ações */}
+                      <div className="grid grid-cols-12 gap-3 items-end">
+                        <div className="col-span-2">
+                          <Label className="text-xs">Quantidade *</Label>
                           <Input
                             type="number"
-                            step="0.1"
+                            step="0.001"
                             min="0"
-                            max="100"
-                            value={item.waste_percent || ''}
-                            onChange={(e) => updateBOMItem(index, 'waste_percent', parseFloat(e.target.value) || 0)}
-                            placeholder="0"
+                            value={item.quantity}
+                            onChange={(e) => updateBOMItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                            className="h-8"
                           />
                         </div>
-                      )}
 
-                      <div className={formData.product_type === 'composite_product' ? "col-span-2" : "col-span-1"}>
-                        <Label>Observações</Label>
-                        <Input
-                          value={item.notes || ''}
-                          onChange={(e) => updateBOMItem(index, 'notes', e.target.value)}
-                          placeholder="Opcional"
-                        />
-                      </div>
+                        <div className="col-span-2">
+                          <Label className="text-xs">Unidade</Label>
+                          <Input
+                            value={item.unit}
+                            onChange={(e) => updateBOMItem(index, 'unit', e.target.value)}
+                            placeholder="un"
+                            className="h-8"
+                          />
+                        </div>
 
-                      <div className="col-span-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeBOMItem(index)}
-                          className="w-full"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="col-span-2">
+                          <Label className="text-xs">Peso (g)</Label>
+                          <Input
+                            value={item.item_weight ? item.item_weight.toFixed(1) : '0'}
+                            readOnly
+                            className="bg-muted h-8 text-xs"
+                          />
+                        </div>
+
+                        {formData.product_type !== 'composite_product' && (
+                          <div className="col-span-1">
+                            <Label className="text-xs">Perda %</Label>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={item.waste_percent || ''}
+                              onChange={(e) => updateBOMItem(index, 'waste_percent', parseFloat(e.target.value) || 0)}
+                              placeholder="0"
+                              className="h-8"
+                            />
+                          </div>
+                        )}
+
+                        <div className={formData.product_type === 'composite_product' ? "col-span-4" : "col-span-4"}>
+                          <Label className="text-xs">Observações</Label>
+                          <Input
+                            value={item.notes || ''}
+                            onChange={(e) => updateBOMItem(index, 'notes', e.target.value)}
+                            placeholder="Opcional"
+                            className="h-8"
+                          />
+                        </div>
+
+                        <div className="col-span-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeBOMItem(index)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </Card>
