@@ -2355,6 +2355,63 @@ export type Database = {
           },
         ]
       }
+      purchase_order_items: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string
+          notes: string | null
+          position: number
+          purchase_order_id: string
+          quantity: number
+          quantity_received: number | null
+          total_price: number
+          unit: string
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id: string
+          notes?: string | null
+          position?: number
+          purchase_order_id: string
+          quantity: number
+          quantity_received?: number | null
+          total_price: number
+          unit: string
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string
+          notes?: string | null
+          position?: number
+          purchase_order_id?: string
+          quantity?: number
+          quantity_received?: number | null
+          total_price?: number
+          unit?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_orders: {
         Row: {
           created_at: string
@@ -2465,6 +2522,7 @@ export type Database = {
           id: string
           justification: string
           priority: string
+          purchase_order_id: string | null
           rejection_reason: string | null
           request_number: string
           requested_by: string
@@ -2480,6 +2538,7 @@ export type Database = {
           id?: string
           justification: string
           priority?: string
+          purchase_order_id?: string | null
           rejection_reason?: string | null
           request_number: string
           requested_by: string
@@ -2495,6 +2554,7 @@ export type Database = {
           id?: string
           justification?: string
           priority?: string
+          purchase_order_id?: string | null
           rejection_reason?: string | null
           request_number?: string
           requested_by?: string
@@ -2503,6 +2563,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "purchase_requests_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "purchase_requests_requirement_id_fkey"
             columns: ["requirement_id"]
@@ -3081,6 +3148,198 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stock_parameters: {
+        Row: {
+          abc_classification: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          lead_time_days: number
+          material_id: string
+          maximum_stock: number
+          minimum_stock: number
+          notes: string | null
+          reorder_point: number
+          review_period_days: number
+          safety_stock: number
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          abc_classification?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          lead_time_days?: number
+          material_id: string
+          maximum_stock?: number
+          minimum_stock?: number
+          notes?: string | null
+          reorder_point?: number
+          review_period_days?: number
+          safety_stock?: number
+          unit: string
+          updated_at?: string
+        }
+        Update: {
+          abc_classification?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          lead_time_days?: number
+          material_id?: string
+          maximum_stock?: number
+          minimum_stock?: number
+          notes?: string | null
+          reorder_point?: number
+          review_period_days?: number
+          safety_stock?: number
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_parameters_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_planning_results: {
+        Row: {
+          abc_classification: string | null
+          created_at: string
+          current_stock: number
+          id: string
+          material_id: string
+          maximum_stock: number
+          minimum_stock: number
+          notes: string | null
+          planning_run_id: string
+          priority_level: string
+          recommended_quantity: number
+          reorder_point: number
+          requirement_generated: boolean | null
+          requirement_id: string | null
+          safety_stock: number
+          total_cost: number | null
+          unit: string
+          unit_cost: number | null
+        }
+        Insert: {
+          abc_classification?: string | null
+          created_at?: string
+          current_stock?: number
+          id?: string
+          material_id: string
+          maximum_stock?: number
+          minimum_stock?: number
+          notes?: string | null
+          planning_run_id: string
+          priority_level?: string
+          recommended_quantity?: number
+          reorder_point?: number
+          requirement_generated?: boolean | null
+          requirement_id?: string | null
+          safety_stock?: number
+          total_cost?: number | null
+          unit: string
+          unit_cost?: number | null
+        }
+        Update: {
+          abc_classification?: string | null
+          created_at?: string
+          current_stock?: number
+          id?: string
+          material_id?: string
+          maximum_stock?: number
+          minimum_stock?: number
+          notes?: string | null
+          planning_run_id?: string
+          priority_level?: string
+          recommended_quantity?: number
+          reorder_point?: number
+          requirement_generated?: boolean | null
+          requirement_id?: string | null
+          safety_stock?: number
+          total_cost?: number | null
+          unit?: string
+          unit_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_planning_results_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_planning_results_planning_run_id_fkey"
+            columns: ["planning_run_id"]
+            isOneToOne: false
+            referencedRelation: "stock_planning_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_planning_results_requirement_id_fkey"
+            columns: ["requirement_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requirements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_planning_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          materials_analyzed: number | null
+          notes: string | null
+          planning_horizon_days: number
+          requirements_generated: number | null
+          run_by: string | null
+          run_code: string
+          run_date: string
+          status: string
+          total_value: number | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          materials_analyzed?: number | null
+          notes?: string | null
+          planning_horizon_days?: number
+          requirements_generated?: number | null
+          run_by?: string | null
+          run_code: string
+          run_date?: string
+          status?: string
+          total_value?: number | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          materials_analyzed?: number | null
+          notes?: string | null
+          planning_horizon_days?: number
+          requirements_generated?: number | null
+          run_by?: string | null
+          run_code?: string
+          run_date?: string
+          status?: string
+          total_value?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       supplier_products: {
         Row: {
