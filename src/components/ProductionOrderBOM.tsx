@@ -155,6 +155,94 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
     documentTitle: `Ordem_Producao_BOM_${orderName.replace(/\s+/g, '_') || 'Sem_Nome'}`,
   });
 
+  const saveProductionOrder = async () => {
+    if (productionItems.length === 0) {
+      toast.error('Adicione pelo menos uma ficha técnica à ordem');
+      return;
+    }
+
+    if (!orderName.trim()) {
+      toast.error('Nome da ordem é obrigatório');
+      return;
+    }
+
+    try {
+      const consolidatedIngredients = consolidateIngredients();
+      const totalCost = getTotalProductionCost();
+
+      // 1. Criar a ordem de produção
+      const { data: productionOrder, error: productionOrderError } = await supabase
+        .from('bom_production_orders')
+        .insert({
+          order_name: orderName.trim(),
+          order_date: orderDate,
+          total_cost: totalCost,
+          notes: `Ordem criada com ${productionItems.length} ficha(s) técnica(s)`,
+          created_by: (await supabase.auth.getUser()).data.user?.id
+        })
+        .select()
+        .single();
+
+      if (productionOrderError) throw productionOrderError;
+
+      // 2. Inserir itens da ordem
+      const orderItems = productionItems.map((item, index) => {
+        const bom = boms.find(b => b.id === item.bomId)!;
+        const totalYield = bom.yield_quantity * item.quantity * item.multiplier;
+        const itemIngredients = bom.recipe_bom_items.map(bomItem => {
+          const totalNeeded = bomItem.quantity * item.quantity * item.multiplier;
+          const pricePerUsage = bomItem.material.price_per_purchase_unit / bomItem.material.conversion_factor;
+          return totalNeeded * pricePerUsage;
+        });
+        const itemCost = itemIngredients.reduce((sum, cost) => sum + cost, 0);
+
+        return {
+          production_order_id: productionOrder.id,
+          bom_id: item.bomId,
+          quantity: item.quantity,
+          multiplier: item.multiplier,
+          total_yield_quantity: totalYield,
+          yield_unit: bom.yield_unit || 'un',
+          item_cost: itemCost,
+          position: index + 1
+        };
+      });
+
+      const { error: orderItemsError } = await supabase
+        .from('bom_production_order_items')
+        .insert(orderItems);
+
+      if (orderItemsError) throw orderItemsError;
+
+      // 3. Inserir materiais consolidados
+      const consolidatedMaterials = consolidatedIngredients.map(ingredient => ({
+        production_order_id: productionOrder.id,
+        material_id: ingredient.material.id,
+        total_quantity: ingredient.totalQuantity,
+        unit: ingredient.material.usage_unit,
+        total_cost: ingredient.totalCost,
+        used_in_boms: ingredient.usedInBOMs
+      }));
+
+      const { error: consolidatedMaterialsError } = await supabase
+        .from('bom_production_consolidated_materials')
+        .insert(consolidatedMaterials);
+
+      if (consolidatedMaterialsError) throw consolidatedMaterialsError;
+
+      toast.success('Ordem de produção criada com sucesso!');
+      
+      // Limpar formulário
+      setProductionItems([]);
+      setOrderName('');
+      setOrderDate(new Date().toISOString().split('T')[0]);
+      
+    } catch (error) {
+      console.error('Erro ao salvar ordem:', error);
+      toast.error('Erro ao criar ordem de produção');
+    }
+  };
+
   const addProductionItem = () => {
     if (!selectedBOM || !quantity || !multiplier) return;
     
@@ -235,89 +323,6 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
 
   const getTotalProductionCost = () => {
     return consolidateIngredients().reduce((total, item) => total + item.totalCost, 0);
-  };
-
-  const saveProductionOrder = async () => {
-    if (productionItems.length === 0) {
-      toast.error('Adicione pelo menos uma ficha técnica à ordem');
-      return;
-    }
-
-    if (!orderName.trim()) {
-      toast.error('Informe um nome para a ordem de produção');
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // Salvar ordem de produção
-      const { data: order, error: orderError } = await supabase
-        .from('bom_production_orders')
-        .insert({
-          order_name: orderName,
-          order_date: orderDate,
-          total_cost: totalCost,
-          notes: 'Ordem criada via interface BOM'
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Salvar itens da ordem
-      const orderItemsData = productionItems.map((item, index) => {
-        const bom = boms.find(b => b.id === item.bomId);
-        const totalYield = bom!.yield_quantity * item.quantity * item.multiplier;
-        
-        return {
-          production_order_id: order.id,
-          bom_id: item.bomId,
-          quantity: item.quantity,
-          multiplier: item.multiplier,
-          total_yield_quantity: totalYield,
-          yield_unit: bom!.yield_unit || 'un',
-          position: index + 1
-        };
-      });
-
-      const { error: itemsError } = await supabase
-        .from('bom_production_order_items')
-        .insert(orderItemsData);
-
-      if (itemsError) throw itemsError;
-
-      // Salvar materiais consolidados
-      const consolidatedData = consolidatedIngredients.map(item => ({
-        production_order_id: order.id,
-        material_id: item.material.id,
-        total_quantity: item.totalQuantity,
-        unit: item.material.usage_unit,
-        total_cost: item.totalCost,
-        used_in_boms: JSON.stringify(item.usedInBOMs)
-      }));
-
-      const { error: materialsError } = await supabase
-        .from('bom_production_consolidated_materials')
-        .insert(consolidatedData);
-
-      if (materialsError) throw materialsError;
-
-      toast.success('Ordem de produção salva com sucesso!');
-      
-      // Limpar formulário
-      setProductionItems([]);
-      setOrderName('');
-      setOrderDate(new Date().toISOString().split('T')[0]);
-      
-      if (onClose) onClose();
-      
-    } catch (error) {
-      console.error('Erro ao salvar ordem:', error);
-      toast.error('Erro ao salvar ordem de produção');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const consolidatedIngredients = consolidateIngredients();
@@ -570,95 +575,41 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
 
           {/* Ações */}
           {productionItems.length > 0 && (
-            <div className="flex gap-3 pt-4">
-              <Button 
-                onClick={saveProductionOrder}
-                disabled={!orderName.trim() || loading}
-                className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {loading ? 'Salvando...' : 'Salvar Ordem'}
-              </Button>
-              
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button className="bg-gradient-primary flex-1">
-                    <Printer className="h-4 w-4 mr-2" />
-                    Gerar Ordem de Produção
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0">
-                  <div className="p-4">
-                    <div className="flex justify-between items-center mb-4 no-print">
-                      <h3 className="text-lg font-semibold">Ordem de Produção (BOM)</h3>
-                      <Button onClick={handlePrint}>
-                        <Printer className="h-4 w-4 mr-2" />
-                        Imprimir
-                      </Button>
-                    </div>
-                    <div ref={printRef}>
-                      <div className="bg-white p-6 print:p-0">
-                        <div className="text-center mb-6">
-                          <h1 className="text-2xl font-bold">Ordem de Produção</h1>
-                          <p className="text-muted-foreground">{orderName || 'Sem nome'}</p>
-                          <p className="text-sm">Data: {new Date(orderDate).toLocaleDateString('pt-BR')}</p>
-                        </div>
-                        
-                        <div className="mb-6">
-                          <h3 className="text-lg font-semibold mb-3">Produtos a Produzir</h3>
-                          {productionItems.map((item) => {
-                            const bom = boms.find(b => b.id === item.bomId);
-                            if (!bom) return null;
-                            
-                            return (
-                              <div key={item.bomId} className="border-b pb-2 mb-2">
-                                <div className="flex justify-between">
-                                  <span className="font-medium">{bom.finished_material.name}</span>
-                                  <span>{item.quantity} x {item.multiplier} = {bom.yield_quantity * item.quantity * item.multiplier} {bom.yield_unit || 'un'}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        
-                        <div className="mb-6">
-                          <h3 className="text-lg font-semibold mb-3">Lista de Materiais</h3>
-                          <table className="w-full border-collapse border border-gray-300">
-                            <thead>
-                              <tr className="bg-gray-100">
-                                <th className="border border-gray-300 p-2 text-left">Material</th>
-                                <th className="border border-gray-300 p-2 text-center">Quantidade</th>
-                                <th className="border border-gray-300 p-2 text-center">Unidade</th>
-                                <th className="border border-gray-300 p-2 text-right">Custo</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {consolidatedIngredients.map((item) => (
-                                <tr key={item.material.id}>
-                                  <td className="border border-gray-300 p-2">{item.material.name}</td>
-                                  <td className="border border-gray-300 p-2 text-center">{item.totalQuantity.toFixed(2)}</td>
-                                  <td className="border border-gray-300 p-2 text-center">{item.material.usage_unit}</td>
-                                  <td className="border border-gray-300 p-2 text-right">R$ {item.totalCost.toFixed(2)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                            <tfoot>
-                              <tr className="bg-gray-100 font-bold">
-                                <td className="border border-gray-300 p-2" colSpan={3}>TOTAL</td>
-                                <td className="border border-gray-300 p-2 text-right">R$ {totalCost.toFixed(2)}</td>
-                              </tr>
-                            </tfoot>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+            <div className="pt-6 border-t">
+              <div className="flex gap-3">
+                <Button 
+                  onClick={saveProductionOrder}
+                  className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
+                >
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Salvar Ordem
+                </Button>
+                <Button 
+                  onClick={handlePrint}
+                  variant="outline"
+                  className="shadow-soft"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Imprimir
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Ordem Impressa (Oculta) */}
+      <div style={{ display: 'none' }}>
+        <div ref={printRef}>
+          <PrintableProductionOrder
+            orderName={orderName || 'Ordem de Produção BOM'}
+            orderDate={orderDate}
+            productionItems={productionItems}
+            consolidatedIngredients={consolidatedIngredients}
+            totalCost={totalCost}
+          />
+        </div>
+      </div>
     </div>
   );
 };

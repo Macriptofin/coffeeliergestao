@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Package, Play, CheckCircle, X, Clock, Eye, EyeOff } from 'lucide-react';
+import { Calendar, Users, Package, Play, CheckCircle, Clock, AlertCircle, Eye, EyeOff, RefreshCcw } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-interface BOMProductionOrder {
+interface ProductionOrder {
   id: string;
   order_name: string;
   order_date: string;
@@ -19,22 +19,25 @@ interface BOMProductionOrder {
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
-  items: BOMProductionOrderItem[];
-  materials: ConsolidatedMaterial[];
+  items: ProductionOrderItem[];
+  consolidated_materials: ConsolidatedMaterial[];
 }
 
-interface BOMProductionOrderItem {
+interface ProductionOrderItem {
   id: string;
   bom_id: string;
   quantity: number;
   multiplier: number;
   total_yield_quantity: number;
   yield_unit: string;
-  recipes_bom: {
+  item_cost: number;
+  bom: {
+    id: string;
     finished_material: {
+      id: string;
       name: string;
-      code: string;
       category: string;
+      code: string;
     };
   };
 }
@@ -49,24 +52,28 @@ interface ConsolidatedMaterial {
   is_consumed: boolean;
   reserved_quantity: number;
   consumed_quantity: number;
+  used_in_boms: any;
   material: {
+    id: string;
     name: string;
     category: string;
-    code: string;
+    usage_unit: string;
   };
 }
 
 export const BOMProductionOrdersList = () => {
-  const [orders, setOrders] = useState<BOMProductionOrder[]>([]);
+  const [productionOrders, setProductionOrders] = useState<ProductionOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [processingOrder, setProcessingOrder] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<ProductionOrder | null>(null);
+  const [showMaterialsDialog, setShowMaterialsDialog] = useState(false);
 
   useEffect(() => {
-    loadOrders();
+    loadProductionOrders();
   }, []);
 
-  const loadOrders = async () => {
+  const loadProductionOrders = async () => {
     try {
       const { data, error } = await supabase
         .from('bom_production_orders')
@@ -74,27 +81,24 @@ export const BOMProductionOrdersList = () => {
           *,
           items:bom_production_order_items (
             *,
-            recipes_bom (
-              finished_material:materials (
-                name,
-                code,
-                category
+            bom:recipes_bom (
+              id,
+              finished_material:materials!recipes_bom_finished_material_id_fkey (
+                id, name, category, code
               )
             )
           ),
-          materials:bom_production_consolidated_materials (
+          consolidated_materials:bom_production_consolidated_materials (
             *,
             material:materials (
-              name,
-              category,
-              code
+              id, name, category, usage_unit
             )
           )
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+      setProductionOrders(data || []);
     } catch (error) {
       console.error('Erro ao carregar ordens:', error);
       toast.error('Erro ao carregar ordens de produção');
@@ -104,8 +108,6 @@ export const BOMProductionOrdersList = () => {
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    if (processingOrder) return;
-    
     setProcessingOrder(orderId);
     try {
       const { error } = await supabase.rpc('update_production_order_status', {
@@ -115,8 +117,8 @@ export const BOMProductionOrdersList = () => {
 
       if (error) throw error;
 
-      toast.success(`Status atualizado para: ${getStatusLabel(newStatus)}`);
-      await loadOrders();
+      await loadProductionOrders();
+      toast.success(`Ordem ${getStatusLabel(newStatus).toLowerCase()}!`);
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
       toast.error('Erro ao atualizar status da ordem');
@@ -133,6 +135,11 @@ export const BOMProductionOrdersList = () => {
       newExpanded.add(orderId);
     }
     setExpandedOrders(newExpanded);
+  };
+
+  const showMaterialsDetails = (order: ProductionOrder) => {
+    setSelectedOrder(order);
+    setShowMaterialsDialog(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -153,62 +160,41 @@ export const BOMProductionOrdersList = () => {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'planned':
-        return 'Planejado';
+        return 'Planejada';
       case 'in_progress':
         return 'Em Produção';
       case 'completed':
-        return 'Concluído';
+        return 'Concluída';
       case 'cancelled':
-        return 'Cancelado';
+        return 'Cancelada';
       default:
         return status;
     }
   };
 
-  const getStatusActions = (order: BOMProductionOrder) => {
-    const actions = [];
-    
-    if (order.status === 'planned') {
-      actions.push(
-        <Button
-          key="start"
-          onClick={() => updateOrderStatus(order.id, 'in_progress')}
-          disabled={processingOrder === order.id}
-          className="bg-yellow-600 hover:bg-yellow-700 text-white"
-          size="sm"
-        >
-          <Play className="h-4 w-4 mr-2" />
-          Iniciar Produção
-        </Button>
-      );
-      actions.push(
-        <Button
-          key="cancel"
-          onClick={() => updateOrderStatus(order.id, 'cancelled')}
-          disabled={processingOrder === order.id}
-          variant="destructive"
-          size="sm"
-        >
-          <X className="h-4 w-4 mr-2" />
-          Cancelar
-        </Button>
-      );
-    } else if (order.status === 'in_progress') {
-      actions.push(
-        <Button
-          key="complete"
-          onClick={() => updateOrderStatus(order.id, 'completed')}
-          disabled={processingOrder === order.id}
-          className="bg-green-600 hover:bg-green-700 text-white"
-          size="sm"
-        >
-          <CheckCircle className="h-4 w-4 mr-2" />
-          Finalizar Produção
-        </Button>
-      );
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'planned':
+        return <Clock className="h-4 w-4" />;
+      case 'in_progress':
+        return <Play className="h-4 w-4" />;
+      case 'completed':
+        return <CheckCircle className="h-4 w-4" />;
+      case 'cancelled':
+        return <AlertCircle className="h-4 w-4" />;
+      default:
+        return <Clock className="h-4 w-4" />;
     }
+  };
 
-    return actions;
+  const canTransitionTo = (currentStatus: string, targetStatus: string): boolean => {
+    const validTransitions: Record<string, string[]> = {
+      'planned': ['in_progress', 'cancelled'],
+      'in_progress': ['completed', 'cancelled'],
+      'completed': [],
+      'cancelled': []
+    };
+    return validTransitions[currentStatus]?.includes(targetStatus) || false;
   };
 
   if (loading) {
@@ -219,116 +205,85 @@ export const BOMProductionOrdersList = () => {
     );
   }
 
-  if (orders.length === 0) {
+  if (productionOrders.length === 0) {
     return (
-      <Alert>
+      <Alert className="border-amber-200 bg-amber-50">
         <Package className="h-4 w-4" />
         <AlertDescription>
-          Nenhuma ordem de produção encontrada. Crie uma nova ordem usando o botão "Nova Ordem (BOM)" acima.
+          Nenhuma ordem de produção BOM encontrada. Crie uma nova ordem usando o botão "Nova Ordem (BOM)" acima.
         </AlertDescription>
       </Alert>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold">Ordens de Produção BOM</h3>
           <p className="text-sm text-muted-foreground">
-            Gerencie o fluxo completo das suas ordens de produção
+            Gerencie o fluxo de produção com controle de status e estoque
           </p>
         </div>
-        <Button onClick={loadOrders} variant="outline" disabled={loading}>
+        <Button onClick={loadProductionOrders} variant="outline" disabled={loading}>
+          <RefreshCcw className="h-4 w-4 mr-2" />
           Atualizar
         </Button>
       </div>
 
       <div className="space-y-4">
-        {orders.map((order) => (
-          <Card key={order.id} className="shadow-soft">
-            <CardHeader className="pb-3">
+        {productionOrders.map((order) => (
+          <Card key={order.id} className="shadow-elegant">
+            <CardHeader className="pb-4">
               <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">{order.order_name}</CardTitle>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      {new Date(order.order_date).toLocaleDateString('pt-BR')}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Package className="h-4 w-4" />
-                      {order.items.length} produtos
-                    </div>
-                    {order.started_at && (
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="text-lg">{order.order_name}</CardTitle>
+                    <Badge className={`${getStatusColor(order.status)} font-medium`}>
                       <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        Iniciado: {new Date(order.started_at).toLocaleDateString('pt-BR')}
+                        {getStatusIcon(order.status)}
+                        {getStatusLabel(order.status)}
                       </div>
-                    )}
+                    </Badge>
+                  </div>
+                  <CardDescription className="mt-1">
+                    Criada em {new Date(order.created_at).toLocaleDateString('pt-BR')} • 
+                    Produção para {new Date(order.order_date).toLocaleDateString('pt-BR')}
+                  </CardDescription>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-primary">
+                    R$ {order.total_cost.toFixed(2)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {order.items.length} produto(s)
                   </div>
                 </div>
-                <Badge className={getStatusColor(order.status)}>
-                  {getStatusLabel(order.status)}
-                </Badge>
               </div>
             </CardHeader>
             
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Custo Total:</span>
-                  <span className="ml-2 font-semibold text-primary">
-                    R$ {order.total_cost?.toFixed(2) || '0,00'}
-                  </span>
-                </div>
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Criado em:</span>
-                  <span className="ml-2">
-                    {new Date(order.created_at).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
+            <CardContent className="space-y-4">
+              {/* Timeline de Status */}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                {order.started_at && (
+                  <span>Iniciada: {new Date(order.started_at).toLocaleString('pt-BR')}</span>
+                )}
+                {order.completed_at && (
+                  <span> • Concluída: {new Date(order.completed_at).toLocaleString('pt-BR')}</span>
+                )}
+                {!order.started_at && !order.completed_at && (
+                  <span>Aguardando início da produção</span>
+                )}
               </div>
 
-              {order.notes && (
-                <div className="mb-4 p-3 bg-muted rounded-lg">
-                  <p className="text-sm">{order.notes}</p>
-                </div>
-              )}
-
-              {/* Lista de Produtos */}
-              <div className="mb-4">
-                <h4 className="font-medium mb-2">Produtos a Produzir:</h4>
-                <div className="space-y-2">
-                  {order.items.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center p-3 bg-accent rounded-lg">
-                      <div>
-                        <span className="font-medium">{item.recipes_bom.finished_material.name}</span>
-                        <div className="text-sm text-muted-foreground">
-                          {item.recipes_bom.finished_material.category} | 
-                          Qtd: {item.quantity} | Mult: {item.multiplier}x
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-semibold">
-                          {item.total_yield_quantity.toLocaleString('pt-BR')} {item.yield_unit}
-                        </span>
-                        <div className="text-xs text-muted-foreground">
-                          {item.recipes_bom.finished_material.code}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Lista de Materiais */}
+              {/* Produtos da Ordem */}
               <Collapsible>
                 <CollapsibleTrigger asChild>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full mb-3"
+                    className="w-full"
                     onClick={() => toggleOrderExpansion(order.id)}
                   >
                     {expandedOrders.has(order.id) ? (
@@ -336,74 +291,181 @@ export const BOMProductionOrdersList = () => {
                     ) : (
                       <Eye className="h-4 w-4 mr-2" />
                     )}
-                    {expandedOrders.has(order.id) ? 'Ocultar' : 'Ver'} Lista de Materiais
-                    <span className="ml-2 text-muted-foreground">
-                      ({order.materials.length} materiais)
-                    </span>
+                    {expandedOrders.has(order.id) ? 'Ocultar' : 'Ver'} Produtos da Ordem
                   </Button>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-2 mb-4">
-                  {order.materials.map((material) => (
-                    <div key={material.id} className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">{material.material.name}</span>
-                          {material.is_reserved && (
-                            <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800">
-                              Reservado
-                            </Badge>
-                          )}
-                          {material.is_consumed && (
-                            <Badge variant="outline" className="text-xs bg-green-100 text-green-800">
-                              Consumido
-                            </Badge>
-                          )}
+                <CollapsibleContent className="space-y-2 mt-3">
+                  {order.items.map((item) => (
+                    <div key={item.id} className="flex justify-between items-center p-3 bg-accent rounded-lg">
+                      <div>
+                        <div className="font-medium">{item.bom.finished_material.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {item.quantity} × {item.multiplier} = {item.total_yield_quantity} {item.yield_unit}
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {material.material.category} | {material.material.code}
-                        </p>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold">
-                          {material.total_quantity.toLocaleString('pt-BR')} {material.unit}
-                        </div>
-                        <div className="text-sm text-primary">
-                          R$ {material.total_cost.toFixed(2)}
-                        </div>
-                        {order.status === 'in_progress' && material.is_reserved && (
-                          <div className="text-xs text-muted-foreground">
-                            Reservado: {material.reserved_quantity.toLocaleString('pt-BR')}
-                          </div>
-                        )}
+                        <div className="font-semibold text-primary">R$ {item.item_cost.toFixed(2)}</div>
+                        <Badge variant="outline" className="text-xs">
+                          {item.bom.finished_material.code}
+                        </Badge>
                       </div>
                     </div>
                   ))}
                 </CollapsibleContent>
               </Collapsible>
 
-              {/* Ações de Status */}
-              {getStatusActions(order).length > 0 && (
-                <div className="flex gap-2 pt-4 border-t">
-                  {getStatusActions(order)}
-                  {processingOrder === order.id && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground ml-auto">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                      Processando...
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Ações */}
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => showMaterialsDetails(order)}
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  Ver Materiais ({order.consolidated_materials.length})
+                </Button>
 
-              {order.status === 'completed' && order.completed_at && (
-                <div className="flex items-center justify-center gap-2 text-green-600 font-medium pt-4 border-t">
-                  <CheckCircle className="h-4 w-4" />
-                  Produção Concluída em {new Date(order.completed_at).toLocaleDateString('pt-BR')}
+                {canTransitionTo(order.status, 'in_progress') && (
+                  <Button
+                    onClick={() => updateOrderStatus(order.id, 'in_progress')}
+                    disabled={processingOrder === order.id}
+                    className="bg-yellow-600 hover:bg-yellow-700"
+                    size="sm"
+                  >
+                    {processingOrder === order.id ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    ) : (
+                      <Play className="h-4 w-4 mr-2" />
+                    )}
+                    Iniciar Produção
+                  </Button>
+                )}
+
+                {canTransitionTo(order.status, 'completed') && (
+                  <Button
+                    onClick={() => updateOrderStatus(order.id, 'completed')}
+                    disabled={processingOrder === order.id}
+                    className="bg-green-600 hover:bg-green-700"
+                    size="sm"
+                  >
+                    {processingOrder === order.id ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                    )}
+                    Concluir Produção
+                  </Button>
+                )}
+
+                {canTransitionTo(order.status, 'cancelled') && (
+                  <Button
+                    onClick={() => updateOrderStatus(order.id, 'cancelled')}
+                    disabled={processingOrder === order.id}
+                    variant="destructive"
+                    size="sm"
+                  >
+                    {processingOrder === order.id ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                    )}
+                    Cancelar
+                  </Button>
+                )}
+              </div>
+
+              {order.notes && (
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-sm">{order.notes}</p>
                 </div>
               )}
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Dialog de Materiais */}
+      <Dialog open={showMaterialsDialog} onOpenChange={setShowMaterialsDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Materiais da Ordem: {selectedOrder?.order_name}
+            </DialogTitle>
+            <DialogDescription>
+              Lista consolidada de materiais com status de reserva e consumo
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {selectedOrder.consolidated_materials.map((material) => (
+                  <Card key={material.id} className="p-4">
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="font-medium">{material.material.name}</h4>
+                        <p className="text-sm text-muted-foreground">{material.material.category}</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Necessário:</span>
+                          <span className="font-semibold">
+                            {material.total_quantity.toFixed(2)} {material.unit}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Custo:</span>
+                          <span className="font-semibold text-primary">
+                            R$ {material.total_cost.toFixed(2)}
+                          </span>
+                        </div>
+                        
+                        {material.is_reserved && (
+                          <div className="flex justify-between text-sm">
+                            <span>Reservado:</span>
+                            <span className="font-semibold text-yellow-600">
+                              {material.reserved_quantity.toFixed(2)} {material.unit}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {material.is_consumed && (
+                          <div className="flex justify-between text-sm">
+                            <span>Consumido:</span>
+                            <span className="font-semibold text-red-600">
+                              {material.consumed_quantity.toFixed(2)} {material.unit}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex gap-1">
+                        {material.is_reserved && (
+                          <Badge variant="secondary" className="text-xs">
+                            Reservado
+                          </Badge>
+                        )}
+                        {material.is_consumed && (
+                          <Badge variant="destructive" className="text-xs">
+                            Consumido
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      {material.used_in_boms.length > 1 && (
+                        <div className="text-xs text-muted-foreground">
+                          Usado em {material.used_in_boms.length} produto(s)
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
