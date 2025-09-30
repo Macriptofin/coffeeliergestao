@@ -242,23 +242,21 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
         if (cached !== undefined) {
           itemUnitCost = cached;
         } else {
-          let fetchedPrice: number | undefined;
+          // Buscar preço do estoque
           const { data: stockData } = await supabase
             .from('stock_items')
             .select('average_price')
             .eq('material_id', item.material_id)
             .single();
 
-          if (stockData?.average_price) {
-            fetchedPrice = stockData.average_price;
-          }
-          if (fetchedPrice !== undefined) {
-            itemUnitCost = fetchedPrice;
-            priceCache.set(item.material_id, fetchedPrice);
+          // Se tem preço no estoque, converter para unidade de uso
+          if (stockData?.average_price && stockData.average_price > 0) {
+            // average_price está por unidade de COMPRA, precisa converter para unidade de USO
+            itemUnitCost = stockData.average_price / (item.material.conversion_factor || 1);
+            priceCache.set(item.material_id, itemUnitCost);
           } else if (item.material.price_per_purchase_unit > 0) {
-            // Converter da unidade de compra para unidade de uso
-            itemUnitCost = item.material.price_per_purchase_unit /
-              (item.material.conversion_factor || 1);
+            // Fallback: usar preço cadastrado no material
+            itemUnitCost = item.material.price_per_purchase_unit / (item.material.conversion_factor || 1);
             priceCache.set(item.material_id, itemUnitCost);
           } else {
             alerts.push(`${item.material.name}: sem custo disponível`);
