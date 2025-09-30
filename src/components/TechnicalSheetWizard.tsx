@@ -450,35 +450,35 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
           'composite_product': 'composite_product'
         };
 
-        console.log('Creating material with data:', {
+        const materialData = {
           name: formData.name,
           category: categoryMapping[formData.product_type],
           subcategory: formData.subcategory,
-          material_type: materialTypeMapping[formData.product_type] || 'finished_product'
-        });
+          category_term_id: categoryTerm?.id,
+          subcategory_term_id: subcategoryTerm?.id,
+          material_type: materialTypeMapping[formData.product_type] || 'finished_product',
+          purchase_unit: formData.yield_unit,
+          usage_unit: formData.yield_unit,
+          conversion_factor: 1,
+          price_per_purchase_unit: costEstimate.unitCost || 0,
+          unit_weight: costEstimate.unitWeight || null,
+          is_sellable: formData.product_type === 'finished_product',
+          is_system_generated: true
+        };
+
+        console.log('Creating material with data:', materialData);
+        console.log('Product type from form:', formData.product_type);
+        console.log('Mapped material type:', materialTypeMapping[formData.product_type]);
 
         const { data: newMaterial, error: materialError } = await supabase
           .from('materials')
-          .insert({
-            name: formData.name,
-            category: categoryMapping[formData.product_type],
-            subcategory: formData.subcategory,
-            category_term_id: categoryTerm?.id,
-            subcategory_term_id: subcategoryTerm?.id,
-            material_type: materialTypeMapping[formData.product_type] || 'finished_product',
-            purchase_unit: formData.yield_unit,
-            usage_unit: formData.yield_unit,
-            conversion_factor: 1,
-            price_per_purchase_unit: costEstimate.unitCost || 0,
-            unit_weight: costEstimate.unitWeight || null,
-            is_sellable: formData.product_type === 'finished_product',
-            is_system_generated: true
-          })
+          .insert(materialData)
           .select()
           .single();
 
         if (materialError) {
           console.error('Material creation error:', materialError);
+          console.error('Failed material data:', materialData);
           throw materialError;
         }
         resultMaterialId = newMaterial.id;
