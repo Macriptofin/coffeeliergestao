@@ -5076,7 +5076,7 @@ export type Database = {
       }
       rpc_inventory_add_materials: {
         Args: { p_cycle_id: string; p_material_ids: string[] }
-        Returns: undefined
+        Returns: number
       }
       rpc_inventory_create_cycle: {
         Args: { p_name: string; p_notes?: string }
