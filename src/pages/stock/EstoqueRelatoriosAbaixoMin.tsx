@@ -1,0 +1,1 @@
+// Placeholder para aba "Abaixo do Mínimo" - será adicionado quando EstoqueRelatorios.tsx ficar muito grande

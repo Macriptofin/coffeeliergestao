@@ -1,0 +1,1 @@
+// Placeholder para aba "Sem Preço Médio" - será adicionado quando EstoqueRelatorios.tsx ficar muito grande

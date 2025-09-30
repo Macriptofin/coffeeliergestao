@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileBarChart, PackageX, TrendingDown, Download } from "lucide-react";
+import { FileBarChart, PackageX, TrendingDown, Download, AlertTriangle, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,79 +24,90 @@ import {
 } from "@/components/ui/select";
 
 interface ZeroStockItem {
-  id: string;
+  material_id: string;
   code: string;
   name: string;
   category: string;
   subcategory?: string;
   material_type: string;
-  purchase_unit: string;
-  usage_unit: string;
-  price_per_purchase_unit: number;
   current_quantity: number;
+  average_price?: number;
   has_stock_record: boolean;
+}
+
+interface BelowMinItem {
+  material_id: string;
+  code: string;
+  name: string;
+  category: string;
+  subcategory?: string;
+  material_type: string;
+  current_quantity: number;
+  minimum_quantity: number;
+  deficit_quantity: number;
+  average_price?: number;
+  estimated_cost?: number;
+}
+
+interface NoPriceItem {
+  material_id: string;
+  code: string;
+  name: string;
+  category: string;
+  subcategory?: string;
+  material_type: string;
+  current_quantity: number;
+  price_per_purchase_unit?: number;
+  total_value?: number;
 }
 
 const EstoqueRelatorios = () => {
   const [activeTab, setActiveTab] = useState("zero-stock");
   const [zeroStockItems, setZeroStockItems] = useState<ZeroStockItem[]>([]);
+  const [belowMinItems, setBelowMinItems] = useState<BelowMinItem[]>([]);
+  const [noPriceItems, setNoPriceItems] = useState<NoPriceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadZeroStockItems();
+    loadAllData();
   }, []);
 
-  const loadZeroStockItems = async () => {
+  const loadAllData = async () => {
     setLoading(true);
     try {
-      // Buscar todos os materiais
-      const { data: materials, error: materialsError } = await supabase
-        .from('materials')
+      // Buscar itens zerados usando a view
+      const { data: zeroData, error: zeroError } = await supabase
+        .from('vw_stock_zero')
         .select('*')
-        .eq('is_archived', false)
         .order('name');
 
-      if (materialsError) throw materialsError;
+      if (zeroError) throw zeroError;
+      setZeroStockItems(zeroData || []);
 
-      // Buscar registros de estoque
-      const { data: stockItems, error: stockError } = await supabase
-        .from('stock_items')
-        .select('material_id, current_quantity');
+      // Buscar itens abaixo do mínimo usando a view
+      const { data: belowMinData, error: belowMinError } = await supabase
+        .from('vw_stock_below_min')
+        .select('*')
+        .order('deficit_quantity', { ascending: false });
 
-      if (stockError) throw stockError;
+      if (belowMinError) throw belowMinError;
+      setBelowMinItems(belowMinData || []);
 
-      // Criar mapa de estoque
-      const stockMap = new Map(
-        stockItems?.map(item => [
-          item.material_id, 
-          parseFloat(item.current_quantity?.toString() || '0')
-        ]) || []
-      );
+      // Buscar itens sem preço médio usando a view
+      const { data: noPriceData, error: noPriceError } = await supabase
+        .from('vw_stock_no_avg_price')
+        .select('*')
+        .order('current_quantity', { ascending: false });
 
-      // Filtrar materiais zerados ou sem registro
-      const zeroItems: ZeroStockItem[] = materials
-        ?.map(material => ({
-          id: material.id,
-          code: material.code || 'S/C',
-          name: material.name,
-          category: material.category,
-          subcategory: material.subcategory,
-          material_type: material.material_type,
-          purchase_unit: material.purchase_unit,
-          usage_unit: material.usage_unit,
-          price_per_purchase_unit: parseFloat(material.price_per_purchase_unit?.toString() || '0'),
-          current_quantity: stockMap.get(material.id) || 0,
-          has_stock_record: stockMap.has(material.id)
-        }))
-        .filter(item => item.current_quantity === 0) || [];
+      if (noPriceError) throw noPriceError;
+      setNoPriceItems(noPriceData || []);
 
-      setZeroStockItems(zeroItems);
     } catch (error) {
-      console.error('Erro ao carregar itens zerados:', error);
-      toast.error('Erro ao carregar relatório');
+      console.error('Erro ao carregar dados dos relatórios:', error);
+      toast.error('Erro ao carregar relatórios');
     } finally {
       setLoading(false);
     }
@@ -112,28 +123,26 @@ const EstoqueRelatorios = () => {
 
     // Criar CSV
     const headers = [
+      'ID Material',
       'Código',
       'Nome',
       'Categoria',
       'Subcategoria',
       'Tipo',
-      'Unidade Compra',
-      'Unidade Uso',
-      'Preço Unitário',
       'Qtd Atual',
+      'Preço Médio',
       'Status Estoque'
     ].join(';');
 
     const rows = filteredItems.map(item => [
-      item.code,
+      item.material_id,
+      item.code || 'S/C',
       item.name,
       item.category,
       item.subcategory || '',
       getMaterialTypeLabel(item.material_type),
-      item.purchase_unit,
-      item.usage_unit,
-      item.price_per_purchase_unit.toFixed(2),
       item.current_quantity.toFixed(2),
+      (item.average_price || 0).toFixed(2),
       item.has_stock_record ? 'Zerado' : 'Sem Registro'
     ].join(';'));
 
@@ -186,18 +195,22 @@ const EstoqueRelatorios = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="zero-stock" className="flex items-center gap-2">
             <PackageX className="h-4 w-4" />
             Itens Zerados
           </TabsTrigger>
+          <TabsTrigger value="below-min" className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            Abaixo do Mínimo
+          </TabsTrigger>
+          <TabsTrigger value="no-price" className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4" />
+            Sem Preço Médio
+          </TabsTrigger>
           <TabsTrigger value="valuation" className="flex items-center gap-2">
             <FileBarChart className="h-4 w-4" />
             Valorização
-          </TabsTrigger>
-          <TabsTrigger value="turnover" className="flex items-center gap-2">
-            <TrendingDown className="h-4 w-4" />
-            Giro de Estoque
           </TabsTrigger>
         </TabsList>
 
@@ -307,14 +320,14 @@ const EstoqueRelatorios = () => {
                         <TableHead>Nome</TableHead>
                         <TableHead>Categoria</TableHead>
                         <TableHead>Tipo</TableHead>
-                        <TableHead>Unidade</TableHead>
-                        <TableHead className="text-right">Preço Unit.</TableHead>
+                        <TableHead className="text-right">Qtd Atual</TableHead>
+                        <TableHead className="text-right">Preço Médio</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredItems.map(item => (
-                        <TableRow key={item.id}>
+                        <TableRow key={item.material_id}>
                           <TableCell className="font-mono text-sm">{item.code}</TableCell>
                           <TableCell className="font-medium">{item.name}</TableCell>
                           <TableCell>
@@ -333,10 +346,10 @@ const EstoqueRelatorios = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-sm">
-                            {item.purchase_unit} → {item.usage_unit}
+                            {item.current_quantity.toFixed(2)}
                           </TableCell>
                           <TableCell className="text-right">
-                            R$ {item.price_per_purchase_unit.toFixed(2)}
+                            R$ {(item.average_price || 0).toFixed(2)}
                           </TableCell>
                           <TableCell className="text-center">
                             <Badge variant={item.has_stock_record ? "secondary" : "destructive"}>

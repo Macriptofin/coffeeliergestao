@@ -33,6 +33,7 @@ import Agenda from "./pages/Agenda";
 import EnhancedSecurity from "./pages/EnhancedSecurity";
 import SecurityAnomalies from "./pages/SecurityAnomalies";
 import InventarioAjustes from "./pages/InventarioAjustes";
+import InventarioCiclo from "./pages/InventarioCiclo";
 
 import CostCalculation from "./pages/production/CostCalculation";
 import ProductionPlanning from "./pages/production/ProductionPlanning";
@@ -62,6 +63,7 @@ function App() {
               <Route path="estoque/materiais/:id/editar" element={<MaterialEdit />} />
               <Route path="estoque/movimentacoes" element={<EstoqueMovimentacoes />} />
               <Route path="estoque/inventario-ajustes" element={<InventarioAjustes />} />
+              <Route path="estoque/inventario-ajustes/ciclo/:cycleId" element={<InventarioCiclo />} />
               <Route path="estoque/relatorios" element={<EstoqueRelatorios />} />
               <Route path="estoque/*" element={<Stock />} />
               {/* Categoria Compras */}

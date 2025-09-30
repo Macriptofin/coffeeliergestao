@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardCheck, Calculator, History } from "lucide-react";
+import { ClipboardCheck, Calculator, History, RotateCcw } from "lucide-react";
 import { InventoryCountForm } from "@/components/inventory/InventoryCountForm";
 import { CostAdjustmentForm } from "@/components/inventory/CostAdjustmentForm";
 import { AdjustmentHistory } from "@/components/inventory/AdjustmentHistory";
+import { InventoryCyclesList } from "@/components/inventory/InventoryCyclesList";
 
 const InventarioAjustes = () => {
-  const [activeTab, setActiveTab] = useState("inventory");
+  const [activeTab, setActiveTab] = useState("cycles");
 
   return (
     <div>
@@ -19,10 +20,14 @@ const InventarioAjustes = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="cycles" className="flex items-center gap-2">
+            <RotateCcw className="h-4 w-4" />
+            Ciclos de Inventário
+          </TabsTrigger>
           <TabsTrigger value="inventory" className="flex items-center gap-2">
             <ClipboardCheck className="h-4 w-4" />
-            Inventário Físico
+            Contagem Individual
           </TabsTrigger>
           <TabsTrigger value="cost" className="flex items-center gap-2">
             <Calculator className="h-4 w-4" />
@@ -33,6 +38,10 @@ const InventarioAjustes = () => {
             Histórico
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="cycles">
+          <InventoryCyclesList />
+        </TabsContent>
 
         <TabsContent value="inventory">
           <Card>
