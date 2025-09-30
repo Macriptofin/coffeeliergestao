@@ -132,6 +132,7 @@ const Materials = () => {
           unit_weight,
           is_sellable
         `)
+        .eq('is_archived', false)
         .order('name');
       
       if (error) {
@@ -424,6 +425,25 @@ const Materials = () => {
     }
   };
 
+  const handleBulkArchive = async () => {
+    try {
+      const { error } = await supabase
+        .from('materials')
+        .update({ is_archived: true })
+        .in('id', selectedMaterials);
+      
+      if (error) throw error;
+      
+      // Reload materials to reflect changes
+      await loadMaterials();
+      setSelectedMaterials([]);
+      toast.success(`${selectedMaterials.length} ${selectedMaterials.length === 1 ? 'material arquivado' : 'materiais arquivados'} com sucesso!`);
+    } catch (error) {
+      console.error('Erro ao arquivar materiais:', error);
+      toast.error('Erro ao arquivar materiais');
+    }
+  };
+
   const exportMaterialsToCSV = () => {
     try {
       // Prepare CSV data
@@ -657,6 +677,7 @@ const Materials = () => {
               <MaterialsActions 
                 selectedCount={selectedMaterials.length}
                 onBulkDelete={handleBulkDelete}
+                onBulkArchive={handleBulkArchive}
                 onClearSelection={() => setSelectedMaterials([])}
               />
             </div>

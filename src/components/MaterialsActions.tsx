@@ -24,18 +24,16 @@ import { toast } from "sonner";
 interface MaterialsActionsProps {
   selectedCount: number;
   onBulkDelete: () => void;
+  onBulkArchive: () => void;
   onClearSelection: () => void;
 }
 
-export const MaterialsActions = ({ selectedCount, onBulkDelete, onClearSelection }: MaterialsActionsProps) => {
+export const MaterialsActions = ({ selectedCount, onBulkDelete, onBulkArchive, onClearSelection }: MaterialsActionsProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
 
   const handleExport = () => {
     toast.info("Funcionalidade de exportação será implementada em breve");
-  };
-
-  const handleInactivate = () => {
-    toast.info("Funcionalidade de inativação será implementada em breve");
   };
 
   const handleReclassify = () => {
@@ -68,9 +66,9 @@ export const MaterialsActions = ({ selectedCount, onBulkDelete, onClearSelection
                 <Tag className="h-4 w-4 mr-2" />
                 Reclassificar Categoria
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleInactivate}>
+              <DropdownMenuItem onClick={() => setShowArchiveDialog(true)}>
                 <Archive className="h-4 w-4 mr-2" />
-                Inativar Selecionados
+                Arquivar Selecionados
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
@@ -108,6 +106,29 @@ export const MaterialsActions = ({ selectedCount, onBulkDelete, onClearSelection
               className="bg-red-600 hover:bg-red-700"
             >
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Arquivamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja arquivar {selectedCount} {selectedCount === 1 ? 'material' : 'materiais'}? 
+              Os materiais arquivados não aparecerão mais nas listagens principais.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                onBulkArchive();
+                setShowArchiveDialog(false);
+              }}
+            >
+              Arquivar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
