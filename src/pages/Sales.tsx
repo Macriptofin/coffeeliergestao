@@ -10,7 +10,7 @@ import ProposalForm from '@/components/sales/ProposalForm';
 import ProposalsList from '@/components/sales/ProposalsList';
 import ClientForm from '@/components/sales/ClientForm';
 import ClientsList from '@/components/sales/ClientsList';
-import ProposalComposer from '@/components/sales/ProposalComposer';
+import ProposalCategoryComposer from '@/components/sales/ProposalCategoryComposer';
 
 interface Client {
   id: string;
@@ -388,7 +388,7 @@ const Sales = () => {
 
         <TabsContent value="proposals" className="mt-6">
           {showProposalComposer && createdProposalId ? (
-            <ProposalComposer
+            <ProposalCategoryComposer
               proposalId={createdProposalId}
               onComplete={handleProposalComposerComplete}
               onCancel={handleProposalComposerCancel}

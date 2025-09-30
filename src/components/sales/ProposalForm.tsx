@@ -18,8 +18,10 @@ interface ProposalFormData {
   client_id: string;
   event_category: string;
   event_date: string;
+  proposal_date: string;
   number_of_people: number;
   target_weight_per_person: number;
+  proposal_kind: 'event_table' | 'bom_sku';
   notes?: string;
 }
 
@@ -45,7 +47,9 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<ProposalFormData>({
     defaultValues: {
-      target_weight_per_person: 200
+      target_weight_per_person: 200,
+      proposal_kind: 'event_table',
+      proposal_date: new Date().toISOString().split('T')[0]
     }
   });
 
@@ -80,6 +84,8 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
         client_id: data.client_id,
         event_category: data.event_category,
         event_date: data.event_date || null,
+        proposal_date: data.proposal_date,
+        proposal_kind: data.proposal_kind,
         number_of_people: data.number_of_people,
         target_weight_per_person: data.target_weight_per_person,
         total_weight: 0,
@@ -114,6 +120,32 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="proposal_kind">Tipo de Proposta *</Label>
+              <Select 
+                defaultValue="event_table"
+                onValueChange={(value) => setValue('proposal_kind', value as 'event_table' | 'bom_sku')}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="event_table">Evento/Mesa</SelectItem>
+                  <SelectItem value="bom_sku">Produtos SKU</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="proposal_date">Data da Proposta *</Label>
+              <Input
+                type="date"
+                autoComplete="off"
+                {...register('proposal_date', { required: true })}
+              />
+              {errors.proposal_date && <span className="text-sm text-destructive">Campo obrigatório</span>}
+            </div>
+
             <div>
               <Label htmlFor="client_id">Cliente *</Label>
               <Select onValueChange={(value) => setValue('client_id', value)}>

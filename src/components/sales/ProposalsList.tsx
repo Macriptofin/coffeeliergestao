@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Copy, Trash2 } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Copy, Trash2, Factory } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Table,
@@ -22,11 +22,14 @@ interface Proposal {
   client_id: string;
   event_category: string;
   event_date: string;
+  proposal_kind: string;
   number_of_people: number;
   total_amount: number;
   total_weight: number;
   status: string;
   created_at: string;
+  auto_generated_event_table_id?: string;
+  auto_generated_bom_order_id?: string;
   clients?: {
     name: string;
   };
@@ -107,6 +110,22 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
     } catch (error) {
       console.error('Erro ao excluir proposta:', error);
       toast.error('Erro ao excluir proposta');
+    }
+  };
+
+  const handleGenerateProduction = async (proposalId: string) => {
+    try {
+      const { data, error } = await supabase.rpc('generate_production_from_proposal', {
+        p_proposal_id: proposalId
+      });
+
+      if (error) throw error;
+
+      toast.success('Produção gerada com sucesso!');
+      loadProposals();
+    } catch (error: any) {
+      console.error('Erro ao gerar produção:', error);
+      toast.error(error.message || 'Erro ao gerar produção');
     }
   };
 
@@ -267,6 +286,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
               <TableHeader>
                 <TableRow>
                   <TableHead>Número</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Data Evento</TableHead>
@@ -283,6 +303,11 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                     <TableRow key={proposal.id}>
                       <TableCell className="font-medium">
                         {proposal.proposal_number}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {proposal.proposal_kind === 'event_table' ? 'Evento/Mesa' : 'SKU'}
+                        </Badge>
                       </TableCell>
                       <TableCell>{proposal.clients?.name || '-'}</TableCell>
                       <TableCell>
@@ -314,6 +339,16 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                           >
                             <Edit size={14} />
                           </Button>
+                          {proposal.status === 'Enviada' && !proposal.auto_generated_event_table_id && !proposal.auto_generated_bom_order_id && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => handleGenerateProduction(proposal.id)}
+                              title="Gerar Produção"
+                            >
+                              <Factory size={14} />
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -334,7 +369,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       {searchTerm || statusFilter || eventCategoryFilter
                         ? 'Nenhuma proposta encontrada com os filtros aplicados.'
                         : 'Nenhuma proposta cadastrada ainda.'}
