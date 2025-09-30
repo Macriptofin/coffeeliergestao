@@ -36,14 +36,14 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
     try {
       // Buscar apenas materiais que têm BOM configurado
       const [finishedProductsQuery, compositeProductsQuery] = await Promise.all([
-        // Produtos acabados com BOM
+        // Produtos acabados e intermediários com BOM
         supabase
           .from('materials')
           .select(`
             id, name, code, material_type,
             recipes_bom!inner(id)
           `)
-          .eq('material_type', 'finished_product')
+          .in('material_type', ['finished_product', 'intermediate_product'])
           .order('name'),
         
         // Produtos compostos com BOM  
@@ -162,33 +162,43 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Produto Acabado</Label>
+                <Label>Produto para Produção</Label>
                 <Select 
-                  value={materialType === 'finished_product' ? selectedMaterial : ''} 
+                  value={selectedMaterial} 
                   onValueChange={(value) => {
                     setSelectedMaterial(value);
-                    setMaterialType('finished_product');
+                    const material = materials.find(m => m.id === value);
+                    if (material) {
+                      setMaterialType(material.material_type as 'finished_product' | 'composite_product');
+                    }
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecionar produto acabado..." />
+                    <SelectValue placeholder="Selecionar produto acabado ou intermediário..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {materials.filter(m => m.material_type === 'finished_product').length === 0 ? (
+                    {materials.filter(m => m.material_type === 'finished_product' || m.material_type === 'intermediate_product').length === 0 ? (
                       <div className="p-4 text-sm text-muted-foreground text-center">
-                        Nenhum produto acabado com BOM configurado
+                        Nenhum produto com BOM configurado
                       </div>
                     ) : (
-                      materials.filter(m => m.material_type === 'finished_product').map(material => (
-                        <SelectItem key={material.id} value={material.id}>
-                          <div className="flex items-center gap-2">
-                            <span>{material.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {material.code}
-                            </Badge>
-                          </div>
-                        </SelectItem>
-                      ))
+                      materials
+                        .filter(m => m.material_type === 'finished_product' || m.material_type === 'intermediate_product')
+                        .map(material => (
+                          <SelectItem key={material.id} value={material.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{material.name}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {material.code}
+                              </Badge>
+                              {material.material_type === 'intermediate_product' && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Intermediário
+                                </Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))
                     )}
                   </SelectContent>
                 </Select>
@@ -202,7 +212,7 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
                   step="0.001"
                   value={quantity}
                   onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
-                  disabled={materialType !== 'finished_product'}
+                  disabled={!selectedMaterial || (materialType !== 'finished_product' && materialType !== 'composite_product')}
                 />
               </div>
 
@@ -210,7 +220,7 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
                 <AlertDialogTrigger asChild>
                   <Button 
                     className="w-full" 
-                    disabled={!selectedMaterial || materialType !== 'finished_product' || quantity <= 0}
+                    disabled={!selectedMaterial || quantity <= 0 || (materialType !== 'finished_product' && materialType !== 'composite_product')}
                   >
                     <Play className="h-4 w-4 mr-2" />
                     Executar Produção

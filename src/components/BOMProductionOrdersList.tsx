@@ -40,6 +40,7 @@ interface ProductionOrderItem {
       name: string;
       category: string;
       code: string;
+      material_type: string;
     };
   };
 }
@@ -88,7 +89,7 @@ export const BOMProductionOrdersList = () => {
             bom:recipes_bom (
               id,
               finished_material:materials!recipes_bom_finished_material_id_fkey (
-                id, name, category, code
+                id, name, category, code, material_type
               )
             )
           ),
@@ -528,7 +529,7 @@ export const BOMProductionOrdersList = () => {
                   id: item.bom.finished_material.id,
                   name: item.bom.finished_material.name,
                   code: item.bom.finished_material.code,
-                  material_type: 'finished_product',
+                  material_type: item.bom.finished_material.material_type || 'finished_product',
                   category: item.bom.finished_material.category,
                   usage_unit: 'un'
                 }
