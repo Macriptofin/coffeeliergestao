@@ -456,6 +456,118 @@ const EstoqueRelatorios = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="no-price">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Materiais sem Preço Médio
+                  </CardTitle>
+                  <CardDescription>
+                    Materiais sem custo definido - necessário ajuste para inicialização
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/estoque/inventario-ajustes')}
+                >
+                  Ajustar Custos
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Resumo */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold">{noPriceItems.length}</div>
+                    <p className="text-xs text-muted-foreground">Sem Preço Médio</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold">
+                      {noPriceItems.filter(i => (i.current_quantity || 0) > 0).length}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Com Estoque</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold">
+                      {noPriceItems.filter(i => (i.current_quantity || 0) === 0).length}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Sem Estoque</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Tabela */}
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : noPriceItems.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Todos os materiais possuem preço médio definido
+                </div>
+              ) : (
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Código</TableHead>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Categoria</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead className="text-right">Qtd Atual</TableHead>
+                        <TableHead className="text-right">Preço Cadastro</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {noPriceItems.map(item => (
+                        <TableRow key={item.material_id}>
+                          <TableCell className="font-mono text-sm">{item.code}</TableCell>
+                          <TableCell className="font-medium">{item.name}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              <div>{item.category}</div>
+                              {item.subcategory && (
+                                <div className="text-xs text-muted-foreground">
+                                  {item.subcategory}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {getMaterialTypeLabel(item.material_type)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {(item.current_quantity || 0).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            R$ {(item.price_per_purchase_unit || 0).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={(item.current_quantity || 0) > 0 ? "default" : "secondary"}>
+                              {(item.current_quantity || 0) > 0 ? 'Com Estoque' : 'Sem Estoque'}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="valuation">
           <Card>
             <CardHeader>
