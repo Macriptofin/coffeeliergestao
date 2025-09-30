@@ -450,10 +450,22 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
           'composite_product': 'composite_product'
         };
 
+        // Generate code for the material
+        const materialCode = `${formData.product_type.toUpperCase().slice(0, 3)}${Date.now().toString().slice(-6)}`;
+
+        console.log('Creating material with data:', {
+          name: formData.name,
+          category: categoryMapping[formData.product_type],
+          subcategory: formData.subcategory,
+          material_type: materialTypeMapping[formData.product_type] || 'finished_product',
+          code: materialCode
+        });
+
         const { data: newMaterial, error: materialError } = await supabase
           .from('materials')
           .insert({
             name: formData.name,
+            code: materialCode,
             category: categoryMapping[formData.product_type],
             subcategory: formData.subcategory,
             category_term_id: categoryTerm?.id,
