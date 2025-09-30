@@ -30,6 +30,7 @@ interface Material {
 
 interface BOMItem {
   id?: string;
+  temp_id?: string; // ID temporário para controle de renderização
   material_id: string;
   material?: Material;
   quantity: number;
@@ -160,6 +161,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
           notes: recipeData.notes,
           items: recipeData.recipe_bom_items?.map((item: any, index: number) => ({
             id: item.id,
+            temp_id: item.id || `loaded_${Date.now()}_${index}`, // Usar id existente ou criar temp_id
             material_id: item.material_id,
             material: item.materials,
             quantity: item.quantity,
@@ -202,6 +204,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
           notes: compositeData.notes,
           items: compositeData.composite_bom_items?.map((item: any, index: number) => ({
             id: item.id,
+            temp_id: item.id || `loaded_${Date.now()}_${index}`, // Usar id existente ou criar temp_id
             material_id: item.component_material_id,
             material: item.materials,
             quantity: item.quantity,
@@ -328,6 +331,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
 
   const addBOMItem = useCallback(() => {
     const newItem: BOMItem = {
+      temp_id: `temp_${Date.now()}_${Math.random()}`, // ID único temporário
       material_id: '',
       quantity: 1,
       unit: '',
@@ -902,7 +906,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
               ) : (
                 <div className="space-y-4">
                   {formData.items.map((item, index) => (
-                  <Card key={index} className="p-4">
+                  <Card key={item.temp_id || item.id || `item-${index}`} className="p-4">
                     <div className="space-y-3">
                       {/* Primeira linha: Material */}
                       <div>
