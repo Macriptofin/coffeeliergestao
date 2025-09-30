@@ -90,7 +90,6 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
     unitWeight: 0,
     alerts: [] as string[]
   });
-  const [itemWeights, setItemWeights] = useState<number[]>([]);
 
   useEffect(() => {
     loadInitialData();
