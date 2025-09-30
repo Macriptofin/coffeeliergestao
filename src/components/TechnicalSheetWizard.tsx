@@ -422,6 +422,8 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
     if (!validateForm()) return;
 
     setLoading(true);
+    const saveToast = toast.loading('Salvando ficha técnica...');
+    
     try {
       let resultMaterialId = formData.result_material_id;
 
@@ -601,11 +603,37 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
         }
       }
 
+      toast.dismiss(saveToast);
       toast.success('Ficha técnica salva com sucesso!');
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar ficha técnica:', error);
-      toast.error('Erro ao salvar ficha técnica');
+      toast.dismiss(saveToast);
+      
+      // Capturar e exibir erros específicos do banco de dados
+      const errorMessage = error?.message || '';
+      
+      if (errorMessage.includes('Ciclo de BOM detectado')) {
+        toast.error('Ciclo de BOM detectado', {
+          description: 'O material de saída não pode ser seu próprio componente através da cadeia de BOMs.',
+          duration: 6000
+        });
+      } else if (errorMessage.includes('unidade incompatível') || errorMessage.includes('Unidade incompatível')) {
+        toast.error('Unidade incompatível', {
+          description: errorMessage,
+          duration: 6000
+        });
+      } else if (errorMessage.includes('duplicate key')) {
+        toast.error('Material duplicado', {
+          description: 'Já existe um material com este nome.',
+          duration: 5000
+        });
+      } else {
+        toast.error('Erro ao salvar ficha técnica', {
+          description: errorMessage.length > 100 ? 'Verifique os dados e tente novamente.' : errorMessage,
+          duration: 5000
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -816,7 +844,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                 </div>
 
                 <div>
-                  <Label htmlFor="waste_percent">Perda Geral (%)</Label>
+                  <Label htmlFor="waste_percent">Perda/Desperdício Geral (%)</Label>
                   <Input
                     id="waste_percent"
                     type="number"
@@ -830,6 +858,9 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                     }))}
                     placeholder="0"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Percentual de perda/desperdício aplicado ao total da receita (além das perdas individuais dos itens)
+                  </p>
                 </div>
             </CardContent>
           </Card>

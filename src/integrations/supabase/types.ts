@@ -1840,6 +1840,7 @@ export type Database = {
           category_term_id: string | null
           code: string | null
           conversion_factor: number
+          cost_price: number | null
           created_at: string | null
           description: string | null
           id: string
@@ -1864,6 +1865,7 @@ export type Database = {
           category_term_id?: string | null
           code?: string | null
           conversion_factor?: number
+          cost_price?: number | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -1888,6 +1890,7 @@ export type Database = {
           category_term_id?: string | null
           code?: string | null
           conversion_factor?: number
+          cost_price?: number | null
           created_at?: string | null
           description?: string | null
           id?: string
