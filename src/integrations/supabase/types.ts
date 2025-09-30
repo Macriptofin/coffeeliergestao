@@ -448,6 +448,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bom_production_order_items_bom_id_fkey"
+            columns: ["bom_id"]
+            isOneToOne: false
+            referencedRelation: "vw_diag_bom_inconsistencies"
+            referencedColumns: ["bom_id"]
+          },
+          {
             foreignKeyName: "bom_production_order_items_production_order_id_fkey"
             columns: ["production_order_id"]
             isOneToOne: false
@@ -3544,6 +3551,13 @@ export type Database = {
             referencedRelation: "recipes_bom"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "recipe_bom_items_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "vw_diag_bom_inconsistencies"
+            referencedColumns: ["bom_id"]
+          },
         ]
       }
       recipe_ingredients: {
@@ -4687,6 +4701,74 @@ export type Database = {
       }
     }
     Views: {
+      vw_diag_bom_inconsistencies: {
+        Row: {
+          bom_count_for_material: number | null
+          bom_id: string | null
+          estimated_cost: number | null
+          finished_material_id: string | null
+          finished_material_name: string | null
+          item_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+        ]
+      }
+      vw_diag_material_dupes: {
+        Row: {
+          candidate_key: string | null
+          categories: string[] | null
+          duplicate_count: number | null
+          has_references_flags: boolean[] | null
+          has_stock_flags: boolean[] | null
+          material_ids: string[] | null
+        }
+        Relationships: []
+      }
+      vw_diag_orphans: {
+        Row: {
+          category: string | null
+          id: string | null
+          material_type: string | null
+          name: string | null
+          orphan_type: string | null
+        }
+        Relationships: []
+      }
       vw_proposal_breakdown: {
         Row: {
           category_id: string | null
