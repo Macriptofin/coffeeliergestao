@@ -444,9 +444,10 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
         ) : null;
 
         // Corrigir o material_type para os valores aceitos pelo banco
+        // intermediate_product -> finished_product (é um produto com receita)
         const materialTypeMapping: Record<string, string> = {
           'finished_product': 'finished_product',
-          'intermediate_product': 'intermediate_product',
+          'intermediate_product': 'finished_product',
           'composite_product': 'composite_product'
         };
 
