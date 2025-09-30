@@ -111,14 +111,40 @@ export function UsersList({ onEditUser }: UsersListProps) {
     try {
       setLoading(true);
       
-      // Remover apenas perfil, roles e permissões (não o usuário do auth)
-      // Isso efetivamente remove o acesso do usuário ao sistema
-      await supabase.from('user_permissions').delete().eq('user_id', userId);
-      await supabase.from('user_roles').delete().eq('user_id', userId);
-      await supabase.from('user_profiles').delete().eq('user_id', userId);
+      // Remover permissões
+      const { error: permError } = await supabase
+        .from('user_permissions')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (permError) {
+        console.error('Erro ao remover permissões:', permError);
+      }
+
+      // Remover roles
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (roleError) {
+        console.error('Erro ao remover roles:', roleError);
+      }
+
+      // Remover perfil
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (profileError) {
+        console.error('Erro ao remover perfil:', profileError);
+        toast.error('Erro ao remover perfil do usuário: ' + profileError.message);
+        return;
+      }
 
       toast.success('Acesso do usuário removido com sucesso');
-      loadUsers();
+      await loadUsers();
     } catch (error) {
       console.error('Erro ao remover acesso do usuário:', error);
       toast.error('Erro ao remover acesso do usuário');
