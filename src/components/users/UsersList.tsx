@@ -111,11 +111,15 @@ export function UsersList({ onEditUser }: UsersListProps) {
     try {
       setLoading(true);
       
+      console.log('Iniciando exclusão do usuário:', userId);
+      
       // Remover permissões
       const { error: permError } = await supabase
         .from('user_permissions')
         .delete()
         .eq('user_id', userId);
+      
+      console.log('Permissões - erro:', permError);
       
       if (permError) {
         console.error('Erro ao remover permissões:', permError);
@@ -127,15 +131,20 @@ export function UsersList({ onEditUser }: UsersListProps) {
         .delete()
         .eq('user_id', userId);
       
+      console.log('Roles - erro:', roleError);
+      
       if (roleError) {
         console.error('Erro ao remover roles:', roleError);
       }
 
       // Remover perfil
-      const { error: profileError } = await supabase
+      const { error: profileError, data: deletedProfile } = await supabase
         .from('user_profiles')
         .delete()
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .select();
+
+      console.log('Perfil removido - dados:', deletedProfile, 'erro:', profileError);
 
       if (profileError) {
         console.error('Erro ao remover perfil:', profileError);
@@ -143,8 +152,19 @@ export function UsersList({ onEditUser }: UsersListProps) {
         return;
       }
 
+      // Verificar se realmente foi deletado
+      const { data: checkProfile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', userId);
+      
+      console.log('Verificação pós-delete - perfil ainda existe?:', checkProfile);
+
       toast.success('Acesso do usuário removido com sucesso');
+      
+      console.log('Recarregando lista de usuários...');
       await loadUsers();
+      console.log('Lista recarregada. Total de usuários:', users.length);
     } catch (error) {
       console.error('Erro ao remover acesso do usuário:', error);
       toast.error('Erro ao remover acesso do usuário');
