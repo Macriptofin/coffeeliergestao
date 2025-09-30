@@ -239,7 +239,26 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
 
       for (let i = 0; i < formData.items.length; i++) {
         const item = formData.items[i];
-        if (!item.material) continue;
+        
+        // Se não tem material no item mas tem material_id, buscar dos materiais carregados
+        let materialData = item.material;
+        if (!materialData && item.material_id) {
+          materialData = materials.find(m => m.id === item.material_id);
+          console.log(`Item ${i}: material_id=${item.material_id}, found in materials array:`, !!materialData);
+        }
+        
+        if (!materialData) {
+          console.log(`Item ${i}: pulado - sem dados do material`);
+          continue;
+        }
+
+        console.log(`Item ${i} (${materialData.name}):`, {
+          material_id: item.material_id,
+          quantity: item.quantity,
+          unit: item.unit,
+          conversion_factor: materialData.conversion_factor,
+          price_per_purchase_unit: materialData.price_per_purchase_unit
+        });
 
         // Obter custo unitário (com cache)
         let itemUnitCost = 0;
@@ -257,14 +276,17 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
           // Se tem preço no estoque, converter para unidade de uso
           if (stockData?.average_price && stockData.average_price > 0) {
             // average_price está por unidade de COMPRA, precisa converter para unidade de USO
-            itemUnitCost = stockData.average_price / (item.material.conversion_factor || 1);
+            itemUnitCost = stockData.average_price / (materialData.conversion_factor || 1);
             priceCache.set(item.material_id, itemUnitCost);
-          } else if (item.material.price_per_purchase_unit > 0) {
+            console.log(`  Custo do estoque: R$ ${stockData.average_price} / ${materialData.conversion_factor} = R$ ${itemUnitCost}/${materialData.usage_unit}`);
+          } else if (materialData.price_per_purchase_unit > 0) {
             // Fallback: usar preço cadastrado no material
-            itemUnitCost = item.material.price_per_purchase_unit / (item.material.conversion_factor || 1);
+            itemUnitCost = materialData.price_per_purchase_unit / (materialData.conversion_factor || 1);
             priceCache.set(item.material_id, itemUnitCost);
+            console.log(`  Custo do cadastro: R$ ${materialData.price_per_purchase_unit} / ${materialData.conversion_factor} = R$ ${itemUnitCost}/${materialData.usage_unit}`);
           } else {
-            alerts.push(`${item.material.name}: sem custo disponível`);
+            console.log(`  SEM CUSTO DISPONÍVEL para ${materialData.name}`);
+            alerts.push(`${materialData.name}: sem custo disponível`);
           }
         }
 
@@ -276,13 +298,13 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
           itemWeight = item.quantity * 1000; // kg para gramas
         } else if (item.unit === 'g') {
           itemWeight = item.quantity;
-        } else if (item.material.usage_unit === 'kg') {
+        } else if (materialData.usage_unit === 'kg') {
           itemWeight = item.quantity * 1000;
-        } else if (item.material.usage_unit === 'g') {
+        } else if (materialData.usage_unit === 'g') {
           itemWeight = item.quantity;
-        } else if (item.material.unit_weight && item.material.unit_weight > 0) {
+        } else if (materialData.unit_weight && materialData.unit_weight > 0) {
           // Fallback: usar unit_weight apenas para unidades não-peso (unidade, pacote, etc)
-          itemWeight = item.quantity * item.material.unit_weight;
+          itemWeight = item.quantity * materialData.unit_weight;
         }
 
         // Aplicar perda
@@ -295,6 +317,8 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
         costs[i] = itemTotalCost;
         totalCost += itemTotalCost;
         totalWeight += itemWeight;
+        
+        console.log(`  Resultado: ${item.quantity} x R$ ${itemUnitCost} x ${wasteMultiplier} = R$ ${itemTotalCost.toFixed(2)}`);
       }
 
       // Atualiza pesos e custos dos itens sem tocar na lista de itens (evita re-render pesado)
