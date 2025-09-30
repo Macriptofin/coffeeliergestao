@@ -443,6 +443,13 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
           term.name === formData.subcategory
         ) : null;
 
+        // Corrigir o material_type para os valores aceitos pelo banco
+        const materialTypeMapping: Record<string, string> = {
+          'finished_product': 'finished_product',
+          'intermediate_product': 'intermediate_product',
+          'composite_product': 'composite_product'
+        };
+
         const { data: newMaterial, error: materialError } = await supabase
           .from('materials')
           .insert({
@@ -451,7 +458,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
             subcategory: formData.subcategory,
             category_term_id: categoryTerm?.id,
             subcategory_term_id: subcategoryTerm?.id,
-            material_type: formData.product_type,
+            material_type: materialTypeMapping[formData.product_type] || 'finished_product',
             purchase_unit: formData.yield_unit,
             usage_unit: formData.yield_unit,
             conversion_factor: 1,
