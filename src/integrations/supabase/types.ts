@@ -4414,6 +4414,10 @@ export type Database = {
         Args: { rg_value: string }
         Returns: string
       }
+      merge_duplicate_materials: {
+        Args: { p_duplicate_ids: string[]; p_target_id: string }
+        Returns: Json
+      }
       merge_materials: {
         Args: { dry_run?: boolean; dst: string; src: string }
         Returns: Json

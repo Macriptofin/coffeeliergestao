@@ -149,6 +149,10 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     });
   };
 
+  // Produtos intermediários e acabados só podem ter composição editada via BOM
+  const isBOMProduct = material && ['intermediate_product', 'finished_product'].includes(material.materialType);
+  const isEditingBOMProduct = Boolean(isBOMProduct && material);
+
   return (
     <Card className="shadow-elegant border-primary/20">
       <CardHeader className="pb-4">
@@ -172,6 +176,15 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {isEditingBOMProduct && (
+            <Alert className="border-primary/30 bg-primary/5">
+              <AlertTriangle className="h-4 w-4 text-primary" />
+              <AlertDescription className="text-foreground">
+                <strong>Produto com BOM:</strong> Os campos de composição (unidades, conversão, peso) são gerenciados pela ficha técnica e não podem ser alterados aqui.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           {duplicateError && (
             <Alert className="border-red-200 bg-red-50">
               <AlertTriangle className="h-4 w-4 text-red-600" />
@@ -276,7 +289,11 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
                 Unidade de Compra *
                 <HelpTooltip content="Unidade na qual o material é adquirido (ex: kg, pacote, caixa)." />
               </Label>
-              <Select value={formData.purchaseUnit} onValueChange={(value) => setFormData({ ...formData, purchaseUnit: value })}>
+              <Select 
+                value={formData.purchaseUnit} 
+                onValueChange={(value) => setFormData({ ...formData, purchaseUnit: value })}
+                disabled={isEditingBOMProduct}
+              >
                 <SelectTrigger className="bg-card">
                   <SelectValue placeholder="Como você compra?" />
                 </SelectTrigger>
@@ -295,7 +312,11 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
                 Unidade de Uso *
                 <HelpTooltip content="Unidade utilizada na produção/receita (ex: g, ml, unidade)." />
               </Label>
-              <Select value={formData.usageUnit} onValueChange={(value) => setFormData({ ...formData, usageUnit: value })}>
+              <Select 
+                value={formData.usageUnit} 
+                onValueChange={(value) => setFormData({ ...formData, usageUnit: value })}
+                disabled={isEditingBOMProduct}
+              >
                 <SelectTrigger className="bg-card">
                   <SelectValue placeholder="Como você usa?" />
                 </SelectTrigger>
@@ -324,6 +345,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
                 onChange={(e) => setFormData({ ...formData, conversionFactor: e.target.value })}
                 placeholder="Ex: 1000 (1kg = 1000g)"
                 required
+                disabled={isEditingBOMProduct}
               />
               <p className="text-xs text-muted-foreground">
                 Quantas unidades de uso em 1 unidade de compra
@@ -344,6 +366,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
                 onChange={(e) => setFormData({ ...formData, unitWeight: e.target.value })}
                 placeholder="Ex: 50 (gramas por unidade)"
                 required
+                disabled={isEditingBOMProduct}
               />
               <p className="text-xs text-muted-foreground">
                 Peso em gramas de 1 {formData.usageUnit} para cálculos de receitas

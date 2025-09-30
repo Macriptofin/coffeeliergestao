@@ -267,18 +267,19 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
 
         // Calcular peso do item
         let itemWeight = 0;
-        if (item.material.unit_weight && item.material.unit_weight > 0) {
-          itemWeight = item.quantity * item.material.unit_weight;
-        } else if (item.unit === 'kg') {
+        
+        // Prioridade: usar unidade do item (não unit_weight para evitar erros)
+        if (item.unit === 'kg') {
           itemWeight = item.quantity * 1000; // kg para gramas
         } else if (item.unit === 'g') {
           itemWeight = item.quantity;
-        } else {
-          if (item.material.usage_unit === 'kg') {
-            itemWeight = item.quantity * 1000;
-          } else if (item.material.usage_unit === 'g') {
-            itemWeight = item.quantity;
-          }
+        } else if (item.material.usage_unit === 'kg') {
+          itemWeight = item.quantity * 1000;
+        } else if (item.material.usage_unit === 'g') {
+          itemWeight = item.quantity;
+        } else if (item.material.unit_weight && item.material.unit_weight > 0) {
+          // Fallback: usar unit_weight apenas para unidades não-peso (unidade, pacote, etc)
+          itemWeight = item.quantity * item.material.unit_weight;
         }
 
         // Aplicar perda
