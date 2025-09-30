@@ -62,52 +62,41 @@ export function UsersList({ onEditUser }: UsersListProps) {
     try {
       setLoading(true);
 
-      // Buscar usuários através das roles (quem tem role tem acesso ao sistema)
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select(`
-          user_id,
-          role,
-          created_at,
-          id
-        `);
+      // Buscar todos os perfis de usuários
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
       
-      if (rolesError) throw rolesError;
+      if (profilesError) throw profilesError;
 
-      if (!rolesData || rolesData.length === 0) {
+      if (!profiles || profiles.length === 0) {
         setUsers([]);
         return;
       }
 
-      // Buscar perfis dos usuários com e-mail sincronizado
-      const userIds = rolesData.map(r => r.user_id);
-      const { data: profiles } = await supabase
-        .from('user_profiles')
+      // Buscar todas as roles
+      const userIds = profiles.map(p => p.user_id);
+      const { data: rolesData } = await supabase
+        .from('user_roles')
         .select('*')
         .in('user_id', userIds);
 
-      // Criar lista única de usuários
-      const uniqueUserIds = [...new Set(userIds)];
-      const usersWithData: UserWithProfile[] = [];
+      // Criar lista de usuários com suas roles
+      const usersWithData: UserWithProfile[] = profiles.map(profile => {
+        const userRoles = rolesData?.filter(r => r.user_id === profile.user_id) || [];
+        const isEmailConfirmed = profile.email_confirmed_at !== null;
 
-      for (const userId of uniqueUserIds) {
-        const userRoles = rolesData.filter(r => r.user_id === userId);
-        const profile = profiles?.find(p => p.user_id === userId);
-        
-        // Usar e-mail sincronizado do profile ou fallback se necessário
-        const email = profile?.email || `user-${userId.slice(0, 8)}@system.local`;
-        const isEmailConfirmed = profile?.email_confirmed_at !== null;
-
-        usersWithData.push({
-          id: userId,
-          email: email,
-          full_name: profile?.full_name,
-          display_name: profile?.display_name,
-          created_at: profile?.created_at || new Date().toISOString(),
+        return {
+          id: profile.user_id,
+          email: profile.email || `user-${profile.user_id.slice(0, 8)}@system.local`,
+          full_name: profile.full_name,
+          display_name: profile.display_name,
+          created_at: profile.created_at || new Date().toISOString(),
           roles: userRoles,
           email_confirmed: isEmailConfirmed
-        });
-      }
+        };
+      });
 
       setUsers(usersWithData);
     } catch (error) {
