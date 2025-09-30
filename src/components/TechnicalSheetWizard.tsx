@@ -71,6 +71,8 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
   const [taxonomyTerms, setTaxonomyTerms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
+  const [itemWeights, setItemWeights] = useState<number[]>([]);
+  const [itemCosts, setItemCosts] = useState<number[]>([]);
 
   const [formData, setFormData] = useState<TechnicalSheet>({
     name: '',
@@ -231,6 +233,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
       // Cache preços por material para evitar múltiplas consultas
       const priceCache = new Map<string, number>();
       const weights: number[] = new Array(formData.items.length).fill(0);
+      const costs: number[] = new Array(formData.items.length).fill(0);
 
       for (let i = 0; i < formData.items.length; i++) {
         const item = formData.items[i];
@@ -287,12 +290,14 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
 
         // Custo total do item considerando perda
         const itemTotalCost = (item.quantity * itemUnitCost) * wasteMultiplier;
+        costs[i] = itemTotalCost;
         totalCost += itemTotalCost;
         totalWeight += itemWeight;
       }
 
-      // Atualiza pesos dos itens sem tocar na lista de itens (evita re-render pesado)
+      // Atualiza pesos e custos dos itens sem tocar na lista de itens (evita re-render pesado)
       setItemWeights(weights);
+      setItemCosts(costs);
 
       // Calcular custos/pesos unitários
       const unitCost = formData.yield_quantity > 0 ? totalCost / formData.yield_quantity : 0;
@@ -327,7 +332,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
       material_id: '',
       quantity: 1,
       unit: '',
-      position: formData.items.length + 1
+      position: 1
     };
     
     if (formData.product_type !== 'composite_product') {
@@ -337,9 +342,9 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
 
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, newItem]
+      items: [newItem, ...prev.items.map(item => ({ ...item, position: item.position + 1 }))]
     }));
-  }, [formData.items.length, formData.product_type]);
+  }, [formData.product_type]);
 
   const updateBOMItem = useCallback((index: number, field: keyof BOMItem, value: any) => {
     setFormData(prev => ({
@@ -898,7 +903,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                         />
                       </div>
 
-                      {/* Segunda linha: Quantidade, Unidade, Peso, Perda%, Observações e Ações */}
+                      {/* Segunda linha: Quantidade, Unidade, Peso, Custo, Perda%, Observações e Ações */}
                       <div className="grid grid-cols-12 gap-3 items-end">
                         <div className="col-span-2">
                           <Label className="text-xs">Quantidade *</Label>
@@ -931,6 +936,15 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                           />
                         </div>
 
+                        <div className="col-span-2">
+                          <Label className="text-xs">Custo Total</Label>
+                          <Input
+                            value={`R$ ${(itemCosts[index] ?? 0).toFixed(2)}`}
+                            readOnly
+                            className="bg-muted h-8 text-xs font-medium"
+                          />
+                        </div>
+
                         {formData.product_type !== 'composite_product' && (
                           <div className="col-span-1">
                             <Label className="text-xs">Perda %</Label>
@@ -947,7 +961,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                           </div>
                         )}
 
-                        <div className={formData.product_type === 'composite_product' ? "col-span-4" : "col-span-4"}>
+                        <div className={formData.product_type === 'composite_product' ? "col-span-2" : "col-span-2"}>
                           <Label className="text-xs">Observações</Label>
                           <Input
                             value={item.notes || ''}
