@@ -23,8 +23,8 @@ export const useMaterialBOM = (materialId: string, materialType: string) => {
 
   const checkBOM = async () => {
     try {
-      if (materialType === 'finished_product') {
-        // Check recipes_bom table
+      if (materialType === 'finished_product' || materialType === 'intermediate_product') {
+        // Both finished_product AND intermediate_product use recipes_bom table
         const { data: recipeData, error: recipeError } = await supabase
           .from('recipes_bom')
           .select(`
