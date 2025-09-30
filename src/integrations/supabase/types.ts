@@ -343,6 +343,27 @@ export type Database = {
             referencedColumns: ["material_id"]
           },
           {
+            foreignKeyName: "bom_production_consolidated_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "bom_production_consolidated_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "bom_production_consolidated_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+          {
             foreignKeyName: "bom_production_consolidated_materials_production_order_id_fkey"
             columns: ["production_order_id"]
             isOneToOne: false
@@ -500,6 +521,27 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "bom_production_stock_movements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "bom_production_stock_movements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "bom_production_stock_movements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
           },
           {
@@ -719,6 +761,27 @@ export type Database = {
             referencedColumns: ["material_id"]
           },
           {
+            foreignKeyName: "composite_bom_items_component_material_id_fkey"
+            columns: ["component_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "composite_bom_items_component_material_id_fkey"
+            columns: ["component_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "composite_bom_items_component_material_id_fkey"
+            columns: ["component_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+          {
             foreignKeyName: "composite_bom_items_composite_id_fkey"
             columns: ["composite_id"]
             isOneToOne: false
@@ -762,6 +825,27 @@ export type Database = {
             columns: ["composite_material_id"]
             isOneToOne: true
             referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "composites_bom_composite_material_id_fkey"
+            columns: ["composite_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "composites_bom_composite_material_id_fkey"
+            columns: ["composite_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "composites_bom_composite_material_id_fkey"
+            columns: ["composite_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
           },
         ]
@@ -1352,6 +1436,27 @@ export type Database = {
             referencedColumns: ["material_id"]
           },
           {
+            foreignKeyName: "event_production_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "event_production_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "event_production_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+          {
             foreignKeyName: "event_production_order_items_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -1463,6 +1568,27 @@ export type Database = {
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
+          {
+            foreignKeyName: "event_table_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "event_table_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "event_table_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
         ]
       }
       event_table_template_items: {
@@ -1512,6 +1638,27 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "event_table_template_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "event_table_template_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "event_table_template_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
           },
           {
@@ -1739,7 +1886,9 @@ export type Database = {
           adjustment_reason: string
           adjustment_time: string
           created_at: string
+          cycle_id: string | null
           id: string
+          is_draft: boolean
           material_id: string
           notes: string | null
           physical_quantity: number
@@ -1754,7 +1903,9 @@ export type Database = {
           adjustment_reason: string
           adjustment_time?: string
           created_at?: string
+          cycle_id?: string | null
           id?: string
+          is_draft?: boolean
           material_id: string
           notes?: string | null
           physical_quantity: number
@@ -1769,7 +1920,9 @@ export type Database = {
           adjustment_reason?: string
           adjustment_time?: string
           created_at?: string
+          cycle_id?: string | null
           id?: string
+          is_draft?: boolean
           material_id?: string
           notes?: string | null
           physical_quantity?: number
@@ -1778,6 +1931,50 @@ export type Database = {
           responsible_user_id?: string | null
           system_quantity?: number
           updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_adjustments_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_cycles: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          notes: string | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          started_at?: string | null
+          status?: string
         }
         Relationships: []
       }
@@ -1822,6 +2019,27 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
           },
           {
@@ -2314,6 +2532,27 @@ export type Database = {
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
+          {
+            foreignKeyName: "proposal_category_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "proposal_category_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "proposal_category_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
         ]
       }
       proposal_items: {
@@ -2408,6 +2647,27 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "proposal_picklist_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "proposal_picklist_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "proposal_picklist_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
           },
           {
@@ -2690,6 +2950,27 @@ export type Database = {
             referencedColumns: ["material_id"]
           },
           {
+            foreignKeyName: "purchase_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+          {
             foreignKeyName: "purchase_order_items_purchase_order_id_fkey"
             columns: ["purchase_order_id"]
             isOneToOne: false
@@ -2795,6 +3076,27 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "purchase_request_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "purchase_request_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "purchase_request_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
           },
           {
@@ -2931,6 +3233,27 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "purchase_requirements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "purchase_requirements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "purchase_requirements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
           },
         ]
@@ -3121,6 +3444,27 @@ export type Database = {
             referencedColumns: ["material_id"]
           },
           {
+            foreignKeyName: "recipe_bom_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "recipe_bom_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "recipe_bom_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+          {
             foreignKeyName: "recipe_bom_items_recipe_id_fkey"
             columns: ["recipe_id"]
             isOneToOne: false
@@ -3164,6 +3508,27 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "recipe_ingredients_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "recipe_ingredients_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "recipe_ingredients_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
           },
           {
@@ -3273,6 +3638,27 @@ export type Database = {
             columns: ["finished_material_id"]
             isOneToOne: true
             referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
           },
         ]
@@ -3428,6 +3814,27 @@ export type Database = {
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
+          {
+            foreignKeyName: "stock_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "stock_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "stock_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
         ]
       }
       stock_movements: {
@@ -3480,6 +3887,27 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "stock_movements_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "stock_movements_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "stock_movements_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
           },
         ]
@@ -3546,6 +3974,27 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: true
             referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "stock_parameters_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "stock_parameters_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "stock_parameters_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
           },
         ]
@@ -3624,6 +4073,27 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "stock_planning_results_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "stock_planning_results_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "stock_planning_results_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
           },
           {
@@ -3746,6 +4216,27 @@ export type Database = {
             referencedColumns: ["material_id"]
           },
           {
+            foreignKeyName: "supplier_products_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "supplier_products_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "supplier_products_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+          {
             foreignKeyName: "supplier_products_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
@@ -3804,6 +4295,27 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
           },
           {
@@ -4127,6 +4639,50 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vw_stock_below_min: {
+        Row: {
+          average_price: number | null
+          category: string | null
+          code: string | null
+          current_quantity: number | null
+          deficit_quantity: number | null
+          estimated_cost: number | null
+          material_id: string | null
+          material_type: string | null
+          minimum_quantity: number | null
+          name: string | null
+          subcategory: string | null
+        }
+        Relationships: []
+      }
+      vw_stock_no_avg_price: {
+        Row: {
+          category: string | null
+          code: string | null
+          current_quantity: number | null
+          material_id: string | null
+          material_type: string | null
+          name: string | null
+          price_per_purchase_unit: number | null
+          subcategory: string | null
+          total_value: number | null
+        }
+        Relationships: []
+      }
+      vw_stock_zero: {
+        Row: {
+          average_price: number | null
+          category: string | null
+          code: string | null
+          current_quantity: number | null
+          has_stock_record: boolean | null
+          material_id: string | null
+          material_type: string | null
+          name: string | null
+          subcategory: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
@@ -4516,6 +5072,22 @@ export type Database = {
       }
       reserve_materials_for_production: {
         Args: { p_production_order_id: string }
+        Returns: undefined
+      }
+      rpc_inventory_add_materials: {
+        Args: { p_cycle_id: string; p_material_ids: string[] }
+        Returns: number
+      }
+      rpc_inventory_create_cycle: {
+        Args: { p_name: string; p_notes?: string }
+        Returns: string
+      }
+      rpc_inventory_finalize: {
+        Args: { p_cycle_id: string }
+        Returns: Json
+      }
+      rpc_inventory_update_status: {
+        Args: { p_cycle_id: string; p_new_status: string }
         Returns: undefined
       }
       run_bom_cleanup_playbook: {
