@@ -836,12 +836,25 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                   </div>
                   <div>
                     <Label htmlFor="yield_unit">Unidade *</Label>
-                    <Input
-                      id="yield_unit"
-                      value={formData.yield_unit}
-                      onChange={(e) => setFormData(prev => ({ ...prev, yield_unit: e.target.value }))}
-                      placeholder="Ex: un, kg, L"
-                    />
+                    <Select 
+                      value={formData.yield_unit} 
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, yield_unit: value }))}
+                    >
+                      <SelectTrigger id="yield_unit">
+                        <SelectValue placeholder="Selecione a unidade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unidade">unidade</SelectItem>
+                        <SelectItem value="kg">kg</SelectItem>
+                        <SelectItem value="g">g</SelectItem>
+                        <SelectItem value="L">L</SelectItem>
+                        <SelectItem value="mL">mL</SelectItem>
+                        <SelectItem value="porção">porção</SelectItem>
+                        <SelectItem value="fatia">fatia</SelectItem>
+                        <SelectItem value="pacote">pacote</SelectItem>
+                        <SelectItem value="caixa">caixa</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
