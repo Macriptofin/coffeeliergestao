@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_time_restrictions: {
+        Row: {
+          allowed_days: number[]
+          allowed_end_hour: number
+          allowed_start_hour: number
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          operation_type: string
+        }
+        Insert: {
+          allowed_days?: number[]
+          allowed_end_hour?: number
+          allowed_start_hour?: number
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          operation_type: string
+        }
+        Update: {
+          allowed_days?: number[]
+          allowed_end_hour?: number
+          allowed_start_hour?: number
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          operation_type?: string
+        }
+        Relationships: []
+      }
       account_lockouts: {
         Row: {
           created_at: string
@@ -1125,6 +1155,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "employee_salary_info_employee_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "employee_salary_info_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: true
@@ -1165,7 +1202,6 @@ export type Database = {
           pis_pasep: string | null
           position: string
           rg: string | null
-          salary: number | null
           state: string | null
           status: string
           termination_date: string | null
@@ -1204,7 +1240,6 @@ export type Database = {
           pis_pasep?: string | null
           position: string
           rg?: string | null
-          salary?: number | null
           state?: string | null
           status?: string
           termination_date?: string | null
@@ -1243,7 +1278,6 @@ export type Database = {
           pis_pasep?: string | null
           position?: string
           rg?: string | null
-          salary?: number | null
           state?: string | null
           status?: string
           termination_date?: string | null
@@ -2351,6 +2385,45 @@ export type Database = {
           time_window_minutes?: number | null
           user_agent?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      pii_access_log: {
+        Row: {
+          access_type: string
+          accessed_fields: Database["public"]["Enums"]["pii_field_type"][]
+          accessed_record_id: string
+          accessed_table: string
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          justification: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          access_type: string
+          accessed_fields: Database["public"]["Enums"]["pii_field_type"][]
+          accessed_record_id: string
+          accessed_table: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          justification?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          access_type?: string
+          accessed_fields?: Database["public"]["Enums"]["pii_field_type"][]
+          accessed_record_id?: string
+          accessed_table?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          justification?: string | null
+          user_agent?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -4889,6 +4962,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_security_summary: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       has_financial_permission: {
         Args: {
           p_department?: string
@@ -4924,6 +5001,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      is_within_allowed_time: {
+        Args: { p_operation_type: string }
+        Returns: boolean
+      }
       log_auth_attempt: {
         Args: {
           p_attempt_type: string
@@ -4935,6 +5016,17 @@ export type Database = {
         }
         Returns: undefined
       }
+      log_auth_attempt_secure: {
+        Args: {
+          p_attempt_type: string
+          p_email: string
+          p_failure_reason?: string
+          p_ip_address?: string
+          p_success: boolean
+          p_user_agent?: string
+        }
+        Returns: string
+      }
       log_pii_access: {
         Args: {
           p_access_type: string
@@ -4943,6 +5035,16 @@ export type Database = {
           p_table_name: string
         }
         Returns: undefined
+      }
+      log_pii_access_secure: {
+        Args: {
+          p_access_type: string
+          p_fields: Database["public"]["Enums"]["pii_field_type"][]
+          p_justification?: string
+          p_record_id: string
+          p_table_name: string
+        }
+        Returns: string
       }
       log_sensitive_data_access: {
         Args: {
@@ -5193,6 +5295,17 @@ export type Database = {
         | "usuarios_editar"
         | "usuarios_excluir"
         | "usuarios_permissoes"
+      pii_field_type:
+        | "email"
+        | "phone"
+        | "cpf"
+        | "cnpj"
+        | "rg"
+        | "address"
+        | "salary"
+        | "bank_account"
+        | "pis_pasep"
+        | "ctps"
       product_category:
         | "Salgados"
         | "Doces"
@@ -5396,6 +5509,18 @@ export const Constants = {
         "usuarios_editar",
         "usuarios_excluir",
         "usuarios_permissoes",
+      ],
+      pii_field_type: [
+        "email",
+        "phone",
+        "cpf",
+        "cnpj",
+        "rg",
+        "address",
+        "salary",
+        "bank_account",
+        "pis_pasep",
+        "ctps",
       ],
       product_category: [
         "Salgados",
