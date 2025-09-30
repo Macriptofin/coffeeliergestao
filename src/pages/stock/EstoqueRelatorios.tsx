@@ -5,6 +5,8 @@ import { FileBarChart, PackageX, TrendingDown, Download, AlertTriangle, DollarSi
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -55,11 +57,12 @@ interface NoPriceItem {
   code: string;
   name: string;
   category: string;
-  subcategory?: string;
   material_type: string;
+  unit: string;
   current_quantity: number;
-  price_per_purchase_unit?: number;
-  total_value?: number;
+  average_price: number;
+  total_value: number;
+  last_movement_date?: string;
 }
 
 const EstoqueRelatorios = () => {
@@ -71,7 +74,10 @@ const EstoqueRelatorios = () => {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set());
+  const [selectedNoPriceItems, setSelectedNoPriceItems] = useState<Set<string>>(new Set());
   const [creatingCycle, setCreatingCycle] = useState(false);
+  const [showAdjustPriceDialog, setShowAdjustPriceDialog] = useState(false);
+  const [priceAdjustments, setPriceAdjustments] = useState<Record<string, string>>({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -106,7 +112,22 @@ const EstoqueRelatorios = () => {
         .order('current_quantity', { ascending: false });
 
       if (noPriceError) throw noPriceError;
-      setNoPriceItems(noPriceData || []);
+      
+      // Transformar dados para corresponder à interface
+      const transformedNoPriceData: NoPriceItem[] = (noPriceData || []).map((item: any) => ({
+        material_id: item.material_id,
+        code: item.code || '',
+        name: item.name,
+        category: item.category || '',
+        material_type: item.material_type,
+        unit: item.unit || 'un',
+        current_quantity: item.current_quantity || 0,
+        average_price: item.average_price || 0,
+        total_value: item.total_value || 0,
+        last_movement_date: item.last_movement_date
+      }));
+      
+      setNoPriceItems(transformedNoPriceData);
 
     } catch (error) {
       console.error('Erro ao carregar dados dos relatórios:', error);
@@ -239,6 +260,83 @@ const EstoqueRelatorios = () => {
       toast.error('Erro ao criar ciclo de inventário');
     } finally {
       setCreatingCycle(false);
+    }
+  };
+
+  const toggleNoPriceSelection = (materialId: string) => {
+    setSelectedNoPriceItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(materialId)) {
+        newSet.delete(materialId);
+      } else {
+        newSet.add(materialId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleNoPriceSelectAll = () => {
+    if (selectedNoPriceItems.size === noPriceItems.length) {
+      setSelectedNoPriceItems(new Set());
+    } else {
+      setSelectedNoPriceItems(new Set(noPriceItems.map(item => item.material_id)));
+    }
+  };
+
+  const handleAdjustPrices = () => {
+    if (selectedNoPriceItems.size === 0) {
+      toast.error('Selecione ao menos um material');
+      return;
+    }
+    
+    // Initialize price adjustments for selected items
+    const initialPrices: Record<string, string> = {};
+    noPriceItems
+      .filter(item => selectedNoPriceItems.has(item.material_id))
+      .forEach(item => {
+        initialPrices[item.material_id] = '';
+      });
+    setPriceAdjustments(initialPrices);
+    setShowAdjustPriceDialog(true);
+  };
+
+  const confirmPriceAdjustments = async () => {
+    try {
+      // Validate all prices
+      const items = Object.entries(priceAdjustments)
+        .filter(([_, price]) => price && price.trim() !== '')
+        .map(([material_id, price]) => {
+          const numPrice = parseFloat(price);
+          if (isNaN(numPrice) || numPrice <= 0) {
+            throw new Error(`Preço inválido: ${price}`);
+          }
+          return {
+            material_id,
+            new_avg_price: numPrice
+          };
+        });
+
+      if (items.length === 0) {
+        toast.error('Informe o preço médio para os itens selecionados');
+        return;
+      }
+
+      // Call bulk RPC
+      const { error } = await supabase.rpc('rpc_stock_set_average_price_bulk' as any, {
+        p_items: items
+      } as any);
+
+      if (error) throw error;
+
+      toast.success(`${items.length} ${items.length === 1 ? 'item atualizado' : 'itens atualizados'} com sucesso!`);
+
+      setShowAdjustPriceDialog(false);
+      setSelectedNoPriceItems(new Set());
+      setPriceAdjustments({});
+      loadAllData();
+    } catch (error) {
+      console.error('Erro ao ajustar preços:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao ajustar preços');
     }
   };
 
@@ -469,12 +567,19 @@ const EstoqueRelatorios = () => {
                     Materiais sem custo definido - necessário ajuste para inicialização
                   </CardDescription>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate('/estoque/inventario-ajustes')}
-                >
-                  Ajustar Custos
-                </Button>
+                <div className="flex gap-2">
+                  {selectedNoPriceItems.size > 0 && (
+                    <Badge variant="secondary" className="mr-2">
+                      {selectedNoPriceItems.size} selecionado(s)
+                    </Badge>
+                  )}
+                  <Button
+                    onClick={handleAdjustPrices}
+                    disabled={selectedNoPriceItems.size === 0}
+                  >
+                    Ajustar Preço Médio
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -518,40 +623,45 @@ const EstoqueRelatorios = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={selectedNoPriceItems.size === noPriceItems.length && noPriceItems.length > 0}
+                            onCheckedChange={toggleNoPriceSelectAll}
+                          />
+                        </TableHead>
                         <TableHead>Código</TableHead>
                         <TableHead>Nome</TableHead>
                         <TableHead>Categoria</TableHead>
                         <TableHead>Tipo</TableHead>
+                        <TableHead>Unidade</TableHead>
                         <TableHead className="text-right">Qtd Atual</TableHead>
-                        <TableHead className="text-right">Preço Cadastro</TableHead>
+                        <TableHead className="text-right">Preço Médio</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {noPriceItems.map(item => (
                         <TableRow key={item.material_id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedNoPriceItems.has(item.material_id)}
+                              onCheckedChange={() => toggleNoPriceSelection(item.material_id)}
+                            />
+                          </TableCell>
                           <TableCell className="font-mono text-sm">{item.code}</TableCell>
                           <TableCell className="font-medium">{item.name}</TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              <div>{item.category}</div>
-                              {item.subcategory && (
-                                <div className="text-xs text-muted-foreground">
-                                  {item.subcategory}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
+                          <TableCell className="text-sm">{item.category}</TableCell>
                           <TableCell>
                             <Badge variant="outline">
                               {getMaterialTypeLabel(item.material_type)}
                             </Badge>
                           </TableCell>
+                          <TableCell className="text-sm">{item.unit}</TableCell>
                           <TableCell className="text-right">
                             {(item.current_quantity || 0).toFixed(2)}
                           </TableCell>
-                          <TableCell className="text-right">
-                            R$ {(item.price_per_purchase_unit || 0).toFixed(2)}
+                          <TableCell className="text-right text-muted-foreground">
+                            R$ 0,00
                           </TableCell>
                           <TableCell className="text-center">
                             <Badge variant={(item.current_quantity || 0) > 0 ? "default" : "secondary"}>
@@ -606,6 +716,69 @@ const EstoqueRelatorios = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog de Ajuste de Preço Médio */}
+      <Dialog open={showAdjustPriceDialog} onOpenChange={setShowAdjustPriceDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Ajustar Preço Médio</DialogTitle>
+            <DialogDescription>
+              Defina o preço médio para os {selectedNoPriceItems.size} {selectedNoPriceItems.size === 1 ? 'item selecionado' : 'itens selecionados'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Unidade</TableHead>
+                  <TableHead className="text-right">Qtd Atual</TableHead>
+                  <TableHead className="text-right w-[200px]">Novo Preço Médio (R$)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {noPriceItems
+                  .filter(item => selectedNoPriceItems.has(item.material_id))
+                  .map(item => (
+                    <TableRow key={item.material_id}>
+                      <TableCell className="font-mono text-sm">{item.code}</TableCell>
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>{item.unit}</TableCell>
+                      <TableCell className="text-right">
+                        {(item.current_quantity || 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          placeholder="0.00"
+                          value={priceAdjustments[item.material_id] || ''}
+                          onChange={(e) => setPriceAdjustments(prev => ({
+                            ...prev,
+                            [item.material_id]: e.target.value
+                          }))}
+                          className="text-right"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAdjustPriceDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmPriceAdjustments}>
+              Confirmar Ajuste
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
