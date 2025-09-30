@@ -350,6 +350,17 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
         calculateCosts();
       }, 250);
       return () => clearTimeout(t);
+    } else {
+      // Lista vazia: zerar estimativas e arrays para evitar valores "fantasma"
+      setItemWeights([]);
+      setItemCosts([]);
+      setCostEstimate({
+        totalCost: 0,
+        unitCost: 0,
+        totalWeight: 0,
+        unitWeight: 0,
+        alerts: []
+      });
     }
   }, [formData.items, formData.yield_quantity]);
 
