@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, Upload, Save, Play, Lock, AlertCircle } from "lucide-react";
+import { ArrowLeft, Download, Upload, Save, Play, Lock, AlertCircle, Plus } from "lucide-react";
+import { MaterialSelect } from "@/components/MaterialSelect";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -84,6 +85,9 @@ const InventarioCiclo = () => {
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showAddMaterialDialog, setShowAddMaterialDialog] = useState(false);
+  const [selectedMaterialToAdd, setSelectedMaterialToAdd] = useState<string>("");
+  const [addingMaterial, setAddingMaterial] = useState(false);
 
   useEffect(() => {
     if (cycleId) {
@@ -245,6 +249,37 @@ const InventarioCiclo = () => {
     }
   };
 
+  const addMaterialToCycle = async () => {
+    if (!selectedMaterialToAdd) {
+      toast.error('Selecione um material');
+      return;
+    }
+
+    setAddingMaterial(true);
+    try {
+      const { data: addedCount, error } = await supabase.rpc('rpc_inventory_add_materials', {
+        p_cycle_id: cycleId,
+        p_material_ids: [selectedMaterialToAdd]
+      });
+
+      if (error) throw error;
+
+      if (addedCount === 0) {
+        toast.info('Material já existe neste ciclo');
+      } else {
+        toast.success('Material adicionado ao ciclo!');
+        setShowAddMaterialDialog(false);
+        setSelectedMaterialToAdd("");
+        loadCycleData();
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar material:', error);
+      toast.error('Erro ao adicionar material');
+    } finally {
+      setAddingMaterial(false);
+    }
+  };
+
   const exportCSV = () => {
     if (adjustments.length === 0) {
       toast.error('Não há dados para exportar');
@@ -374,6 +409,43 @@ const InventarioCiclo = () => {
 
       {/* Ações */}
       <div className="flex flex-wrap gap-2">
+        {cycle.status === 'draft' && (
+          <Dialog open={showAddMaterialDialog} onOpenChange={setShowAddMaterialDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Material
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Adicionar Material ao Ciclo</DialogTitle>
+                <DialogDescription>
+                  Selecione um material para adicionar a este ciclo de inventário
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Material</label>
+                  <MaterialSelect
+                    value={selectedMaterialToAdd}
+                    onValueChange={setSelectedMaterialToAdd}
+                    placeholder="Selecione um material"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowAddMaterialDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={addMaterialToCycle} disabled={addingMaterial || !selectedMaterialToAdd}>
+                  {addingMaterial ? 'Adicionando...' : 'Adicionar'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+        
         <Button variant="outline" onClick={exportCSV}>
           <Download className="h-4 w-4 mr-2" />
           Exportar CSV

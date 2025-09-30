@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileBarChart, PackageX, TrendingDown, Download, AlertTriangle, DollarSign } from "lucide-react";
+import { FileBarChart, PackageX, TrendingDown, Download, AlertTriangle, DollarSign, ListChecks } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,6 +70,8 @@ const EstoqueRelatorios = () => {
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
+  const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set());
+  const [creatingCycle, setCreatingCycle] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -181,6 +184,64 @@ const EstoqueRelatorios = () => {
     });
   };
 
+  const toggleMaterialSelection = (materialId: string) => {
+    setSelectedMaterials(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(materialId)) {
+        newSet.delete(materialId);
+      } else {
+        newSet.add(materialId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const filtered = getFilteredItems();
+    if (selectedMaterials.size === filtered.length) {
+      setSelectedMaterials(new Set());
+    } else {
+      setSelectedMaterials(new Set(filtered.map(item => item.material_id)));
+    }
+  };
+
+  const createInventoryCycle = async () => {
+    if (selectedMaterials.size === 0) {
+      toast.error('Selecione ao menos um material');
+      return;
+    }
+
+    setCreatingCycle(true);
+    try {
+      // Criar ciclo
+      const cycleName = `Inventário - ${new Date().toLocaleDateString('pt-BR')}`;
+      const { data: cycleId, error: cycleError } = await supabase.rpc('rpc_inventory_create_cycle', {
+        p_name: cycleName,
+        p_notes: `Gerado automaticamente a partir de ${selectedMaterials.size} material(is) zerado(s)`
+      });
+
+      if (cycleError) throw cycleError;
+
+      // Adicionar materiais ao ciclo
+      const { data: addedCount, error: addError } = await supabase.rpc('rpc_inventory_add_materials', {
+        p_cycle_id: cycleId,
+        p_material_ids: Array.from(selectedMaterials)
+      });
+
+      if (addError) throw addError;
+
+      toast.success(`Ciclo criado com ${addedCount} materiais!`);
+      
+      // Navegar para o ciclo
+      navigate(`/estoque/inventario-ajustes/ciclo/${cycleId}`);
+    } catch (error) {
+      console.error('Erro ao criar ciclo:', error);
+      toast.error('Erro ao criar ciclo de inventário');
+    } finally {
+      setCreatingCycle(false);
+    }
+  };
+
   const filteredItems = getFilteredItems();
   const categories = [...new Set(zeroStockItems.map(item => item.category))];
   const types = [...new Set(zeroStockItems.map(item => item.material_type))];
@@ -222,12 +283,26 @@ const EstoqueRelatorios = () => {
                   <CardTitle className="flex items-center gap-2">
                     <PackageX className="h-5 w-5" />
                     Materiais com Estoque Zerado
+                    {selectedMaterials.size > 0 && (
+                      <Badge variant="secondary">
+                        {selectedMaterials.size} selecionado(s)
+                      </Badge>
+                    )}
                   </CardTitle>
                   <CardDescription>
                     Materiais sem registro de estoque ou com quantidade zerada
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
+                  {selectedMaterials.size > 0 && (
+                    <Button 
+                      onClick={createInventoryCycle}
+                      disabled={creatingCycle}
+                    >
+                      <ListChecks className="h-4 w-4 mr-2" />
+                      {creatingCycle ? 'Criando...' : `Gerar Inventário (${selectedMaterials.size})`}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     onClick={() => navigate('/estoque/inventario-ajustes')}
@@ -316,6 +391,12 @@ const EstoqueRelatorios = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={selectedMaterials.size === filteredItems.length && filteredItems.length > 0}
+                            onCheckedChange={toggleSelectAll}
+                          />
+                        </TableHead>
                         <TableHead>Código</TableHead>
                         <TableHead>Nome</TableHead>
                         <TableHead>Categoria</TableHead>
@@ -327,7 +408,16 @@ const EstoqueRelatorios = () => {
                     </TableHeader>
                     <TableBody>
                       {filteredItems.map(item => (
-                        <TableRow key={item.material_id}>
+                        <TableRow 
+                          key={item.material_id}
+                          className={selectedMaterials.has(item.material_id) ? "bg-muted/50" : ""}
+                        >
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedMaterials.has(item.material_id)}
+                              onCheckedChange={() => toggleMaterialSelection(item.material_id)}
+                            />
+                          </TableCell>
                           <TableCell className="font-mono text-sm">{item.code}</TableCell>
                           <TableCell className="font-medium">{item.name}</TableCell>
                           <TableCell>
