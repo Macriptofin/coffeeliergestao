@@ -832,6 +832,7 @@ export type Database = {
           composite_material_id: string
           created_at: string | null
           id: string
+          is_archived: boolean | null
           notes: string | null
           updated_at: string | null
         }
@@ -839,6 +840,7 @@ export type Database = {
           composite_material_id: string
           created_at?: string | null
           id?: string
+          is_archived?: boolean | null
           notes?: string | null
           updated_at?: string | null
         }
@@ -846,6 +848,7 @@ export type Database = {
           composite_material_id?: string
           created_at?: string | null
           id?: string
+          is_archived?: boolean | null
           notes?: string | null
           updated_at?: string | null
         }
@@ -3686,6 +3689,7 @@ export type Database = {
           created_at: string | null
           finished_material_id: string
           id: string
+          is_archived: boolean | null
           notes: string | null
           updated_at: string | null
           waste_percent: number
@@ -3696,6 +3700,7 @@ export type Database = {
           created_at?: string | null
           finished_material_id: string
           id?: string
+          is_archived?: boolean | null
           notes?: string | null
           updated_at?: string | null
           waste_percent?: number
@@ -3706,6 +3711,7 @@ export type Database = {
           created_at?: string | null
           finished_material_id?: string
           id?: string
+          is_archived?: boolean | null
           notes?: string | null
           updated_at?: string | null
           waste_percent?: number
@@ -4845,9 +4851,17 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      archive_composite_bom: {
+        Args: { p_bom_id: string; p_should_archive: boolean }
+        Returns: Json
+      }
       archive_material: {
         Args: { p_id: string }
         Returns: undefined
+      }
+      archive_recipe_bom: {
+        Args: { p_bom_id: string; p_should_archive: boolean }
+        Returns: Json
       }
       assemble_composite: {
         Args: { p_composite_material: string; p_qty: number }

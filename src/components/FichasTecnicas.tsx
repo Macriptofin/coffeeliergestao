@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Search, Filter, Package, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
+import { Plus, Search, Filter, Package, Edit, Archive, ArchiveRestore, Eye, ArrowLeft } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { TechnicalSheetWizard } from '@/components/TechnicalSheetWizard';
 
 interface TechnicalSheet {
@@ -23,6 +25,7 @@ interface TechnicalSheet {
   cost?: number;
   material_id: string;
   material_code?: string;
+  is_archived: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +40,7 @@ const FichasTecnicas = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [showArchived, setShowArchived] = useState(false);
   
   // Wizard states
   const [showWizard, setShowWizard] = useState(false);
@@ -60,7 +64,7 @@ const FichasTecnicas = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [technicalSheets, searchTerm, typeFilter, categoryFilter]);
+  }, [technicalSheets, searchTerm, typeFilter, categoryFilter, showArchived]);
 
   const loadTechnicalSheets = async () => {
     try {
@@ -75,6 +79,7 @@ const FichasTecnicas = () => {
           id,
           yield_quantity,
           yield_unit,
+          is_archived,
           created_at,
           updated_at,
           materials!recipes_bom_finished_material_id_fkey(
@@ -107,6 +112,7 @@ const FichasTecnicas = () => {
           items_count: bom.recipe_bom_items?.length || 0,
           material_id: bom.materials?.id || '',
           material_code: bom.materials?.code,
+          is_archived: bom.is_archived || false,
           created_at: bom.created_at,
           updated_at: bom.updated_at
         });
@@ -117,6 +123,7 @@ const FichasTecnicas = () => {
         .from('composites_bom')
         .select(`
           id,
+          is_archived,
           created_at,
           updated_at,
           materials!composites_bom_composite_material_id_fkey(
@@ -143,6 +150,7 @@ const FichasTecnicas = () => {
           items_count: bom.composite_bom_items?.length || 0,
           material_id: bom.materials?.id || '',
           material_code: bom.materials?.code,
+          is_archived: bom.is_archived || false,
           created_at: bom.created_at,
           updated_at: bom.updated_at
         });
@@ -159,6 +167,11 @@ const FichasTecnicas = () => {
 
   const applyFilters = () => {
     let filtered = technicalSheets;
+
+    // Archive filter (mostrar ou não arquivadas)
+    if (!showArchived) {
+      filtered = filtered.filter(sheet => !sheet.is_archived);
+    }
 
     // Search filter
     if (searchTerm) {
@@ -200,25 +213,40 @@ const FichasTecnicas = () => {
     navigate(`/producao/fichas/${sheetId}`);
   };
 
-  const handleDeleteTechnicalSheet = async (sheet: TechnicalSheet) => {
-    if (!confirm(`Confirma a exclusão da ficha técnica "${sheet.name}"?`)) return;
+  const handleArchiveTechnicalSheet = async (sheet: TechnicalSheet, shouldArchive: boolean) => {
+    const action = shouldArchive ? 'arquivar' : 'desarquivar';
+    if (!confirm(`Confirma ${action} a ficha técnica "${sheet.name}"? O material vinculado também será ${shouldArchive ? 'arquivado' : 'desarquivado'}.`)) return;
 
     try {
+      let result;
+      
       if (sheet.product_type === 'composite_product') {
-        // Delete composite BOM
-        await supabase.from('composite_bom_items').delete().eq('composite_id', sheet.id);
-        await supabase.from('composites_bom').delete().eq('id', sheet.id);
+        const { data, error } = await supabase.rpc('archive_composite_bom', {
+          p_bom_id: sheet.id,
+          p_should_archive: shouldArchive
+        });
+        
+        if (error) throw error;
+        result = data;
       } else {
-        // Delete recipe BOM
-        await supabase.from('recipe_bom_items').delete().eq('recipe_id', sheet.id);
-        await supabase.from('recipes_bom').delete().eq('id', sheet.id);
+        const { data, error } = await supabase.rpc('archive_recipe_bom', {
+          p_bom_id: sheet.id,
+          p_should_archive: shouldArchive
+        });
+        
+        if (error) throw error;
+        result = data;
       }
 
-      toast.success('Ficha técnica excluída com sucesso!');
-      loadTechnicalSheets();
-    } catch (error) {
-      console.error('Erro ao excluir ficha técnica:', error);
-      toast.error('Erro ao excluir ficha técnica');
+      if (result?.success) {
+        toast.success(`Ficha técnica ${shouldArchive ? 'arquivada' : 'desarquivada'} com sucesso!`);
+        loadTechnicalSheets();
+      } else {
+        throw new Error(result?.error || 'Erro desconhecido');
+      }
+    } catch (error: any) {
+      console.error(`Erro ao ${action} ficha técnica:`, error);
+      toast.error(`Erro ao ${action} ficha técnica: ${error.message}`);
     }
   };
 
@@ -299,7 +327,7 @@ const FichasTecnicas = () => {
       {/* Filters */}
       <Card className="mb-6">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
               <Input
                 placeholder="Buscar por nome ou código..."
@@ -344,6 +372,17 @@ const FichasTecnicas = () => {
                 {filteredSheets.length} fichas encontradas
               </span>
             </div>
+          </div>
+
+          <div className="flex items-center space-x-2 pt-4 border-t">
+            <Switch
+              id="show-archived"
+              checked={showArchived}
+              onCheckedChange={setShowArchived}
+            />
+            <Label htmlFor="show-archived" className="cursor-pointer">
+              Mostrar fichas arquivadas
+            </Label>
           </div>
         </CardContent>
       </Card>
@@ -423,6 +462,7 @@ const FichasTecnicas = () => {
                       size="sm"
                       onClick={() => handleEditTechnicalSheet(sheet.id)}
                       className="flex-1"
+                      disabled={sheet.is_archived}
                     >
                       <Edit className="h-4 w-4 mr-1" />
                       Editar
@@ -431,12 +471,24 @@ const FichasTecnicas = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDeleteTechnicalSheet(sheet)}
+                      onClick={() => handleArchiveTechnicalSheet(sheet, !sheet.is_archived)}
                       className="px-3"
+                      title={sheet.is_archived ? 'Desarquivar' : 'Arquivar'}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {sheet.is_archived ? (
+                        <ArchiveRestore className="h-4 w-4" />
+                      ) : (
+                        <Archive className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
+                  
+                  {sheet.is_archived && (
+                    <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+                      <Archive className="h-3 w-3" />
+                      Arquivada
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
