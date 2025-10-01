@@ -273,17 +273,18 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
             .eq('material_id', item.material_id)
             .single();
 
-          // Se tem preço no estoque, já está na unidade de USO (não dividir por fator)
+          // CORREÇÃO: average_price está na unidade de COMPRA, precisa converter para unidade de USO
           if (stockData?.average_price && stockData.average_price > 0) {
-            itemUnitCost = stockData.average_price;
+            const factor = materialData.conversion_factor || 1;
+            itemUnitCost = stockData.average_price / factor;
             priceCache.set(item.material_id, itemUnitCost);
-            console.log(`  Custo do estoque (por ${materialData.usage_unit}): R$ ${itemUnitCost}`);
+            console.log(`  Custo do estoque: R$ ${stockData.average_price}/${materialData.purchase_unit} ÷ ${factor} = R$ ${itemUnitCost}/${materialData.usage_unit}`);
           } else if (materialData.price_per_purchase_unit > 0) {
-            // Fallback: preço cadastrado costuma estar na unidade de COMPRA, converter para USO
+            // Fallback: preço cadastrado está na unidade de COMPRA, converter para USO
             const factor = materialData.conversion_factor || 1;
             itemUnitCost = materialData.price_per_purchase_unit / factor;
             priceCache.set(item.material_id, itemUnitCost);
-            console.log(`  Custo do cadastro: R$ ${materialData.price_per_purchase_unit} / ${factor} = R$ ${itemUnitCost}/${materialData.usage_unit}`);
+            console.log(`  Custo do cadastro: R$ ${materialData.price_per_purchase_unit}/${materialData.purchase_unit} ÷ ${factor} = R$ ${itemUnitCost}/${materialData.usage_unit}`);
           } else {
             console.log(`  SEM CUSTO DISPONÍVEL para ${materialData.name}`);
             alerts.push(`${materialData.name}: sem custo disponível`);
