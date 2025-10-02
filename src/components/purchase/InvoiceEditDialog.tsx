@@ -278,17 +278,20 @@ export const InvoiceEditDialog = ({
           supplier_id: supplierId,
           invoice_date: new Date(editedData.data).toISOString().split('T')[0],
           total_amount: editedData.itens.reduce((sum, item) => sum + item.preco_total, 0),
-          payment_method: formaPagamento,
-          responsible_user_id: responsavelId,
-          notes: observacoes,
-          stock_posted: true  // Mudado de 'status' para 'stock_posted'
+          notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}`,
+          stock_posted: true
         })
         .select()
         .single();
 
       if (invoiceError) {
         console.error('Erro ao criar nota fiscal:', invoiceError);
-        throw new Error('Erro ao criar registro da nota fiscal');
+        toast({
+          title: '❌ Erro ao criar nota fiscal',
+          description: invoiceError.message || 'Erro desconhecido ao criar nota fiscal',
+          variant: 'destructive'
+        });
+        throw invoiceError;
       }
 
       // Criar itens da nota fiscal
@@ -306,7 +309,12 @@ export const InvoiceEditDialog = ({
 
       if (itemsError) {
         console.error('Erro ao criar itens da nota:', itemsError);
-        throw new Error('Erro ao criar itens da nota fiscal');
+        toast({
+          title: '❌ Erro ao criar itens',
+          description: itemsError.message || 'Erro ao criar itens da nota fiscal',
+          variant: 'destructive'
+        });
+        throw itemsError;
       }
 
       // Processar cada item
@@ -415,12 +423,13 @@ export const InvoiceEditDialog = ({
         });
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao lançar nota fiscal:', error);
       toast({
-        title: 'Erro',
-        description: 'Erro ao lançar nota fiscal',
-        variant: 'destructive'
+        title: '❌ Erro ao lançar nota fiscal',
+        description: error?.message || 'Ocorreu um erro ao processar a nota fiscal. Verifique os dados e tente novamente.',
+        variant: 'destructive',
+        duration: 5000
       });
     } finally {
       setLaunching(false);
