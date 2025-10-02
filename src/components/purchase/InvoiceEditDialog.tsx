@@ -188,6 +188,18 @@ export const InvoiceEditDialog = ({
     setEditedData({ ...editedData, itens: newItems });
   };
 
+  const handleTotalAdjust = (itemIndex: number, newTotal: number) => {
+    if (!editedData) return;
+
+    const newItems = [...editedData.itens];
+    newItems[itemIndex] = {
+      ...newItems[itemIndex],
+      preco_total: newTotal
+    };
+
+    setEditedData({ ...editedData, itens: newItems });
+  };
+
   const validateInvoice = (): ValidationError[] => {
     const errors: ValidationError[] = [];
 
@@ -604,6 +616,7 @@ export const InvoiceEditDialog = ({
                   onMaterialSelect={handleMaterialSelect}
                   onCreateNew={handleCreateNew}
                   onQuantityAdjust={handleQuantityAdjust}
+                  onTotalAdjust={handleTotalAdjust}
                 />
               ))}
             </div>

@@ -45,6 +45,7 @@ interface InvoiceItemMatcherProps {
   onMaterialSelect: (index: number, materialId: string) => void;
   onCreateNew: (index: number) => void;
   onQuantityAdjust: (index: number, newQuantity: number) => void;
+  onTotalAdjust: (index: number, newTotal: number) => void;
 }
 
 export const InvoiceItemMatcher = ({
@@ -52,7 +53,8 @@ export const InvoiceItemMatcher = ({
   index,
   onMaterialSelect,
   onCreateNew,
-  onQuantityAdjust
+  onQuantityAdjust,
+  onTotalAdjust
 }: InvoiceItemMatcherProps) => {
   const [suggestions, setSuggestions] = useState<MaterialSuggestion[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -204,24 +206,37 @@ export const InvoiceItemMatcher = ({
             <div className="space-y-2">
               <p className="font-medium">{item.nome}</p>
               
-              <div className="flex gap-2 text-sm text-muted-foreground items-center">
-                <Input
-                  type="number"
-                  step="0.001"
-                  value={item.quantidade}
-                  onChange={(e) => {
-                    const newQty = parseFloat(e.target.value) || 0;
-                    onQuantityAdjust(index, newQty);
-                  }}
-                  className="h-8 w-20"
-                />
-                <span>{item.unidade}</span>
+              <div className="flex gap-2 text-sm text-muted-foreground items-center flex-wrap">
+                <div className="flex items-center gap-1">
+                  <Label className="text-xs">Qtd:</Label>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    value={item.quantidade}
+                    onChange={(e) => {
+                      const newQty = parseFloat(e.target.value) || 0;
+                      onQuantityAdjust(index, newQty);
+                    }}
+                    className="h-8 w-20"
+                  />
+                  <span>{item.unidade}</span>
+                </div>
                 <span>×</span>
                 <span>R$ {item.preco_unitario.toFixed(2)}</span>
                 <span>=</span>
-                <span className="font-medium">
-                  R$ {item.preco_total.toFixed(2)}
-                </span>
+                <div className="flex items-center gap-1">
+                  <Label className="text-xs">Total:</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={item.preco_total}
+                    onChange={(e) => {
+                      const newTotal = parseFloat(e.target.value) || 0;
+                      onTotalAdjust(index, newTotal);
+                    }}
+                    className="h-8 w-24"
+                  />
+                </div>
               </div>
             </div>
           </div>
