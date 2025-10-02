@@ -51,6 +51,7 @@ export const InvoiceOCRUploader = ({ onCreated }: InvoiceOCRUploaderProps) => {
     // Notificar o pai para recarregar a lista
     onCreated?.();
   };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -228,6 +229,9 @@ export const InvoiceOCRUploader = ({ onCreated }: InvoiceOCRUploaderProps) => {
         onOpenChange={setIsEditDialogOpen}
         invoiceData={invoiceData}
         onLaunch={handleLaunch}
+        formaPagamento="dinheiro"
+        numeroParcelas={1}
+        prazoPagamentoDias={30}
       />
     </div>
   );

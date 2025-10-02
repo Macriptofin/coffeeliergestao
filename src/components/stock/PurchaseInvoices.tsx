@@ -596,6 +596,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               onOpenChange={setIsInvoiceDialogOpen}
               invoiceData={manualInvoiceData}
               onLaunch={handleInvoiceLaunch}
+              formaPagamento="dinheiro"
+              numeroParcelas={1}
+              prazoPagamentoDias={30}
             />
           </div>
         </CardHeader>
