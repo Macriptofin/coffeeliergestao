@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Plus } from 'lucide-react';
 
@@ -149,33 +149,36 @@ export const SupplierMatcher = ({
         <SelectContent>
           {suggestions.length > 0 && (
             <>
-              <SelectLabel>Sugestões</SelectLabel>
-              {suggestions.map(s => (
-                <SelectItem key={s.id} value={s.id}>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={
-                      s.confidence > 0.8 ? 'default' :
-                      s.confidence > 0.5 ? 'secondary' : 'outline'
-                    }>
-                      {(s.confidence * 100).toFixed(0)}%
-                    </Badge>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{s.company_name}</span>
-                      {s.cnpj_cpf && (
-                        <span className="text-xs text-muted-foreground">
-                          {s.cnpj_cpf}
-                        </span>
-                      )}
+              <SelectGroup>
+                <SelectLabel>Sugestões</SelectLabel>
+                {suggestions.map(s => (
+                  <SelectItem key={s.id} value={s.id}>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={
+                        s.confidence > 0.8 ? 'default' :
+                        s.confidence > 0.5 ? 'secondary' : 'outline'
+                      }>
+                        {(s.confidence * 100).toFixed(0)}%
+                      </Badge>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{s.company_name}</span>
+                        {s.cnpj_cpf && (
+                          <span className="text-xs text-muted-foreground">
+                            {s.cnpj_cpf}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </SelectItem>
-              ))}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
               <SelectSeparator />
             </>
           )}
           
-          <SelectLabel>Todos os Fornecedores</SelectLabel>
-          {allSuppliers.map(s => (
+          <SelectGroup>
+            <SelectLabel>Todos os Fornecedores</SelectLabel>
+            {allSuppliers.map(s => (
             <SelectItem key={s.id} value={s.id}>
               <div className="flex flex-col">
                 <span className="font-medium">{s.company_name}</span>
@@ -186,7 +189,8 @@ export const SupplierMatcher = ({
                 )}
               </div>
             </SelectItem>
-          ))}
+            ))}
+          </SelectGroup>
           
           <SelectSeparator />
           

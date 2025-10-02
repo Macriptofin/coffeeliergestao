@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Check, AlertTriangle, Clock, Plus } from 'lucide-react';
@@ -227,39 +227,42 @@ export const InvoiceItemMatcher = ({
               <SelectContent>
                 {suggestions.length > 0 && (
                   <>
-                    <SelectLabel>Sugestões</SelectLabel>
-                    {suggestions.map(sug => (
-                      <SelectItem key={sug.id} value={sug.id}>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={
-                            sug.confidence > 0.8 ? 'default' :
-                            sug.confidence > 0.5 ? 'secondary' : 'outline'
-                          }>
-                            {(sug.confidence * 100).toFixed(0)}%
-                          </Badge>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{sug.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {sug.code} • {sug.usage_unit}
-                            </span>
+                    <SelectGroup>
+                      <SelectLabel>Sugestões</SelectLabel>
+                      {suggestions.map(sug => (
+                        <SelectItem key={sug.id} value={sug.id}>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={
+                              sug.confidence > 0.8 ? 'default' :
+                              sug.confidence > 0.5 ? 'secondary' : 'outline'
+                            }>
+                              {(sug.confidence * 100).toFixed(0)}%
+                            </Badge>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{sug.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {sug.code} • {sug.usage_unit}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      </SelectItem>
-                    ))}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                     <SelectSeparator />
                   </>
                 )}
                 
-                <SelectLabel>Buscar Manualmente</SelectLabel>
-                <div className="px-2 py-1">
-                  <Input
-                    placeholder="Digite para buscar..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                
-                {searchResults.map(m => (
+                <SelectGroup>
+                  <SelectLabel>Buscar Manualmente</SelectLabel>
+                  <div className="px-2 py-1">
+                    <Input
+                      placeholder="Digite para buscar..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  
+                  {searchResults.map(m => (
                   <SelectItem key={m.id} value={m.id}>
                     <div className="flex flex-col">
                       <span className="font-medium">{m.name}</span>
@@ -268,7 +271,8 @@ export const InvoiceItemMatcher = ({
                       </span>
                     </div>
                   </SelectItem>
-                ))}
+                  ))}
+                </SelectGroup>
                 
                 <SelectSeparator />
                 
