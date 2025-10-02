@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FileText, Plus, ShoppingCart, X, Package, Shield, Trash2, CreditCard } from "lucide-react";
 import type { PurchaseInvoice } from "@/pages/Stock";
 import { useUserRole } from "@/hooks/useUserRole";
+import { InvoiceEditDialog } from "../purchase/InvoiceEditDialog";
 
 interface Supplier {
   id: string;
@@ -48,6 +49,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [manualInvoiceData, setManualInvoiceData] = useState<any>(null);
   const [editingInvoice, setEditingInvoice] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     invoiceNumber: '',
@@ -152,6 +155,46 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     }
   };
 
+
+  const openManualInvoiceDialog = () => {
+    // Preparar dados no formato esperado pelo InvoiceEditDialog
+    const invoiceData = {
+      fornecedor: formData.supplierName || '',
+      data: formData.invoiceDate,
+      numero_nota: formData.invoiceNumber,
+      itens: invoiceItems.map(item => ({
+        nome: item.ingredientName,
+        quantidade: item.quantity,
+        unidade: item.purchaseUnit,
+        preco_unitario: item.unitPrice,
+        preco_total: item.totalPrice,
+        material_id: item.ingredientId,
+        material_nome: item.ingredientName,
+        status: 'matched' as const
+      }))
+    };
+    
+    setManualInvoiceData(invoiceData);
+    setIsInvoiceDialogOpen(true);
+    setShowForm(false);
+  };
+
+  const handleManualInvoiceLaunch = () => {
+    setIsInvoiceDialogOpen(false);
+    setManualInvoiceData(null);
+    setFormData({
+      invoiceNumber: '',
+      supplierId: '',
+      supplierName: '',
+      invoiceDate: new Date().toISOString().split('T')[0],
+      dueDate: '',
+      totalAmount: 0,
+      notes: ''
+    });
+    setInvoiceItems([]);
+    setCurrentItem({ ingredientName: '', purchaseUnit: '', quantity: 0, unitPrice: 0 });
+    onRefresh();
+  };
 
   const addItemToInvoice = () => {
     if (!currentItem.ingredientName || !currentItem.purchaseUnit || !currentItem.quantity || !currentItem.unitPrice) {
@@ -1180,13 +1223,21 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                       }} className="flex-1">
                        Cancelar
                      </Button>
-                     <Button onClick={handleSubmit} disabled={loading || invoiceItems.length === 0} className="flex-1">
-                      {loading ? 'Salvando...' : editingInvoice ? `Atualizar Nota Fiscal (${invoiceItems.length} itens)` : `Criar Nota Fiscal (${invoiceItems.length} itens)`}
+                     <Button onClick={openManualInvoiceDialog} disabled={loading || invoiceItems.length === 0} className="flex-1">
+                      {loading ? 'Salvando...' : editingInvoice ? `Atualizar Nota Fiscal (${invoiceItems.length} itens)` : `Continuar para Lançamento (${invoiceItems.length} itens)`}
                     </Button>
                   </div>
                 </div>
               </DialogContent>
             </Dialog>
+
+            {/* Dialog robusto de lançamento com todos os campos */}
+            <InvoiceEditDialog
+              open={isInvoiceDialogOpen}
+              onOpenChange={setIsInvoiceDialogOpen}
+              invoiceData={manualInvoiceData}
+              onLaunch={handleManualInvoiceLaunch}
+            />
           </div>
         </CardHeader>
         <CardContent>
