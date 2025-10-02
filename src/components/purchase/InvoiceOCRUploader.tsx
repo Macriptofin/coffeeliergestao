@@ -8,7 +8,11 @@ import { useInvoiceOCR } from '@/hooks/useInvoiceOCR';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { InvoiceEditDialog } from './InvoiceEditDialog';
 
-export const InvoiceOCRUploader = () => {
+interface InvoiceOCRUploaderProps {
+  onCreated?: () => void;
+}
+
+export const InvoiceOCRUploader = ({ onCreated }: InvoiceOCRUploaderProps) => {
   const { loading, invoiceData, processInvoice, clearData } = useInvoiceOCR();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -40,12 +44,13 @@ export const InvoiceOCRUploader = () => {
   };
 
   const handleLaunch = async () => {
-    // Função será implementada no InvoiceEditDialog
+    // Fechar e limpar
     setIsEditDialogOpen(false);
     clearData();
     handleReset();
+    // Notificar o pai para recarregar a lista
+    onCreated?.();
   };
-
   return (
     <div className="space-y-6">
       <Card>

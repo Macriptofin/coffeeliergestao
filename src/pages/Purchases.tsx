@@ -272,7 +272,7 @@ const Purchases = () => {
 
         <TabsContent value="invoices" className="mt-6">
           <div className="space-y-6">
-            <InvoiceOCRUploader />
+            <InvoiceOCRUploader onCreated={loadPurchaseInvoices} />
             <PurchaseInvoices 
               invoices={purchaseInvoices}
               onRefresh={loadPurchaseInvoices}
