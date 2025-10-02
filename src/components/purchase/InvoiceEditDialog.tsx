@@ -235,6 +235,27 @@ export const InvoiceEditDialog = ({
 
       const fornecedorNome = supplier?.company_name || editedData.fornecedor;
 
+      // Criar registro da nota fiscal
+      const { data: invoiceRecord, error: invoiceError } = await supabase
+        .from('purchase_invoices')
+        .insert({
+          invoice_number: editedData.numero_nota,
+          supplier_id: supplierId,
+          invoice_date: new Date(editedData.data).toISOString(),
+          total_amount: editedData.itens.reduce((sum, item) => sum + item.preco_total, 0),
+          payment_method: formaPagamento,
+          responsible_user_id: responsavelId,
+          notes: observacoes,
+          status: 'Lançada no Estoque'
+        })
+        .select()
+        .single();
+
+      if (invoiceError) {
+        console.error('Erro ao criar nota fiscal:', invoiceError);
+        throw new Error('Erro ao criar registro da nota fiscal');
+      }
+
       // Processar cada item
       let successCount = 0;
       let errorCount = 0;
@@ -256,6 +277,7 @@ export const InvoiceEditDialog = ({
               movement_type: 'Entrada',
               quantity: item.converted_quantity || item.quantidade,
               reference_type: 'Compra',
+              reference_id: invoiceRecord.id,
               notes: `NF ${editedData.numero_nota || 'S/N'} - ${fornecedorNome} - ${item.nome}`
             });
 
