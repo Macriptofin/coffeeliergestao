@@ -4851,6 +4851,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      analyze_material_price_history: {
+        Args: { p_material_id: string }
+        Returns: Json
+      }
+      analyze_system_pricing_health: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       archive_composite_bom: {
         Args: { p_bom_id: string; p_should_archive: boolean }
         Returns: Json
@@ -5274,6 +5282,10 @@ export type Database = {
       produce_product: {
         Args: { p_material_id: string; p_output_qty: number }
         Returns: undefined
+      }
+      recalculate_material_average_price: {
+        Args: { p_dry_run?: boolean; p_material_id: string }
+        Returns: Json
       }
       recalculate_stock_total_values: {
         Args: Record<PropertyKey, never>
