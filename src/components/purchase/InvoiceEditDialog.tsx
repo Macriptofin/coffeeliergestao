@@ -255,7 +255,7 @@ export const InvoiceEditDialog = ({
               material_id: item.material_id,
               movement_type: 'Entrada',
               quantity: item.converted_quantity || item.quantidade,
-              reference_type: 'invoice',
+              reference_type: 'Compra',
               notes: `NF ${editedData.numero_nota || 'S/N'} - ${fornecedorNome} - ${item.nome}`
             });
 
