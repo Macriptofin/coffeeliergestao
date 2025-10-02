@@ -204,9 +204,7 @@ export const InvoiceItemMatcher = ({
             <div className="space-y-2">
               <p className="font-medium">{item.nome}</p>
               
-              {/* Campo editável de quantidade */}
-              <div className="flex items-center gap-2">
-                <Label className="text-xs whitespace-nowrap">Qtd. Compra:</Label>
+              <div className="flex gap-2 text-sm text-muted-foreground items-center">
                 <Input
                   type="number"
                   step="0.001"
@@ -215,13 +213,9 @@ export const InvoiceItemMatcher = ({
                     const newQty = parseFloat(e.target.value) || 0;
                     onQuantityAdjust(index, newQty);
                   }}
-                  className="h-8 w-24"
+                  className="h-8 w-20"
                 />
-                <span className="text-sm text-muted-foreground">{item.unidade}</span>
-              </div>
-              
-              <div className="flex gap-2 text-sm text-muted-foreground">
-                <span>{item.quantidade} {item.unidade}</span>
+                <span>{item.unidade}</span>
                 <span>×</span>
                 <span>R$ {item.preco_unitario.toFixed(2)}</span>
                 <span>=</span>
