@@ -160,41 +160,21 @@ export const InvoiceEditDialog = ({
     }
   };
 
-  const handleQuantityAdjust = async (itemIndex: number, newQuantity: number) => {
+  const handleConversionFactorAdjust = (itemIndex: number, newFactor: number) => {
     if (!editedData) return;
 
     const item = editedData.itens[itemIndex];
-    const newTotal = newQuantity * item.preco_unitario;
+    
+    // Recalcular valores de estoque com o novo fator
+    const convertedQty = item.quantidade * newFactor;
+    const convertedPrice = item.preco_total / convertedQty;
     
     const newItems = [...editedData.itens];
     newItems[itemIndex] = {
       ...item,
-      quantidade: newQuantity,
-      preco_total: newTotal
-    };
-
-    // Recalcular conversão se já houver material selecionado
-    if (item.material_id && item.conversion_factor) {
-      const convertedQty = newQuantity * item.conversion_factor;
-      const convertedPrice = item.preco_unitario / item.conversion_factor;
-      
-      newItems[itemIndex] = {
-        ...newItems[itemIndex],
-        converted_quantity: convertedQty,
-        converted_unit_price: convertedPrice
-      };
-    }
-
-    setEditedData({ ...editedData, itens: newItems });
-  };
-
-  const handleTotalAdjust = (itemIndex: number, newTotal: number) => {
-    if (!editedData) return;
-
-    const newItems = [...editedData.itens];
-    newItems[itemIndex] = {
-      ...newItems[itemIndex],
-      preco_total: newTotal
+      conversion_factor: newFactor,
+      converted_quantity: convertedQty,
+      converted_unit_price: convertedPrice
     };
 
     setEditedData({ ...editedData, itens: newItems });
@@ -615,8 +595,7 @@ export const InvoiceEditDialog = ({
                   index={idx}
                   onMaterialSelect={handleMaterialSelect}
                   onCreateNew={handleCreateNew}
-                  onQuantityAdjust={handleQuantityAdjust}
-                  onTotalAdjust={handleTotalAdjust}
+                  onConversionFactorAdjust={handleConversionFactorAdjust}
                 />
               ))}
             </div>

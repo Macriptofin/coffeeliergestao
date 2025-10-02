@@ -44,8 +44,7 @@ interface InvoiceItemMatcherProps {
   index: number;
   onMaterialSelect: (index: number, materialId: string) => void;
   onCreateNew: (index: number) => void;
-  onQuantityAdjust: (index: number, newQuantity: number) => void;
-  onTotalAdjust: (index: number, newTotal: number) => void;
+  onConversionFactorAdjust: (index: number, newFactor: number) => void;
 }
 
 export const InvoiceItemMatcher = ({
@@ -53,8 +52,7 @@ export const InvoiceItemMatcher = ({
   index,
   onMaterialSelect,
   onCreateNew,
-  onQuantityAdjust,
-  onTotalAdjust
+  onConversionFactorAdjust
 }: InvoiceItemMatcherProps) => {
   const [suggestions, setSuggestions] = useState<MaterialSuggestion[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -207,36 +205,11 @@ export const InvoiceItemMatcher = ({
               <p className="font-medium">{item.nome}</p>
               
               <div className="flex gap-2 text-sm text-muted-foreground items-center flex-wrap">
-                <div className="flex items-center gap-1">
-                  <Label className="text-xs">Qtd:</Label>
-                  <Input
-                    type="number"
-                    step="0.001"
-                    value={item.quantidade}
-                    onChange={(e) => {
-                      const newQty = parseFloat(e.target.value) || 0;
-                      onQuantityAdjust(index, newQty);
-                    }}
-                    className="h-8 w-20"
-                  />
-                  <span>{item.unidade}</span>
-                </div>
+                <span>{item.quantidade} {item.unidade}</span>
                 <span>×</span>
                 <span>R$ {item.preco_unitario.toFixed(2)}</span>
                 <span>=</span>
-                <div className="flex items-center gap-1">
-                  <Label className="text-xs">Total:</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={item.preco_total}
-                    onChange={(e) => {
-                      const newTotal = parseFloat(e.target.value) || 0;
-                      onTotalAdjust(index, newTotal);
-                    }}
-                    className="h-8 w-24"
-                  />
-                </div>
+                <span className="font-medium">R$ {item.preco_total.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -313,23 +286,34 @@ export const InvoiceItemMatcher = ({
               </SelectContent>
             </Select>
             
-            {/* Preview de conversão */}
+            {/* Preview de conversão com fator editável */}
             {item.material_id && item.conversion_factor && (
-              <div className="p-2 bg-muted/50 rounded-lg text-xs space-y-1">
+              <div className="p-2 bg-muted/50 rounded-lg text-xs space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Compra:</span>
                   <span className="font-medium">
                     {item.quantidade} {item.unidade} × R$ {item.preco_unitario.toFixed(2)}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Conversão:</span>
-                  <span className="font-medium">
-                    1 {item.unidade} = {item.conversion_factor} {item.usage_unit}
-                  </span>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-muted-foreground">Fator de Conversão:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs">1 {item.unidade} =</span>
+                    <Input
+                      type="number"
+                      step="0.001"
+                      value={item.conversion_factor}
+                      onChange={(e) => {
+                        const newFactor = parseFloat(e.target.value) || 1;
+                        onConversionFactorAdjust(index, newFactor);
+                      }}
+                      className="h-7 w-20 text-xs"
+                    />
+                    <span className="text-xs">{item.usage_unit}</span>
+                  </div>
                 </div>
                 <div className="flex justify-between border-t pt-1">
-                  <span className="text-muted-foreground">Estoque:</span>
+                  <span className="text-muted-foreground">Entrada no Estoque:</span>
                   <span className="font-medium text-primary">
                     {item.converted_quantity?.toFixed(3)} {item.usage_unit} × R$ {item.converted_unit_price?.toFixed(4)}
                   </span>
