@@ -32,8 +32,11 @@ serve(async (req) => {
 
   try {
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    console.log('Verificando OPENAI_API_KEY:', OPENAI_API_KEY ? 'Configurada' : 'NÃO configurada');
+    
     if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not configured');
+      console.error('OPENAI_API_KEY não encontrada nas variáveis de ambiente');
+      throw new Error('OPENAI_API_KEY não configurada. Por favor, configure a chave nas secrets do Supabase.');
     }
 
     const { image_base64 } = await req.json();
@@ -174,10 +177,13 @@ IMPORTANTE:
 
   } catch (error) {
     console.error('Erro no invoice-ocr:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message 
+        error: errorMessage,
+        details: 'Verifique se a OPENAI_API_KEY está configurada nas secrets do Supabase'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -58,7 +58,18 @@ export const useInvoiceOCR = () => {
 
     } catch (error) {
       console.error('Erro ao processar nota fiscal:', error);
-      toast.error('Erro ao processar nota fiscal');
+      
+      // Mostrar mensagem mais específica
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      
+      if (errorMessage.includes('OPENAI_API_KEY')) {
+        toast.error('Chave da OpenAI não configurada. Configure nas secrets do Supabase.');
+      } else if (errorMessage.includes('Failed to send')) {
+        toast.error('Falha ao conectar com a função. Aguarde alguns segundos e tente novamente.');
+      } else {
+        toast.error(`Erro ao processar nota fiscal: ${errorMessage}`);
+      }
+      
       return null;
     } finally {
       setLoading(false);
