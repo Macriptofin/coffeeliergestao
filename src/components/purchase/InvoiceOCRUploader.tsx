@@ -3,14 +3,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Loader2, Edit } from 'lucide-react';
 import { useInvoiceOCR } from '@/hooks/useInvoiceOCR';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 export const InvoiceOCRUploader = () => {
   const { loading, invoiceData, processInvoice, clearData } = useInvoiceOCR();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editedData, setEditedData] = useState<any>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -31,6 +42,35 @@ export const InvoiceOCRUploader = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
     clearData();
+  };
+
+  const handleEditClick = () => {
+    setEditedData(JSON.parse(JSON.stringify(invoiceData))); // Deep copy
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    // Atualizar os dados com as edições
+    if (editedData) {
+      // Aqui você pode atualizar o invoiceData no hook se necessário
+      // Por enquanto, apenas fechar o diálogo
+      setIsEditDialogOpen(false);
+    }
+  };
+
+  const updateItemField = (index: number, field: string, value: any) => {
+    if (!editedData) return;
+    const newData = { ...editedData };
+    newData.itens[index][field] = value;
+    
+    // Recalcular preço total se quantidade ou preço unitário mudar
+    if (field === 'quantidade' || field === 'preco_unitario') {
+      newData.itens[index].preco_total = 
+        parseFloat(newData.itens[index].quantidade) * 
+        parseFloat(newData.itens[index].preco_unitario);
+    }
+    
+    setEditedData(newData);
   };
 
   return (
@@ -195,13 +235,123 @@ export const InvoiceOCRUploader = () => {
               <Button className="flex-1">
                 Criar Nota Fiscal
               </Button>
-              <Button variant="outline">
+              <Button variant="outline" onClick={handleEditClick}>
+                <Edit className="h-4 w-4 mr-2" />
                 Editar Dados
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Dados da Nota Fiscal</DialogTitle>
+            <DialogDescription>
+              Faça as correções necessárias nos dados extraídos
+            </DialogDescription>
+          </DialogHeader>
+
+          {editedData && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fornecedor">Fornecedor</Label>
+                  <Input
+                    id="fornecedor"
+                    value={editedData.fornecedor}
+                    onChange={(e) => setEditedData({ ...editedData, fornecedor: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="data">Data</Label>
+                  <Input
+                    id="data"
+                    type="date"
+                    value={editedData.data}
+                    onChange={(e) => setEditedData({ ...editedData, data: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="numero_nota">Número NF</Label>
+                  <Input
+                    id="numero_nota"
+                    value={editedData.numero_nota || ''}
+                    onChange={(e) => setEditedData({ ...editedData, numero_nota: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="font-semibold">Itens da Nota</h3>
+                {editedData.itens.map((item: any, idx: number) => (
+                  <Card key={idx}>
+                    <CardContent className="pt-6">
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div className="space-y-2 md:col-span-2">
+                          <Label>Nome do Item</Label>
+                          <Input
+                            value={item.nome}
+                            onChange={(e) => updateItemField(idx, 'nome', e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Quantidade</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={item.quantidade}
+                            onChange={(e) => updateItemField(idx, 'quantidade', parseFloat(e.target.value) || 0)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Unidade</Label>
+                          <Input
+                            value={item.unidade}
+                            onChange={(e) => updateItemField(idx, 'unidade', e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Preço Unit.</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={item.preco_unitario}
+                            onChange={(e) => updateItemField(idx, 'preco_unitario', parseFloat(e.target.value) || 0)}
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-4 text-right">
+                        <span className="text-sm text-muted-foreground">Total: </span>
+                        <span className="font-semibold">R$ {item.preco_total.toFixed(2)}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold">Total Geral:</span>
+                  <span className="text-xl font-bold text-primary">
+                    R$ {editedData.itens.reduce((sum: number, item: any) => sum + item.preco_total, 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit}>
+              Salvar Alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
