@@ -4868,8 +4868,8 @@ export type Database = {
         Returns: undefined
       }
       calculate_bom_current_cost: {
-        Args: { p_bom_id: string }
-        Returns: number
+        Args: { p_bom_id: string; p_bom_type: string }
+        Returns: Json
       }
       calculate_composite_current_cost: {
         Args: { composite_material_id: string }
@@ -5238,6 +5238,17 @@ export type Database = {
         }
         Returns: string
       }
+      process_stock_entry_with_conversion: {
+        Args: {
+          p_material_id: string
+          p_notes?: string
+          p_quantity_purchased: number
+          p_reference_id?: string
+          p_reference_type?: string
+          p_unit_price_purchase: number
+        }
+        Returns: Json
+      }
       produce_composite_product_with_correct_cost: {
         Args: {
           p_composite_material_id: string
@@ -5321,6 +5332,10 @@ export type Database = {
       update_production_order_status: {
         Args: { p_new_status: string; p_production_order_id: string }
         Returns: undefined
+      }
+      validate_material_units: {
+        Args: { p_material_id: string }
+        Returns: Json
       }
     }
     Enums: {
