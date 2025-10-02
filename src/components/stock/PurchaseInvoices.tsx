@@ -66,6 +66,16 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [existingPayables, setExistingPayables] = useState<any[]>([]);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<any>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    invoiceNumber: '',
+    invoiceDate: '',
+    notes: '',
+    formaPagamento: '',
+    numeroParcelas: 1,
+    prazoPagamentoDias: 30,
+  });
 
   useEffect(() => {
     loadSuppliers();
@@ -139,8 +149,71 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     onRefresh();
   };
 
-  const startEditInvoice = (invoiceId: string) => {
-    toast.info('Funcionalidade de edição em desenvolvimento');
+  const startEditInvoice = async (invoiceId: string) => {
+    try {
+      setLoading(true);
+      
+      // Carregar dados da nota fiscal
+      const { data: invoice, error } = await supabase
+        .from('purchase_invoices')
+        .select(`
+          *,
+          suppliers:supplier_id (
+            id,
+            company_name
+          )
+        `)
+        .eq('id', invoiceId)
+        .single();
+
+      if (error) throw error;
+
+      setEditingInvoice(invoice);
+      setEditFormData({
+        invoiceNumber: invoice.invoice_number || '',
+        invoiceDate: invoice.invoice_date || '',
+        notes: invoice.notes || '',
+        formaPagamento: 'Dinheiro',
+        numeroParcelas: 1,
+        prazoPagamentoDias: 30,
+      });
+      setShowEditDialog(true);
+    } catch (error) {
+      console.error('Erro ao carregar nota fiscal:', error);
+      toast.error('Erro ao carregar dados da nota fiscal');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveEditedInvoice = async () => {
+    if (!editingInvoice) return;
+
+    try {
+      setLoading(true);
+
+      // Atualizar dados da nota fiscal
+      const { error: updateError } = await supabase
+        .from('purchase_invoices')
+        .update({
+          invoice_number: editFormData.invoiceNumber,
+          invoice_date: editFormData.invoiceDate,
+          notes: `${editFormData.notes}\n\nForma de Pagamento: ${editFormData.formaPagamento}\nParcelas: ${editFormData.numeroParcelas}\nPrazo: ${editFormData.prazoPagamentoDias} dias`
+        })
+        .eq('id', editingInvoice.id);
+
+      if (updateError) throw updateError;
+
+      toast.success('Nota fiscal atualizada com sucesso');
+      setShowEditDialog(false);
+      setEditingInvoice(null);
+      onRefresh();
+    } catch (error) {
+      console.error('Erro ao atualizar nota fiscal:', error);
+      toast.error('Erro ao atualizar nota fiscal');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const deleteInvoice = async (invoiceId: string) => {
@@ -767,6 +840,127 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             <Button onClick={createRetroactivePayable} disabled={loading} className="flex-1">
               <CreditCard className="h-4 w-4 mr-2" />
               {loading ? 'Criando...' : 'Criar Conta a Pagar'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para editar nota fiscal */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Nota Fiscal</DialogTitle>
+            <DialogDescription>
+              Edite os dados da nota fiscal #{editingInvoice?.invoice_number}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-invoice-number">Número da Nota *</Label>
+                <Input
+                  id="edit-invoice-number"
+                  value={editFormData.invoiceNumber}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, invoiceNumber: e.target.value }))}
+                  placeholder="Ex: 12345"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-invoice-date">Data da Nota *</Label>
+                <Input
+                  id="edit-invoice-date"
+                  type="date"
+                  value={editFormData.invoiceDate}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, invoiceDate: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            <div>
+              <Label htmlFor="edit-payment-method">Forma de Pagamento *</Label>
+              <Select
+                value={editFormData.formaPagamento}
+                onValueChange={(value) => setEditFormData(prev => ({ ...prev, formaPagamento: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a forma de pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="PIX">PIX</SelectItem>
+                  <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
+                  <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
+                  <SelectItem value="Transferência Bancária">Transferência Bancária</SelectItem>
+                  <SelectItem value="Boleto">Boleto</SelectItem>
+                  <SelectItem value="Cheque">Cheque</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-parcelas">Número de Parcelas</Label>
+                <Input
+                  id="edit-parcelas"
+                  type="number"
+                  min="1"
+                  value={editFormData.numeroParcelas}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, numeroParcelas: parseInt(e.target.value) || 1 }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-prazo">Prazo de Pagamento (dias)</Label>
+                <Input
+                  id="edit-prazo"
+                  type="number"
+                  min="0"
+                  value={editFormData.prazoPagamentoDias}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, prazoPagamentoDias: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-notes">Observações</Label>
+              <Textarea
+                id="edit-notes"
+                value={editFormData.notes}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Adicione observações sobre esta nota fiscal..."
+                rows={4}
+              />
+            </div>
+
+            {editingInvoice?.stock_posted && (
+              <Alert>
+                <AlertDescription>
+                  ℹ️ Esta nota já foi lançada no estoque. As alterações não afetarão os dados de estoque já registrados.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowEditDialog(false);
+                setEditingInvoice(null);
+              }} 
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={saveEditedInvoice} 
+              disabled={loading || !editFormData.invoiceNumber || !editFormData.invoiceDate || !editFormData.formaPagamento} 
+              className="flex-1"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              {loading ? 'Salvando...' : 'Salvar Alterações'}
             </Button>
           </div>
         </DialogContent>
