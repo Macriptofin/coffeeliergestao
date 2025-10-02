@@ -2095,6 +2095,280 @@ export type Database = {
           },
         ]
       }
+      invoice_ocr_items: {
+        Row: {
+          conversion_factor: number | null
+          converted_quantity: number | null
+          converted_unit_price: number | null
+          created_at: string | null
+          id: string
+          item_description: string
+          launch_error: string | null
+          launched_at: string | null
+          match_confidence: number | null
+          match_method: string | null
+          matched_material_id: string | null
+          quantity: number
+          session_id: string
+          status: string | null
+          stock_movement_id: string | null
+          suggested_material_id: string | null
+          total_price: number
+          unit: string | null
+          unit_price: number
+          updated_at: string | null
+        }
+        Insert: {
+          conversion_factor?: number | null
+          converted_quantity?: number | null
+          converted_unit_price?: number | null
+          created_at?: string | null
+          id?: string
+          item_description: string
+          launch_error?: string | null
+          launched_at?: string | null
+          match_confidence?: number | null
+          match_method?: string | null
+          matched_material_id?: string | null
+          quantity: number
+          session_id: string
+          status?: string | null
+          stock_movement_id?: string | null
+          suggested_material_id?: string | null
+          total_price: number
+          unit?: string | null
+          unit_price: number
+          updated_at?: string | null
+        }
+        Update: {
+          conversion_factor?: number | null
+          converted_quantity?: number | null
+          converted_unit_price?: number | null
+          created_at?: string | null
+          id?: string
+          item_description?: string
+          launch_error?: string | null
+          launched_at?: string | null
+          match_confidence?: number | null
+          match_method?: string | null
+          matched_material_id?: string | null
+          quantity?: number
+          session_id?: string
+          status?: string | null
+          stock_movement_id?: string | null
+          suggested_material_id?: string | null
+          total_price?: number
+          unit?: string | null
+          unit_price?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_ocr_items_matched_material_id_fkey"
+            columns: ["matched_material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_ocr_items_matched_material_id_fkey"
+            columns: ["matched_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_ocr_items_matched_material_id_fkey"
+            columns: ["matched_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_ocr_items_matched_material_id_fkey"
+            columns: ["matched_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_ocr_items_matched_material_id_fkey"
+            columns: ["matched_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_ocr_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_ocr_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_ocr_items_stock_movement_id_fkey"
+            columns: ["stock_movement_id"]
+            isOneToOne: false
+            referencedRelation: "stock_movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_ocr_items_suggested_material_id_fkey"
+            columns: ["suggested_material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_ocr_items_suggested_material_id_fkey"
+            columns: ["suggested_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_ocr_items_suggested_material_id_fkey"
+            columns: ["suggested_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_ocr_items_suggested_material_id_fkey"
+            columns: ["suggested_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_ocr_items_suggested_material_id_fkey"
+            columns: ["suggested_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+        ]
+      }
+      invoice_ocr_sessions: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          extracted_data: Json | null
+          extraction_error: string | null
+          extraction_status: string | null
+          id: string
+          image_size_bytes: number | null
+          image_url: string
+          ocr_confidence: number | null
+          ocr_processing_time_ms: number | null
+          ocr_provider: string
+          ocr_raw_text: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          extracted_data?: Json | null
+          extraction_error?: string | null
+          extraction_status?: string | null
+          id?: string
+          image_size_bytes?: number | null
+          image_url: string
+          ocr_confidence?: number | null
+          ocr_processing_time_ms?: number | null
+          ocr_provider?: string
+          ocr_raw_text?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          extracted_data?: Json | null
+          extraction_error?: string | null
+          extraction_status?: string | null
+          id?: string
+          image_size_bytes?: number | null
+          image_url?: string
+          ocr_confidence?: number | null
+          ocr_processing_time_ms?: number | null
+          ocr_provider?: string
+          ocr_raw_text?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      material_name_mappings: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          invoice_description: string
+          last_used_at: string | null
+          material_id: string
+          supplier_name: string | null
+          times_used: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          invoice_description: string
+          last_used_at?: string | null
+          material_id: string
+          supplier_name?: string | null
+          times_used?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          invoice_description?: string
+          last_used_at?: string | null
+          material_id?: string
+          supplier_name?: string | null
+          times_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_name_mappings_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_name_mappings_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_name_mappings_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_name_mappings_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_name_mappings_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+        ]
+      }
       materials: {
         Row: {
           allowed_brands: string[] | null
@@ -5070,6 +5344,26 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      gtrgm_compress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_decompress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_in: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_options: {
+        Args: { "": unknown }
+        Returns: undefined
+      }
+      gtrgm_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
       has_financial_permission: {
         Args: {
           p_department?: string
@@ -5322,6 +5616,41 @@ export type Database = {
       sanitize_error_message: {
         Args: { error_msg: string }
         Returns: string
+      }
+      save_material_mapping: {
+        Args: {
+          p_invoice_description: string
+          p_material_id: string
+          p_supplier_name?: string
+        }
+        Returns: undefined
+      }
+      set_limit: {
+        Args: { "": number }
+        Returns: number
+      }
+      show_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      show_trgm: {
+        Args: { "": string }
+        Returns: string[]
+      }
+      suggest_material_matches: {
+        Args: {
+          p_item_description: string
+          p_limit?: number
+          p_supplier_name?: string
+        }
+        Returns: {
+          confidence: number
+          match_method: string
+          material_code: string
+          material_id: string
+          material_name: string
+          reason: string
+        }[]
       }
       suggest_material_taxonomy_migration: {
         Args: Record<PropertyKey, never>
