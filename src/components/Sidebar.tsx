@@ -31,10 +31,10 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       current: location.pathname === "/"
     },
     {
-      name: "Estoque",
-      href: "/estoque",
+      name: "Materiais",
+      href: "/materiais",
       icon: Package,
-      current: location.pathname.startsWith("/estoque") || location.pathname === "/ingredientes"
+      current: location.pathname.startsWith("/materiais") || location.pathname.startsWith("/estoque") || location.pathname === "/ingredientes"
     },
     {
       name: "Compras",

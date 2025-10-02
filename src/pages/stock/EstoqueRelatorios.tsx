@@ -403,7 +403,7 @@ const EstoqueRelatorios = () => {
                   )}
                   <Button
                     variant="outline"
-                    onClick={() => navigate('/estoque/inventario-ajustes')}
+                    onClick={() => navigate('/materiais/inventario-ajustes')}
                   >
                     Ir para Inventário
                   </Button>

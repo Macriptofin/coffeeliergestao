@@ -18,6 +18,8 @@ import SecurityMonitoring from "./pages/SecurityMonitoring";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Estoque from "./pages/Estoque";
+import Materiais from "./pages/Materiais";
+import MateriaisGestao from "./pages/stock/MateriaisGestao";
 import ProducaoMain from "./pages/ProducaoMain";
 import Financeiro from "./pages/Financeiro";
 import ContasPagar from "./pages/financeiro/ContasPagar";
@@ -57,15 +59,33 @@ function App() {
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
-              {/* Categoria Estoque */}
-              <Route path="estoque" element={<Estoque />} />
-              <Route path="ingredientes" element={<Materials />} />
-              <Route path="estoque/materiais/:id/editar" element={<MaterialEdit />} />
+              
+              {/* Categoria Materiais (nova estrutura) */}
+              <Route path="materiais" element={<Materiais />} />
+              <Route path="materiais/controle" element={<Stock />} />
+              <Route path="materiais/gestao" element={<MateriaisGestao />} />
+              <Route path="materiais/movimentacoes" element={<EstoqueMovimentacoes />} />
+              <Route path="materiais/relatorios" element={<EstoqueRelatorios />} />
+              <Route path="materiais/inventario-ajustes" element={<InventarioAjustes />} />
+              <Route path="materiais/inventario-ajustes/ciclo/:cycleId" element={<InventarioCiclo />} />
+              <Route path="materiais/importacao" element={<Stock />} />
+              <Route path="materiais/:id/editar" element={<MaterialEdit />} />
+              
+              {/* Redirects de rotas antigas para manter bookmarks */}
+              <Route path="estoque" element={<Materiais />} />
+              <Route path="estoque/controle" element={<Stock />} />
+              <Route path="estoque/parametros" element={<MateriaisGestao />} />
+              <Route path="estoque/planejamento" element={<MateriaisGestao />} />
               <Route path="estoque/movimentacoes" element={<EstoqueMovimentacoes />} />
+              <Route path="estoque/relatorios" element={<EstoqueRelatorios />} />
               <Route path="estoque/inventario-ajustes" element={<InventarioAjustes />} />
               <Route path="estoque/inventario-ajustes/ciclo/:cycleId" element={<InventarioCiclo />} />
-              <Route path="estoque/relatorios" element={<EstoqueRelatorios />} />
+              <Route path="estoque/importacao" element={<Stock />} />
+              <Route path="estoque/materiais/:id/editar" element={<MaterialEdit />} />
               <Route path="estoque/*" element={<Stock />} />
+              
+              {/* Cadastro de materiais */}
+              <Route path="ingredientes" element={<Materials />} />
               {/* Categoria Compras */}
               <Route path="compras" element={<Purchases />} />
               {/* Categoria Vendas */}

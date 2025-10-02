@@ -142,7 +142,7 @@ export const InventoryCyclesList = () => {
       loadCycles();
       
       // Navegar para o ciclo criado
-      navigate(`/estoque/inventario-ajustes/ciclo/${data}`);
+      navigate(`/materiais/inventario-ajustes/ciclo/${data}`);
     } catch (error) {
       console.error('Erro ao criar ciclo:', error);
       toast.error('Erro ao criar ciclo de inventário');
@@ -322,7 +322,7 @@ export const InventoryCyclesList = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => navigate(`/estoque/inventario-ajustes/ciclo/${cycle.id}`)}
+                        onClick={() => navigate(`/materiais/inventario-ajustes/ciclo/${cycle.id}`)}
                       >
                         <Eye className="h-4 w-4 mr-1" />
                         Ver Detalhes

@@ -72,12 +72,12 @@ const Index = () => {
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-center mb-6">Categorias Master</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/estoque')}>
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/materiais')}>
               <CardHeader className="text-center pb-4">
                 <div className="mx-auto p-3 bg-blue-500 text-white rounded-lg w-fit mb-2">
                   <Package className="h-6 w-6" />
                 </div>
-                <CardTitle className="text-lg">Estoque</CardTitle>
+                <CardTitle className="text-lg">Materiais</CardTitle>
                 <CardDescription>Materiais, controle e movimentações</CardDescription>
               </CardHeader>
             </Card>

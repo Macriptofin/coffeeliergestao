@@ -154,7 +154,7 @@ const InventarioCiclo = () => {
     } catch (error) {
       console.error('Erro ao carregar dados do ciclo:', error);
       toast.error('Erro ao carregar dados do ciclo');
-      navigate('/estoque/inventario-ajustes');
+      navigate('/materiais/inventario-ajustes');
     } finally {
       setLoading(false);
     }
@@ -342,7 +342,7 @@ const InventarioCiclo = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="outline" onClick={() => navigate('/estoque/inventario-ajustes')}>
+        <Button variant="outline" onClick={() => navigate('/materiais/inventario-ajustes')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">

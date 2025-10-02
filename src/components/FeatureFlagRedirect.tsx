@@ -15,7 +15,8 @@ export const FeatureFlagRedirect = ({ children }: { children: React.ReactNode })
 
     // Skip redirects if we're already on a target page
     if (currentPath === '/producao/fichas-tecnicas' || 
-        (currentPath === '/producao/relatorios' && searchParams.get('tab') === 'costs')) {
+        (currentPath === '/producao/relatorios' && searchParams.get('tab') === 'costs') ||
+        currentPath.startsWith('/materiais')) {
       return;
     }
 

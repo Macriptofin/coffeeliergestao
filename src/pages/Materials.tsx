@@ -343,7 +343,7 @@ const Materials = () => {
   const startEditingMaterial = (material: Material) => {
     setEditingMaterial(material);
     if (isMobile) {
-      navigate(`/estoque/materiais/${material.id}/editar`);
+      navigate(`/materiais/${material.id}/editar`);
     } else {
       setShowMaterialEditor(true);
     }
