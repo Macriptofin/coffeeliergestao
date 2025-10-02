@@ -241,12 +241,12 @@ export const InvoiceEditDialog = ({
         .insert({
           invoice_number: editedData.numero_nota,
           supplier_id: supplierId,
-          invoice_date: new Date(editedData.data).toISOString(),
+          invoice_date: new Date(editedData.data).toISOString().split('T')[0],
           total_amount: editedData.itens.reduce((sum, item) => sum + item.preco_total, 0),
           payment_method: formaPagamento,
           responsible_user_id: responsavelId,
           notes: observacoes,
-          status: 'Lançada no Estoque'
+          stock_posted: true  // Mudado de 'status' para 'stock_posted'
         })
         .select()
         .single();
@@ -254,6 +254,24 @@ export const InvoiceEditDialog = ({
       if (invoiceError) {
         console.error('Erro ao criar nota fiscal:', invoiceError);
         throw new Error('Erro ao criar registro da nota fiscal');
+      }
+
+      // Criar itens da nota fiscal
+      const invoiceItemsData = editedData.itens.map(item => ({
+        invoice_id: invoiceRecord.id,
+        material_id: item.material_id,
+        quantity: item.quantidade,
+        unit_price: item.preco_unitario,
+        total_price: item.preco_total
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('invoice_items')
+        .insert(invoiceItemsData);
+
+      if (itemsError) {
+        console.error('Erro ao criar itens da nota:', itemsError);
+        throw new Error('Erro ao criar itens da nota fiscal');
       }
 
       // Processar cada item
