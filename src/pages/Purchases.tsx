@@ -11,6 +11,7 @@ import { ImportMaterials } from "@/components/ImportMaterials";
 import { PurchaseRequirements } from "@/components/purchase/PurchaseRequirements";
 import { PurchaseRequestsList } from "@/components/purchase/PurchaseRequestsList";
 import { PurchaseOrders } from "@/components/purchase/PurchaseOrders";
+import { InvoiceOCRUploader } from "@/components/purchase/InvoiceOCRUploader";
 
 export interface PurchaseInvoice {
   id: string;
@@ -270,10 +271,13 @@ const Purchases = () => {
         </TabsContent>
 
         <TabsContent value="invoices" className="mt-6">
-          <PurchaseInvoices 
-            invoices={purchaseInvoices}
-            onRefresh={loadPurchaseInvoices}
-          />
+          <div className="space-y-6">
+            <InvoiceOCRUploader />
+            <PurchaseInvoices 
+              invoices={purchaseInvoices}
+              onRefresh={loadPurchaseInvoices}
+            />
+          </div>
         </TabsContent>
 
         <TabsContent value="products" className="mt-6">
