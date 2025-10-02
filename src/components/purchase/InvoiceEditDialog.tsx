@@ -165,16 +165,31 @@ export const InvoiceEditDialog = ({
 
     const item = editedData.itens[itemIndex];
     
-    // Recalcular valores de estoque com o novo fator
-    const convertedQty = item.quantidade * newFactor;
-    const convertedPrice = item.preco_total / convertedQty;
+    // Calcular preço original e novo preço para detectar desvios grandes
+    const originalConvertedPrice = item.converted_unit_price || 0;
+    const newConvertedQty = item.quantidade * newFactor;
+    const newConvertedPrice = item.preco_total / newConvertedQty;
     
+    // Detectar desvio superior a 50% no preço
+    if (originalConvertedPrice > 0) {
+      const priceVariation = Math.abs((newConvertedPrice - originalConvertedPrice) / originalConvertedPrice) * 100;
+      
+      if (priceVariation > 50) {
+        toast({
+          title: "⚠️ Atenção: Grande variação no preço",
+          description: `O fator de conversão alterou o preço em ${priceVariation.toFixed(0)}%. Verifique se o valor está correto.`,
+          variant: "destructive",
+        });
+      }
+    }
+    
+    // Recalcular valores de estoque com o novo fator
     const newItems = [...editedData.itens];
     newItems[itemIndex] = {
       ...item,
       conversion_factor: newFactor,
-      converted_quantity: convertedQty,
-      converted_unit_price: convertedPrice
+      converted_quantity: newConvertedQty,
+      converted_unit_price: newConvertedPrice
     };
 
     setEditedData({ ...editedData, itens: newItems });
