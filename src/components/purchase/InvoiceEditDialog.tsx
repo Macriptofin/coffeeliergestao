@@ -160,6 +160,34 @@ export const InvoiceEditDialog = ({
     }
   };
 
+  const handleQuantityAdjust = async (itemIndex: number, newQuantity: number) => {
+    if (!editedData) return;
+
+    const item = editedData.itens[itemIndex];
+    const newTotal = newQuantity * item.preco_unitario;
+    
+    const newItems = [...editedData.itens];
+    newItems[itemIndex] = {
+      ...item,
+      quantidade: newQuantity,
+      preco_total: newTotal
+    };
+
+    // Recalcular conversão se já houver material selecionado
+    if (item.material_id && item.conversion_factor) {
+      const convertedQty = newQuantity * item.conversion_factor;
+      const convertedPrice = item.preco_unitario / item.conversion_factor;
+      
+      newItems[itemIndex] = {
+        ...newItems[itemIndex],
+        converted_quantity: convertedQty,
+        converted_unit_price: convertedPrice
+      };
+    }
+
+    setEditedData({ ...editedData, itens: newItems });
+  };
+
   const validateInvoice = (): ValidationError[] => {
     const errors: ValidationError[] = [];
 
@@ -575,6 +603,7 @@ export const InvoiceEditDialog = ({
                   index={idx}
                   onMaterialSelect={handleMaterialSelect}
                   onCreateNew={handleCreateNew}
+                  onQuantityAdjust={handleQuantityAdjust}
                 />
               ))}
             </div>

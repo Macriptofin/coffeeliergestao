@@ -44,13 +44,15 @@ interface InvoiceItemMatcherProps {
   index: number;
   onMaterialSelect: (index: number, materialId: string) => void;
   onCreateNew: (index: number) => void;
+  onQuantityAdjust: (index: number, newQuantity: number) => void;
 }
 
 export const InvoiceItemMatcher = ({
   item,
   index,
   onMaterialSelect,
-  onCreateNew
+  onCreateNew,
+  onQuantityAdjust
 }: InvoiceItemMatcherProps) => {
   const [suggestions, setSuggestions] = useState<MaterialSuggestion[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -199,8 +201,25 @@ export const InvoiceItemMatcher = ({
             <Label className="text-xs text-muted-foreground">
               Item da Nota Fiscal
             </Label>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <p className="font-medium">{item.nome}</p>
+              
+              {/* Campo editável de quantidade */}
+              <div className="flex items-center gap-2">
+                <Label className="text-xs whitespace-nowrap">Qtd. Compra:</Label>
+                <Input
+                  type="number"
+                  step="0.001"
+                  value={item.quantidade}
+                  onChange={(e) => {
+                    const newQty = parseFloat(e.target.value) || 0;
+                    onQuantityAdjust(index, newQty);
+                  }}
+                  className="h-8 w-24"
+                />
+                <span className="text-sm text-muted-foreground">{item.unidade}</span>
+              </div>
+              
               <div className="flex gap-2 text-sm text-muted-foreground">
                 <span>{item.quantidade} {item.unidade}</span>
                 <span>×</span>
