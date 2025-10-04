@@ -706,6 +706,41 @@ export type Database = {
           },
         ]
       }
+      client_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          client_id: string
+          id: string
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          client_id: string
+          id?: string
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          client_id?: string
+          id?: string
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
@@ -1920,6 +1955,30 @@ export type Database = {
           department?: string | null
           id?: string
           permission_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      hr_permissions: {
+        Row: {
+          created_at: string | null
+          granted_by: string | null
+          id: string
+          permission_type: Database["public"]["Enums"]["hr_permission_type"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          granted_by?: string | null
+          id?: string
+          permission_type: Database["public"]["Enums"]["hr_permission_type"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          granted_by?: string | null
+          id?: string
+          permission_type?: Database["public"]["Enums"]["hr_permission_type"]
           user_id?: string
         }
         Relationships: []
@@ -5372,6 +5431,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_hr_permission: {
+        Args: {
+          _permission: Database["public"]["Enums"]["hr_permission_type"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_permission: {
         Args: {
           p_category: Database["public"]["Enums"]["permission_category"]
@@ -5690,6 +5756,11 @@ export type Database = {
         | "Festa Infantil"
         | "Casamento"
         | "Reuniao Corporativa"
+      hr_permission_type:
+        | "view_basic_info"
+        | "view_personal_documents"
+        | "view_financial_info"
+        | "full_access"
       permission_category:
         | "estoque"
         | "compras"
@@ -5902,6 +5973,12 @@ export const Constants = {
         "Festa Infantil",
         "Casamento",
         "Reuniao Corporativa",
+      ],
+      hr_permission_type: [
+        "view_basic_info",
+        "view_personal_documents",
+        "view_financial_info",
+        "full_access",
       ],
       permission_category: [
         "estoque",
