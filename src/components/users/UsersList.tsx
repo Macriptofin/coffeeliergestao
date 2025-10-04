@@ -110,64 +110,26 @@ export function UsersList({ onEditUser }: UsersListProps) {
   const deleteUser = async (userId: string) => {
     try {
       setLoading(true);
-      
-      console.log('Iniciando exclusão do usuário:', userId);
-      
-      // Remover permissões
-      const { error: permError } = await supabase
-        .from('user_permissions')
-        .delete()
-        .eq('user_id', userId);
-      
-      console.log('Permissões - erro:', permError);
-      
-      if (permError) {
-        console.error('Erro ao remover permissões:', permError);
-      }
 
-      // Remover roles
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
-      
-      console.log('Roles - erro:', roleError);
-      
-      if (roleError) {
-        console.error('Erro ao remover roles:', roleError);
-      }
-
-      // Remover perfil
-      const { error: profileError, data: deletedProfile } = await supabase
-        .from('user_profiles')
-        .delete()
-        .eq('user_id', userId)
-        .select();
-
-      console.log('Perfil removido - dados:', deletedProfile, 'erro:', profileError);
-
-      if (profileError) {
-        console.error('Erro ao remover perfil:', profileError);
-        toast.error('Erro ao remover perfil do usuário: ' + profileError.message);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id === userId) {
+        toast.error('Você não pode deletar seu próprio usuário.');
         return;
       }
 
-      // Verificar se realmente foi deletado
-      const { data: checkProfile } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', userId);
-      
-      console.log('Verificação pós-delete - perfil ainda existe?:', checkProfile);
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { userId }
+      });
 
-      toast.success('Acesso do usuário removido com sucesso');
-      
-      console.log('Recarregando lista de usuários...');
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || 'Falha ao excluir usuário');
+      }
+
+      toast.success('Usuário removido completamente');
       await loadUsers();
-      console.log('Lista recarregada. Total de usuários:', users.length);
-    } catch (error) {
-      console.error('Erro ao remover acesso do usuário:', error);
-      toast.error('Erro ao remover acesso do usuário');
+    } catch (error: any) {
+      console.error('Erro ao remover usuário:', error);
+      toast.error(error?.message || 'Erro ao remover usuário');
     } finally {
       setLoading(false);
     }
