@@ -44,8 +44,7 @@ serve(async (req) => {
       });
     }
 
-    // Client with requester token (to identify and authorize)
-    const authClient = createClient(supabaseUrl, anonKey);
+    // Get auth token from request
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ success: false, error: 'Não autenticado' }), {
@@ -53,11 +52,19 @@ serve(async (req) => {
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
-    const token = authHeader.replace('Bearer ', '');
-    authClient.auth.setSession({ access_token: token, refresh_token: '' });
 
-    const { data: userResp, error: getUserErr } = await authClient.auth.getUser();
-    if (getUserErr || !userResp.user) {
+    // Create client with user token for authorization check
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: {
+        headers: {
+          Authorization: authHeader
+        }
+      }
+    });
+
+    const { data: { user }, error: getUserErr } = await userClient.auth.getUser();
+    if (getUserErr || !user) {
+      console.error('Error getting user:', getUserErr);
       return new Response(JSON.stringify({ success: false, error: 'Usuário inválido' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -65,16 +72,28 @@ serve(async (req) => {
     }
 
     // Prevent self-deletion
-    if (userResp.user.id === userId) {
+    if (user.id === userId) {
       return new Response(JSON.stringify({ success: false, error: 'Você não pode deletar o próprio usuário' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    // Verify admin role via SECURITY DEFINER function
-    const { data: isAdmin, error: roleErr } = await authClient.rpc('has_role', { _user_id: userResp.user.id, _role: 'admin' });
-    if (roleErr || !isAdmin) {
+    // Verify admin role using security definer function
+    const { data: isAdmin, error: roleErr } = await userClient.rpc('has_role', { 
+      _user_id: user.id, 
+      _role: 'admin' 
+    });
+    
+    if (roleErr) {
+      console.error('Error checking admin role:', roleErr);
+      return new Response(JSON.stringify({ success: false, error: 'Erro ao verificar permissões' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    }
+    
+    if (!isAdmin) {
       return new Response(JSON.stringify({ success: false, error: 'Acesso negado' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -119,9 +138,9 @@ serve(async (req) => {
         p_alert_type: 'user_deleted',
         p_severity: 'medium',
         p_title: 'Usuário excluído',
-        p_description: `Usuário ${userId} removido por ${userResp.user.id}`,
+        p_description: `Usuário ${userId} removido por ${user.id}`,
         p_ip_address: null,
-        p_metadata: { target_user: userId, actor: userResp.user.id },
+        p_metadata: { target_user: userId, actor: user.id },
       } as any);
     } catch (_) {}
 
