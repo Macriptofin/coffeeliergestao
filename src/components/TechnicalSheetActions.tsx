@@ -22,7 +22,6 @@ interface BOMItem {
     id: string;
     name: string;
     usage_unit: string;
-    average_price?: number;
   };
 }
 
@@ -76,7 +75,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
         if (allMaterialIds.length) {
           const { data: mats, error: matsErr } = await supabase
             .from('materials')
-            .select('id,name,code,category,subcategory,usage_unit,average_price')
+            .select('id,name,code,category,subcategory,usage_unit')
             .in('id', allMaterialIds);
           if (matsErr) throw matsErr;
           materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
@@ -94,7 +93,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
           items: (data.composite_bom_items || []).map((item: any) => ({
             id: item.id,
             quantity: item.quantity,
-            material: materialsMap[item.component_material_id] || { id: item.component_material_id, name: 'Material', usage_unit: 'un', average_price: 0 }
+            material: materialsMap[item.component_material_id] || { id: item.component_material_id, name: 'Material', usage_unit: 'un' }
           }))
         });
       } else {
@@ -129,7 +128,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
         if (allMaterialIds.length) {
           const { data: mats, error: matsErr } = await supabase
             .from('materials')
-            .select('id,name,code,category,subcategory,usage_unit,average_price')
+            .select('id,name,code,category,subcategory,usage_unit')
             .in('id', allMaterialIds);
           if (matsErr) throw matsErr;
           materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
@@ -149,7 +148,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
           items: (data.recipe_bom_items || []).map((item: any) => ({
             id: item.id,
             quantity: item.quantity,
-            material: materialsMap[item.material_id] || { id: item.material_id, name: 'Material', usage_unit: 'un', average_price: 0 }
+            material: materialsMap[item.material_id] || { id: item.material_id, name: 'Material', usage_unit: 'un' }
           }))
         });
       }
