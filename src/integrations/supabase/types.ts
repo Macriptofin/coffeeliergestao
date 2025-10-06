@@ -864,7 +864,9 @@ export type Database = {
       }
       composites_bom: {
         Row: {
+          cached_total_cost: number | null
           composite_material_id: string
+          cost_last_calculated_at: string | null
           created_at: string | null
           id: string
           is_archived: boolean | null
@@ -872,7 +874,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          cached_total_cost?: number | null
           composite_material_id: string
+          cost_last_calculated_at?: string | null
           created_at?: string | null
           id?: string
           is_archived?: boolean | null
@@ -880,7 +884,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          cached_total_cost?: number | null
           composite_material_id?: string
+          cost_last_calculated_at?: string | null
           created_at?: string | null
           id?: string
           is_archived?: boolean | null
@@ -4019,6 +4025,9 @@ export type Database = {
       }
       recipes_bom: {
         Row: {
+          cached_total_cost: number | null
+          cached_unit_cost: number | null
+          cost_last_calculated_at: string | null
           created_at: string | null
           finished_material_id: string
           id: string
@@ -4030,6 +4039,9 @@ export type Database = {
           yield_unit: string
         }
         Insert: {
+          cached_total_cost?: number | null
+          cached_unit_cost?: number | null
+          cost_last_calculated_at?: string | null
           created_at?: string | null
           finished_material_id: string
           id?: string
@@ -4041,6 +4053,9 @@ export type Database = {
           yield_unit: string
         }
         Update: {
+          cached_total_cost?: number | null
+          cached_unit_cost?: number | null
+          cost_last_calculated_at?: string | null
           created_at?: string | null
           finished_material_id?: string
           id?: string
@@ -5650,6 +5665,10 @@ export type Database = {
       recalculate_stock_total_values: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      refresh_bom_costs_for_material: {
+        Args: { p_material_id: string }
+        Returns: Json
       }
       reserve_materials_for_production: {
         Args: { p_production_order_id: string }

@@ -70,6 +70,8 @@ const BOMManagement = () => {
           id, name, code, material_type, category, usage_unit, is_sellable,
           recipes_bom (
             id,
+            cached_total_cost,
+            cost_last_calculated_at,
             recipe_bom_items (id)
           )
         `)
@@ -78,44 +80,25 @@ const BOMManagement = () => {
 
       if (error) throw error;
 
-      const summary: BOMSummary[] = await Promise.all(
-        data.map(async (material: any) => {
-          let totalCost = 0;
-          const bomId = material.recipes_bom?.[0]?.id;
-
-          // Calcular custo usando a função SQL
-          if (bomId) {
-            try {
-              const { data: costData } = await supabase.rpc('calculate_bom_current_cost', {
-                p_bom_type: 'recipe',
-                p_bom_id: bomId
-              });
-              
-              if (costData && typeof costData === 'object' && 'total_cost' in costData) {
-                totalCost = parseFloat(String(costData.total_cost));
-              }
-            } catch (costError) {
-              console.error(`Erro ao calcular custo para ${material.name}:`, costError);
-            }
-          }
-
-          return {
-            material: {
-              id: material.id,
-              name: material.name,
-              code: material.code,
-              material_type: material.material_type,
-              category: material.category,
-              usage_unit: material.usage_unit
-            },
-            has_bom: material.recipes_bom && material.recipes_bom.length > 0,
-            items_count: material.recipes_bom?.[0]?.recipe_bom_items?.length || 0,
-            bom_id: bomId,
-            total_cost: totalCost > 0 ? totalCost : undefined,
-            cost_calculated_at: new Date().toISOString()
-          };
-        })
-      );
+      const summary: BOMSummary[] = data.map((material: any) => {
+        const bom = material.recipes_bom?.[0];
+        
+        return {
+          material: {
+            id: material.id,
+            name: material.name,
+            code: material.code,
+            material_type: material.material_type,
+            category: material.category,
+            usage_unit: material.usage_unit
+          },
+          has_bom: bom != null,
+          items_count: bom?.recipe_bom_items?.length || 0,
+          bom_id: bom?.id,
+          total_cost: bom?.cached_total_cost ? parseFloat(bom.cached_total_cost) : undefined,
+          cost_calculated_at: bom?.cost_last_calculated_at
+        };
+      });
 
       setFinishedProducts(summary);
     } catch (error) {
@@ -131,6 +114,8 @@ const BOMManagement = () => {
           id, name, code, material_type, category, usage_unit,
           composites_bom (
             id,
+            cached_total_cost,
+            cost_last_calculated_at,
             composite_bom_items (id)
           )
         `)
@@ -139,44 +124,25 @@ const BOMManagement = () => {
 
       if (error) throw error;
 
-      const summary: BOMSummary[] = await Promise.all(
-        data.map(async (material: any) => {
-          let totalCost = 0;
-          const bomId = material.composites_bom?.[0]?.id;
-
-          // Calcular custo usando a função SQL
-          if (bomId) {
-            try {
-              const { data: costData } = await supabase.rpc('calculate_bom_current_cost', {
-                p_bom_type: 'composite',
-                p_bom_id: bomId
-              });
-              
-              if (costData && typeof costData === 'object' && 'total_cost' in costData) {
-                totalCost = parseFloat(String(costData.total_cost));
-              }
-            } catch (costError) {
-              console.error(`Erro ao calcular custo para ${material.name}:`, costError);
-            }
-          }
-
-          return {
-            material: {
-              id: material.id,
-              name: material.name,
-              code: material.code,
-              material_type: material.material_type,
-              category: material.category,
-              usage_unit: material.usage_unit
-            },
-            has_bom: material.composites_bom && material.composites_bom.length > 0,
-            items_count: material.composites_bom?.[0]?.composite_bom_items?.length || 0,
-            bom_id: bomId,
-            total_cost: totalCost > 0 ? totalCost : undefined,
-            cost_calculated_at: new Date().toISOString()
-          };
-        })
-      );
+      const summary: BOMSummary[] = data.map((material: any) => {
+        const bom = material.composites_bom?.[0];
+        
+        return {
+          material: {
+            id: material.id,
+            name: material.name,
+            code: material.code,
+            material_type: material.material_type,
+            category: material.category,
+            usage_unit: material.usage_unit
+          },
+          has_bom: bom != null,
+          items_count: bom?.composite_bom_items?.length || 0,
+          bom_id: bom?.id,
+          total_cost: bom?.cached_total_cost ? parseFloat(bom.cached_total_cost) : undefined,
+          cost_calculated_at: bom?.cost_last_calculated_at
+        };
+      });
 
       setCompositeProducts(summary);
     } catch (error) {
@@ -271,10 +237,27 @@ const BOMManagement = () => {
   const handleRecalculateAllCosts = async () => {
     setRecalculating(true);
     try {
-      toast.info('Recalculando custos...', { duration: 2000 });
+      toast.info('Recalculando custos de todas as BOMs...', { duration: 2000 });
+      
+      // Buscar todos os materiais para recalcular
+      const { data: allMaterials } = await supabase
+        .from('materials')
+        .select('id')
+        .in('material_type', ['raw_material', 'packaging', 'finished_product', 'intermediate_product', 'composite_product']);
+
+      if (allMaterials) {
+        // Recalcular para cada material (isso vai atualizar as BOMs que usam cada material)
+        const recalcPromises = allMaterials.map(m => 
+          supabase.rpc('refresh_bom_costs_for_material', { p_material_id: m.id })
+        );
+        
+        await Promise.allSettled(recalcPromises);
+      }
+      
+      // Recarregar dados com cache atualizado
       await Promise.all([loadFinishedProducts(), loadCompositeProducts()]);
       setLastRecalculatedAt(new Date());
-      toast.success('Custos recalculados com sucesso!');
+      toast.success('Custos recalculados e atualizados com sucesso!');
     } catch (error) {
       console.error('Erro ao recalcular custos:', error);
       toast.error('Erro ao recalcular custos');
@@ -331,14 +314,29 @@ const BOMManagement = () => {
           </div>
 
           {item.has_bom && item.total_cost !== undefined && (
-            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">Custo Total:</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Custo Total:</span>
+                </div>
+                <span className="text-lg font-bold text-primary">
+                  R$ {item.total_cost.toFixed(2)}
+                </span>
               </div>
-              <span className="text-lg font-bold text-primary">
-                R$ {item.total_cost.toFixed(2)}
-              </span>
+              {item.cost_calculated_at && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground justify-end">
+                  <Clock className="h-3 w-3" />
+                  <span>
+                    Atualizado em {new Date(item.cost_calculated_at).toLocaleString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
