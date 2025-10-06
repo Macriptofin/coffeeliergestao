@@ -2256,6 +2256,82 @@ export type Database = {
           },
         ]
       }
+      invoice_material_matches: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_item_name: string
+          invoice_item_name_normalized: string
+          last_matched_at: string
+          match_count: number
+          material_id: string
+          supplier_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_item_name: string
+          invoice_item_name_normalized: string
+          last_matched_at?: string
+          match_count?: number
+          material_id: string
+          supplier_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_item_name?: string
+          invoice_item_name_normalized?: string
+          last_matched_at?: string
+          match_count?: number
+          material_id?: string
+          supplier_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_material_matches_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_material_matches_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_material_matches_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_material_matches_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_material_matches_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_material_matches_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_ocr_items: {
         Row: {
           conversion_factor: number | null
@@ -2460,6 +2536,44 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      invoice_supplier_matches: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_supplier_text: string
+          invoice_supplier_text_normalized: string
+          last_matched_at: string
+          match_count: number
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_supplier_text: string
+          invoice_supplier_text_normalized: string
+          last_matched_at?: string
+          match_count?: number
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_supplier_text?: string
+          invoice_supplier_text_normalized?: string
+          last_matched_at?: string
+          match_count?: number
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_supplier_matches_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       material_name_mappings: {
         Row: {
@@ -5713,6 +5827,10 @@ export type Database = {
       no_admin_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      normalize_text: {
+        Args: { text_input: string }
+        Returns: string
       }
       ops_archive_legacy_recipes: {
         Args: { dry_run?: boolean }
