@@ -33,6 +33,7 @@ interface BOM {
 interface PrintableBOMProductionOrderProps {
   orderName: string;
   orderDate: string;
+  orderNumber?: string;
   productionItems: BOMProductionItem[];
   consolidatedIngredients: BOMConsolidatedMaterial[];
   totalCost: number;
@@ -41,12 +42,15 @@ interface PrintableBOMProductionOrderProps {
 }
 
 export const PrintableBOMProductionOrder = forwardRef<HTMLDivElement, PrintableBOMProductionOrderProps>(
-  ({ orderName, orderDate, productionItems, consolidatedIngredients, totalCost, boms = [], technicalSheets = [] }, ref) => {
+  ({ orderName, orderDate, orderNumber, productionItems, consolidatedIngredients, totalCost, boms = [], technicalSheets = [] }, ref) => {
     return (
       <div ref={ref} className="print-recipe bg-white text-black p-4 max-w-full mx-auto">
         {/* Header */}
         <div className="text-center border-b-2 border-gray-800 pb-3 mb-4">
           <h1 className="text-2xl font-bold text-gray-800 mb-1">ORDEM DE PRODUÇÃO BOM</h1>
+          {orderNumber && (
+            <p className="text-md font-semibold text-gray-700 mb-1">Ordem Nº {orderNumber}</p>
+          )}
           <h2 className="text-lg text-gray-600 mb-1">{orderName || 'Sem Nome'}</h2>
           <p className="text-sm text-gray-600">Data: {new Date(orderDate).toLocaleDateString('pt-BR')}</p>
         </div>

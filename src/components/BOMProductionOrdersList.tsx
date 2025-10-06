@@ -191,64 +191,94 @@ export const BOMProductionOrdersList = () => {
     setShowPrintDialog(true);
   };
 
-  const loadTechnicalSheets = async (order: ProductionOrder) => {
-    const sheets = [];
-    
-    for (const item of order.items) {
-      try {
-        const { data, error } = await supabase
-          .from('recipes_bom')
-          .select(`
+  const loadTechnicalSheetRecursive = async (materialId: string, processedIds: Set<string> = new Set()): Promise<any[]> => {
+    // Evita loops infinitos
+    if (processedIds.has(materialId)) return [];
+    processedIds.add(materialId);
+
+    const sheets: any[] = [];
+
+    try {
+      // Busca ficha técnica do material (recipes_bom)
+      const { data: bomData, error: bomError } = await supabase
+        .from('recipes_bom')
+        .select(`
+          id,
+          yield_quantity,
+          yield_unit,
+          notes,
+          finished_material_id,
+          recipe_bom_items(
             id,
-            yield_quantity,
-            yield_unit,
-            notes,
-            finished_material_id,
-            recipe_bom_items(
-              id,
-              quantity,
-              material_id
-            )
-          `)
-          .eq('id', item.bom_id)
-          .maybeSingle();
+            quantity,
+            material_id
+          )
+        `)
+        .eq('finished_material_id', materialId)
+        .maybeSingle();
 
-        if (error) throw error;
-        if (!data) continue;
-
-        const itemIds = (data.recipe_bom_items || []).map((i: any) => i.material_id).filter(Boolean);
-        const allMaterialIds = Array.from(new Set([data.finished_material_id, ...itemIds]));
+      if (bomError) throw bomError;
+      
+      if (bomData) {
+        const itemIds = (bomData.recipe_bom_items || []).map((i: any) => i.material_id).filter(Boolean);
+        const allMaterialIds = Array.from(new Set([bomData.finished_material_id, ...itemIds]));
 
         let materialsMap: Record<string, any> = {};
         if (allMaterialIds.length) {
           const { data: mats, error: matsErr } = await supabase
             .from('materials')
-            .select('id,name,code,category,subcategory,usage_unit')
+            .select('id,name,code,category,subcategory,usage_unit,material_type')
             .in('id', allMaterialIds);
           if (matsErr) throw matsErr;
           materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
         }
 
-        const finishedMaterial = materialsMap[data.finished_material_id] || {};
+        const finishedMaterial = materialsMap[bomData.finished_material_id] || {};
 
         sheets.push({
-          id: data.id,
+          id: bomData.id,
           name: finishedMaterial.name || 'Sem nome',
-          product_type: 'finished_product',
+          product_type: finishedMaterial.material_type || 'finished_product',
           category: finishedMaterial.category || '',
           subcategory: finishedMaterial.subcategory,
           material_code: finishedMaterial.code,
-          yield_quantity: data.yield_quantity,
-          yield_unit: data.yield_unit,
-          notes: data.notes,
-          items: (data.recipe_bom_items || []).map((i: any) => ({
+          yield_quantity: bomData.yield_quantity,
+          yield_unit: bomData.yield_unit,
+          notes: bomData.notes,
+          items: (bomData.recipe_bom_items || []).map((i: any) => ({
             id: i.id,
             quantity: i.quantity,
             material: materialsMap[i.material_id] || { id: i.material_id, name: 'Material', usage_unit: 'un' }
           }))
         });
+
+        // Carrega recursivamente fichas dos materiais intermediários
+        for (const item of bomData.recipe_bom_items || []) {
+          const material = materialsMap[item.material_id];
+          if (material && material.material_type === 'intermediate_product') {
+            const subSheets = await loadTechnicalSheetRecursive(item.material_id, processedIds);
+            sheets.push(...subSheets);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar ficha técnica recursiva:', error);
+    }
+
+    return sheets;
+  };
+
+  const loadTechnicalSheets = async (order: ProductionOrder) => {
+    const sheets = [];
+    const processedIds = new Set<string>();
+    
+    for (const item of order.items) {
+      try {
+        const finishedMaterialId = item.bom.finished_material.id;
+        const recursiveSheets = await loadTechnicalSheetRecursive(finishedMaterialId, processedIds);
+        sheets.push(...recursiveSheets);
       } catch (error) {
-        console.error('Erro ao carregar ficha técnica:', error);
+        console.error('Erro ao carregar fichas técnicas:', error);
       }
     }
     
@@ -655,6 +685,7 @@ export const BOMProductionOrdersList = () => {
             <PrintableBOMProductionOrder
               orderName={orderToPrint.order_name}
               orderDate={orderToPrint.order_date}
+              orderNumber={`${new Date(orderToPrint.order_date).toLocaleDateString('pt-BR').replace(/\//g, '')}-${orderToPrint.id.slice(0, 8).toUpperCase()}`}
               productionItems={orderToPrint.items.map(item => ({
                 bomId: item.bom_id,
                 quantity: item.quantity,
