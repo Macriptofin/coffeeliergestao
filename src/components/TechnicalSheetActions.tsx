@@ -78,10 +78,24 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
         if (allMaterialIds.length) {
           const { data: mats, error: matsErr } = await supabase
             .from('materials')
-            .select('id,name,code,category,subcategory,usage_unit,average_price')
+            .select(`
+              id,
+              name,
+              code,
+              category,
+              subcategory,
+              usage_unit,
+              stock_items(average_price)
+            `)
             .in('id', allMaterialIds);
           if (matsErr) throw matsErr;
-          materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
+          materialsMap = (mats || []).reduce((acc: any, m: any) => { 
+            acc[m.id] = {
+              ...m,
+              average_price: m.stock_items?.[0]?.average_price || 0
+            };
+            return acc;
+          }, {});
         }
 
         const compositeMaterial = materialsMap[data.composite_material_id] || {};
@@ -133,10 +147,24 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
         if (allMaterialIds.length) {
           const { data: mats, error: matsErr } = await supabase
             .from('materials')
-            .select('id,name,code,category,subcategory,usage_unit,average_price')
+            .select(`
+              id,
+              name,
+              code,
+              category,
+              subcategory,
+              usage_unit,
+              stock_items(average_price)
+            `)
             .in('id', allMaterialIds);
           if (matsErr) throw matsErr;
-          materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
+          materialsMap = (mats || []).reduce((acc: any, m: any) => { 
+            acc[m.id] = {
+              ...m,
+              average_price: m.stock_items?.[0]?.average_price || 0
+            };
+            return acc;
+          }, {});
         }
 
         const finishedMaterial = materialsMap[data.finished_material_id] || {};
