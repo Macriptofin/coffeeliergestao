@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Search, Filter, Package, Edit, Archive, ArchiveRestore, Eye, ArrowLeft } from 'lucide-react';
+import { Plus, Search, Filter, Package, Edit, Archive, ArchiveRestore, Eye, ArrowLeft, Printer } from 'lucide-react';
+import { TechnicalSheetActions } from '@/components/TechnicalSheetActions';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { TechnicalSheetWizard } from '@/components/TechnicalSheetWizard';
@@ -456,7 +457,7 @@ const FichasTecnicas = () => {
                     )}
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 mb-3">
                     <Button
                       variant="outline"
                       size="sm"
@@ -482,6 +483,12 @@ const FichasTecnicas = () => {
                       )}
                     </Button>
                   </div>
+                  
+                  <TechnicalSheetActions 
+                    sheetId={sheet.id}
+                    sheetName={sheet.name}
+                    productType={sheet.product_type}
+                  />
                   
                   {sheet.is_archived && (
                     <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
