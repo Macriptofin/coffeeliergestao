@@ -306,7 +306,14 @@ export const InvoiceItemMatcher = ({
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Compra:</span>
                   <span className="font-medium">
-                    {item.quantidade} {item.unidade} × R$ {item.preco_unitario.toFixed(2)}
+                    {item.quantidade} {item.unidade} × R$ {(() => {
+                      // Calcular preço unitário com desconto se houver
+                      if (item.desconto_percentual) {
+                        const precoComDesconto = item.preco_unitario * (1 - (item.desconto_percentual / 100));
+                        return precoComDesconto.toFixed(2);
+                      }
+                      return item.preco_unitario.toFixed(2);
+                    })()}
                   </span>
                 </div>
                 <div className="flex justify-between items-center gap-2">
