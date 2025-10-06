@@ -133,7 +133,12 @@ export const InvoiceEditDialog = ({
     const item = editedData.itens[itemIndex];
     const conversionFactor = material.conversion_factor || 1;
     const convertedQty = item.quantidade * conversionFactor;
-    const convertedPrice = item.preco_unitario / conversionFactor;
+    
+    // Usar preço com desconto se disponível
+    const precoUnitarioFinal = item.preco_com_desconto 
+      ? (item.preco_com_desconto / item.quantidade)
+      : item.preco_unitario;
+    const convertedPrice = precoUnitarioFinal / conversionFactor;
 
     const newItems = [...editedData.itens];
     newItems[itemIndex] = {
@@ -171,7 +176,10 @@ export const InvoiceEditDialog = ({
     // Calcular preço original e novo preço para detectar desvios grandes
     const originalConvertedPrice = item.converted_unit_price || 0;
     const newConvertedQty = item.quantidade * newFactor;
-    const newConvertedPrice = item.preco_total / newConvertedQty;
+    
+    // Usar preço total com desconto se disponível
+    const precoTotalFinal = item.preco_com_desconto || item.preco_total;
+    const newConvertedPrice = precoTotalFinal / newConvertedQty;
     
     // Detectar desvio superior a 50% no preço
     if (originalConvertedPrice > 0) {
