@@ -3,10 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const SESSION_TIMEOUT = 120 * 60 * 1000; // 2 hours
+const INACTIVITY_TIMEOUT = 20 * 60 * 1000; // 20 minutes of inactivity
 const WARNING_TIME = 10 * 60 * 1000; // 10 minutes before timeout
 
 interface SessionState {
   lastActivity: number;
+  sessionStart: number;
   warningShown: boolean;
   isActive: boolean;
 }
@@ -14,63 +16,85 @@ interface SessionState {
 export function useSessionSecurity() {
   const [sessionState, setSessionState] = useState<SessionState>({
     lastActivity: Date.now(),
+    sessionStart: Date.now(),
     warningShown: false,
     isActive: true
   });
 
   const sessionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const inactivityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const warningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const updateActivity = useCallback(() => {
-    const now = Date.now();
-    setSessionState(prev => ({
-      ...prev,
-      lastActivity: now,
-      warningShown: false
-    }));
-    
-    // Reset timeouts
-    if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current);
-    if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
-    
-    // Set warning timeout (25 minutes)
-    warningTimeoutRef.current = setTimeout(() => {
-      setSessionState(prev => ({ ...prev, warningShown: true }));
-      showSessionWarning();
-    }, SESSION_TIMEOUT - WARNING_TIME);
-    
-    // Set session timeout (30 minutes)
-    sessionTimeoutRef.current = setTimeout(() => {
-      handleSessionExpiry();
-    }, SESSION_TIMEOUT);
-  }, []);
-
-  const showSessionWarning = () => {
-    toast.warning('Sua sessão expirará em 10 minutos', {
-      duration: 10000,
-      action: {
-        label: 'Manter Ativo',
-        onClick: () => {
-          updateActivity();
-          toast.success('Sessão renovada');
-        }
-      }
-    });
-  };
-
-  const handleSessionExpiry = async () => {
+  const handleSessionExpiry = useCallback(async (reason: string = 'inatividade') => {
     setSessionState(prev => ({ ...prev, isActive: false }));
     
     try {
       await supabase.auth.signOut();
-      toast.error('Sessão expirada por inatividade. Faça login novamente.');
+      toast.error(`Sessão expirada por ${reason}. Faça login novamente.`);
       
       // Redirect to login
       window.location.href = '/auth';
     } catch (error) {
       console.error('Error during session expiry:', error);
     }
-  };
+  }, []);
+
+  const showSessionWarning = useCallback(() => {
+    toast.warning('Sua sessão expirará em 10 minutos', {
+      duration: 10000,
+      action: {
+        label: 'Manter Ativo',
+        onClick: () => {
+          setSessionState(prev => ({
+            ...prev,
+            lastActivity: Date.now(),
+            warningShown: false
+          }));
+          toast.success('Sessão renovada');
+        }
+      }
+    });
+  }, []);
+
+  const updateActivity = useCallback(() => {
+    const now = Date.now();
+    setSessionState(prev => {
+      const timeInSession = now - prev.sessionStart;
+      
+      // Check if total session time exceeded
+      if (timeInSession >= SESSION_TIMEOUT) {
+        handleSessionExpiry('tempo máximo de sessão');
+        return prev;
+      }
+      
+      return {
+        ...prev,
+        lastActivity: now,
+        warningShown: false
+      };
+    });
+    
+    // Reset inactivity timeout
+    if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
+    if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+    
+    // Set inactivity timeout (20 minutes)
+    inactivityTimeoutRef.current = setTimeout(() => {
+      handleSessionExpiry('inatividade');
+    }, INACTIVITY_TIMEOUT);
+    
+    // Check if we need to show warning for total session time
+    setSessionState(prev => {
+      const timeInSession = now - prev.sessionStart;
+      const timeUntilExpiry = SESSION_TIMEOUT - timeInSession;
+      
+      if (timeUntilExpiry <= WARNING_TIME && !prev.warningShown) {
+        setTimeout(() => showSessionWarning(), 0);
+        return { ...prev, warningShown: true };
+      }
+      return prev;
+    });
+  }, [handleSessionExpiry, showSessionWarning]);
 
   const extendSession = () => {
     updateActivity();
@@ -108,6 +132,7 @@ export function useSessionSecurity() {
         document.removeEventListener(activity, throttledUpdate, true);
       });
       if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current);
+      if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
       if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
     };
   }, [updateActivity]);
