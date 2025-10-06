@@ -168,6 +168,59 @@ export const InvoiceEditDialog = ({
     }
   };
 
+  const handleItemValueChange = (itemIndex: number, field: keyof InvoiceItem, value: any) => {
+    if (!editedData) return;
+
+    const item = editedData.itens[itemIndex];
+    const newItem = { ...item, [field]: value };
+
+    // Recalcular valores dependentes
+    if (field === 'quantidade' || field === 'preco_unitario') {
+      newItem.preco_total = newItem.quantidade * newItem.preco_unitario;
+      
+      // Recalcular desconto percentual se há desconto absoluto
+      if (newItem.desconto && newItem.desconto > 0 && newItem.preco_total > 0) {
+        newItem.desconto_percentual = (newItem.desconto / newItem.preco_total) * 100;
+      }
+    }
+
+    if (field === 'desconto') {
+      // Atualizar desconto percentual baseado no desconto absoluto
+      if (newItem.preco_total > 0 && value > 0) {
+        newItem.desconto_percentual = (value / newItem.preco_total) * 100;
+      } else {
+        newItem.desconto_percentual = 0;
+      }
+    }
+
+    if (field === 'desconto_percentual') {
+      // Atualizar desconto absoluto baseado no percentual
+      if (value > 0) {
+        newItem.desconto = (value / 100) * newItem.preco_total;
+      } else {
+        newItem.desconto = 0;
+      }
+    }
+
+    // Calcular preço com desconto
+    if (newItem.desconto && newItem.desconto > 0) {
+      newItem.preco_com_desconto = newItem.preco_total - newItem.desconto;
+    } else {
+      newItem.preco_com_desconto = undefined;
+    }
+
+    // Recalcular conversão se material já está vinculado
+    if (newItem.material_id && newItem.conversion_factor) {
+      const precoTotalFinal = newItem.preco_com_desconto || newItem.preco_total;
+      newItem.converted_quantity = newItem.quantidade * newItem.conversion_factor;
+      newItem.converted_unit_price = precoTotalFinal / newItem.converted_quantity;
+    }
+
+    const newItems = [...editedData.itens];
+    newItems[itemIndex] = newItem;
+    setEditedData({ ...editedData, itens: newItems });
+  };
+
   const handleConversionFactorAdjust = (itemIndex: number, newFactor: number) => {
     if (!editedData) return;
 
@@ -662,6 +715,7 @@ export const InvoiceEditDialog = ({
                   onMaterialSelect={handleMaterialSelect}
                   onCreateNew={handleCreateNew}
                   onConversionFactorAdjust={handleConversionFactorAdjust}
+                  onItemValueChange={handleItemValueChange}
                 />
               ))}
             </div>

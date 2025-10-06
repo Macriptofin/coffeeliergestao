@@ -48,6 +48,7 @@ interface InvoiceItemMatcherProps {
   onMaterialSelect: (index: number, materialId: string) => void;
   onCreateNew: (index: number) => void;
   onConversionFactorAdjust: (index: number, newFactor: number) => void;
+  onItemValueChange: (index: number, field: keyof InvoiceItem, value: any) => void;
 }
 
 export const InvoiceItemMatcher = ({
@@ -55,7 +56,8 @@ export const InvoiceItemMatcher = ({
   index,
   onMaterialSelect,
   onCreateNew,
-  onConversionFactorAdjust
+  onConversionFactorAdjust,
+  onItemValueChange
 }: InvoiceItemMatcherProps) => {
   const [suggestions, setSuggestions] = useState<MaterialSuggestion[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -200,31 +202,81 @@ export const InvoiceItemMatcher = ({
       <CardContent className="pt-6">
         <div className="grid grid-cols-12 gap-4">
           {/* Dados da Nota */}
-          <div className="col-span-4 space-y-2">
+          <div className="col-span-4 space-y-3">
             <Label className="text-xs text-muted-foreground">
               Item da Nota Fiscal
             </Label>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <p className="font-medium">{item.nome}</p>
               
-              <div className="flex gap-2 text-sm text-muted-foreground items-center flex-wrap">
-                <span>{item.quantidade} {item.unidade}</span>
-                <span>×</span>
-                <span>R$ {item.preco_unitario.toFixed(2)}</span>
-                <span>=</span>
-                <span className={item.desconto ? "line-through" : "font-medium"}>R$ {item.preco_total.toFixed(2)}</span>
-                {item.desconto && (
-                  <>
-                    <span className="text-destructive">
-                      - R$ {item.desconto.toFixed(2)}
-                      {item.desconto_percentual && ` (${item.desconto_percentual.toFixed(2)}%)`}
-                    </span>
-                    <span className="font-medium text-green-600">
-                      = R$ {(item.preco_com_desconto || item.preco_total).toFixed(2)}
-                    </span>
-                  </>
-                )}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Quantidade</Label>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    value={item.quantidade}
+                    onChange={(e) => onItemValueChange(index, 'quantidade', parseFloat(e.target.value) || 0)}
+                    className="h-8"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Unidade</Label>
+                  <Input
+                    value={item.unidade}
+                    onChange={(e) => onItemValueChange(index, 'unidade', e.target.value)}
+                    className="h-8"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Preço Unit.</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={item.preco_unitario}
+                    onChange={(e) => onItemValueChange(index, 'preco_unitario', parseFloat(e.target.value) || 0)}
+                    className="h-8"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Total</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={item.preco_total}
+                    className="h-8 bg-muted"
+                    readOnly
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Desconto R$</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={item.desconto || 0}
+                    onChange={(e) => onItemValueChange(index, 'desconto', parseFloat(e.target.value) || 0)}
+                    className="h-8"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Desconto %</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={item.desconto_percentual || 0}
+                    onChange={(e) => onItemValueChange(index, 'desconto_percentual', parseFloat(e.target.value) || 0)}
+                    className="h-8"
+                  />
+                </div>
               </div>
+              
+              {item.desconto && item.desconto > 0 && (
+                <div className="p-2 bg-green-50 dark:bg-green-950/20 rounded border border-green-200 dark:border-green-900">
+                  <div className="text-xs text-green-700 dark:text-green-400 font-medium">
+                    Preço com desconto: R$ {(item.preco_com_desconto || item.preco_total).toFixed(2)}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           
