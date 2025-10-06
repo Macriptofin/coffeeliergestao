@@ -262,43 +262,14 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
   }
 
   return (
-    <div className="flex gap-2">
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            <Eye className="h-4 w-4 mr-1" />
-            Preview
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0">
-          <div className="p-4">
-            <div className="flex justify-between items-center mb-4 no-print">
-              <h3 className="text-lg font-semibold">Preview de Impressão</h3>
-              <div className="flex gap-2">
-                <Button onClick={handlePrint} size="sm">
-                  <Printer className="h-4 w-4 mr-1" />
-                  Imprimir
-                </Button>
-                <Button onClick={handleGeneratePDF} size="sm" variant="secondary">
-                  <FileDown className="h-4 w-4 mr-1" />
-                  PDF
-                </Button>
-              </div>
-            </div>
-            <PrintableTechnicalSheet ref={printRef} sheet={sheetData} />
-          </div>
-        </DialogContent>
-      </Dialog>
-      
+    <>
+      <div style={{ display: 'none' }}>
+        <PrintableTechnicalSheet ref={printRef} sheet={sheetData} />
+      </div>
       <Button onClick={handlePrint} size="sm" variant="secondary">
         <Printer className="h-4 w-4 mr-1" />
         Imprimir
       </Button>
-      
-      <Button onClick={handleGeneratePDF} size="sm" className="bg-red-600 hover:bg-red-700 text-white">
-        <FileDown className="h-4 w-4 mr-1" />
-        PDF
-      </Button>
-    </div>
+    </>
   );
 };
