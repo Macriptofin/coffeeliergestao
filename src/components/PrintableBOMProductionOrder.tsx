@@ -52,7 +52,7 @@ export const PrintableBOMProductionOrder = forwardRef<HTMLDivElement, PrintableB
         </div>
 
         {/* Resumo Financeiro */}
-        <div className="grid grid-cols-1 gap-4 mb-5 p-3 bg-gray-100 rounded text-sm page-break-inside-avoid">
+        <div className="grid grid-cols-1 gap-4 mb-5 p-3 bg-gray-100 rounded text-sm" style={{ pageBreakInside: 'avoid' }}>
           <div className="text-center">
             <h3 className="font-bold text-gray-700 mb-1">CUSTO TOTAL</h3>
             <p className="text-lg font-bold text-red-600">R$ {totalCost.toFixed(2)}</p>
@@ -60,7 +60,7 @@ export const PrintableBOMProductionOrder = forwardRef<HTMLDivElement, PrintableB
         </div>
 
         {/* Fichas Técnicas a Produzir */}
-        <div className="mb-5 page-break-inside-avoid">
+        <div className="mb-5" style={{ pageBreakInside: 'avoid' }}>
           <h2 className="text-lg font-bold text-gray-800 mb-2 border-b border-gray-400 pb-1">
             FICHAS TÉCNICAS A PRODUZIR
           </h2>
@@ -104,7 +104,7 @@ export const PrintableBOMProductionOrder = forwardRef<HTMLDivElement, PrintableB
         </div>
 
         {/* Lista de Compras Consolidada */}
-        <div className="mb-5 page-break-inside-avoid">
+        <div className="mb-5" style={{ pageBreakInside: 'avoid' }}>
           <h2 className="text-lg font-bold text-gray-800 mb-2 border-b border-gray-400 pb-1">
             LISTA DE COMPRAS CONSOLIDADA
           </h2>
@@ -148,7 +148,7 @@ export const PrintableBOMProductionOrder = forwardRef<HTMLDivElement, PrintableB
         </div>
 
         {/* Cronograma de Produção */}
-        <div className="mb-4 page-break-inside-avoid">
+        <div className="mb-4" style={{ pageBreakInside: 'avoid' }}>
           <h2 className="text-lg font-bold text-gray-800 mb-2 border-b border-gray-400 pb-1">
             CRONOGRAMA DE PRODUÇÃO
           </h2>
@@ -209,7 +209,7 @@ export const PrintableBOMProductionOrder = forwardRef<HTMLDivElement, PrintableB
         {technicalSheets.length > 0 && (
           <div className="space-y-8">
             {technicalSheets.map((sheet, index) => (
-              <div key={sheet.id} style={{ pageBreakBefore: index > 0 ? 'always' : 'auto' }} className="print-recipe">
+              <div key={sheet.id} style={{ pageBreakBefore: 'always', pageBreakInside: 'avoid' }} className="print-recipe">
                 {index > 0 && <div className="hidden print:block border-t-4 border-gray-300 my-6"></div>}
                 <div className="bg-white text-black p-4 max-w-full mx-auto">
                   {/* Header */}

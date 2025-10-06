@@ -153,6 +153,35 @@ export const BOMProductionOrdersList = () => {
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Ordem_Producao_BOM_${orderToPrint?.order_name.replace(/\s+/g, '_') || 'Sem_Nome'}`,
+    pageStyle: `
+      @page {
+        size: A4;
+        margin: 1cm;
+      }
+      @media print {
+        body {
+          font-family: 'Times New Roman', serif;
+          color: black !important;
+          background: white !important;
+        }
+        .print-recipe {
+          page-break-inside: avoid;
+        }
+        .page-break-before {
+          page-break-before: always;
+        }
+        .page-break-inside-avoid {
+          page-break-inside: avoid;
+        }
+        table {
+          page-break-inside: auto;
+        }
+        tr {
+          page-break-inside: avoid;
+          page-break-after: auto;
+        }
+      }
+    `,
   });
 
   const prepareForPrint = (order: ProductionOrder) => {
