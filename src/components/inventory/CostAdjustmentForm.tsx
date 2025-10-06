@@ -16,7 +16,7 @@ import { MaterialSelect } from "@/components/MaterialSelect";
 
 const costAdjustmentSchema = z.object({
   materialId: z.string().min(1, "Selecione um material"),
-  newUnitCost: z.number().min(0.01, "Custo deve ser maior que zero"),
+  newUnitCost: z.number().min(0.0001, "Custo deve ser maior que zero"),
   adjustmentReason: z.string().min(1, "Motivo é obrigatório"),
   referenceDocument: z.string().optional(),
   notes: z.string().optional(),
@@ -221,8 +221,9 @@ export const CostAdjustmentForm = () => {
                         <FormControl>
                           <Input
                             type="number"
-                            step="0.01"
-                            placeholder="0.00"
+                            step="0.0001"
+                            min="0.0001"
+                            placeholder="0.0000"
                             {...field}
                             onChange={(e) => {
                               const value = parseFloat(e.target.value) || 0;
