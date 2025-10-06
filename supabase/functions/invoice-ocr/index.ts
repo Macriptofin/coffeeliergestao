@@ -82,8 +82,12 @@ Extraia TODOS os itens da nota fiscal e retorne um JSON válido com a seguinte e
   ]
 }
 
-IMPORTANTE:
+REGRAS CRÍTICAS:
 - Extraia TODOS os itens, não omita nenhum
+- CADA LINHA DA NOTA FISCAL deve ser um item separado no array
+- NUNCA agrupe ou consolide itens com o mesmo nome
+- Se o mesmo produto aparece em 3 linhas diferentes, crie 3 itens separados no JSON
+- Mantenha a ordem das linhas conforme aparecem na nota fiscal
 - Use números decimais com ponto (não vírgula)
 - Se a unidade não estiver clara, use "un"
 - Se algum valor não estiver legível, use 0
