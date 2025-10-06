@@ -7,11 +7,12 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Package, Wrench, Plus, Search, Edit, Eye, Trash2 } from 'lucide-react';
+import { Package, Wrench, Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { RecipeBOMForm } from '@/components/bom/RecipeBOMForm';
 import { CompositeBOMForm } from '@/components/bom/CompositeBOMForm';
 import { ProductionExecutor } from '@/components/bom/ProductionExecutor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { TechnicalSheetActions } from '@/components/TechnicalSheetActions';
 
 interface BOMMaterial {
   id: string;
@@ -26,6 +27,7 @@ interface BOMSummary {
   material: BOMMaterial;
   has_bom: boolean;
   items_count: number;
+  bom_id?: string;
 }
 
 const BOMManagement = () => {
@@ -82,7 +84,8 @@ const BOMManagement = () => {
           usage_unit: material.usage_unit
         },
         has_bom: material.recipes_bom && material.recipes_bom.length > 0,
-        items_count: material.recipes_bom?.[0]?.recipe_bom_items?.length || 0
+        items_count: material.recipes_bom?.[0]?.recipe_bom_items?.length || 0,
+        bom_id: material.recipes_bom?.[0]?.id
       }));
 
       setFinishedProducts(summary);
@@ -117,7 +120,8 @@ const BOMManagement = () => {
           usage_unit: material.usage_unit
         },
         has_bom: material.composites_bom && material.composites_bom.length > 0,
-        items_count: material.composites_bom?.[0]?.composite_bom_items?.length || 0
+        items_count: material.composites_bom?.[0]?.composite_bom_items?.length || 0,
+        bom_id: material.composites_bom?.[0]?.id
       }));
 
       setCompositeProducts(summary);
@@ -283,10 +287,12 @@ const BOMManagement = () => {
             </Button>
           )}
 
-          {item.has_bom && (
-            <Button size="sm" variant="ghost" aria-label="Visualizar">
-              <Eye className="h-3 w-3" />
-            </Button>
+          {item.has_bom && item.bom_id && (
+            <TechnicalSheetActions 
+              sheetId={item.bom_id}
+              sheetName={item.material.name}
+              productType={item.material.material_type as 'finished_product' | 'intermediate_product' | 'composite_product'}
+            />
           )}
         </div>
       </CardContent>
