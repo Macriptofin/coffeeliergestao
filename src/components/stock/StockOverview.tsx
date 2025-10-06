@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Edit, Plus, Package } from "lucide-react";
+import { Edit, Plus, Package, Search } from "lucide-react";
 import type { StockItem } from "@/pages/Stock";
 
 interface StockOverviewProps {
@@ -18,6 +18,7 @@ interface StockOverviewProps {
 export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
   const [editingStock, setEditingStock] = useState<StockItem | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [formData, setFormData] = useState({
     minimumQuantity: 0,
     adjustmentQuantity: 0,
@@ -94,20 +95,43 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
     return { label: 'Normal', variant: 'default' as const };
   };
 
+  // Filtrar itens pela busca
+  const filteredItems = stockItems.filter(item =>
+    item.ingredient.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Estoque Atual
-          </CardTitle>
-          <CardDescription>
-            Controle de quantidade, preço médio e níveis mínimos de estoque
-          </CardDescription>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Estoque Atual
+              </CardTitle>
+              <CardDescription>
+                Controle de quantidade, preço médio e níveis mínimos de estoque
+              </CardDescription>
+            </div>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar material..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </CardHeader>
         <CardContent>
-          {stockItems.length === 0 ? (
+          {filteredItems.length === 0 && searchTerm ? (
+            <div className="text-center py-8">
+              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">Nenhum material encontrado com "{searchTerm}"</p>
+            </div>
+          ) : stockItems.length === 0 ? (
             <div className="text-center py-8">
               <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">Nenhum item em estoque</p>
@@ -117,7 +141,7 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
             </div>
           ) : (
             <div className="space-y-3">
-              {stockItems.map(item => {
+              {filteredItems.map(item => {
                 const status = getStockStatus(item);
                 return (
                   <div key={item.id} className="flex items-center justify-between p-4 bg-accent rounded-lg">

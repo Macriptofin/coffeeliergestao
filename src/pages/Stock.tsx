@@ -37,6 +37,7 @@ export interface PurchaseInvoice {
 const Stock = () => {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterType, setFilterType] = useState<'all' | 'low' | 'zero'>('all');
 
   useEffect(() => {
     loadData();
@@ -87,9 +88,23 @@ const Stock = () => {
 
   // Cálculos para resumo
   const totalStockValue = stockItems.reduce((sum, item) => sum + item.totalValue, 0);
-  const lowStockItems = stockItems.filter(item => item.currentQuantity <= item.minimumQuantity);
+  const lowStockItems = stockItems.filter(item => item.currentQuantity > 0 && item.currentQuantity <= item.minimumQuantity);
   const outOfStockItems = stockItems.filter(item => item.currentQuantity === 0);
   const totalItems = stockItems.length;
+
+  // Aplicar filtro
+  const getFilteredItems = () => {
+    switch (filterType) {
+      case 'low':
+        return lowStockItems;
+      case 'zero':
+        return outOfStockItems;
+      default:
+        return stockItems;
+    }
+  };
+
+  const filteredStockItems = getFilteredItems();
 
   if (loading) {
     return (
@@ -110,7 +125,10 @@ const Stock = () => {
 
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-        <Card className="shadow-soft">
+        <Card 
+          className={`shadow-soft cursor-pointer transition-all hover:shadow-md ${filterType === 'all' ? 'ring-2 ring-primary' : ''}`}
+          onClick={() => setFilterType('all')}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <div className="p-2 bg-primary/10 rounded-lg">
@@ -129,7 +147,10 @@ const Stock = () => {
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft">
+        <Card 
+          className={`shadow-soft cursor-pointer transition-all hover:shadow-md ${filterType === 'low' ? 'ring-2 ring-orange-500' : ''}`}
+          onClick={() => setFilterType('low')}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <div className="p-2 bg-orange-100 rounded-lg">
@@ -148,7 +169,10 @@ const Stock = () => {
           </CardContent>
         </Card>
 
-        <Card className="shadow-soft">
+        <Card 
+          className={`shadow-soft cursor-pointer transition-all hover:shadow-md ${filterType === 'zero' ? 'ring-2 ring-red-500' : ''}`}
+          onClick={() => setFilterType('zero')}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <div className="p-2 bg-red-100 rounded-lg">
@@ -187,39 +211,26 @@ const Stock = () => {
         </Card>
       </div>
 
-      {/* Alertas de Estoque Baixo */}
-      {lowStockItems.length > 0 && (
-        <Card className="mb-8 border-orange-200 bg-orange-50">
-          <CardHeader>
-            <CardTitle className="text-orange-800 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              Alerta: Itens com Estoque Baixo
-            </CardTitle>
-            <CardDescription className="text-orange-700">
-              Os seguintes itens estão abaixo do nível mínimo e precisam de reposição
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3">
-              {lowStockItems.slice(0, 5).map(item => (
-                <div key={item.id} className="flex items-center justify-between p-3 bg-white rounded-lg">
-                  <div>
-                    <p className="font-medium text-orange-900">{item.ingredient.name}</p>
-                    <p className="text-sm text-orange-600">
-                      Atual: {item.currentQuantity} {item.ingredient.usageUnit} | 
-                      Mínimo: {item.minimumQuantity} {item.ingredient.usageUnit}
-                    </p>
-                  </div>
-                  <Badge variant="destructive">
-                    Baixo
-                  </Badge>
-                </div>
-              ))}
-              {lowStockItems.length > 5 && (
-                <p className="text-sm text-orange-600 text-center">
-                  +{lowStockItems.length - 5} outros itens precisam de reposição
-                </p>
-              )}
+      {/* Indicador de Filtro Ativo */}
+      {filterType !== 'all' && (
+        <Card className="mb-8 border-primary bg-primary/5">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-sm">
+                  Filtro ativo
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  {filterType === 'low' ? `Exibindo ${lowStockItems.length} itens com estoque baixo` : 
+                   filterType === 'zero' ? `Exibindo ${outOfStockItems.length} itens sem estoque` : ''}
+                </span>
+              </div>
+              <button
+                onClick={() => setFilterType('all')}
+                className="text-sm text-primary hover:underline"
+              >
+                Limpar filtro
+              </button>
             </div>
           </CardContent>
         </Card>
@@ -228,7 +239,7 @@ const Stock = () => {
       {/* Tabs do Sistema */}
       <div className="w-full">
         <StockOverview 
-          stockItems={stockItems} 
+          stockItems={filteredStockItems} 
           onRefresh={loadStockItems}
         />
       </div>
