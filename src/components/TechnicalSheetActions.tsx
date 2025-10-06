@@ -64,12 +64,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             composite_bom_items(
               id,
               quantity,
-              materials!composite_bom_items_component_material_id_fkey(
-                id,
-                name,
-                usage_unit,
-                average_price
-              )
+              component_material_id
             )
           `)
           .eq('id', sheetId)
@@ -78,6 +73,17 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
         if (error) throw error;
 
         if (data) {
+          const matIds = Array.from(new Set((data.composite_bom_items || []).map((i: any) => i.component_material_id).filter(Boolean)));
+          let materialsMap: Record<string, any> = {};
+          if (matIds.length) {
+            const { data: mats, error: matsErr } = await supabase
+              .from('materials')
+              .select('id,name,usage_unit,average_price')
+              .in('id', matIds);
+            if (matsErr) throw matsErr;
+            materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
+          }
+
           setSheetData({
             id: data.id,
             name: data.materials?.name || 'Sem nome',
@@ -88,7 +94,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             items: (data.composite_bom_items || []).map((item: any) => ({
               id: item.id,
               quantity: item.quantity,
-              material: item.materials
+              material: materialsMap[item.component_material_id] || { id: item.component_material_id, name: 'Material', usage_unit: 'un', average_price: 0 }
             }))
           });
         }
@@ -111,12 +117,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             recipe_bom_items(
               id,
               quantity,
-              materials!recipe_bom_items_material_id_fkey(
-                id,
-                name,
-                usage_unit,
-                average_price
-              )
+              material_id
             )
           `)
           .eq('id', sheetId)
@@ -125,6 +126,17 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
         if (error) throw error;
 
         if (data) {
+          const matIds = Array.from(new Set((data.recipe_bom_items || []).map((i: any) => i.material_id).filter(Boolean)));
+          let materialsMap: Record<string, any> = {};
+          if (matIds.length) {
+            const { data: mats, error: matsErr } = await supabase
+              .from('materials')
+              .select('id,name,usage_unit,average_price')
+              .in('id', matIds);
+            if (matsErr) throw matsErr;
+            materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
+          }
+
           setSheetData({
             id: data.id,
             name: data.materials?.name || 'Sem nome',
@@ -137,7 +149,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             items: (data.recipe_bom_items || []).map((item: any) => ({
               id: item.id,
               quantity: item.quantity,
-              material: item.materials
+              material: materialsMap[item.material_id] || { id: item.material_id, name: 'Material', usage_unit: 'un', average_price: 0 }
             }))
           });
         }
