@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 
 interface InvoiceItem {
+  linha: number; // posição da linha na nota (1 = primeira linha do corpo)
   nome: string;
   quantidade: number;
   unidade: string;
@@ -16,6 +17,7 @@ interface InvoiceItem {
   desconto?: number;
   desconto_percentual?: number;
   preco_com_desconto?: number;
+  descricao_original?: string; // trecho literal da linha na nota (quando possível)
   material_sugerido_id?: string;
   material_sugerido_nome?: string;
   confianca_match?: number;
@@ -70,6 +72,7 @@ Extraia TODOS os itens da nota fiscal e retorne um JSON válido com a seguinte e
   "numero_nota": "número da nota fiscal",
   "itens": [
     {
+      "linha": número inteiro sequencial (1 para a primeira linha de item),
       "nome": "nome do produto/material",
       "quantidade": número,
       "unidade": "unidade de medida (kg, un, cx, etc)",
@@ -77,7 +80,8 @@ Extraia TODOS os itens da nota fiscal e retorne um JSON válido com a seguinte e
       "preco_total": número,
       "desconto": número ou null (valor absoluto do desconto, se houver),
       "desconto_percentual": número ou null (percentual do desconto, se houver),
-      "preco_com_desconto": número ou null (preço total já com desconto aplicado)
+      "preco_com_desconto": número ou null (preço total já com desconto aplicado),
+      "descricao_original": "texto literal da linha como aparece na nota (quando possível)"
     }
   ]
 }
@@ -86,14 +90,18 @@ REGRAS CRÍTICAS:
 - Extraia TODOS os itens, não omita nenhum
 - CADA LINHA DA NOTA FISCAL deve ser um item separado no array
 - NUNCA agrupe ou consolide itens com o mesmo nome
-- Se o mesmo produto aparece em 3 linhas diferentes, crie 3 itens separados no JSON
-- Mantenha a ordem das linhas conforme aparecem na nota fiscal
+- É ESTRITAMENTE PROIBIDO somar quantidades de linhas diferentes do mesmo produto
+- Se o mesmo produto aparece em 3 linhas diferentes, crie 3 itens separados no JSON (mantendo as respectivas quantidades)
+- Mantenha a ORDEM EXATA das linhas conforme aparecem na nota (de cima para baixo)
+- Preencha o campo "linha" com um inteiro sequencial considerando apenas as linhas de item (ignore cabeçalhos, subtotais, totais)
+- Ignore linhas como "Subtotal", "Total", "Tributos" como itens; apenas associe descontos de linhas de desconto ao item imediatamente anterior
 - Use números decimais com ponto (não vírgula)
 - Se a unidade não estiver clara, use "un"
 - Se algum valor não estiver legível, use 0
 - DETECTE DESCONTOS: Se houver linhas de desconto logo após um item, capture o desconto e associe ao item
 - Se desconto estiver em percentual (ex: -10,02%), capture também o percentual
 - O preco_com_desconto deve ser preco_total - desconto
+- Não reescreva nomes: quando possível, copie a descrição literal em "descricao_original"
 - Retorne APENAS o JSON, sem texto adicional`
           },
           {
