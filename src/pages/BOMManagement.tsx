@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -269,20 +270,20 @@ const BOMManagement = () => {
       setRecalculating(false);
     }
   };
-  const renderMaterialCard = (item: BOMSummary, type: 'finished' | 'composite') => (
-    <Card key={item.material.id} className="shadow-soft">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            {type === 'finished' && (
-              <Checkbox
-                checked={isSelectedFinished(item.material.id)}
-                onCheckedChange={() => toggleSelectFinished(item.material.id)}
-                aria-label="Selecionar ficha técnica"
-              />
-            )}
-            <CardTitle className="text-lg">{item.material.name}</CardTitle>
-          </div>
+  const renderMaterialRow = (item: BOMSummary, type: 'finished' | 'composite') => (
+    <TableRow key={item.material.id}>
+      {type === 'finished' && (
+        <TableCell className="w-12">
+          <Checkbox
+            checked={isSelectedFinished(item.material.id)}
+            onCheckedChange={() => toggleSelectFinished(item.material.id)}
+            aria-label="Selecionar ficha técnica"
+          />
+        </TableCell>
+      )}
+      <TableCell className="font-medium">
+        <div className="flex flex-col gap-1">
+          <span>{item.material.name}</span>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs">
               {item.material.code}
@@ -294,63 +295,54 @@ const BOMManagement = () => {
             )}
           </div>
         </div>
-        <CardDescription>{item.material.category}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3 mb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {item.has_bom ? (
-                <>
-                  <Badge variant="default" className="bg-green-100 text-green-800">
-                    BOM Configurada
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    {item.items_count} {type === 'finished' ? 'ingredientes' : 'componentes'}
-                  </span>
-                </>
-              ) : (
-                <Badge variant="secondary">
-                  BOM Não Configurada
-                </Badge>
-              )}
-            </div>
+      </TableCell>
+      <TableCell className="text-center">
+        {item.has_bom ? (
+          <Badge variant="default" className="bg-green-100 text-green-800">
+            Configurada
+          </Badge>
+        ) : (
+          <Badge variant="secondary">
+            Não Configurada
+          </Badge>
+        )}
+      </TableCell>
+      <TableCell className="text-center">
+        {item.has_bom ? (
+          <span className="text-sm">
+            {item.items_count} {type === 'finished' ? 'ingredientes' : 'componentes'}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">-</span>
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        {item.has_bom && item.total_cost !== undefined ? (
+          <div className="flex flex-col items-end gap-1">
+            <span className="font-bold text-primary">
+              R$ {item.total_cost.toFixed(2)}
+            </span>
+            {item.cost_calculated_at && (
+              <span className="text-xs text-muted-foreground">
+                {new Date(item.cost_calculated_at).toLocaleString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+            )}
           </div>
-
-          {item.has_bom && item.total_cost !== undefined && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">Custo Total:</span>
-                </div>
-                <span className="text-lg font-bold text-primary">
-                  R$ {item.total_cost.toFixed(2)}
-                </span>
-              </div>
-              {item.cost_calculated_at && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground justify-end">
-                  <Clock className="h-3 w-3" />
-                  <span>
-                    Atualizado em {new Date(item.cost_calculated_at).toLocaleString('pt-BR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-2">
+        ) : (
+          <span className="text-sm text-muted-foreground">-</span>
+        )}
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-2 justify-end">
           <Button
             size="sm"
             variant={item.has_bom ? "outline" : "default"}
             onClick={() => handleEditBOM(item.material, type)}
-            className="flex-1"
           >
             {item.has_bom ? (
               <>
@@ -366,9 +358,13 @@ const BOMManagement = () => {
           </Button>
           
           {item.has_bom && type === 'finished' && (
-            <Button size="sm" variant="destructive" onClick={() => deleteSingleBOM(item.material.id)} disabled={deleting} className="flex-1">
-              <Trash2 className="h-3 w-3 mr-1" />
-              Eliminar Ficha
+            <Button 
+              size="sm" 
+              variant="ghost"
+              onClick={() => deleteSingleBOM(item.material.id)} 
+              disabled={deleting}
+            >
+              <Trash2 className="h-3 w-3 text-destructive" />
             </Button>
           )}
 
@@ -380,8 +376,8 @@ const BOMManagement = () => {
             />
           )}
         </div>
-      </CardContent>
-    </Card>
+      </TableCell>
+    </TableRow>
   );
 
   if (loading) {
@@ -528,8 +524,22 @@ const BOMManagement = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filterMaterials(finishedProducts).map(item => renderMaterialCard(item, 'finished'))}
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>Produto</TableHead>
+                    <TableHead className="text-center">Status BOM</TableHead>
+                    <TableHead className="text-center">Itens</TableHead>
+                    <TableHead className="text-right">Custo Total</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filterMaterials(finishedProducts).map(item => renderMaterialRow(item, 'finished'))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </TabsContent>
@@ -561,8 +571,21 @@ const BOMManagement = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filterMaterials(compositeProducts).map(item => renderMaterialCard(item, 'composite'))}
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead className="text-center">Status BOM</TableHead>
+                    <TableHead className="text-center">Componentes</TableHead>
+                    <TableHead className="text-right">Custo Total</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filterMaterials(compositeProducts).map(item => renderMaterialRow(item, 'composite'))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </TabsContent>
