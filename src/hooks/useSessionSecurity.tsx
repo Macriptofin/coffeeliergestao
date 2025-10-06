@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-const WARNING_TIME = 5 * 60 * 1000; // 5 minutes before timeout
+const SESSION_TIMEOUT = 120 * 60 * 1000; // 2 hours
+const WARNING_TIME = 10 * 60 * 1000; // 10 minutes before timeout
 
 interface SessionState {
   lastActivity: number;
@@ -46,7 +46,7 @@ export function useSessionSecurity() {
   }, []);
 
   const showSessionWarning = () => {
-    toast.warning('Sua sessão expirará em 5 minutos', {
+    toast.warning('Sua sessão expirará em 10 minutos', {
       duration: 10000,
       action: {
         label: 'Manter Ativo',
