@@ -44,23 +44,15 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
   const [loading, setLoading] = useState(false);
 
   const loadSheetData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      
       if (productType === 'composite_product') {
-        // Load composite BOM
+        // Query without relational joins to avoid alias/FK issues
         const { data, error } = await supabase
           .from('composites_bom')
           .select(`
             id,
-            materials!composites_bom_composite_material_id_fkey(
-              id,
-              name,
-              code,
-              category,
-              subcategory,
-              material_type
-            ),
+            composite_material_id,
             composite_bom_items(
               id,
               quantity,
@@ -71,49 +63,49 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
           .maybeSingle();
 
         if (error) throw error;
-
-        if (data) {
-          const matIds = Array.from(new Set((data.composite_bom_items || []).map((i: any) => i.component_material_id).filter(Boolean)));
-          let materialsMap: Record<string, any> = {};
-          if (matIds.length) {
-            const { data: mats, error: matsErr } = await supabase
-              .from('materials')
-              .select('id,name,usage_unit,average_price')
-              .in('id', matIds);
-            if (matsErr) throw matsErr;
-            materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
-          }
-
-          setSheetData({
-            id: data.id,
-            name: data.materials?.name || 'Sem nome',
-            product_type: productType,
-            category: data.materials?.category || '',
-            subcategory: data.materials?.subcategory,
-            material_code: data.materials?.code,
-            items: (data.composite_bom_items || []).map((item: any) => ({
-              id: item.id,
-              quantity: item.quantity,
-              material: materialsMap[item.component_material_id] || { id: item.component_material_id, name: 'Material', usage_unit: 'un', average_price: 0 }
-            }))
-          });
+        if (!data) {
+          setSheetData(null);
+          toast.error('Ficha técnica não encontrada');
+          return;
         }
+
+        const itemIds: string[] = (data.composite_bom_items || []).map((i: any) => i.component_material_id).filter(Boolean);
+        const allMaterialIds = Array.from(new Set([data.composite_material_id, ...itemIds]));
+
+        let materialsMap: Record<string, any> = {};
+        if (allMaterialIds.length) {
+          const { data: mats, error: matsErr } = await supabase
+            .from('materials')
+            .select('id,name,code,category,subcategory,usage_unit,average_price')
+            .in('id', allMaterialIds);
+          if (matsErr) throw matsErr;
+          materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
+        }
+
+        const compositeMaterial = materialsMap[data.composite_material_id] || {};
+
+        setSheetData({
+          id: data.id,
+          name: compositeMaterial.name || 'Sem nome',
+          product_type: productType,
+          category: compositeMaterial.category || '',
+          subcategory: compositeMaterial.subcategory,
+          material_code: compositeMaterial.code,
+          items: (data.composite_bom_items || []).map((item: any) => ({
+            id: item.id,
+            quantity: item.quantity,
+            material: materialsMap[item.component_material_id] || { id: item.component_material_id, name: 'Material', usage_unit: 'un', average_price: 0 }
+          }))
+        });
       } else {
-        // Load recipe BOM
+        // Recipes (finished/intermediate) - no joins
         const { data, error } = await supabase
           .from('recipes_bom')
           .select(`
             id,
             yield_quantity,
             yield_unit,
-            materials!recipes_bom_finished_material_id_fkey(
-              id,
-              name,
-              code,
-              category,
-              subcategory,
-              material_type
-            ),
+            finished_material_id,
             recipe_bom_items(
               id,
               quantity,
@@ -124,39 +116,47 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
           .maybeSingle();
 
         if (error) throw error;
-
-        if (data) {
-          const matIds = Array.from(new Set((data.recipe_bom_items || []).map((i: any) => i.material_id).filter(Boolean)));
-          let materialsMap: Record<string, any> = {};
-          if (matIds.length) {
-            const { data: mats, error: matsErr } = await supabase
-              .from('materials')
-              .select('id,name,usage_unit,average_price')
-              .in('id', matIds);
-            if (matsErr) throw matsErr;
-            materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
-          }
-
-          setSheetData({
-            id: data.id,
-            name: data.materials?.name || 'Sem nome',
-            product_type: productType,
-            category: data.materials?.category || '',
-            subcategory: data.materials?.subcategory,
-            material_code: data.materials?.code,
-            yield_quantity: data.yield_quantity,
-            yield_unit: data.yield_unit,
-            items: (data.recipe_bom_items || []).map((item: any) => ({
-              id: item.id,
-              quantity: item.quantity,
-              material: materialsMap[item.material_id] || { id: item.material_id, name: 'Material', usage_unit: 'un', average_price: 0 }
-            }))
-          });
+        if (!data) {
+          setSheetData(null);
+          toast.error('Ficha técnica não encontrada');
+          return;
         }
+
+        const itemIds: string[] = (data.recipe_bom_items || []).map((i: any) => i.material_id).filter(Boolean);
+        const allMaterialIds = Array.from(new Set([data.finished_material_id, ...itemIds]));
+
+        let materialsMap: Record<string, any> = {};
+        if (allMaterialIds.length) {
+          const { data: mats, error: matsErr } = await supabase
+            .from('materials')
+            .select('id,name,code,category,subcategory,usage_unit,average_price')
+            .in('id', allMaterialIds);
+          if (matsErr) throw matsErr;
+          materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
+        }
+
+        const finishedMaterial = materialsMap[data.finished_material_id] || {};
+
+        setSheetData({
+          id: data.id,
+          name: finishedMaterial.name || 'Sem nome',
+          product_type: productType,
+          category: finishedMaterial.category || '',
+          subcategory: finishedMaterial.subcategory,
+          material_code: finishedMaterial.code,
+          yield_quantity: data.yield_quantity,
+          yield_unit: data.yield_unit,
+          items: (data.recipe_bom_items || []).map((item: any) => ({
+            id: item.id,
+            quantity: item.quantity,
+            material: materialsMap[item.material_id] || { id: item.material_id, name: 'Material', usage_unit: 'un', average_price: 0 }
+          }))
+        });
       }
     } catch (error) {
-      console.error('Erro ao carregar ficha técnica:', error);
+      console.error('Erro ao carregar ficha técnica (detalhes):', error);
       toast.error('Erro ao carregar dados da ficha técnica');
+      setSheetData(null);
     } finally {
       setLoading(false);
     }
