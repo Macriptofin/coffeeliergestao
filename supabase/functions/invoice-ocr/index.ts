@@ -13,6 +13,9 @@ interface InvoiceItem {
   unidade: string;
   preco_unitario: number;
   preco_total: number;
+  desconto?: number;
+  desconto_percentual?: number;
+  preco_com_desconto?: number;
   material_sugerido_id?: string;
   material_sugerido_nome?: string;
   confianca_match?: number;
@@ -71,7 +74,10 @@ Extraia TODOS os itens da nota fiscal e retorne um JSON válido com a seguinte e
       "quantidade": número,
       "unidade": "unidade de medida (kg, un, cx, etc)",
       "preco_unitario": número,
-      "preco_total": número
+      "preco_total": número,
+      "desconto": número ou null (valor absoluto do desconto, se houver),
+      "desconto_percentual": número ou null (percentual do desconto, se houver),
+      "preco_com_desconto": número ou null (preço total já com desconto aplicado)
     }
   ]
 }
@@ -81,6 +87,9 @@ IMPORTANTE:
 - Use números decimais com ponto (não vírgula)
 - Se a unidade não estiver clara, use "un"
 - Se algum valor não estiver legível, use 0
+- DETECTE DESCONTOS: Se houver linhas de desconto logo após um item, capture o desconto e associe ao item
+- Se desconto estiver em percentual (ex: -10,02%), capture também o percentual
+- O preco_com_desconto deve ser preco_total - desconto
 - Retorne APENAS o JSON, sem texto adicional`
           },
           {
@@ -139,22 +148,63 @@ IMPORTANTE:
       supabase.auth.setSession({ access_token: token, refresh_token: '' });
     }
 
-    // Suggest material matches for each item
+    // Buscar fornecedor sugerido baseado em histórico
+    console.log('Buscando sugestão de fornecedor...');
+    let supplierSuggestion = null;
+    
+    try {
+      const supplierTextNormalized = invoiceData.fornecedor.toLowerCase().trim();
+      
+      const { data: supplierHistory } = await supabase
+        .from('invoice_supplier_matches')
+        .select('supplier_id, match_count')
+        .ilike('invoice_supplier_text_normalized', `%${supplierTextNormalized}%`)
+        .order('match_count', { ascending: false })
+        .limit(1);
+      
+      if (supplierHistory && supplierHistory.length > 0) {
+        supplierSuggestion = supplierHistory[0].supplier_id;
+        console.log('Fornecedor sugerido baseado em histórico:', supplierSuggestion);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar histórico de fornecedor:', error);
+    }
+
+    // Suggest material matches for each item based on history
     console.log('Buscando sugestões de materiais...');
     
     for (const item of invoiceData.itens) {
       try {
-        const { data: materials, error } = await supabase
-          .from('materials')
-          .select('id, name, purchase_unit, usage_unit')
-          .ilike('name', `%${item.nome.split(' ')[0]}%`)
+        const itemNameNormalized = item.nome.toLowerCase().trim();
+        
+        // Buscar no histórico primeiro (com fornecedor se disponível)
+        const { data: materialHistory } = await supabase
+          .from('invoice_material_matches')
+          .select('material_id, match_count, materials(id, name, purchase_unit, usage_unit)')
+          .ilike('invoice_item_name_normalized', `%${itemNameNormalized}%`)
+          .order('match_count', { ascending: false })
           .limit(1);
 
-        if (!error && materials && materials.length > 0) {
-          const match = materials[0];
+        if (materialHistory && materialHistory.length > 0 && materialHistory[0].materials) {
+          const match = materialHistory[0].materials;
           item.material_sugerido_id = match.id;
           item.material_sugerido_nome = match.name;
-          item.confianca_match = 0.7; // Simple confidence score
+          item.confianca_match = 0.9; // Higher confidence from history
+          console.log(`Material sugerido do histórico para "${item.nome}":`, match.name);
+        } else {
+          // Fallback para busca simples se não houver histórico
+          const { data: materials, error } = await supabase
+            .from('materials')
+            .select('id, name, purchase_unit, usage_unit')
+            .ilike('name', `%${item.nome.split(' ')[0]}%`)
+            .limit(1);
+
+          if (!error && materials && materials.length > 0) {
+            const match = materials[0];
+            item.material_sugerido_id = match.id;
+            item.material_sugerido_nome = match.name;
+            item.confianca_match = 0.6; // Lower confidence without history
+          }
         }
       } catch (matchError) {
         console.error('Erro ao buscar material:', matchError);

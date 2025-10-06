@@ -27,6 +27,9 @@ interface InvoiceItem {
   unidade: string;
   preco_unitario: number;
   preco_total: number;
+  desconto?: number;
+  desconto_percentual?: number;
+  preco_com_desconto?: number;
   material_id?: string | null;
   material_nome?: string | null;
   material_codigo?: string | null;
@@ -209,7 +212,18 @@ export const InvoiceItemMatcher = ({
                 <span>×</span>
                 <span>R$ {item.preco_unitario.toFixed(2)}</span>
                 <span>=</span>
-                <span className="font-medium">R$ {item.preco_total.toFixed(2)}</span>
+                <span className={item.desconto ? "line-through" : "font-medium"}>R$ {item.preco_total.toFixed(2)}</span>
+                {item.desconto && (
+                  <>
+                    <span className="text-destructive">
+                      - R$ {item.desconto.toFixed(2)}
+                      {item.desconto_percentual && ` (${item.desconto_percentual.toFixed(2)}%)`}
+                    </span>
+                    <span className="font-medium text-green-600">
+                      = R$ {(item.preco_com_desconto || item.preco_total).toFixed(2)}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>

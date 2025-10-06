@@ -19,6 +19,9 @@ interface InvoiceItem {
   unidade: string;
   preco_unitario: number;
   preco_total: number;
+  desconto?: number;
+  desconto_percentual?: number;
+  preco_com_desconto?: number;
   material_id?: string | null;
   material_nome?: string | null;
   material_codigo?: string | null;
@@ -330,6 +333,21 @@ export const InvoiceEditDialog = ({
         }
 
         try {
+          // Salvar match no histórico para aprendizado
+          const itemNameNormalized = item.nome.toLowerCase().trim();
+          
+          // Upsert incrementa automaticamente o match_count via trigger
+          await supabase
+            .from('invoice_material_matches')
+            .upsert({
+              invoice_item_name: item.nome,
+              invoice_item_name_normalized: itemNameNormalized,
+              material_id: item.material_id,
+              supplier_id: supplierId
+            }, {
+              onConflict: 'invoice_item_name_normalized,material_id,supplier_id'
+            });
+          
           // Criar entrada de estoque para cada item
           const { error: stockError } = await supabase
             .from('stock_movements')
@@ -339,7 +357,7 @@ export const InvoiceEditDialog = ({
               quantity: item.converted_quantity || item.quantidade,
               reference_type: 'Compra',
               reference_id: invoiceRecord.id,
-              notes: `NF ${editedData.numero_nota || 'S/N'} - ${fornecedorNome} - ${item.nome}`
+              notes: `NF ${editedData.numero_nota || 'S/N'} - ${fornecedorNome} - ${item.nome}${item.desconto ? ` (Desconto: R$ ${item.desconto.toFixed(2)})` : ''}`
             });
 
           if (stockError) throw stockError;
@@ -351,8 +369,9 @@ export const InvoiceEditDialog = ({
             .eq('material_id', item.material_id)
             .maybeSingle();
 
+          const effectiveTotal = item.preco_com_desconto || item.preco_total;
           const newQuantity = (stockItem?.current_quantity || 0) + (item.converted_quantity || item.quantidade);
-          const newTotalValue = (stockItem?.total_value || 0) + item.preco_total;
+          const newTotalValue = (stockItem?.total_value || 0) + effectiveTotal;
           const newAverage = newTotalValue / newQuantity;
 
           if (stockItem) {
@@ -396,6 +415,21 @@ export const InvoiceEditDialog = ({
             duration: 2000
           });
         }
+      }
+
+      // Salvar histórico de fornecedor
+      if (supplierId && editedData.fornecedor) {
+        const supplierTextNormalized = editedData.fornecedor.toLowerCase().trim();
+        
+        await supabase
+          .from('invoice_supplier_matches')
+          .upsert({
+            invoice_supplier_text: editedData.fornecedor,
+            invoice_supplier_text_normalized: supplierTextNormalized,
+            supplier_id: supplierId
+          }, {
+            onConflict: 'invoice_supplier_text_normalized,supplier_id'
+          });
       }
 
       // Mostrar resultado final
