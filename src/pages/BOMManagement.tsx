@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Package, Wrench, Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Package, Wrench, Plus, Search, Edit, Trash2, DollarSign, RefreshCw, Clock } from 'lucide-react';
 import { RecipeBOMForm } from '@/components/bom/RecipeBOMForm';
 import { CompositeBOMForm } from '@/components/bom/CompositeBOMForm';
 import { ProductionExecutor } from '@/components/bom/ProductionExecutor';
@@ -28,6 +28,8 @@ interface BOMSummary {
   has_bom: boolean;
   items_count: number;
   bom_id?: string;
+  total_cost?: number;
+  cost_calculated_at?: string;
 }
 
 const BOMManagement = () => {
@@ -41,6 +43,8 @@ const BOMManagement = () => {
   const [activeTab, setActiveTab] = useState('finished');
   const [selectedFinished, setSelectedFinished] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+  const [lastRecalculatedAt, setLastRecalculatedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     loadData();
@@ -74,19 +78,44 @@ const BOMManagement = () => {
 
       if (error) throw error;
 
-      const summary: BOMSummary[] = data.map((material: any) => ({
-        material: {
-          id: material.id,
-          name: material.name,
-          code: material.code,
-          material_type: material.material_type,
-          category: material.category,
-          usage_unit: material.usage_unit
-        },
-        has_bom: material.recipes_bom && material.recipes_bom.length > 0,
-        items_count: material.recipes_bom?.[0]?.recipe_bom_items?.length || 0,
-        bom_id: material.recipes_bom?.[0]?.id
-      }));
+      const summary: BOMSummary[] = await Promise.all(
+        data.map(async (material: any) => {
+          let totalCost = 0;
+          const bomId = material.recipes_bom?.[0]?.id;
+
+          // Calcular custo usando a função SQL
+          if (bomId) {
+            try {
+              const { data: costData } = await supabase.rpc('calculate_bom_current_cost', {
+                p_bom_type: 'recipe',
+                p_bom_id: bomId
+              });
+              
+              if (costData && typeof costData === 'object' && 'total_cost' in costData) {
+                totalCost = parseFloat(String(costData.total_cost));
+              }
+            } catch (costError) {
+              console.error(`Erro ao calcular custo para ${material.name}:`, costError);
+            }
+          }
+
+          return {
+            material: {
+              id: material.id,
+              name: material.name,
+              code: material.code,
+              material_type: material.material_type,
+              category: material.category,
+              usage_unit: material.usage_unit
+            },
+            has_bom: material.recipes_bom && material.recipes_bom.length > 0,
+            items_count: material.recipes_bom?.[0]?.recipe_bom_items?.length || 0,
+            bom_id: bomId,
+            total_cost: totalCost > 0 ? totalCost : undefined,
+            cost_calculated_at: new Date().toISOString()
+          };
+        })
+      );
 
       setFinishedProducts(summary);
     } catch (error) {
@@ -110,19 +139,44 @@ const BOMManagement = () => {
 
       if (error) throw error;
 
-      const summary: BOMSummary[] = data.map((material: any) => ({
-        material: {
-          id: material.id,
-          name: material.name,
-          code: material.code,
-          material_type: material.material_type,
-          category: material.category,
-          usage_unit: material.usage_unit
-        },
-        has_bom: material.composites_bom && material.composites_bom.length > 0,
-        items_count: material.composites_bom?.[0]?.composite_bom_items?.length || 0,
-        bom_id: material.composites_bom?.[0]?.id
-      }));
+      const summary: BOMSummary[] = await Promise.all(
+        data.map(async (material: any) => {
+          let totalCost = 0;
+          const bomId = material.composites_bom?.[0]?.id;
+
+          // Calcular custo usando a função SQL
+          if (bomId) {
+            try {
+              const { data: costData } = await supabase.rpc('calculate_bom_current_cost', {
+                p_bom_type: 'composite',
+                p_bom_id: bomId
+              });
+              
+              if (costData && typeof costData === 'object' && 'total_cost' in costData) {
+                totalCost = parseFloat(String(costData.total_cost));
+              }
+            } catch (costError) {
+              console.error(`Erro ao calcular custo para ${material.name}:`, costError);
+            }
+          }
+
+          return {
+            material: {
+              id: material.id,
+              name: material.name,
+              code: material.code,
+              material_type: material.material_type,
+              category: material.category,
+              usage_unit: material.usage_unit
+            },
+            has_bom: material.composites_bom && material.composites_bom.length > 0,
+            items_count: material.composites_bom?.[0]?.composite_bom_items?.length || 0,
+            bom_id: bomId,
+            total_cost: totalCost > 0 ? totalCost : undefined,
+            cost_calculated_at: new Date().toISOString()
+          };
+        })
+      );
 
       setCompositeProducts(summary);
     } catch (error) {
@@ -213,6 +267,21 @@ const BOMManagement = () => {
   };
 
   const deleteSingleBOM = (materialId: string) => deleteBOMsForMaterials([materialId]);
+
+  const handleRecalculateAllCosts = async () => {
+    setRecalculating(true);
+    try {
+      toast.info('Recalculando custos...', { duration: 2000 });
+      await Promise.all([loadFinishedProducts(), loadCompositeProducts()]);
+      setLastRecalculatedAt(new Date());
+      toast.success('Custos recalculados com sucesso!');
+    } catch (error) {
+      console.error('Erro ao recalcular custos:', error);
+      toast.error('Erro ao recalcular custos');
+    } finally {
+      setRecalculating(false);
+    }
+  };
   const renderMaterialCard = (item: BOMSummary, type: 'finished' | 'composite') => (
     <Card key={item.material.id} className="shadow-soft">
       <CardHeader className="pb-3">
@@ -241,23 +310,37 @@ const BOMManagement = () => {
         <CardDescription>{item.material.category}</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            {item.has_bom ? (
-              <>
-                <Badge variant="default" className="bg-green-100 text-green-800">
-                  BOM Configurada
+        <div className="space-y-3 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {item.has_bom ? (
+                <>
+                  <Badge variant="default" className="bg-green-100 text-green-800">
+                    BOM Configurada
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {item.items_count} {type === 'finished' ? 'ingredientes' : 'componentes'}
+                  </span>
+                </>
+              ) : (
+                <Badge variant="secondary">
+                  BOM Não Configurada
                 </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {item.items_count} {type === 'finished' ? 'ingredientes' : 'componentes'}
-                </span>
-              </>
-            ) : (
-              <Badge variant="secondary">
-                BOM Não Configurada
-              </Badge>
-            )}
+              )}
+            </div>
           </div>
+
+          {item.has_bom && item.total_cost !== undefined && (
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Custo Total:</span>
+              </div>
+              <span className="text-lg font-bold text-primary">
+                R$ {item.total_cost.toFixed(2)}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2">
@@ -313,7 +396,22 @@ const BOMManagement = () => {
         <div>
           <h1 className="text-3xl font-bold mb-2">Gestão de BOM</h1>
           <p className="text-muted-foreground">Configure estruturas de produtos e execute produção/montagem</p>
+          {lastRecalculatedAt && (
+            <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              <span>Custos atualizados em {lastRecalculatedAt.toLocaleString('pt-BR')}</span>
+            </div>
+          )}
         </div>
+        <Button
+          onClick={handleRecalculateAllCosts}
+          disabled={recalculating}
+          variant="outline"
+          size="sm"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${recalculating ? 'animate-spin' : ''}`} />
+          {recalculating ? 'Recalculando...' : 'Recalcular Custos'}
+        </Button>
       </div>
 
       {/* Barra de Pesquisa */}
