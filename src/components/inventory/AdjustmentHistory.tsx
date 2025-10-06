@@ -140,14 +140,14 @@ export const AdjustmentHistory = () => {
   const filterInventoryData = inventoryAdjustments.filter(item => {
     const matchesSearch = item.material_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.adjustment_reason.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = !filterReason || item.adjustment_reason.toLowerCase().includes(filterReason.toLowerCase());
+    const matchesFilter = !filterReason || filterReason === "all" || item.adjustment_reason.toLowerCase().includes(filterReason.toLowerCase());
     return matchesSearch && matchesFilter;
   });
 
   const filterCostData = costAdjustments.filter(item => {
     const matchesSearch = item.material_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.adjustment_reason.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = !filterReason || item.adjustment_reason.toLowerCase().includes(filterReason.toLowerCase());
+    const matchesFilter = !filterReason || filterReason === "all" || item.adjustment_reason.toLowerCase().includes(filterReason.toLowerCase());
     return matchesSearch && matchesFilter;
   });
 
@@ -201,7 +201,7 @@ export const AdjustmentHistory = () => {
                   <SelectValue placeholder="Filtrar por motivo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os motivos</SelectItem>
+                  <SelectItem value="all">Todos os motivos</SelectItem>
                   <SelectItem value="inventário">Inventário</SelectItem>
                   <SelectItem value="correção">Correção</SelectItem>
                   <SelectItem value="ajuste">Ajuste</SelectItem>
@@ -209,7 +209,7 @@ export const AdjustmentHistory = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="outline" onClick={() => { setSearchTerm(""); setFilterReason(""); }}>
+            <Button variant="outline" onClick={() => { setSearchTerm(""); setFilterReason("all"); }}>
               <Filter className="h-4 w-4 mr-2" />
               Limpar
             </Button>
