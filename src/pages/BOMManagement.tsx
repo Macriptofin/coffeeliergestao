@@ -7,7 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Package, Wrench, Plus, Search, Edit, Trash2, DollarSign, RefreshCw, Clock } from 'lucide-react';
+import { Package, Wrench, Plus, Search, Edit, Trash2, DollarSign, RefreshCw, Clock, Bell, History } from 'lucide-react';
+import { BOMCostAlerts } from '@/components/BOMCostAlerts';
+import { BOMCostHistory } from '@/components/BOMCostHistory';
 import { RecipeBOMForm } from '@/components/bom/RecipeBOMForm';
 import { CompositeBOMForm } from '@/components/bom/CompositeBOMForm';
 import { ProductionExecutor } from '@/components/bom/ProductionExecutor';
@@ -45,6 +47,8 @@ const BOMManagement = () => {
   const [deleting, setDeleting] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [lastRecalculatedAt, setLastRecalculatedAt] = useState<Date | null>(null);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -401,16 +405,46 @@ const BOMManagement = () => {
             </div>
           )}
         </div>
-        <Button
-          onClick={handleRecalculateAllCosts}
-          disabled={recalculating}
-          variant="outline"
-          size="sm"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${recalculating ? 'animate-spin' : ''}`} />
-          {recalculating ? 'Recalculando...' : 'Recalcular Custos'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => setShowAlerts(!showAlerts)}
+            variant={showAlerts ? "default" : "outline"}
+            size="sm"
+          >
+            <Bell className="h-4 w-4 mr-2" />
+            Alertas
+          </Button>
+          <Button
+            onClick={() => setShowHistory(!showHistory)}
+            variant={showHistory ? "default" : "outline"}
+            size="sm"
+          >
+            <History className="h-4 w-4 mr-2" />
+            Histórico
+          </Button>
+          <Button
+            onClick={handleRecalculateAllCosts}
+            disabled={recalculating}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${recalculating ? 'animate-spin' : ''}`} />
+            {recalculating ? 'Recalculando...' : 'Recalcular Custos'}
+          </Button>
+        </div>
       </div>
+
+      {showAlerts && (
+        <div className="bg-muted/50 p-6 rounded-lg mb-6">
+          <BOMCostAlerts />
+        </div>
+      )}
+
+      {showHistory && (
+        <div className="mb-6">
+          <BOMCostHistory />
+        </div>
+      )}
 
       {/* Barra de Pesquisa */}
       <div className="mb-6">

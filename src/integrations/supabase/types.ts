@@ -314,6 +314,102 @@ export type Database = {
         }
         Relationships: []
       }
+      bom_cost_alerts: {
+        Row: {
+          alert_type: string
+          bom_id: string
+          bom_type: string
+          change_percent: number | null
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          new_cost: number | null
+          old_cost: number | null
+          read_at: string | null
+          read_by: string | null
+          severity: string
+          threshold_percent: number | null
+          triggered_by_material_id: string | null
+        }
+        Insert: {
+          alert_type: string
+          bom_id: string
+          bom_type: string
+          change_percent?: number | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          new_cost?: number | null
+          old_cost?: number | null
+          read_at?: string | null
+          read_by?: string | null
+          severity: string
+          threshold_percent?: number | null
+          triggered_by_material_id?: string | null
+        }
+        Update: {
+          alert_type?: string
+          bom_id?: string
+          bom_type?: string
+          change_percent?: number | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          new_cost?: number | null
+          old_cost?: number | null
+          read_at?: string | null
+          read_by?: string | null
+          severity?: string
+          threshold_percent?: number | null
+          triggered_by_material_id?: string | null
+        }
+        Relationships: []
+      }
+      bom_cost_history: {
+        Row: {
+          bom_id: string
+          bom_type: string
+          change_reason: string | null
+          cost_change_absolute: number | null
+          cost_change_percent: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          new_total_cost: number | null
+          old_total_cost: number | null
+          triggered_by_material_id: string | null
+        }
+        Insert: {
+          bom_id: string
+          bom_type: string
+          change_reason?: string | null
+          cost_change_absolute?: number | null
+          cost_change_percent?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          new_total_cost?: number | null
+          old_total_cost?: number | null
+          triggered_by_material_id?: string | null
+        }
+        Update: {
+          bom_id?: string
+          bom_type?: string
+          change_reason?: string | null
+          cost_change_absolute?: number | null
+          cost_change_percent?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          new_total_cost?: number | null
+          old_total_cost?: number | null
+          triggered_by_material_id?: string | null
+        }
+        Relationships: []
+      }
       bom_production_consolidated_materials: {
         Row: {
           consumed_quantity: number | null
@@ -5055,6 +5151,54 @@ export type Database = {
       }
     }
     Views: {
+      vw_bom_cost_history_detailed: {
+        Row: {
+          bom_id: string | null
+          bom_name: string | null
+          bom_type: string | null
+          change_reason: string | null
+          cost_change_absolute: number | null
+          cost_change_percent: number | null
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          new_total_cost: number | null
+          old_total_cost: number | null
+          triggered_by_material_id: string | null
+          triggered_by_material_name: string | null
+        }
+        Insert: {
+          bom_id?: string | null
+          bom_name?: never
+          bom_type?: string | null
+          change_reason?: string | null
+          cost_change_absolute?: number | null
+          cost_change_percent?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          new_total_cost?: number | null
+          old_total_cost?: number | null
+          triggered_by_material_id?: string | null
+          triggered_by_material_name?: never
+        }
+        Update: {
+          bom_id?: string | null
+          bom_name?: never
+          bom_type?: string | null
+          change_reason?: string | null
+          cost_change_absolute?: number | null
+          cost_change_percent?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          new_total_cost?: number | null
+          old_total_cost?: number | null
+          triggered_by_material_id?: string | null
+          triggered_by_material_name?: never
+        }
+        Relationships: []
+      }
       vw_diag_bom_inconsistencies: {
         Row: {
           bom_count_for_material: number | null
@@ -5532,6 +5676,10 @@ export type Database = {
           p_resource_id?: string
           p_resource_type: string
         }
+        Returns: undefined
+      }
+      mark_bom_cost_alert_as_read: {
+        Args: { p_alert_id: string }
         Returns: undefined
       }
       mask_cnpj_cpf: {
