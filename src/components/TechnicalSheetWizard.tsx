@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Trash2, Calculator, AlertTriangle, Save, Package } from 'lucide-react';
+import { Plus, Trash2, Calculator, AlertTriangle, Save, Package, RefreshCw } from 'lucide-react';
 import { Combobox } from '@/components/ui/combobox';
 
 interface Material {
@@ -96,6 +96,13 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
     loadInitialData();
     if (technicalSheetId) {
       loadTechnicalSheet();
+    }
+  }, [technicalSheetId]);
+
+  // Recalcular custos sempre que a ficha é carregada
+  useEffect(() => {
+    if (formData.items.length > 0 && technicalSheetId) {
+      calculateCosts();
     }
   }, [technicalSheetId]);
 
@@ -223,7 +230,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
     }
   };
 
-  const calculateCosts = async () => {
+  const calculateCosts = async (forceRecalculate = false) => {
     if (formData.items.length === 0) return;
 
     setCalculating(true);
@@ -232,8 +239,13 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
       let totalWeight = 0;
       const alerts: string[] = [];
 
-      // Cache preços por material para evitar múltiplas consultas
+      // Cache preços por material - limpar cache quando forçar recálculo
       const priceCache = new Map<string, number>();
+
+      // Informar usuário sobre recálculo manual
+      if (forceRecalculate) {
+        toast.info('Recalculando custos com preços atualizados...');
+      }
       const weights: number[] = new Array(formData.items.length).fill(0);
       const costs: number[] = new Array(formData.items.length).fill(0);
 
@@ -337,6 +349,11 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
         unitWeight,
         alerts
       });
+
+      // Informar sucesso no recálculo manual
+      if (forceRecalculate) {
+        toast.success('Custos atualizados com sucesso!');
+      }
     } catch (error) {
       console.error('Erro ao calcular custos:', error);
       toast.error('Erro ao calcular custos');
@@ -1065,12 +1082,30 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                 <Calculator className="h-5 w-5" />
                 Estimativa de Custos
               </CardTitle>
-              {calculating && (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-              )}
+              <div className="flex items-center gap-2">
+                {calculating && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => calculateCosts(true)}
+                  disabled={calculating || formData.items.length === 0}
+                  title="Recalcular custos com preços atualizados"
+                >
+                  <Calculator className="h-4 w-4 mr-2" />
+                  Recalcular
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="bg-muted/50 p-3 rounded-md mb-4">
+              <p className="text-xs text-muted-foreground">
+                Os custos são calculados automaticamente com base nos preços médios do estoque. 
+                Use o botão "Recalcular" para atualizar após ajustes de preços.
+              </p>
+            </div>
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Custo Total:</span>
