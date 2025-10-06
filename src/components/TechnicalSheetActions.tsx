@@ -64,7 +64,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             composite_bom_items(
               id,
               quantity,
-              materials!composite_bom_items_material_id_fkey(
+              component_material:materials!composite_bom_items_component_material_id_fkey(
                 id,
                 name,
                 usage_unit,
@@ -88,7 +88,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             items: (data.composite_bom_items || []).map((item: any) => ({
               id: item.id,
               quantity: item.quantity,
-              material: item.materials
+              material: item.component_material
             }))
           });
         }
@@ -111,7 +111,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             recipe_bom_items(
               id,
               quantity,
-              materials!recipe_bom_items_material_id_fkey(
+              ingredient_material:materials!recipe_bom_items_ingredient_material_id_fkey(
                 id,
                 name,
                 usage_unit,
@@ -137,7 +137,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             items: (data.recipe_bom_items || []).map((item: any) => ({
               id: item.id,
               quantity: item.quantity,
-              material: item.materials
+              material: item.ingredient_material
             }))
           });
         }
