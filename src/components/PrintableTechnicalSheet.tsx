@@ -20,6 +20,7 @@ interface TechnicalSheetData {
   material_code?: string;
   yield_quantity?: number;
   yield_unit?: string;
+  notes?: string;
   items: BOMItem[];
 }
 
@@ -153,7 +154,19 @@ export const PrintableTechnicalSheet = forwardRef<HTMLDivElement, PrintableTechn
           </div>
         </div>
 
-        {/* Observações */}
+        {/* Etapas de Produção */}
+        {sheet.notes && sheet.notes.trim() !== '' && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-400 pb-2">
+              ETAPAS DE PRODUÇÃO
+            </h2>
+            <div className="whitespace-pre-wrap text-gray-700 bg-gray-50 p-4 rounded border border-gray-300">
+              {sheet.notes}
+            </div>
+          </div>
+        )}
+
+        {/* Observações de Qualidade */}
         <div className="mb-8">
           <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-400 pb-2">
             OBSERVAÇÕES DE PRODUÇÃO

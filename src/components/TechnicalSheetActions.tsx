@@ -34,6 +34,7 @@ interface TechnicalSheetData {
   material_code?: string;
   yield_quantity?: number;
   yield_unit?: string;
+  notes?: string;
   items: BOMItem[];
 }
 
@@ -52,6 +53,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
           .select(`
             id,
             composite_material_id,
+            notes,
             composite_bom_items(
               id,
               quantity,
@@ -90,6 +92,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
           category: compositeMaterial.category || '',
           subcategory: compositeMaterial.subcategory,
           material_code: compositeMaterial.code,
+          notes: data.notes,
           items: (data.composite_bom_items || []).map((item: any) => ({
             id: item.id,
             quantity: item.quantity,
@@ -104,6 +107,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             id,
             yield_quantity,
             yield_unit,
+            notes,
             finished_material_id,
             recipe_bom_items(
               id,
@@ -145,6 +149,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
           material_code: finishedMaterial.code,
           yield_quantity: data.yield_quantity,
           yield_unit: data.yield_unit,
+          notes: data.notes,
           items: (data.recipe_bom_items || []).map((item: any) => ({
             id: item.id,
             quantity: item.quantity,
