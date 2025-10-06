@@ -184,6 +184,15 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
           color: black !important;
           background: white !important;
         }
+        .print-recipe {
+          page-break-inside: avoid;
+        }
+        .print-recipe > div {
+          page-break-inside: avoid;
+        }
+        table {
+          page-break-inside: avoid;
+        }
       }
     `,
   });
@@ -204,13 +213,14 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
       tempContainer.appendChild(clonedContent);
       clonedContent.className = "print-recipe";
       
+      // Capturar com altura automática
       const canvas = await html2canvas(tempContainer, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: "#ffffff",
         width: 794,
-        height: 1123,
+        windowHeight: clonedContent.scrollHeight,
       });
 
       document.body.removeChild(tempContainer);
@@ -224,9 +234,11 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
       let heightLeft = imgHeight;
       let position = 0;
 
+      // Primeira página
       pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
+      // Adicionar páginas adicionais se necessário
       while (heightLeft >= 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
