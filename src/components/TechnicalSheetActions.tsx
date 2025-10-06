@@ -22,6 +22,7 @@ interface BOMItem {
     id: string;
     name: string;
     usage_unit: string;
+    average_price?: number;
   };
 }
 
@@ -77,7 +78,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
         if (allMaterialIds.length) {
           const { data: mats, error: matsErr } = await supabase
             .from('materials')
-            .select('id,name,code,category,subcategory,usage_unit')
+            .select('id,name,code,category,subcategory,usage_unit,average_price')
             .in('id', allMaterialIds);
           if (matsErr) throw matsErr;
           materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
@@ -132,7 +133,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
         if (allMaterialIds.length) {
           const { data: mats, error: matsErr } = await supabase
             .from('materials')
-            .select('id,name,code,category,subcategory,usage_unit')
+            .select('id,name,code,category,subcategory,usage_unit,average_price')
             .in('id', allMaterialIds);
           if (matsErr) throw matsErr;
           materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
