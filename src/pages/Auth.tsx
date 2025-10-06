@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,17 +10,28 @@ import { useRateLimiting } from '@/hooks/useRateLimiting';
 import { toast } from 'sonner';
 
 const Auth = () => {
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [passwordValidationMessage, setPasswordValidationMessage] = useState('');
+  const [isInviteMode, setIsInviteMode] = useState(false);
   const navigate = useNavigate();
   const { validatePassword, isValidating } = usePasswordSecurity();
   const { checkRateLimit, logAuthAttempt, isChecking } = useRateLimiting();
 
   useEffect(() => {
+    // Check for invite token in URL
+    const type = searchParams.get('type');
+    const token = searchParams.get('token_hash');
+    
+    if (type === 'invite' && token) {
+      setIsInviteMode(true);
+      return;
+    }
+
     // Check if user is already logged in
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -29,7 +40,7 @@ const Auth = () => {
       }
     };
     checkSession();
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
   const handlePasswordChange = async (newPassword: string) => {
     setPassword(newPassword);
@@ -151,7 +162,168 @@ const Auth = () => {
     }
   };
 
+  const handleInviteActivation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    if (password !== confirmPassword) {
+      setError('As senhas não coincidem.');
+      setLoading(false);
+      return;
+    }
+
+    // Validar senha antes de ativar
+    const validation = await validatePassword(password);
+    if (!validation.valid) {
+      setError(validation.message);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const token = searchParams.get('token_hash');
+      const type = searchParams.get('type');
+
+      if (!token || type !== 'invite') {
+        setError('Link de convite inválido ou expirado.');
+        setLoading(false);
+        return;
+      }
+
+      // Verify the token and update password
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: token,
+        type: 'invite'
+      });
+
+      if (error) {
+        console.error('Error verifying invite:', error);
+        setError('Link de convite inválido ou expirado. Solicite um novo convite.');
+        setLoading(false);
+        return;
+      }
+
+      // Update password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: password
+      });
+
+      if (updateError) {
+        console.error('Error updating password:', updateError);
+        setError('Erro ao definir senha. Tente novamente.');
+        setLoading(false);
+        return;
+      }
+
+      toast.success('Conta ativada com sucesso! Você já pode fazer login.');
+      navigate('/');
+    } catch (error: any) {
+      console.error('Unexpected error during invite activation:', error);
+      setError('Erro inesperado. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const [isSignUp, setIsSignUp] = useState(false);
+
+  // Render invite activation form
+  if (isInviteMode) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex">
+        {/* Left side - Invite Activation Form */}
+        <div className="w-full lg:w-2/5 flex flex-col justify-center px-6 py-8 sm:px-12 lg:px-16 xl:px-20">
+          <div className="mx-auto w-full max-w-sm">
+            <div className="mb-6">
+              <CoffeelierLogo />
+            </div>
+            
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Ative sua conta
+              </h2>
+              <p className="text-sm text-gray-600 mb-6">
+                Defina uma senha segura para acessar o sistema Coffeelier
+              </p>
+              
+              <form onSubmit={handleInviteActivation} className="space-y-4">
+                <div>
+                  <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
+                    NOVA SENHA
+                  </h3>
+                  <Input
+                    type="password"
+                    placeholder="Digite uma senha segura"
+                    value={password}
+                    onChange={(e) => handlePasswordChange(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                  {passwordValidationMessage && (
+                    <Alert variant="destructive" className="mt-2">
+                      <AlertDescription className="text-xs">{passwordValidationMessage}</AlertDescription>
+                    </Alert>
+                  )}
+                  {isValidating && (
+                    <p className="text-xs text-muted-foreground mt-1">Verificando segurança da senha...</p>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
+                    CONFIRMAR SENHA
+                  </h3>
+                  <Input
+                    type="password"
+                    placeholder="Confirme sua senha"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription className="text-xs">{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <Button 
+                  type="submit" 
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200"
+                  disabled={loading || isValidating || !!passwordValidationMessage}
+                >
+                  {loading ? 'Ativando...' : 'Ativar Conta'}
+                </Button>
+
+                <div className="text-center text-xs text-gray-600 mt-4">
+                  Link expirado?{' '}
+                  <button 
+                    type="button"
+                    onClick={() => navigate('/auth')}
+                    className="text-primary hover:underline"
+                  >
+                    Solicitar novo convite
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        {/* Right side - Promotional image */}
+        <div className="hidden lg:block relative lg:w-3/5">
+          <img 
+            src="/lovable-uploads/Capa sistema.png.png" 
+            alt="Mesa especial Coffeelier com diversos pratos gourmet"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex">

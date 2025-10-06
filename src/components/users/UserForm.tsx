@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
-import { UserPlus, Mail, ArrowLeft } from "lucide-react";
+import { UserPlus, ArrowLeft } from "lucide-react";
 
 interface UserFormProps {
   onSuccess: () => void;
@@ -17,18 +16,12 @@ interface UserFormProps {
 
 export function UserForm({ onSuccess, onCancel }: UserFormProps) {
   const [loading, setLoading] = useState(false);
-  const [sendPasswordReset, setSendPasswordReset] = useState(true);
   const [formData, setFormData] = useState({
     email: '',
     fullName: '',
     displayName: '',
-    role: 'user' as 'admin' | 'manager' | 'financial' | 'user',
-    tempPassword: generateRandomPassword()
+    role: 'user' as 'admin' | 'manager' | 'financial' | 'user'
   });
-
-  function generateRandomPassword() {
-    return Math.random().toString(36).slice(-8) + 'A1!';
-  }
 
   const createUser = async () => {
     if (!formData.email || !formData.fullName) {
@@ -46,14 +39,17 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
     try {
       setLoading(true);
 
-      // Create user in Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.tempPassword,
+      // Invoke edge function to create user with invite
+      const { data, error } = await supabase.functions.invoke('create-user-with-invite', {
+        body: {
+          email: formData.email,
+          role: formData.role
+        }
       });
 
       if (error) {
-        if (error.message?.includes('User already registered')) {
+        console.error('Erro ao criar usuário:', error);
+        if (error.message?.includes('User already registered') || error.message?.includes('already exists')) {
           toast.error('Este email já está cadastrado no sistema');
         } else {
           toast.error(`Erro ao criar usuário: ${error.message}`);
@@ -61,21 +57,21 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
         return;
       }
 
-      if (!data.user) {
+      if (!data?.success) {
         toast.error('Erro ao criar usuário');
         return;
       }
 
-      const userId = data.user.id;
+      const userId = data.userId;
 
-      // Create user profile - o e-mail será sincronizado automaticamente pelo trigger
+      // Create user profile
       const { error: profileError } = await supabase
         .from('user_profiles')
         .upsert({
           user_id: userId,
           full_name: formData.fullName,
           display_name: formData.displayName || formData.fullName,
-          email: formData.email // Garantir que o e-mail está correto
+          email: formData.email
         });
 
       if (profileError) {
@@ -83,38 +79,9 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
         toast.error('Usuário criado, mas erro ao salvar perfil');
       }
 
-      // Create user role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: userId,
-          role: formData.role
-        });
-
-      if (roleError) {
-        console.error('Erro ao criar role:', roleError);
-        toast.error('Usuário criado, mas erro ao definir role');
-      }
-
-      // Send password reset email if requested
-      if (sendPasswordReset) {
-        try {
-          const { error } = await supabase.functions.invoke('password-reset', {
-            body: {
-              email: formData.email,
-              redirectTo: `${window.location.origin}/auth`
-            }
-          });
-
-          if (error) {
-            console.warn('Erro ao enviar email de configuração de senha:', error);
-          }
-        } catch (error) {
-          console.warn('Erro ao enviar email de configuração:', error);
-        }
-      }
-
-      toast.success(`Usuário ${formData.fullName} criado com sucesso!`);
+      toast.success(
+        `Usuário ${formData.fullName} criado com sucesso! Um email de convite foi enviado para ${formData.email}`
+      );
       onSuccess();
     } catch (error: any) {
       console.error('Erro ao criar usuário:', error);
@@ -201,28 +168,6 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
                 </Select>
               </div>
             </div>
-          </div>
-
-          <Separator />
-
-          {/* Configuração de Senha */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Configuração de Acesso</h3>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="sendPasswordReset"
-                checked={sendPasswordReset}
-                onCheckedChange={(checked) => setSendPasswordReset(checked as boolean)}
-              />
-              <Label htmlFor="sendPasswordReset" className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                Enviar email de configuração de senha
-              </Label>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Se marcado, o usuário receberá um email para definir sua própria senha. 
-              Caso contrário, uma senha temporária será gerada automaticamente.
-            </p>
           </div>
 
           <Separator />
