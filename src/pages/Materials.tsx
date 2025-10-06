@@ -521,182 +521,166 @@ const Materials = () => {
 
   return (
     <ErrorBoundary>
-      <div className="flex flex-col h-full w-full bg-gradient-subtle">
-        {/* Fixed Header Content */}
-        <div className="bg-gradient-subtle border-b sticky top-0 z-30 pt-4">
-          <div className="px-4 sm:px-6 py-6">
-            {/* Page Header */}
-            <div className="mb-4">
-              <h1 className="text-3xl font-bold text-foreground mb-3">
-                Gestão de Materiais
-              </h1>
-            </div>
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="space-y-6">
+          {/* Page Header */}
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">
+              Cadastro de Materiais
+            </h1>
+          </div>
 
-            {/* Instructional Banner */}
-            <InstructionalBanner
-              title="Gestão de Materiais"
-              description={[
-                "Aqui você encontra todos os materiais cadastrados no sistema.",
-                "Antes de criar um novo material, utilize os filtros ou a busca para verificar se ele já existe, evitando duplicidades.",
-                "Cada material deve estar corretamente classificado em Categoria e Subcategoria.",
-                "Para dúvidas, consulte o manual completo."
-              ]}
-              onManualClick={handleManualClick}
-              className="mb-6"
-            />
+          {/* Instructional Banner */}
+          <InstructionalBanner
+            title="Cadastro de Materiais"
+            description={[
+              "Aqui você encontra todos os materiais cadastrados no sistema.",
+              "Antes de criar um novo material, utilize os filtros ou a busca para verificar se ele já existe, evitando duplicidades.",
+              "Cada material deve estar corretamente classificado em Categoria e Subcategoria.",
+              "Para dúvidas, consulte o manual completo."
+            ]}
+            onManualClick={handleManualClick}
+          />
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
-              <Button 
-                onClick={() => setShowMaterialForm(true)} 
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                + Novo Material
-              </Button>
-              
-              <Button 
-                variant="outline"
-                onClick={handleEditSelected}
-                disabled={selectedMaterials.length !== 1}
-                className="border-primary/30 text-primary hover:bg-primary/5"
-              >
-                <Edit className="mr-2 h-4 w-4" />
-                Editar Material
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                onClick={exportMaterialsToCSV}
-                className="border-border hover:bg-accent"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Exportar CSV
-              </Button>
-              
-              <Button
-                size="sm"
-                variant="outline"
-                className="hidden sm:flex"
-                onClick={() => navigate('/config#estoque')}
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Configurações
-              </Button>
-              
-              <Button
-                size="sm"
-                variant="outline"
-                className="hidden sm:flex"
-                onClick={showMigrationDialog}
-              >
-                <Database className="h-4 w-4 mr-2" />
-                Migrar Categorias
-              </Button>
-            </div>
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-3">
+            <Button 
+              onClick={() => setShowMaterialForm(true)} 
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              + Novo Material
+            </Button>
+            
+            <Button 
+              variant="outline"
+              onClick={handleEditSelected}
+              disabled={selectedMaterials.length !== 1}
+              className="border-primary/30 text-primary hover:bg-primary/5"
+            >
+              <Edit className="mr-2 h-4 w-4" />
+              Editar Material
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              onClick={exportMaterialsToCSV}
+              className="border-border hover:bg-accent"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exportar CSV
+            </Button>
+            
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate('/config#estoque')}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Configurações
+            </Button>
+            
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={showMigrationDialog}
+            >
+              <Database className="h-4 w-4 mr-2" />
+              Migrar Categorias
+            </Button>
+          </div>
 
-            {/* Filters */}
-            <div className="bg-card rounded-lg border shadow-sm p-4 sm:p-6">
-              <div className="flex flex-col gap-4">
-                {/* Search */}
-                <div className="relative w-full">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por nome, código, descrição..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-
-                {/* Filter Row */}
-                <div className="flex flex-col sm:flex-row gap-3 w-full">
-                  {/* Category Filter */}
-                  <div className="flex-1 min-w-0">
-                    <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Categoria" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categoriesWithCounts.map((category) => (
-                          <SelectItem key={category.value} value={category.value}>
-                            <div className="flex items-center gap-2">
-                              <span className="truncate">{category.label}</span>
-                              <Badge variant="outline" className="text-xs flex-shrink-0">
-                                {category.count}
-                              </Badge>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Subcategory Filter */}
-                  {selectedCategory !== "all" && (
-                    <div className="flex-1 min-w-0">
-                      <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Subcategoria" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {subcategoriesWithCounts.map((subcategory) => (
-                            <SelectItem key={subcategory.value} value={subcategory.value}>
-                              <div className="flex items-center gap-2">
-                                <span className="truncate">{subcategory.label}</span>
-                                <Badge variant="outline" className="text-xs flex-shrink-0">
-                                  {subcategory.count}
-                                </Badge>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {/* Supplier Filter */}
-                  <div className="flex-1 min-w-0">
-                    <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos os Fornecedores</SelectItem>
-                        {suppliers.map((supplier) => (
-                          <SelectItem key={supplier} value={supplier}>
-                            {supplier}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+          {/* Filters */}
+          <div className="bg-card rounded-lg border shadow-sm p-4">
+            <div className="space-y-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome, código, descrição..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
 
-              {/* Actions */}
-              <MaterialsActions 
-                selectedCount={selectedMaterials.length}
-                onBulkDelete={handleBulkDelete}
-                onBulkArchive={handleBulkArchive}
-                onClearSelection={() => setSelectedMaterials([])}
-              />
-            </div>
-          </div>
-        </div>
+              {/* Filter Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Category Filter */}
+                <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoriesWithCounts.map((category) => (
+                      <SelectItem key={category.value} value={category.value}>
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{category.label}</span>
+                          <Badge variant="outline" className="text-xs flex-shrink-0">
+                            {category.count}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-        {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-auto">
-          <div className="px-4 sm:px-6 py-4">
-            <ErrorBoundary>
-              <SimplifiedMaterialsTable
-                materials={filteredMaterials}
-                selectedMaterials={selectedMaterials}
-                onSelectMaterial={handleSelectMaterial}
-                onSelectAll={handleSelectAll}
-              />
-            </ErrorBoundary>
+                {/* Subcategory Filter */}
+                {selectedCategory !== "all" && (
+                  <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Subcategoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subcategoriesWithCounts.map((subcategory) => (
+                        <SelectItem key={subcategory.value} value={subcategory.value}>
+                          <div className="flex items-center gap-2">
+                            <span className="truncate">{subcategory.label}</span>
+                            <Badge variant="outline" className="text-xs flex-shrink-0">
+                              {subcategory.count}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {/* Supplier Filter */}
+                <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Fornecedores</SelectItem>
+                    {suppliers.map((supplier) => (
+                      <SelectItem key={supplier} value={supplier}>
+                        {supplier}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <MaterialsActions 
+              selectedCount={selectedMaterials.length}
+              onBulkDelete={handleBulkDelete}
+              onBulkArchive={handleBulkArchive}
+              onClearSelection={() => setSelectedMaterials([])}
+            />
           </div>
+
+          {/* Materials Table */}
+          <ErrorBoundary>
+            <SimplifiedMaterialsTable
+              materials={filteredMaterials}
+              selectedMaterials={selectedMaterials}
+              onSelectMaterial={handleSelectMaterial}
+              onSelectAll={handleSelectAll}
+            />
+          </ErrorBoundary>
         </div>
 
         {/* Material Form Modal */}
