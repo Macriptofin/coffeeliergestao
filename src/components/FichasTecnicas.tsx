@@ -423,6 +423,7 @@ const FichasTecnicas = () => {
                 <TableRow>
                   <TableHead>Produto</TableHead>
                   <TableHead className="text-center">Tipo</TableHead>
+                  <TableHead>Subcategoria</TableHead>
                   <TableHead className="text-center">Itens</TableHead>
                   <TableHead className="text-center">Rendimento</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -456,6 +457,13 @@ const FichasTecnicas = () => {
                       <Badge variant={getTypeBadgeVariant(sheet.product_type)}>
                         {getTypeLabel(sheet.product_type)}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {sheet.subcategory ? (
+                        <span className="text-sm">{sheet.subcategory}</span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-center">
                       <span className="font-medium">{sheet.items_count}</span>
