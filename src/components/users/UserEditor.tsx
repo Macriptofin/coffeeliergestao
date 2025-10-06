@@ -46,7 +46,7 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
     try {
       setLoading(true);
 
-      // Salvar ou atualizar perfil
+      // Salvar ou atualizar perfil - especificando onConflict
       const { error: profileError } = await supabase
         .from('user_profiles')
         .upsert({
@@ -54,6 +54,8 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
           full_name: profileData.full_name || null,
           display_name: profileData.display_name || null,
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
         });
 
       if (profileError) throw profileError;
