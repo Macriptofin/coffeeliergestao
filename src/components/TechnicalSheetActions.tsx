@@ -64,7 +64,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             composite_bom_items(
               id,
               quantity,
-              component_material:materials!composite_bom_items_component_material_id_fkey(
+              materials!composite_bom_items_component_material_id_fkey(
                 id,
                 name,
                 usage_unit,
@@ -73,7 +73,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             )
           `)
           .eq('id', sheetId)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
 
@@ -88,7 +88,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             items: (data.composite_bom_items || []).map((item: any) => ({
               id: item.id,
               quantity: item.quantity,
-              material: item.component_material
+              material: item.materials
             }))
           });
         }
@@ -111,7 +111,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             recipe_bom_items(
               id,
               quantity,
-              ingredient_material:materials!recipe_bom_items_ingredient_material_id_fkey(
+              materials!recipe_bom_items_material_id_fkey(
                 id,
                 name,
                 usage_unit,
@@ -120,7 +120,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             )
           `)
           .eq('id', sheetId)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
 
@@ -137,7 +137,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
             items: (data.recipe_bom_items || []).map((item: any) => ({
               id: item.id,
               quantity: item.quantity,
-              material: item.ingredient_material
+              material: item.materials
             }))
           });
         }
@@ -225,12 +225,26 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
     }
   };
 
-  if (loading || !sheetData) {
+  if (loading) {
     return (
       <div className="flex gap-2">
         <Button variant="outline" size="sm" disabled>
           <Eye className="h-4 w-4 mr-1" />
           Carregando...
+        </Button>
+      </div>
+    );
+  }
+
+  if (!sheetData) {
+    return (
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" disabled>
+          <Eye className="h-4 w-4 mr-1" />
+          Ficha não encontrada
+        </Button>
+        <Button variant="outline" size="sm" onClick={loadSheetData}>
+          Recarregar
         </Button>
       </div>
     );
