@@ -285,11 +285,12 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
             .eq('material_id', item.material_id)
             .single();
 
-          // IMPORTANTE: average_price JÁ está na unidade de USO (usage_unit), usar diretamente
+          // CORREÇÃO: average_price está na unidade de COMPRA, precisa converter para unidade de USO
           if (stockData?.average_price && stockData.average_price > 0) {
-            itemUnitCost = stockData.average_price;
+            const factor = materialData.conversion_factor || 1;
+            itemUnitCost = stockData.average_price / factor;
             priceCache.set(item.material_id, itemUnitCost);
-            console.log(`  Custo do estoque: R$ ${stockData.average_price}/${materialData.usage_unit} (já convertido)`);
+            console.log(`  Custo do estoque: R$ ${stockData.average_price}/${materialData.purchase_unit} ÷ ${factor} = R$ ${itemUnitCost}/${materialData.usage_unit}`);
           } else if (materialData.price_per_purchase_unit > 0) {
             // Fallback: preço cadastrado está na unidade de COMPRA, converter para USO
             const factor = materialData.conversion_factor || 1;
