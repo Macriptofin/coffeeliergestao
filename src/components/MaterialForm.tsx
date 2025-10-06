@@ -154,28 +154,32 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   const isEditingBOMProduct = Boolean(isBOMProduct && material);
 
   return (
-    <Card className="shadow-elegant border-primary/20">
-      <CardHeader className="pb-4">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-primary flex items-center gap-2">
-            {(() => {
-              const IconComponent = getIconForCategory(formData.category);
-              return <IconComponent className="h-5 w-5" />;
-            })()}
-            {material ? 'Editar Material' : 'Novo Material'}
+    <Card className="shadow-elegant border-primary/20 w-full">
+      <CardHeader className="pb-4 px-4 sm:px-6">
+        <div className="flex justify-between items-center gap-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex-shrink-0">
+              {(() => {
+                const IconComponent = getIconForCategory(formData.category);
+                return <IconComponent className="h-5 w-5" />;
+              })()}
+            </div>
+            <CardTitle className="text-primary truncate">
+              {material ? 'Editar Material' : 'Novo Material'}
+            </CardTitle>
             {material && (
-              <Badge variant="outline" className="ml-2">
+              <Badge variant="outline" className="ml-2 flex-shrink-0">
                 {material.code}
               </Badge>
             )}
-          </CardTitle>
-          <Button variant="ghost" size="sm" onClick={onCancel}>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onCancel} className="flex-shrink-0">
             <X className="h-4 w-4" />
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <CardContent className="px-4 sm:px-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           {isEditingBOMProduct && (
             <Alert className="border-primary/30 bg-primary/5">
               <AlertTriangle className="h-4 w-4 text-primary" />
@@ -204,17 +208,17 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
               <SelectTrigger className="bg-card">
                 <SelectValue placeholder={taxonomyLoading ? "Carregando..." : "Selecione uma categoria"} />
               </SelectTrigger>
-              <SelectContent className="bg-card border-border z-50">
+              <SelectContent className="bg-card border-border shadow-lg z-50 max-w-[calc(100vw-2rem)]">
                 {materialCategories.map((category) => {
                   const IconComponent = getIconForCategory(category.name);
                   return (
                     <SelectItem key={category.id} value={category.name}>
-                      <div className="flex items-center gap-3">
-                        <IconComponent className="h-4 w-4" />
-                        <div>
-                          <div className="font-medium">{category.name}</div>
+                      <div className="flex items-center gap-2">
+                        <IconComponent className="h-4 w-4 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">{category.name}</div>
                           {category.code && (
-                            <div className="text-xs text-muted-foreground">Código: {category.code}</div>
+                            <div className="text-xs text-muted-foreground truncate">Código: {category.code}</div>
                           )}
                         </div>
                       </div>
@@ -236,14 +240,14 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
                   "Selecione uma subcategoria"
                 } />
               </SelectTrigger>
-              <SelectContent className="bg-card border-border z-50">
+              <SelectContent className="bg-card border-border shadow-lg z-50 max-w-[calc(100vw-2rem)]">
                 <SelectItem value="none">Nenhuma subcategoria</SelectItem>
                 {availableSubcategories.map((subcategory) => (
                   <SelectItem key={subcategory.id} value={subcategory.name}>
-                    <div>
-                      <div className="font-medium">{subcategory.name}</div>
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{subcategory.name}</div>
                       {subcategory.code && (
-                        <div className="text-xs text-muted-foreground">Código: {subcategory.code}</div>
+                        <div className="text-xs text-muted-foreground truncate">Código: {subcategory.code}</div>
                       )}
                     </div>
                   </SelectItem>
@@ -297,7 +301,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
                 <SelectTrigger className="bg-card">
                   <SelectValue placeholder="Como você compra?" />
                 </SelectTrigger>
-                <SelectContent className="bg-card border-border z-50">
+                <SelectContent className="bg-card border-border shadow-lg z-50">
                   {units.map((unit) => (
                     <SelectItem key={unit} value={unit}>
                       {unit}
@@ -320,7 +324,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
                 <SelectTrigger className="bg-card">
                   <SelectValue placeholder="Como você usa?" />
                 </SelectTrigger>
-                <SelectContent className="bg-card border-border z-50">
+                <SelectContent className="bg-card border-border shadow-lg z-50">
                   {units.map((unit) => (
                     <SelectItem key={unit} value={unit}>
                       {unit}
@@ -397,11 +401,11 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
             </p>
           </div>
 
-          <div className="flex gap-3 pt-4">
-            <Button type="submit" className="bg-gradient-primary flex-1">
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <Button type="submit" className="bg-gradient-primary flex-1 w-full sm:w-auto">
               {material ? 'Atualizar Material' : 'Cadastrar Material'}
             </Button>
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
               Cancelar
             </Button>
           </div>

@@ -701,8 +701,8 @@ const Materials = () => {
 
         {/* Material Form Modal */}
         {showMaterialForm && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-background rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-background rounded-lg w-full max-w-2xl my-8 max-h-[calc(100vh-4rem)] overflow-y-auto">
               <MaterialForm
                 material={editingMaterial}
                 existingMaterials={materials}
