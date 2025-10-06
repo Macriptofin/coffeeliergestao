@@ -416,91 +416,97 @@ const FichasTecnicas = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredSheets.map((sheet) => (
-            <Card key={sheet.id} className="shadow-soft hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start gap-3">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg mb-2">{sheet.name}</CardTitle>
-                    <div className="flex items-center gap-2 mb-2">
-                      {sheet.material_code && (
-                        <Badge variant="outline" className="text-xs">
-                          {sheet.material_code}
-                        </Badge>
-                      )}
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Produto</TableHead>
+                  <TableHead className="text-center">Tipo</TableHead>
+                  <TableHead className="text-center">Itens</TableHead>
+                  <TableHead className="text-center">Rendimento</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSheets.map((sheet) => (
+                  <TableRow key={sheet.id} className={sheet.is_archived ? 'opacity-60' : ''}>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium">{sheet.name}</span>
+                        <div className="flex items-center gap-2">
+                          {sheet.material_code && (
+                            <Badge variant="outline" className="text-xs">
+                              {sheet.material_code}
+                            </Badge>
+                          )}
+                          {sheet.is_archived && (
+                            <Badge variant="secondary" className="text-xs">
+                              <Archive className="h-3 w-3 mr-1" />
+                              Arquivada
+                            </Badge>
+                          )}
+                        </div>
+                        {sheet.category && (
+                          <span className="text-xs text-muted-foreground">{sheet.category}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
                       <Badge variant={getTypeBadgeVariant(sheet.product_type)}>
                         {getTypeLabel(sheet.product_type)}
                       </Badge>
-                    </div>
-                    {sheet.category && (
-                      <p className="text-sm text-muted-foreground">{sheet.category}</p>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Itens:</span>
-                      <span className="ml-2 font-medium">{sheet.items_count}</span>
-                    </div>
-                    {sheet.yield_quantity && (
-                      <div>
-                        <span className="text-muted-foreground">Rendimento:</span>
-                        <span className="ml-2 font-medium">
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className="font-medium">{sheet.items_count}</span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {sheet.yield_quantity ? (
+                        <span className="font-medium">
                           {sheet.yield_quantity} {sheet.yield_unit || 'un'}
                         </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2 mb-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditTechnicalSheet(sheet.id)}
-                      className="flex-1"
-                      disabled={sheet.is_archived}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Editar
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleArchiveTechnicalSheet(sheet, !sheet.is_archived)}
-                      className="px-3"
-                      title={sheet.is_archived ? 'Desarquivar' : 'Arquivar'}
-                    >
-                      {sheet.is_archived ? (
-                        <ArchiveRestore className="h-4 w-4" />
                       ) : (
-                        <Archive className="h-4 w-4" />
+                        <span className="text-muted-foreground text-sm">-</span>
                       )}
-                    </Button>
-                  </div>
-                  
-                  <TechnicalSheetActions 
-                    sheetId={sheet.id}
-                    sheetName={sheet.name}
-                    productType={sheet.product_type}
-                  />
-                  
-                  {sheet.is_archived && (
-                    <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
-                      <Archive className="h-3 w-3" />
-                      Arquivada
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditTechnicalSheet(sheet.id)}
+                          disabled={sheet.is_archived}
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Editar
+                        </Button>
+                        
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleArchiveTechnicalSheet(sheet, !sheet.is_archived)}
+                          title={sheet.is_archived ? 'Desarquivar' : 'Arquivar'}
+                        >
+                          {sheet.is_archived ? (
+                            <ArchiveRestore className="h-4 w-4" />
+                          ) : (
+                            <Archive className="h-4 w-4" />
+                          )}
+                        </Button>
+                        
+                        <TechnicalSheetActions 
+                          sheetId={sheet.id}
+                          sheetName={sheet.name}
+                          productType={sheet.product_type}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
