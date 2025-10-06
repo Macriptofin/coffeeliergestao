@@ -521,10 +521,10 @@ const Materials = () => {
 
   return (
     <ErrorBoundary>
-      <div className="flex flex-col h-screen bg-gradient-subtle">
+      <div className="flex flex-col h-full w-full bg-gradient-subtle">
         {/* Fixed Header Content */}
         <div className="bg-gradient-subtle border-b sticky top-0 z-30 pt-4">
-          <div className="px-6 py-6">
+          <div className="px-4 sm:px-6 py-6">
             {/* Page Header */}
             <div className="mb-4">
               <h1 className="text-3xl font-bold text-foreground mb-3">
@@ -596,22 +596,23 @@ const Materials = () => {
             </div>
 
             {/* Filters */}
-            <div className="bg-card rounded-lg border shadow-sm p-6">
-              <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-                <div className="flex flex-1 gap-4 w-full">
-                  {/* Search */}
-                  <div className="relative flex-1 min-w-0">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por nome, código, descrição..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
+            <div className="bg-card rounded-lg border shadow-sm p-4 sm:p-6">
+              <div className="flex flex-col gap-4">
+                {/* Search */}
+                <div className="relative w-full">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome, código, descrição..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
 
+                {/* Filter Row */}
+                <div className="flex flex-col sm:flex-row gap-3 w-full">
                   {/* Category Filter */}
-                  <div className="min-w-0 w-48">
+                  <div className="flex-1 min-w-0">
                     <Select value={selectedCategory} onValueChange={handleCategoryChange}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Categoria" />
@@ -620,8 +621,8 @@ const Materials = () => {
                         {categoriesWithCounts.map((category) => (
                           <SelectItem key={category.value} value={category.value}>
                             <div className="flex items-center gap-2">
-                              <span>{category.label}</span>
-                              <Badge variant="outline" className="text-xs">
+                              <span className="truncate">{category.label}</span>
+                              <Badge variant="outline" className="text-xs flex-shrink-0">
                                 {category.count}
                               </Badge>
                             </div>
@@ -633,7 +634,7 @@ const Materials = () => {
 
                   {/* Subcategory Filter */}
                   {selectedCategory !== "all" && (
-                    <div className="min-w-0 w-48">
+                    <div className="flex-1 min-w-0">
                       <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Subcategoria" />
@@ -642,8 +643,8 @@ const Materials = () => {
                           {subcategoriesWithCounts.map((subcategory) => (
                             <SelectItem key={subcategory.value} value={subcategory.value}>
                               <div className="flex items-center gap-2">
-                                <span>{subcategory.label}</span>
-                                <Badge variant="outline" className="text-xs">
+                                <span className="truncate">{subcategory.label}</span>
+                                <Badge variant="outline" className="text-xs flex-shrink-0">
                                   {subcategory.count}
                                 </Badge>
                               </div>
@@ -655,7 +656,7 @@ const Materials = () => {
                   )}
 
                   {/* Supplier Filter */}
-                  <div className="min-w-0 w-48">
+                  <div className="flex-1 min-w-0">
                     <Select value={supplierFilter} onValueChange={setSupplierFilter}>
                       <SelectTrigger className="w-full">
                         <SelectValue />
@@ -686,7 +687,7 @@ const Materials = () => {
 
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-auto">
-          <div className="px-6 py-4">
+          <div className="px-4 sm:px-6 py-4">
             <ErrorBoundary>
               <SimplifiedMaterialsTable
                 materials={filteredMaterials}

@@ -92,11 +92,11 @@ export const SimplifiedMaterialsTable = ({
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
+    <div className="rounded-md border overflow-x-auto">
+      <Table className="min-w-full">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-12">
+            <TableHead className="w-12 sticky left-0 bg-background z-10">
               <Checkbox
                 checked={allSelected}
                 onCheckedChange={onSelectAll}
@@ -104,7 +104,7 @@ export const SimplifiedMaterialsTable = ({
               />
             </TableHead>
             <TableHead 
-              className="cursor-pointer hover:bg-muted/50"
+              className="cursor-pointer hover:bg-muted/50 min-w-[100px]"
               onClick={() => handleSort('code')}
             >
               <div className="flex items-center gap-1">
@@ -114,7 +114,7 @@ export const SimplifiedMaterialsTable = ({
               </div>
             </TableHead>
             <TableHead 
-              className="cursor-pointer hover:bg-muted/50"
+              className="cursor-pointer hover:bg-muted/50 min-w-[200px]"
               onClick={() => handleSort('name')}
             >
               <div className="flex items-center gap-1">
@@ -123,7 +123,7 @@ export const SimplifiedMaterialsTable = ({
               </div>
             </TableHead>
             <TableHead 
-              className="cursor-pointer hover:bg-muted/50"
+              className="cursor-pointer hover:bg-muted/50 min-w-[150px]"
               onClick={() => handleSort('category')}
             >
               <div className="flex items-center gap-1">
@@ -133,7 +133,7 @@ export const SimplifiedMaterialsTable = ({
               </div>
             </TableHead>
             <TableHead 
-              className="cursor-pointer hover:bg-muted/50"
+              className="cursor-pointer hover:bg-muted/50 min-w-[180px]"
               onClick={() => handleSort('subcategory')}
             >
               <div className="flex items-center gap-1">
@@ -143,7 +143,7 @@ export const SimplifiedMaterialsTable = ({
               </div>
             </TableHead>
             <TableHead 
-              className="cursor-pointer hover:bg-muted/50"
+              className="cursor-pointer hover:bg-muted/50 min-w-[110px]"
               onClick={() => handleSort('purchaseUnit')}
             >
               <div className="flex items-center gap-1">
@@ -153,7 +153,7 @@ export const SimplifiedMaterialsTable = ({
               </div>
             </TableHead>
             <TableHead 
-              className="cursor-pointer hover:bg-muted/50"
+              className="cursor-pointer hover:bg-muted/50 min-w-[100px]"
               onClick={() => handleSort('usageUnit')}
             >
               <div className="flex items-center gap-1">
@@ -163,7 +163,7 @@ export const SimplifiedMaterialsTable = ({
               </div>
             </TableHead>
             <TableHead 
-              className="cursor-pointer hover:bg-muted/50"
+              className="cursor-pointer hover:bg-muted/50 min-w-[100px]"
               onClick={() => handleSort('conversionFactor')}
             >
               <div className="flex items-center gap-1">
@@ -172,7 +172,7 @@ export const SimplifiedMaterialsTable = ({
                 {getSortIcon('conversionFactor')}
               </div>
             </TableHead>
-            <TableHead>
+            <TableHead className="min-w-[140px]">
               <div className="flex items-center gap-1">
                 Quantidade Estoque
                 <HelpTooltip content="Mostra o saldo atual do material. O controle detalhado de valores e preços está disponível no módulo de Estoque." />
@@ -183,7 +183,7 @@ export const SimplifiedMaterialsTable = ({
         <TableBody>
           {sortedMaterials.map((material) => (
             <TableRow key={material.id} className="hover:bg-muted/50">
-              <TableCell>
+              <TableCell className="sticky left-0 bg-background z-10">
                 <Checkbox
                   checked={selectedMaterials.includes(material.id)}
                   onCheckedChange={(checked) => onSelectMaterial(material.id, !!checked)}
@@ -193,8 +193,8 @@ export const SimplifiedMaterialsTable = ({
                 {material.code}
               </TableCell>
               <TableCell>
-                <div>
-                  <div className="font-medium">{material.name}</div>
+                <div className="max-w-[250px]">
+                  <div className="font-medium truncate">{material.name}</div>
                   {material.description && (
                     <div className="text-sm text-muted-foreground line-clamp-1">
                       {material.description}
@@ -204,7 +204,7 @@ export const SimplifiedMaterialsTable = ({
               </TableCell>
               <TableCell>
                 <Badge 
-                  className={`text-xs flex items-center w-fit ${getCategoryStyles(material.category, 'primary')}`}
+                  className={`text-xs flex items-center w-fit whitespace-nowrap ${getCategoryStyles(material.category, 'primary')}`}
                 >
                   {getCategoryIcon(material.category)}
                   {material.category}
@@ -212,17 +212,17 @@ export const SimplifiedMaterialsTable = ({
               </TableCell>
               <TableCell className="text-sm">
                 {material.subcategory ? (
-                  <Badge className={`text-xs ${getCategoryStyles(material.category, 'secondary')}`}>
+                  <Badge className={`text-xs whitespace-nowrap ${getCategoryStyles(material.category, 'secondary')}`}>
                     {getSubcategoryByValue(material.category, material.subcategory)?.label || material.subcategory}
                   </Badge>
                 ) : (
                   <span className="text-muted-foreground italic">-</span>
                 )}
               </TableCell>
-              <TableCell className="text-sm">{material.purchaseUnit}</TableCell>
-              <TableCell className="text-sm">{material.usageUnit}</TableCell>
-              <TableCell className="text-sm font-mono">{material.conversionFactor}</TableCell>
-              <TableCell className="text-sm">
+              <TableCell className="text-sm whitespace-nowrap">{material.purchaseUnit}</TableCell>
+              <TableCell className="text-sm whitespace-nowrap">{material.usageUnit}</TableCell>
+              <TableCell className="text-sm font-mono whitespace-nowrap">{material.conversionFactor}</TableCell>
+              <TableCell className="text-sm whitespace-nowrap">
                 <span className="text-muted-foreground">0 {material.usageUnit}</span>
               </TableCell>
             </TableRow>
