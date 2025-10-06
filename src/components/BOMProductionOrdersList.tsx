@@ -72,6 +72,9 @@ export const BOMProductionOrdersList = () => {
   const [selectedOrder, setSelectedOrder] = useState<ProductionOrder | null>(null);
   const [showMaterialsDialog, setShowMaterialsDialog] = useState(false);
   const [orderToPrint, setOrderToPrint] = useState<ProductionOrder | null>(null);
+  const [showPrintDialog, setShowPrintDialog] = useState(false);
+  const [includeTechnicalSheets, setIncludeTechnicalSheets] = useState(false);
+  const [technicalSheetsData, setTechnicalSheetsData] = useState<any[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -154,7 +157,86 @@ export const BOMProductionOrdersList = () => {
 
   const prepareForPrint = (order: ProductionOrder) => {
     setOrderToPrint(order);
-    // Aguardar um momento para o estado ser atualizado antes de imprimir
+    setIncludeTechnicalSheets(false);
+    setTechnicalSheetsData([]);
+    setShowPrintDialog(true);
+  };
+
+  const loadTechnicalSheets = async (order: ProductionOrder) => {
+    const sheets = [];
+    
+    for (const item of order.items) {
+      try {
+        const { data, error } = await supabase
+          .from('recipes_bom')
+          .select(`
+            id,
+            yield_quantity,
+            yield_unit,
+            notes,
+            finished_material_id,
+            recipe_bom_items(
+              id,
+              quantity,
+              material_id
+            )
+          `)
+          .eq('id', item.bom_id)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!data) continue;
+
+        const itemIds = (data.recipe_bom_items || []).map((i: any) => i.material_id).filter(Boolean);
+        const allMaterialIds = Array.from(new Set([data.finished_material_id, ...itemIds]));
+
+        let materialsMap: Record<string, any> = {};
+        if (allMaterialIds.length) {
+          const { data: mats, error: matsErr } = await supabase
+            .from('materials')
+            .select('id,name,code,category,subcategory,usage_unit')
+            .in('id', allMaterialIds);
+          if (matsErr) throw matsErr;
+          materialsMap = (mats || []).reduce((acc: any, m: any) => { acc[m.id] = m; return acc; }, {});
+        }
+
+        const finishedMaterial = materialsMap[data.finished_material_id] || {};
+
+        sheets.push({
+          id: data.id,
+          name: finishedMaterial.name || 'Sem nome',
+          product_type: 'finished_product',
+          category: finishedMaterial.category || '',
+          subcategory: finishedMaterial.subcategory,
+          material_code: finishedMaterial.code,
+          yield_quantity: data.yield_quantity,
+          yield_unit: data.yield_unit,
+          notes: data.notes,
+          items: (data.recipe_bom_items || []).map((i: any) => ({
+            id: i.id,
+            quantity: i.quantity,
+            material: materialsMap[i.material_id] || { id: i.material_id, name: 'Material', usage_unit: 'un' }
+          }))
+        });
+      } catch (error) {
+        console.error('Erro ao carregar ficha técnica:', error);
+      }
+    }
+    
+    return sheets;
+  };
+
+  const confirmPrint = async () => {
+    if (!orderToPrint) return;
+    
+    if (includeTechnicalSheets) {
+      toast.loading('Carregando fichas técnicas...');
+      const sheets = await loadTechnicalSheets(orderToPrint);
+      setTechnicalSheetsData(sheets);
+      toast.dismiss();
+    }
+    
+    setShowPrintDialog(false);
     setTimeout(() => {
       handlePrint();
     }, 100);
@@ -412,6 +494,48 @@ export const BOMProductionOrdersList = () => {
         ))}
       </div>
 
+      {/* Dialog de Opções de Impressão */}
+      <Dialog open={showPrintDialog} onOpenChange={setShowPrintDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Opções de Impressão</DialogTitle>
+            <DialogDescription>
+              Configure como deseja imprimir a ordem de produção
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="flex items-start space-x-3">
+              <input
+                type="checkbox"
+                id="includeTechnicalSheets"
+                checked={includeTechnicalSheets}
+                onChange={(e) => setIncludeTechnicalSheets(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <div className="flex-1">
+                <label htmlFor="includeTechnicalSheets" className="font-medium cursor-pointer">
+                  Incluir fichas técnicas dos produtos
+                </label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Cada ficha técnica será impressa em sequência após a ordem de produção
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowPrintDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmPrint}>
+              <Printer className="h-4 w-4 mr-2" />
+              Imprimir
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog de Materiais */}
       <Dialog open={showMaterialsDialog} onOpenChange={setShowMaterialsDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -534,6 +658,7 @@ export const BOMProductionOrdersList = () => {
                   usage_unit: 'un'
                 }
               }))}
+              technicalSheets={technicalSheetsData}
             />
           </div>
         </div>
