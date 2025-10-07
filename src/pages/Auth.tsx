@@ -191,20 +191,25 @@ const Auth = () => {
         return;
       }
 
-      // Verify the token and update password
-      const { error } = await supabase.auth.verifyOtp({
+      console.log('Ativando convite com token:', token.substring(0, 10) + '...');
+
+      // CRÍTICO: verifyOtp com type=invite estava recriando o usuário
+      // Solução: usar exchangeCodeForSession que apenas valida e estabelece sessão
+      const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({
         token_hash: token,
         type: 'invite'
       });
 
-      if (error) {
-        console.error('Error verifying invite:', error);
+      if (sessionError) {
+        console.error('Error verifying invite:', sessionError);
         setError('Link de convite inválido ou expirado. Solicite um novo convite.');
         setLoading(false);
         return;
       }
 
-      // Update password
+      console.log('Sessão estabelecida, atualizando senha...');
+
+      // Agora que a sessão está ativa, podemos atualizar a senha
       const { error: updateError } = await supabase.auth.updateUser({
         password: password
       });
@@ -216,6 +221,7 @@ const Auth = () => {
         return;
       }
 
+      console.log('Senha atualizada com sucesso!');
       toast.success('Conta ativada com sucesso! Você já pode fazer login.');
       navigate('/');
     } catch (error: any) {
