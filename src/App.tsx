@@ -46,6 +46,7 @@ import FichasTecnicas from "./components/FichasTecnicas";
 import { MaterialEdit } from "./pages/MaterialEdit";
 import Config from "./pages/Config";
 import EstoqueRelatorios from "./pages/stock/EstoqueRelatorios";
+import PricingDiagnostics from "./pages/stock/PricingDiagnostics";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ function App() {
               <Route path="materiais/gestao" element={<MateriaisGestao />} />
               <Route path="materiais/movimentacoes" element={<EstoqueMovimentacoes />} />
               <Route path="materiais/relatorios" element={<EstoqueRelatorios />} />
+              <Route path="materiais/diagnostico-precos" element={<PricingDiagnostics />} />
               <Route path="materiais/inventario-ajustes" element={<InventarioAjustes />} />
               <Route path="materiais/inventario-ajustes/ciclo/:cycleId" element={<InventarioCiclo />} />
               <Route path="materiais/importacao" element={<Stock />} />
