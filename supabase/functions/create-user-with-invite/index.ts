@@ -84,7 +84,7 @@ const handler = async (req: Request): Promise<Response> => {
         user_id: userData.user.id,
         role: role,
       }, {
-        onConflict: 'user_id,role'
+        onConflict: 'user_id'
       });
 
     if (roleError) {
