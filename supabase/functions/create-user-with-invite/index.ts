@@ -58,46 +58,11 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Create user with email only (no password)
-    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      email_confirm: false, // Email não confirmado ainda
-      user_metadata: {
-        invited_at: new Date().toISOString(),
-      },
-    });
+    console.log("Generating invite link for new user:", email);
 
-    if (userError) {
-      console.error("Error creating user:", userError);
-      return new Response(
-        JSON.stringify({ error: userError.message }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log("User created successfully:", userData.user.id);
-
-    // Create user role using upsert to avoid conflicts
-    const { error: roleError } = await supabaseAdmin
-      .from("user_roles")
-      .upsert({
-        user_id: userData.user.id,
-        role: role,
-      }, {
-        onConflict: 'user_id'
-      });
-
-    if (roleError) {
-      console.error("Error creating user role:", roleError);
-      // Rollback: delete the user
-      await supabaseAdmin.auth.admin.deleteUser(userData.user.id);
-      return new Response(
-        JSON.stringify({ error: "Failed to assign user role" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Generate invitation link - Supabase will add type=invite&token_hash params automatically
+    // CORREÇÃO DO BUG: generateLink com type='invite' JÁ CRIA o usuário
+    // Documentação Supabase: "generateLink() handles the creation of the user for signup, invite and magiclink"
+    // Passar role via data para ser processada por trigger após signup
     const redirectTo = 'https://app.coffeelier.com.br/auth';
 
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.generateLink({
@@ -105,6 +70,10 @@ const handler = async (req: Request): Promise<Response> => {
       email,
       options: {
         redirectTo,
+        data: {
+          invited_at: new Date().toISOString(),
+          invited_role: role, // Será usado pelo trigger para criar a role
+        },
       },
     });
 
