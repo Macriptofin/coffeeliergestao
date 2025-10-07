@@ -23,11 +23,13 @@ const Auth = () => {
   const { checkRateLimit, logAuthAttempt, isChecking } = useRateLimiting();
 
   useEffect(() => {
-    // Check for invite token in URL
+    // Detectar modo convite via múltiplos parâmetros de fallback
     const type = searchParams.get('type');
-    const token = searchParams.get('token_hash');
+    const tokenHash = searchParams.get('token_hash');
+    const code = searchParams.get('code');
+    const inviteFlag = searchParams.get('invite');
     
-    if (type === 'invite' && token) {
+    if (type === 'invite' || inviteFlag === 'true' || tokenHash || code) {
       setIsInviteMode(true);
       return;
     }
@@ -182,36 +184,45 @@ const Auth = () => {
     }
 
     try {
-      const token = searchParams.get('token_hash');
+      const tokenHash = searchParams.get('token_hash');
+      const code = searchParams.get('code');
       const type = searchParams.get('type');
 
-      if (!token || type !== 'invite') {
-        setError('Link de convite inválido ou expirado.');
-        setLoading(false);
-        return;
-      }
+      // Garantir que temos uma sessão ativa antes de atualizar a senha
+      let { data: { session } } = await supabase.auth.getSession();
 
-      console.log('Ativando convite com token:', token.substring(0, 10) + '...');
-
-      // verifyOtp com type=invite agora funciona corretamente:
-      // - generateLink criou o convite com metadata (invited_role)
-      // - verifyOtp valida o token e estabelece a sessão
-      // - trigger handle_invite_signup cria a role automaticamente
-      const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({
-        token_hash: token,
-        type: 'invite'
-      });
-
-      if (sessionError) {
-        console.error('Error verifying invite:', sessionError);
-        setError('Link de convite inválido ou expirado. Solicite um novo convite.');
-        setLoading(false);
-        return;
+      if (!session) {
+        if (code) {
+          console.log('Trocando code por sessão...');
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.error('Erro ao trocar code por sessão:', error);
+            setError('Link de convite inválido ou expirado. Solicite um novo convite.');
+            setLoading(false);
+            return;
+          }
+          session = data.session;
+        } else if (tokenHash) {
+          console.log('Verificando convite via token_hash...');
+          const { data, error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: 'invite'
+          });
+          if (error) {
+            console.error('Erro ao verificar convite:', error);
+            setError('Link de convite inválido ou expirado. Solicite um novo convite.');
+            setLoading(false);
+            return;
+          }
+          session = data.session;
+        } else if (type === 'invite') {
+          setError('Link de convite inválido ou expirado. Abra novamente pelo e-mail.');
+          setLoading(false);
+          return;
+        }
       }
 
       console.log('Sessão estabelecida, atualizando senha...');
-
-      // Agora que a sessão está ativa, podemos atualizar a senha
       const { error: updateError } = await supabase.auth.updateUser({
         password: password
       });
