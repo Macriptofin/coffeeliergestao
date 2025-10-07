@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { UserPlus, ArrowLeft } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { UserPlus, ArrowLeft, Mail, Shield, Info } from "lucide-react";
 
 interface UserFormProps {
   onSuccess: () => void;
@@ -100,9 +101,20 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Alert informativo sobre o processo de convite */}
+          <Alert>
+            <Mail className="h-4 w-4" />
+            <AlertDescription>
+              Um email de convite será enviado para o endereço informado. O usuário precisará aceitar o convite e definir sua senha para acessar o sistema.
+            </AlertDescription>
+          </Alert>
+
           {/* Informações Básicas */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Informações Básicas</h3>
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              Informações Básicas
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email *</Label>
@@ -138,7 +150,10 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="role">Role do Sistema</Label>
+                <Label htmlFor="role" className="flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Nível de Acesso
+                </Label>
                 <Select 
                   value={formData.role} 
                   onValueChange={(value: 'admin' | 'manager' | 'financial' | 'user') => 
@@ -146,15 +161,38 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione o role" />
+                    <SelectValue placeholder="Selecione o nível de acesso" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin - Acesso total</SelectItem>
-                    <SelectItem value="manager">Manager - Gestão operacional</SelectItem>
-                    <SelectItem value="financial">Financial - Gestão financeira</SelectItem>
-                    <SelectItem value="user">User - Acesso básico</SelectItem>
+                    <SelectItem value="admin">
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold">Admin</span>
+                        <span className="text-xs text-muted-foreground">Acesso total ao sistema</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="manager">
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold">Manager</span>
+                        <span className="text-xs text-muted-foreground">Gestão operacional e equipes</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="financial">
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold">Financial</span>
+                        <span className="text-xs text-muted-foreground">Gestão financeira e relatórios</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="user">
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold">User</span>
+                        <span className="text-xs text-muted-foreground">Acesso básico ao sistema</span>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  O nível de acesso define as permissões gerais do usuário no sistema
+                </p>
               </div>
             </div>
           </div>
@@ -163,13 +201,16 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
 
           {/* Permissões Detalhadas */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Permissões Específicas</h3>
-            <p className="text-sm text-muted-foreground">
-              Após criar o usuário, você poderá configurar as permissões detalhadas através da opção "Editar" na lista de usuários.
-            </p>
-            <div className="p-4 border border-dashed border-muted-foreground/25 rounded-lg text-center text-muted-foreground">
-              As permissões detalhadas serão configuradas após a criação do usuário
-            </div>
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Permissões Específicas
+            </h3>
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Após o usuário aceitar o convite, você poderá configurar permissões detalhadas através da opção "Editar" na lista de usuários.
+              </AlertDescription>
+            </Alert>
           </div>
 
           <Separator />
