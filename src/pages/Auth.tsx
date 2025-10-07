@@ -344,7 +344,7 @@ const Auth = () => {
       {/* Floating login card */}
       <div className="relative z-10 w-full max-w-md">
         <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-border/50">
-          <div className="mb-6 text-center">
+          <div className="mb-6 flex justify-center">
             <CoffeelierLogo />
           </div>
           
