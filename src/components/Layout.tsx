@@ -19,13 +19,32 @@ export const Layout = () => {
   // Initialize session security monitoring
   useSessionSecurity();
 
-// Redirect to auth if no session - ensure single navigate
+// Redirect to auth if no session - add a small grace period to avoid race during invite acceptance
 const hasRedirected = useRef(false);
+const redirectTimer = useRef<number | null>(null);
 useEffect(() => {
-  if (!authLoading && !session && !hasRedirected.current) {
-    hasRedirected.current = true;
-    navigate('/auth', { replace: true });
+  // Clear any pending timer when auth state changes
+  if (redirectTimer.current) {
+    window.clearTimeout(redirectTimer.current);
+    redirectTimer.current = null;
   }
+
+  if (!authLoading && !session && !hasRedirected.current) {
+    // Wait a short time to allow session to hydrate after setSession on /auth
+    redirectTimer.current = window.setTimeout(() => {
+      if (!session && !hasRedirected.current) {
+        hasRedirected.current = true;
+        navigate('/auth', { replace: true });
+      }
+    }, 700);
+  }
+
+  return () => {
+    if (redirectTimer.current) {
+      window.clearTimeout(redirectTimer.current);
+      redirectTimer.current = null;
+    }
+  };
 }, [authLoading, session, navigate]);
 
   const handleLogout = async () => {
