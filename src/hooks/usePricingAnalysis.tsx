@@ -136,10 +136,28 @@ export const usePricingAnalysis = () => {
     }
   };
 
+  const getCostSourceSummary = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("get_cost_source_summary" as any);
+      
+      if (error) throw error;
+      return data as any[];
+    } catch (error: any) {
+      toast.error("Erro ao buscar resumo de origem de custos", {
+        description: error.message,
+      });
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     analyzeMaterialHistory,
     analyzeSystemHealth,
     recalculateMaterialPrice,
+    getCostSourceSummary,
     loading,
   };
 };
