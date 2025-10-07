@@ -345,8 +345,22 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
       setItemCosts(costs);
 
       // Calcular custos/pesos unitários
-      const unitCost = formData.yield_quantity > 0 ? totalCost / formData.yield_quantity : 0;
-      const unitWeight = formData.yield_quantity > 0 ? totalWeight / formData.yield_quantity : 0;
+      // Quando yield_unit é peso/volume (g, kg, mL, L), a receita produz UMA unidade daquele peso
+      // Ex: "1180 g" = uma receita que rende 1180g, não 1180 unidades de 1g
+      const isWeightOrVolumeUnit = ['g', 'kg', 'ml', 'l', 'mL', 'L'].includes(formData.yield_unit);
+      
+      let unitCost: number;
+      let unitWeight: number;
+      
+      if (isWeightOrVolumeUnit) {
+        // Para rendimentos em peso/volume, unitário = total (a receita inteira)
+        unitCost = totalCost;
+        unitWeight = totalWeight;
+      } else {
+        // Para rendimentos em unidades (un, porção, fatia), dividir pelo número de unidades
+        unitCost = formData.yield_quantity > 0 ? totalCost / formData.yield_quantity : 0;
+        unitWeight = formData.yield_quantity > 0 ? totalWeight / formData.yield_quantity : 0;
+      }
 
       setCostEstimate({
         totalCost,
@@ -1122,7 +1136,11 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
               
               {formData.product_type !== 'composite_product' && (
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Custo Unitário:</span>
+                  <span className="text-sm text-muted-foreground">
+                    {['g', 'kg', 'ml', 'l', 'mL', 'L'].includes(formData.yield_unit) 
+                      ? `Custo do Produto (${formData.yield_quantity} ${formData.yield_unit}):`
+                      : 'Custo Unitário:'}
+                  </span>
                   <span className="font-medium text-primary">
                     R$ {costEstimate.unitCost.toFixed(2)}
                   </span>
@@ -1141,7 +1159,11 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
               
               {formData.product_type !== 'composite_product' && (
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Peso Unitário:</span>
+                  <span className="text-sm text-muted-foreground">
+                    {['g', 'kg', 'ml', 'l', 'mL', 'L'].includes(formData.yield_unit)
+                      ? `Peso do Produto (${formData.yield_quantity} ${formData.yield_unit}):`
+                      : 'Peso Unitário:'}
+                  </span>
                   <span className="font-medium text-primary">
                     {costEstimate.unitWeight >= 1000 
                       ? `${(costEstimate.unitWeight / 1000).toFixed(2)} kg`
