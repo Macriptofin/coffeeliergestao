@@ -42,9 +42,22 @@ const Auth = () => {
     if (accessToken && refreshToken) {
       console.log('Convite já processado, estabelecendo sessão...');
       supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-        .then(() => {
-          // Redirecionar para home após aceitar convite
-          navigate('/');
+        .then(async ({ data, error }) => {
+          if (error) {
+            console.error('Erro ao estabelecer sessão:', error);
+            setError('Erro ao processar convite. Tente novamente.');
+            return;
+          }
+          
+          // Verificar se sessão foi estabelecida
+          const { data: { session: verifiedSession } } = await supabase.auth.getSession();
+          if (verifiedSession) {
+            console.log('Sessão estabelecida com sucesso, redirecionando...');
+            // Pequeno delay para garantir que a sessão está pronta
+            setTimeout(() => navigate('/'), 100);
+          } else {
+            setError('Erro ao processar convite. Tente novamente.');
+          }
         })
         .catch((error) => {
           console.error('Erro ao estabelecer sessão:', error);
@@ -261,8 +274,17 @@ const Auth = () => {
       }
 
       console.log('Senha atualizada com sucesso!');
-      toast.success('Conta ativada com sucesso! Você já pode fazer login.');
-      navigate('/');
+      
+      // Verificar se sessão está ativa antes de redirecionar
+      const { data: { session: verifiedSession } } = await supabase.auth.getSession();
+      if (verifiedSession) {
+        toast.success('Conta ativada com sucesso!');
+        // Pequeno delay para garantir que a sessão está pronta
+        setTimeout(() => navigate('/'), 100);
+      } else {
+        toast.error('Erro ao estabelecer sessão. Faça login manualmente.');
+        setIsInviteMode(false);
+      }
     } catch (error: any) {
       console.error('Unexpected error during invite activation:', error);
       setError('Erro inesperado. Tente novamente.');
