@@ -46,6 +46,18 @@ const handler = async (req: Request): Promise<Response> => {
     // Initialize Resend
     const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
+    // Check if user already exists
+    const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
+    const userExists = existingUser?.users?.some(u => u.email === email);
+    
+    if (userExists) {
+      console.error("User with this email already exists");
+      return new Response(
+        JSON.stringify({ error: "User already registered" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Create user with email only (no password)
     const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -65,12 +77,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("User created successfully:", userData.user.id);
 
-    // Create user role
+    // Create user role using upsert to avoid conflicts
     const { error: roleError } = await supabaseAdmin
       .from("user_roles")
-      .insert({
+      .upsert({
         user_id: userData.user.id,
         role: role,
+      }, {
+        onConflict: 'user_id,role'
       });
 
     if (roleError) {
