@@ -193,8 +193,10 @@ const Auth = () => {
 
       console.log('Ativando convite com token:', token.substring(0, 10) + '...');
 
-      // CRÍTICO: verifyOtp com type=invite estava recriando o usuário
-      // Solução: usar exchangeCodeForSession que apenas valida e estabelece sessão
+      // verifyOtp com type=invite agora funciona corretamente:
+      // - generateLink criou o convite com metadata (invited_role)
+      // - verifyOtp valida o token e estabelece a sessão
+      // - trigger handle_invite_signup cria a role automaticamente
       const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({
         token_hash: token,
         type: 'invite'

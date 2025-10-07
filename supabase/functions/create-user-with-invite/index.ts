@@ -77,8 +77,6 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    console.log('Invite action_link:', inviteData?.properties?.action_link);
-
     if (inviteError) {
       console.error("Error generating invite link:", inviteError);
       return new Response(
@@ -87,7 +85,8 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("Invite link generated successfully");
+    console.log('Invite link generated successfully. User will be created when they accept.');
+    console.log('Invite action_link:', inviteData?.properties?.action_link);
 
     // Send invitation email via Resend
     const emailResponse = await resend.emails.send({
@@ -152,8 +151,7 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Error sending email:", emailResponse.error);
       return new Response(
         JSON.stringify({ 
-          warning: "User created but email failed to send",
-          userId: userData.user.id 
+          warning: "Invite link generated but email failed to send. User will be created when they click the link.",
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -164,8 +162,8 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        userId: userData.user.id,
-        emailId: emailResponse.data?.id
+        emailId: emailResponse.data?.id,
+        message: "Convite enviado! Usuário será criado quando aceitar o convite."
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
