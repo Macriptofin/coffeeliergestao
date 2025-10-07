@@ -97,11 +97,19 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Generate invitation link
+    // Generate invitation link with explicit redirect to the app Auth page
+    const origin = req.headers.get('origin') ?? Deno.env.get('APP_URL') ?? 'https://receita-maestro-digital.lovable.app';
+    const redirectTo = `${origin.replace(/\/$/, '')}/auth?invite=true`;
+
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'invite',
-      email: email,
+      email,
+      options: {
+        redirectTo,
+      },
     });
+
+    console.log('Invite action_link:', inviteData?.properties?.action_link);
 
     if (inviteError) {
       console.error("Error generating invite link:", inviteError);
@@ -114,8 +122,6 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Invite link generated successfully");
 
     // Send invitation email via Resend
-    const appUrl = Deno.env.get("SUPABASE_URL")?.replace('.supabase.co', '') || "https://receita-maestro-digital.lovable.app";
-    
     const emailResponse = await resend.emails.send({
       from: Deno.env.get("RESEND_FROM_EMAIL") ?? "Coffeelier <onboarding@resend.dev>",
       to: [email],
