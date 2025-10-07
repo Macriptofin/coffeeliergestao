@@ -349,12 +349,9 @@ const Auth = () => {
           </div>
           
           <div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">
+            <h2 className="text-2xl font-bold text-foreground mb-6">
               Acesso ao Sistema
             </h2>
-            <p className="text-sm text-muted-foreground mb-6">
-              Entre com suas credenciais para acessar o sistema Coffeelier
-            </p>
             
             <form onSubmit={handleSignIn} className="space-y-4">
               <div>
@@ -410,20 +407,6 @@ const Auth = () => {
             </form>
           </div>
 
-          {/* Footer links */}
-          <div className="mt-8">
-            <div className="text-xs text-muted-foreground mb-3">
-              Baixe nosso app:
-            </div>
-            <div className="flex space-x-3">
-              <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity cursor-pointer">
-                <span className="text-background text-sm">▶</span>
-              </div>
-              <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity cursor-pointer">
-                <span className="text-background text-sm">🍎</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
