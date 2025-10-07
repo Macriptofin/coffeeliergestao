@@ -6291,6 +6291,14 @@ export type Database = {
         Args: { confirm?: boolean }
         Returns: Json
       }
+      run_pricing_tests: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          details: string
+          status: string
+          test_name: string
+        }[]
+      }
       sanitize_bom_for_material: {
         Args: { finished_material: string }
         Returns: Json
