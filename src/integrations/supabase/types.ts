@@ -581,13 +581,6 @@ export type Database = {
             foreignKeyName: "bom_production_order_items_bom_id_fkey"
             columns: ["bom_id"]
             isOneToOne: false
-            referencedRelation: "vw_cost_audit"
-            referencedColumns: ["bom_id"]
-          },
-          {
-            foreignKeyName: "bom_production_order_items_bom_id_fkey"
-            columns: ["bom_id"]
-            isOneToOne: false
             referencedRelation: "vw_diag_bom_inconsistencies"
             referencedColumns: ["bom_id"]
           },
@@ -4288,13 +4281,6 @@ export type Database = {
             foreignKeyName: "recipe_bom_items_recipe_id_fkey"
             columns: ["recipe_id"]
             isOneToOne: false
-            referencedRelation: "vw_cost_audit"
-            referencedColumns: ["bom_id"]
-          },
-          {
-            foreignKeyName: "recipe_bom_items_recipe_id_fkey"
-            columns: ["recipe_id"]
-            isOneToOne: false
             referencedRelation: "vw_diag_bom_inconsistencies"
             referencedColumns: ["bom_id"]
           },
@@ -5574,32 +5560,26 @@ export type Database = {
       }
       vw_cost_audit: {
         Row: {
-          bom_cost_calculated_at: string | null
-          bom_id: string | null
-          bom_total_cost: number | null
-          bom_unit_cost: number | null
+          average_price: number | null
+          category: string | null
           cfop_padrao: string | null
           cost_last_updated_at: string | null
           cost_last_updated_by_email: string | null
           cost_source: Database["public"]["Enums"]["cost_source_type"] | null
-          cost_status: string | null
           cst_csosn: string | null
           current_quantity: number | null
-          current_unit_cost: number | null
-          has_density: boolean | null
-          last_movement_date: string | null
-          last_movement_quantity: number | null
+          last_movement_at: string | null
           last_movement_type: string | null
-          last_movement_unit_price: number | null
           manual_price: boolean | null
           material_code: string | null
+          material_created_at: string | null
           material_id: string | null
           material_name: string | null
-          material_type: string | null
+          material_updated_at: string | null
           ncm: string | null
           origem: number | null
+          subcategory: string | null
           total_value: number | null
-          usage_unit: string | null
         }
         Relationships: []
       }
@@ -5992,6 +5972,10 @@ export type Database = {
       get_security_summary: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      get_user_email_safe: {
+        Args: { p_user_id: string }
+        Returns: string
       }
       gtrgm_compress: {
         Args: { "": unknown }
