@@ -8,6 +8,7 @@ import { CoffeelierLogo } from '@/components/CoffeelierLogo';
 import { usePasswordSecurity } from '@/hooks/usePasswordSecurity';
 import { useRateLimiting } from '@/hooks/useRateLimiting';
 import { toast } from 'sonner';
+import authHero from '@/assets/auth-hero.jpg';
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -236,25 +237,25 @@ const Auth = () => {
   // Render invite activation form
   if (isInviteMode) {
     return (
-      <div className="min-h-screen bg-gray-100 flex">
+      <div className="min-h-screen bg-background flex">
         {/* Left side - Invite Activation Form */}
-        <div className="w-full lg:w-2/5 flex flex-col justify-center px-6 py-8 sm:px-12 lg:px-16 xl:px-20">
+        <div className="w-full lg:w-2/5 flex flex-col justify-center px-6 py-8 sm:px-12 lg:px-16 xl:px-20 bg-card">
           <div className="mx-auto w-full max-w-sm">
             <div className="mb-6">
               <CoffeelierLogo />
             </div>
             
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              <h2 className="text-2xl font-bold text-foreground mb-2">
                 Ative sua conta
               </h2>
-              <p className="text-sm text-gray-600 mb-6">
+              <p className="text-sm text-muted-foreground mb-6">
                 Defina uma senha segura para acessar o sistema Coffeelier
               </p>
               
               <form onSubmit={handleInviteActivation} className="space-y-4">
                 <div>
-                  <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                     NOVA SENHA
                   </h3>
                   <Input
@@ -263,7 +264,6 @@ const Auth = () => {
                     value={password}
                     onChange={(e) => handlePasswordChange(e.target.value)}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                   {passwordValidationMessage && (
                     <Alert variant="destructive" className="mt-2">
@@ -276,7 +276,7 @@ const Auth = () => {
                 </div>
 
                 <div>
-                  <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                     CONFIRMAR SENHA
                   </h3>
                   <Input
@@ -285,7 +285,6 @@ const Auth = () => {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                 </div>
 
@@ -297,18 +296,18 @@ const Auth = () => {
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200"
+                  className="w-full"
                   disabled={loading || isValidating || !!passwordValidationMessage}
                 >
                   {loading ? 'Ativando...' : 'Ativar Conta'}
                 </Button>
 
-                <div className="text-center text-xs text-gray-600 mt-4">
+                <div className="text-center text-xs text-muted-foreground mt-4">
                   Link expirado?{' '}
                   <button 
                     type="button"
                     onClick={() => navigate('/auth')}
-                    className="text-primary hover:underline"
+                    className="text-primary hover:text-primary/90 transition-colors"
                   >
                     Solicitar novo convite
                   </button>
@@ -319,9 +318,10 @@ const Auth = () => {
         </div>
 
         {/* Right side - Promotional image */}
-        <div className="hidden lg:block relative lg:w-3/5">
+        <div className="hidden lg:block relative lg:w-3/5 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5" />
           <img 
-            src="/lovable-uploads/Capa sistema.png.png" 
+            src={authHero}
             alt="Mesa especial Coffeelier com diversos pratos gourmet"
             className="absolute inset-0 w-full h-full object-cover"
             loading="lazy"
@@ -332,25 +332,25 @@ const Auth = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
+    <div className="min-h-screen bg-background flex">
       {/* Left side - Login Form */}
-      <div className="w-full lg:w-2/5 flex flex-col justify-center px-6 py-8 sm:px-12 lg:px-16 xl:px-20">
+      <div className="w-full lg:w-2/5 flex flex-col justify-center px-6 py-8 sm:px-12 lg:px-16 xl:px-20 bg-card">
         <div className="mx-auto w-full max-w-sm">
           <div className="mb-6">
             <CoffeelierLogo />
           </div>
           
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl font-bold text-foreground mb-2">
               Acesso ao Sistema
             </h2>
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-sm text-muted-foreground mb-6">
               Entre com suas credenciais para acessar o sistema Coffeelier
             </p>
             
             <form onSubmit={handleSignIn} className="space-y-4">
               <div>
-                <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                   E-MAIL
                 </h3>
                 <Input
@@ -359,12 +359,11 @@ const Auth = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
               
               <div>
-                <h3 className="text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                   SENHA
                 </h3>
                 <Input
@@ -373,7 +372,6 @@ const Auth = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
 
@@ -386,14 +384,14 @@ const Auth = () => {
 
               <Button 
                 type="submit" 
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200"
+                className="w-full"
                 disabled={loading || isChecking}
               >
                 {loading || isChecking ? 'Verificando...' : 'Entrar'}
               </Button>
 
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-xs text-blue-800 text-center">
+              <div className="mt-6 p-4 bg-accent/10 border border-accent/20 rounded-lg">
+                <p className="text-xs text-accent-foreground text-center">
                   <span className="font-semibold">🔐 Acesso Restrito</span>
                   <br />
                   Este sistema é exclusivo para colaboradores autorizados.
@@ -406,15 +404,15 @@ const Auth = () => {
 
           {/* Footer links */}
           <div className="mt-12">
-            <div className="text-xs text-gray-500 mb-3">
+            <div className="text-xs text-muted-foreground mb-3">
               Baixe nosso app:
             </div>
             <div className="flex space-x-3">
-              <div className="w-6 h-6 bg-gray-800 rounded flex items-center justify-center">
-                <span className="text-white text-xs">▶</span>
+              <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity cursor-pointer">
+                <span className="text-background text-sm">▶</span>
               </div>
-              <div className="w-6 h-6 bg-gray-800 rounded flex items-center justify-center">
-                <span className="text-white text-xs">🍎</span>
+              <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity cursor-pointer">
+                <span className="text-background text-sm">🍎</span>
               </div>
             </div>
           </div>
@@ -422,9 +420,10 @@ const Auth = () => {
       </div>
 
       {/* Right side - Promotional image */}
-      <div className="hidden lg:block relative lg:w-3/5">
+      <div className="hidden lg:block relative lg:w-3/5 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5" />
         <img 
-          src="/lovable-uploads/Capa sistema.png.png" 
+          src={authHero}
           alt="Mesa especial Coffeelier com diversos pratos gourmet"
           className="absolute inset-0 w-full h-full object-cover"
           loading="lazy"
