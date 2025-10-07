@@ -562,9 +562,11 @@ export type Database = {
       bom_production_orders: {
         Row: {
           completed_at: string | null
+          cost_status: string | null
           created_at: string | null
           created_by: string | null
           id: string
+          missing_cost_items: Json | null
           notes: string | null
           order_date: string
           order_name: string
@@ -575,9 +577,11 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
+          cost_status?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
+          missing_cost_items?: Json | null
           notes?: string | null
           order_date: string
           order_name: string
@@ -588,9 +592,11 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
+          cost_status?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
+          missing_cost_items?: Json | null
           notes?: string | null
           order_date?: string
           order_name?: string
@@ -5496,6 +5502,10 @@ export type Database = {
         Args: { p_material_id: string; p_quantity: number }
         Returns: Json
       }
+      calculate_bom_cost_recursive: {
+        Args: { p_material_id: string; p_material_type: string }
+        Returns: number
+      }
       calculate_bom_current_cost: {
         Args: { p_bom_id: string; p_bom_type: string }
         Returns: Json
@@ -5518,6 +5528,10 @@ export type Database = {
       }
       check_account_lockout: {
         Args: { p_email: string }
+        Returns: Json
+      }
+      check_production_availability: {
+        Args: { p_bom_id: string; p_bom_type: string; p_multiplier?: number }
         Returns: Json
       }
       check_rate_limit: {
@@ -5683,6 +5697,10 @@ export type Database = {
           voter_registration: string
           zip_code: string
         }[]
+      }
+      get_material_cost: {
+        Args: { p_material_id: string }
+        Returns: number
       }
       get_secure_user_profiles: {
         Args: Record<PropertyKey, never>
