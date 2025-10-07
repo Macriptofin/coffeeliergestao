@@ -5606,6 +5606,14 @@ export type Database = {
         Args: { p_key: string; p_namespace: string }
         Returns: Json
       }
+      get_cost_source_summary: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          cost_source: Database["public"]["Enums"]["cost_source_type"]
+          count: number
+          material_type: string
+        }[]
+      }
       get_flag: {
         Args: { p_key: string }
         Returns: boolean
