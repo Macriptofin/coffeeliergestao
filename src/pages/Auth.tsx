@@ -24,12 +24,38 @@ const Auth = () => {
 
   useEffect(() => {
     // Detectar modo convite via múltiplos parâmetros de fallback
-    const type = searchParams.get('type');
-    const tokenHash = searchParams.get('token_hash');
-    const code = searchParams.get('code');
-    const inviteFlag = searchParams.get('invite');
+    // O Supabase pode retornar o link de convite em diferentes formatos:
+    // - ?type=invite&token_hash=... (formato padrão)
+    // - #access_token=...&refresh_token=... (após aceitar convite)
+    // - ?code=... (PKCE flow)
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const query = new URLSearchParams(window.location.search);
+
+    const type = hash.get('type') ?? query.get('type');
+    const tokenHash = hash.get('token_hash') ?? query.get('token_hash');
+    const code = query.get('code') ?? hash.get('code');
+    const accessToken = hash.get('access_token');
+    const refreshToken = hash.get('refresh_token');
+    const inviteFlag = query.get('invite');
     
+    // Se tem access_token + refresh_token no hash, já está autenticado (convite aceito)
+    if (accessToken && refreshToken) {
+      console.log('Convite já processado, estabelecendo sessão...');
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(() => {
+          // Redirecionar para home após aceitar convite
+          navigate('/');
+        })
+        .catch((error) => {
+          console.error('Erro ao estabelecer sessão:', error);
+          setError('Erro ao processar convite. Tente novamente.');
+        });
+      return;
+    }
+    
+    // Se tem indicadores de convite, ativar modo convite
     if (type === 'invite' || inviteFlag === 'true' || tokenHash || code) {
+      console.log('Modo convite detectado:', { type, tokenHash: !!tokenHash, code: !!code });
       setIsInviteMode(true);
       return;
     }
