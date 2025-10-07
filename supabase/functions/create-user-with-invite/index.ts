@@ -117,7 +117,7 @@ const handler = async (req: Request): Promise<Response> => {
     const appUrl = Deno.env.get("SUPABASE_URL")?.replace('.supabase.co', '') || "https://receita-maestro-digital.lovable.app";
     
     const emailResponse = await resend.emails.send({
-      from: "Coffeelier <onboarding@resend.dev>",
+      from: Deno.env.get("RESEND_FROM_EMAIL") ?? "Coffeelier <onboarding@resend.dev>",
       to: [email],
       subject: "Convite - Sistema Coffeelier",
       html: `
