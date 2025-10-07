@@ -8,7 +8,6 @@ import { CoffeelierLogo } from '@/components/CoffeelierLogo';
 import { usePasswordSecurity } from '@/hooks/usePasswordSecurity';
 import { useRateLimiting } from '@/hooks/useRateLimiting';
 import { toast } from 'sonner';
-import authHero from '@/assets/auth-hero.jpg';
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -237,10 +236,20 @@ const Auth = () => {
   // Render invite activation form
   if (isInviteMode) {
     return (
-      <div className="min-h-screen bg-background flex">
-        {/* Left side - Invite Activation Form */}
-        <div className="w-full lg:w-2/5 flex flex-col justify-center px-6 py-8 sm:px-12 lg:px-16 xl:px-20 bg-card">
-          <div className="mx-auto w-full max-w-sm">
+      <div className="min-h-screen relative flex items-center justify-center p-4">
+        {/* Background image */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="/lovable-uploads/Capa sistema.png.png"
+            alt="Mesa especial Coffeelier com diversos pratos gourmet"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+        </div>
+
+        {/* Floating login card */}
+        <div className="relative z-10 w-full max-w-md">
+          <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-border/50">
             <div className="mb-6">
               <CoffeelierLogo />
             </div>
@@ -316,26 +325,25 @@ const Auth = () => {
             </div>
           </div>
         </div>
-
-        {/* Right side - Promotional image */}
-        <div className="hidden lg:block relative lg:w-3/5 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5" />
-          <img 
-            src={authHero}
-            alt="Mesa especial Coffeelier com diversos pratos gourmet"
-            className="absolute inset-0 w-full h-full object-cover"
-            loading="lazy"
-          />
-        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Left side - Login Form */}
-      <div className="w-full lg:w-2/5 flex flex-col justify-center px-6 py-8 sm:px-12 lg:px-16 xl:px-20 bg-card">
-        <div className="mx-auto w-full max-w-sm">
+    <div className="min-h-screen relative flex items-center justify-center p-4">
+      {/* Background image */}
+      <div className="absolute inset-0 z-0">
+        <img 
+          src="/lovable-uploads/Capa sistema.png.png"
+          alt="Mesa especial Coffeelier com diversos pratos gourmet"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      </div>
+
+      {/* Floating login card */}
+      <div className="relative z-10 w-full max-w-md">
+        <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-border/50">
           <div className="mb-6">
             <CoffeelierLogo />
           </div>
@@ -403,7 +411,7 @@ const Auth = () => {
           </div>
 
           {/* Footer links */}
-          <div className="mt-12">
+          <div className="mt-8">
             <div className="text-xs text-muted-foreground mb-3">
               Baixe nosso app:
             </div>
@@ -417,17 +425,6 @@ const Auth = () => {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Right side - Promotional image */}
-      <div className="hidden lg:block relative lg:w-3/5 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5" />
-        <img 
-          src={authHero}
-          alt="Mesa especial Coffeelier com diversos pratos gourmet"
-          className="absolute inset-0 w-full h-full object-cover"
-          loading="lazy"
-        />
       </div>
     </div>
   );
