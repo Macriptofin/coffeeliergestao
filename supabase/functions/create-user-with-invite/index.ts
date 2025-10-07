@@ -97,8 +97,8 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Generate invitation link with explicit redirect to the configured domain
-    const redirectTo = 'https://app.coffeelier.com.br/auth?invite=true';
+    // Generate invitation link - Supabase will add type=invite&token_hash params automatically
+    const redirectTo = 'https://app.coffeelier.com.br/auth';
 
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'invite',

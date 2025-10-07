@@ -319,6 +319,7 @@ const Auth = () => {
             src="/lovable-uploads/Capa sistema.png.png" 
             alt="Mesa especial Coffeelier com diversos pratos gourmet"
             className="absolute inset-0 w-full h-full object-cover"
+            loading="lazy"
           />
         </div>
       </div>
@@ -470,6 +471,7 @@ const Auth = () => {
           src="/lovable-uploads/Capa sistema.png.png" 
           alt="Mesa especial Coffeelier com diversos pratos gourmet"
           className="absolute inset-0 w-full h-full object-cover"
+          loading="lazy"
         />
       </div>
     </div>
