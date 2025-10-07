@@ -2653,6 +2653,7 @@ export type Database = {
           conversion_factor: number
           cost_price: number | null
           created_at: string | null
+          density_g_per_ml: number | null
           description: string | null
           id: string
           is_archived: boolean | null
@@ -2678,6 +2679,7 @@ export type Database = {
           conversion_factor?: number
           cost_price?: number | null
           created_at?: string | null
+          density_g_per_ml?: number | null
           description?: string | null
           id?: string
           is_archived?: boolean | null
@@ -2703,6 +2705,7 @@ export type Database = {
           conversion_factor?: number
           cost_price?: number | null
           created_at?: string | null
+          density_g_per_ml?: number | null
           description?: string | null
           id?: string
           is_archived?: boolean | null

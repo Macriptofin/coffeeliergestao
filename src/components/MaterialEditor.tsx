@@ -68,6 +68,7 @@ export const MaterialEditor = ({
     subcategory: material?.subcategory || '',
     materialType: material?.materialType || 'ingredient' as Material['materialType'],
     unitWeight: material?.unitWeight?.toString() || '',
+    densityGPerMl: material?.densityGPerMl?.toString() || '',
   });
 
   const units = [
@@ -75,8 +76,10 @@ export const MaterialEditor = ({
   ];
 
   const weightUnits = ['kg', 'g'];
-  const isWeightUnit = weightUnits.includes(formData.usageUnit);
-  const needsUnitWeight = !isWeightUnit && formData.usageUnit;
+  const volumeUnits = ['ml', 'l'];
+  const isWeightUnit = weightUnits.includes(formData.usageUnit?.toLowerCase() || '');
+  const isVolumeUnit = volumeUnits.includes(formData.usageUnit?.toLowerCase() || '');
+  const needsUnitWeight = !isWeightUnit && !isVolumeUnit && formData.usageUnit;
 
 const { loading: taxonomyLoading, getTermsByTaxonomy } = useTaxonomy();
 
@@ -112,6 +115,7 @@ const availableSubcategories = selectedCategoryTerm
         subcategory: material.subcategory || '',
         materialType: material.materialType,
         unitWeight: material.unitWeight?.toString() || '',
+        densityGPerMl: material.densityGPerMl?.toString() || '',
       });
     }
   }, [material]);
@@ -130,7 +134,8 @@ const availableSubcategories = selectedCategoryTerm
         formData.category !== material.category ||
         formData.subcategory !== (material.subcategory || '') ||
         formData.materialType !== material.materialType ||
-        formData.unitWeight !== (material.unitWeight?.toString() || '');
+        formData.unitWeight !== (material.unitWeight?.toString() || '') ||
+        formData.densityGPerMl !== (material.densityGPerMl?.toString() || '');
       
       setHasUnsavedChanges(hasChanges);
     }
@@ -203,6 +208,7 @@ const availableSubcategories = selectedCategoryTerm
       subcategory: formData.subcategory || undefined,
       materialType: formData.materialType,
       unitWeight: formData.unitWeight ? parseFloat(formData.unitWeight) : undefined,
+      densityGPerMl: formData.densityGPerMl ? parseFloat(formData.densityGPerMl) : undefined,
     };
 
     onSave(updatedMaterial);
@@ -445,9 +451,34 @@ const availableSubcategories = selectedCategoryTerm
                 </p>
               </div>
 
+              {/* Campo de Densidade para unidades volumétricas */}
+              {isVolumeUnit && (
+                <div className="space-y-2">
+                  <Label className="flex items-center">
+                    Densidade (g/mL) *
+                    <HelpTooltip content="Densidade em gramas por mililitro. Necessário para calcular o peso nas receitas. Exemplos: água = 1,00 | leite = 1,03 | óleo = 0,92" />
+                  </Label>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    value={formData.densityGPerMl}
+                    onChange={(e) => setFormData({ ...formData, densityGPerMl: e.target.value })}
+                    placeholder="Ex: 1.03 (leite)"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Exemplos: água = 1,00 | leite = 1,03 | óleo = 0,92 | mel = 1,42
+                  </p>
+                </div>
+              )}
+
+              {/* Campo de Peso Unitário para unidades não-peso/não-volume */}
               {needsUnitWeight && (
                 <div className="space-y-2">
-                  <Label>Peso por {formData.usageUnit} (gramas) *</Label>
+                  <Label className="flex items-center">
+                    Peso por {formData.usageUnit} (gramas) *
+                    <HelpTooltip content={`Peso em gramas de 1 ${formData.usageUnit}. Exemplo: 1 ovo médio = 50g`} />
+                  </Label>
                   <Input
                     type="number"
                     step="0.1"
@@ -455,8 +486,12 @@ const availableSubcategories = selectedCategoryTerm
                     onChange={(e) => setFormData({ ...formData, unitWeight: e.target.value })}
                     placeholder="Ex: 50 (gramas por unidade)"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Peso em gramas de 1 {formData.usageUnit}
+                  </p>
                 </div>
               )}
+
 
               <div className="space-y-2">
                 <Label>Marcas Permitidas (Opcional)</Label>

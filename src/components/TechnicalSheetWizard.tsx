@@ -305,18 +305,24 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
 
         // Calcular peso do item
         let itemWeight = 0;
+        const unit = (item.unit || materialData.usage_unit).toLowerCase();
         
-        // Prioridade: usar unidade do item (não unit_weight para evitar erros)
-        if (item.unit === 'kg') {
+        // 1. Unidades de peso (kg, g)
+        if (unit === 'kg') {
           itemWeight = item.quantity * 1000; // kg para gramas
-        } else if (item.unit === 'g') {
+        } else if (unit === 'g') {
           itemWeight = item.quantity;
-        } else if (materialData.usage_unit === 'kg') {
-          itemWeight = item.quantity * 1000;
-        } else if (materialData.usage_unit === 'g') {
-          itemWeight = item.quantity;
-        } else if (materialData.unit_weight && materialData.unit_weight > 0) {
-          // Fallback: usar unit_weight apenas para unidades não-peso (unidade, pacote, etc)
+        }
+        // 2. Unidades de volume (L, mL) - usar densidade
+        else if (unit === 'l') {
+          const density = (materialData as any).density_g_per_ml || 1.0; // Default água
+          itemWeight = item.quantity * 1000 * density; // L → mL → gramas
+        } else if (unit === 'ml') {
+          const density = (materialData as any).density_g_per_ml || 1.0; // Default água
+          itemWeight = item.quantity * density; // mL → gramas
+        }
+        // 3. Unidades não-peso/não-volume (un, pacote, etc) - usar unit_weight
+        else if (materialData.unit_weight && materialData.unit_weight > 0) {
           itemWeight = item.quantity * materialData.unit_weight;
         }
 

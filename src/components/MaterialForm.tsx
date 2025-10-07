@@ -35,6 +35,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     subcategory: material?.subcategory || '',
     materialType: material?.materialType || 'ingredient' as Material['materialType'],
     unitWeight: material?.unitWeight?.toString() || '',
+    densityGPerMl: material?.densityGPerMl?.toString() || '',
   });
   const [duplicateError, setDuplicateError] = useState('');
   const originalName = material?.name || '';
@@ -44,8 +45,10 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   ];
 
   const weightUnits = ['kg', 'g'];
-  const isWeightUnit = weightUnits.includes(formData.usageUnit);
-  const needsUnitWeight = !isWeightUnit && formData.usageUnit;
+  const volumeUnits = ['ml', 'l'];
+  const isWeightUnit = weightUnits.includes(formData.usageUnit.toLowerCase());
+  const isVolumeUnit = volumeUnits.includes(formData.usageUnit.toLowerCase());
+  const needsUnitWeight = !isWeightUnit && !isVolumeUnit && formData.usageUnit;
 
   // Get icon component by category
   const getIconForCategory = (categoryName: string) => {
@@ -116,6 +119,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       subcategoryTermId: subcategoryTerm?.id,
       materialType: formData.materialType,
       unitWeight: formData.unitWeight ? parseFloat(formData.unitWeight) : undefined,
+      densityGPerMl: formData.densityGPerMl ? parseFloat(formData.densityGPerMl) : undefined,
     });
   };
 
@@ -359,9 +363,38 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
           </div>
 
 
+
+          {/* Campo de Densidade para unidades volumétricas */}
+          {isVolumeUnit && (
+            <div className="space-y-2">
+              <Label htmlFor="densityGPerMl" className="flex items-center">
+                Densidade (g/mL) *
+                <HelpTooltip content="Densidade em gramas por mililitro. Necessário para calcular o peso nas receitas. Exemplos: água = 1,00 | leite = 1,03 | óleo = 0,92" />
+              </Label>
+              <Input
+                id="densityGPerMl"
+                type="number"
+                step="0.001"
+                min="0"
+                value={formData.densityGPerMl}
+                onChange={(e) => setFormData({ ...formData, densityGPerMl: e.target.value })}
+                placeholder="Ex: 1.03 (leite)"
+                required
+                disabled={isEditingBOMProduct}
+              />
+              <p className="text-xs text-muted-foreground">
+                Exemplos: água = 1,00 | leite = 1,03 | óleo = 0,92 | mel = 1,42
+              </p>
+            </div>
+          )}
+
+          {/* Campo de Peso Unitário para unidades não-peso/não-volume */}
           {needsUnitWeight && (
             <div className="space-y-2">
-              <Label htmlFor="unitWeight">Peso por {formData.usageUnit} (gramas) *</Label>
+              <Label htmlFor="unitWeight" className="flex items-center">
+                Peso por {formData.usageUnit} (gramas) *
+                <HelpTooltip content={`Peso em gramas de 1 ${formData.usageUnit}. Exemplo: 1 ovo médio = 50g`} />
+              </Label>
               <Input
                 id="unitWeight"
                 type="number"
@@ -377,6 +410,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
               </p>
             </div>
           )}
+
 
           <div className="space-y-2">
             <Label htmlFor="supplier">Fornecedor (Opcional)</Label>
