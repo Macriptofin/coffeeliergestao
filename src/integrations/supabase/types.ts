@@ -4422,10 +4422,14 @@ export type Database = {
       stock_items: {
         Row: {
           average_price: number
+          cost_last_updated_at: string | null
+          cost_last_updated_by: string | null
+          cost_source: Database["public"]["Enums"]["cost_source_type"] | null
           created_at: string
           current_quantity: number
           id: string
           last_movement_date: string | null
+          manual_price: boolean | null
           material_id: string
           minimum_quantity: number
           total_value: number
@@ -4433,10 +4437,14 @@ export type Database = {
         }
         Insert: {
           average_price?: number
+          cost_last_updated_at?: string | null
+          cost_last_updated_by?: string | null
+          cost_source?: Database["public"]["Enums"]["cost_source_type"] | null
           created_at?: string
           current_quantity?: number
           id?: string
           last_movement_date?: string | null
+          manual_price?: boolean | null
           material_id: string
           minimum_quantity?: number
           total_value?: number
@@ -4444,10 +4452,14 @@ export type Database = {
         }
         Update: {
           average_price?: number
+          cost_last_updated_at?: string | null
+          cost_last_updated_by?: string | null
+          cost_source?: Database["public"]["Enums"]["cost_source_type"] | null
           created_at?: string
           current_quantity?: number
           id?: string
           last_movement_date?: string | null
+          manual_price?: boolean | null
           material_id?: string
           minimum_quantity?: number
           total_value?: number
@@ -5481,8 +5493,8 @@ export type Database = {
         Returns: Json
       }
       assemble_composite: {
-        Args: { p_composite_material: string; p_qty: number }
-        Returns: undefined
+        Args: { p_material_id: string; p_quantity: number }
+        Returns: Json
       }
       calculate_bom_current_cost: {
         Args: { p_bom_id: string; p_bom_type: string }
@@ -5891,14 +5903,24 @@ export type Database = {
         Returns: string
       }
       process_stock_entry_with_conversion: {
-        Args: {
-          p_material_id: string
-          p_notes?: string
-          p_quantity_purchased: number
-          p_reference_id?: string
-          p_reference_type?: string
-          p_unit_price_purchase: number
-        }
+        Args:
+          | {
+              p_entry_unit: string
+              p_invoice_number?: string
+              p_material_id: string
+              p_notes?: string
+              p_quantity: number
+              p_supplier_id?: string
+              p_unit_price: number
+            }
+          | {
+              p_material_id: string
+              p_notes?: string
+              p_quantity_purchased: number
+              p_reference_id?: string
+              p_reference_type?: string
+              p_unit_price_purchase: number
+            }
         Returns: Json
       }
       produce_composite_product_with_correct_cost: {
@@ -5912,8 +5934,8 @@ export type Database = {
         Returns: string
       }
       produce_finished_product: {
-        Args: { p_finished_material: string; p_output_qty: number }
-        Returns: undefined
+        Args: { p_material_id: string; p_quantity: number }
+        Returns: Json
       }
       produce_finished_product_with_correct_cost: {
         Args: { p_finished_material: string; p_output_qty: number }
@@ -6035,6 +6057,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "user" | "financial"
+      cost_source_type: "purchase" | "production" | "manual"
       event_category:
         | "Coffee Break"
         | "Brunch"
@@ -6252,6 +6275,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "user", "financial"],
+      cost_source_type: ["purchase", "production", "manual"],
       event_category: [
         "Coffee Break",
         "Brunch",
