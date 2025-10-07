@@ -263,6 +263,33 @@ export type Database = {
           },
         ]
       }
+      app_flags: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean
+          flag_name: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          flag_name: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          flag_name?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
@@ -465,6 +492,13 @@ export type Database = {
             foreignKeyName: "bom_production_consolidated_materials_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "bom_production_consolidated_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
@@ -542,6 +576,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "recipes_bom"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_production_order_items_bom_id_fkey"
+            columns: ["bom_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["bom_id"]
           },
           {
             foreignKeyName: "bom_production_order_items_bom_id_fkey"
@@ -654,6 +695,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_production_stock_movements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "bom_production_stock_movements_material_id_fkey"
@@ -931,6 +979,13 @@ export type Database = {
             foreignKeyName: "composite_bom_items_component_material_id_fkey"
             columns: ["component_material_id"]
             isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "composite_bom_items_component_material_id_fkey"
+            columns: ["component_material_id"]
+            isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
@@ -1002,6 +1057,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composites_bom_composite_material_id_fkey"
+            columns: ["composite_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "composites_bom_composite_material_id_fkey"
@@ -1619,6 +1681,13 @@ export type Database = {
             foreignKeyName: "event_production_order_items_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "event_production_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
@@ -1752,6 +1821,13 @@ export type Database = {
             foreignKeyName: "event_table_items_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "event_table_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
@@ -1819,6 +1895,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_table_template_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "event_table_template_items_material_id_fkey"
@@ -2229,6 +2312,13 @@ export type Database = {
             foreignKeyName: "invoice_items_ingredient_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
@@ -2300,6 +2390,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_material_matches_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "invoice_material_matches_material_id_fkey"
@@ -2417,6 +2514,13 @@ export type Database = {
             foreignKeyName: "invoice_ocr_items_matched_material_id_fkey"
             columns: ["matched_material_id"]
             isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "invoice_ocr_items_matched_material_id_fkey"
+            columns: ["matched_material_id"]
+            isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
@@ -2461,6 +2565,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_ocr_items_suggested_material_id_fkey"
+            columns: ["suggested_material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "invoice_ocr_items_suggested_material_id_fkey"
@@ -2624,6 +2735,13 @@ export type Database = {
             foreignKeyName: "material_name_mappings_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_name_mappings_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
@@ -2655,10 +2773,12 @@ export type Database = {
           allowed_brands: string[] | null
           category: string
           category_term_id: string | null
+          cfop_padrao: string | null
           code: string | null
           conversion_factor: number
           cost_price: number | null
           created_at: string | null
+          cst_csosn: string | null
           density_g_per_ml: number | null
           description: string | null
           id: string
@@ -2667,6 +2787,8 @@ export type Database = {
           is_system_generated: boolean | null
           material_type: string
           name: string
+          ncm: string | null
+          origem: number | null
           price_per_purchase_unit: number
           purchase_unit: string
           subcategory: string | null
@@ -2681,10 +2803,12 @@ export type Database = {
           allowed_brands?: string[] | null
           category?: string
           category_term_id?: string | null
+          cfop_padrao?: string | null
           code?: string | null
           conversion_factor?: number
           cost_price?: number | null
           created_at?: string | null
+          cst_csosn?: string | null
           density_g_per_ml?: number | null
           description?: string | null
           id?: string
@@ -2693,6 +2817,8 @@ export type Database = {
           is_system_generated?: boolean | null
           material_type?: string
           name: string
+          ncm?: string | null
+          origem?: number | null
           price_per_purchase_unit: number
           purchase_unit: string
           subcategory?: string | null
@@ -2707,10 +2833,12 @@ export type Database = {
           allowed_brands?: string[] | null
           category?: string
           category_term_id?: string | null
+          cfop_padrao?: string | null
           code?: string | null
           conversion_factor?: number
           cost_price?: number | null
           created_at?: string | null
+          cst_csosn?: string | null
           density_g_per_ml?: number | null
           description?: string | null
           id?: string
@@ -2719,6 +2847,8 @@ export type Database = {
           is_system_generated?: boolean | null
           material_type?: string
           name?: string
+          ncm?: string | null
+          origem?: number | null
           price_per_purchase_unit?: number
           purchase_unit?: string
           subcategory?: string | null
@@ -3170,6 +3300,13 @@ export type Database = {
             foreignKeyName: "proposal_category_items_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "proposal_category_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
@@ -3282,6 +3419,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_picklist_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "proposal_picklist_items_material_id_fkey"
@@ -3587,6 +3731,13 @@ export type Database = {
             foreignKeyName: "purchase_order_items_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
@@ -3711,6 +3862,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_request_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "purchase_request_items_material_id_fkey"
@@ -3868,6 +4026,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requirements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "purchase_requirements_material_id_fkey"
@@ -4081,6 +4246,13 @@ export type Database = {
             foreignKeyName: "recipe_bom_items_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "recipe_bom_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
@@ -4111,6 +4283,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "recipes_bom"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_bom_items_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["bom_id"]
           },
           {
             foreignKeyName: "recipe_bom_items_recipe_id_fkey"
@@ -4150,6 +4329,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_ingredients_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "recipe_ingredients_ingredient_id_fkey"
@@ -4292,6 +4478,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "recipes_bom_finished_material_id_fkey"
@@ -4483,6 +4676,13 @@ export type Database = {
             foreignKeyName: "stock_items_ingredient_id_fkey"
             columns: ["material_id"]
             isOneToOne: true
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "stock_items_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
@@ -4513,6 +4713,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          idempotency_key: string | null
           material_id: string
           movement_date: string
           movement_type: string
@@ -4525,6 +4726,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           material_id: string
           movement_date?: string
           movement_type: string
@@ -4537,6 +4739,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           material_id?: string
           movement_date?: string
           movement_type?: string
@@ -4553,6 +4756,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "stock_movements_ingredient_id_fkey"
@@ -4640,6 +4850,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_parameters_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "stock_parameters_material_id_fkey"
@@ -4739,6 +4956,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_planning_results_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "stock_planning_results_material_id_fkey"
@@ -4884,6 +5108,13 @@ export type Database = {
             foreignKeyName: "supplier_products_ingredient_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "supplier_products_ingredient_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
             referencedRelation: "vw_proposal_breakdown"
             referencedColumns: ["material_id"]
           },
@@ -4961,6 +5192,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "supplier_quote_items_material_id_fkey"
@@ -5334,6 +5572,37 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_cost_audit: {
+        Row: {
+          bom_cost_calculated_at: string | null
+          bom_id: string | null
+          bom_total_cost: number | null
+          bom_unit_cost: number | null
+          cfop_padrao: string | null
+          cost_last_updated_at: string | null
+          cost_last_updated_by_email: string | null
+          cost_source: Database["public"]["Enums"]["cost_source_type"] | null
+          cost_status: string | null
+          cst_csosn: string | null
+          current_quantity: number | null
+          current_unit_cost: number | null
+          has_density: boolean | null
+          last_movement_date: string | null
+          last_movement_quantity: number | null
+          last_movement_type: string | null
+          last_movement_unit_price: number | null
+          manual_price: boolean | null
+          material_code: string | null
+          material_id: string | null
+          material_name: string | null
+          material_type: string | null
+          ncm: string | null
+          origem: number | null
+          total_value: number | null
+          usage_unit: string | null
+        }
+        Relationships: []
+      }
       vw_diag_bom_inconsistencies: {
         Row: {
           bom_count_for_material: number | null
@@ -5350,6 +5619,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipes_bom_finished_material_id_fkey"
+            columns: ["finished_material_id"]
+            isOneToOne: true
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "recipes_bom_finished_material_id_fkey"
@@ -5779,6 +6055,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      is_flag_enabled: {
+        Args: { p_flag_name: string }
+        Returns: boolean
+      }
       is_within_allowed_time: {
         Args: { p_operation_type: string }
         Returns: boolean
@@ -5911,11 +6191,18 @@ export type Database = {
         Returns: undefined
       }
       process_finish_input_with_bom_cost: {
-        Args: {
-          p_material_id: string
-          p_movement_type: string
-          p_quantity: number
-        }
+        Args:
+          | {
+              p_idempotency_key?: string
+              p_material_id: string
+              p_movement_type: string
+              p_quantity: number
+            }
+          | {
+              p_material_id: string
+              p_movement_type: string
+              p_quantity: number
+            }
         Returns: undefined
       }
       process_inventory_adjustment: {
@@ -5938,6 +6225,15 @@ export type Database = {
               p_quantity: number
               p_supplier_id?: string
               p_unit_price: number
+            }
+          | {
+              p_idempotency_key?: string
+              p_material_id: string
+              p_notes?: string
+              p_quantity_purchased: number
+              p_reference_id: string
+              p_reference_type: string
+              p_unit_price_purchase: number
             }
           | {
               p_material_id: string
