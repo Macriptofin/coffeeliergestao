@@ -240,7 +240,7 @@ const Auth = () => {
         {/* Background image */}
         <div className="absolute inset-0 z-0">
           <img 
-            src="/lovable-uploads/Capa sistema.png.png"
+            src="/lovable-uploads/capa-sistema.png"
             alt="Mesa especial Coffeelier com diversos pratos gourmet"
             className="w-full h-full object-cover"
           />
@@ -334,7 +334,7 @@ const Auth = () => {
       {/* Background image */}
       <div className="absolute inset-0 z-0">
         <img 
-          src="/lovable-uploads/Capa sistema.png.png"
+          src="/lovable-uploads/capa-sistema.png"
           alt="Mesa especial Coffeelier com diversos pratos gourmet"
           className="w-full h-full object-cover"
         />
