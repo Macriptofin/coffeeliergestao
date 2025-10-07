@@ -19,9 +19,14 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, role }: CreateUserRequest = await req.json();
+    const { email, role, full_name, display_name }: { 
+      email: string; 
+      role: string;
+      full_name?: string;
+      display_name?: string;
+    } = await req.json();
 
-    console.log("Creating user with invite:", { email, role });
+    console.log("Creating user with invite:", { email, role, full_name, display_name });
 
     // Validate input
     if (!email || !role) {
@@ -73,6 +78,8 @@ const handler = async (req: Request): Promise<Response> => {
         data: {
           invited_at: new Date().toISOString(),
           invited_role: role, // Será usado pelo trigger para criar a role
+          full_name: full_name || null,
+          display_name: display_name || full_name || null,
         },
       },
     });

@@ -40,47 +40,36 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
       setLoading(true);
 
       // Invoke edge function to create user with invite
+      // IMPORTANTE: generateLink não cria o usuário imediatamente!
+      // O usuário só é criado quando aceita o convite via link
+      // O perfil será criado automaticamente pelo trigger sync_user_profile_email
       const { data, error } = await supabase.functions.invoke('create-user-with-invite', {
         body: {
           email: formData.email,
-          role: formData.role
+          role: formData.role,
+          full_name: formData.fullName,
+          display_name: formData.displayName || formData.fullName
         }
       });
 
       if (error) {
-        console.error('Erro ao criar usuário:', error);
+        console.error('Erro ao enviar convite:', error);
         if (error.message?.includes('User already registered') || error.message?.includes('already exists')) {
           toast.error('Este email já está cadastrado no sistema');
         } else {
-          toast.error(`Erro ao criar usuário: ${error.message}`);
+          toast.error(`Erro ao enviar convite: ${error.message}`);
         }
         return;
       }
 
       if (!data?.success) {
-        toast.error('Erro ao criar usuário');
+        toast.error('Erro ao enviar convite');
         return;
       }
 
-      const userId = data.userId;
-
-      // Create user profile
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .upsert({
-          user_id: userId,
-          full_name: formData.fullName,
-          display_name: formData.displayName || formData.fullName,
-          email: formData.email
-        });
-
-      if (profileError) {
-        console.error('Erro ao criar perfil:', profileError);
-        toast.error('Usuário criado, mas erro ao salvar perfil');
-      }
-
       toast.success(
-        `Usuário ${formData.fullName} criado com sucesso! Um email de convite foi enviado para ${formData.email}`
+        `Convite enviado com sucesso! Um email foi enviado para ${formData.email}. O usuário será criado quando aceitar o convite.`,
+        { duration: 5000 }
       );
       onSuccess();
     } catch (error: any) {
