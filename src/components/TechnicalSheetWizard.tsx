@@ -290,18 +290,22 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
         }
         // 2. Unidades de volume (L, mL) - usar densidade
         else if (unit === 'l') {
-          const density = (materialData as any).density_g_per_ml || (materialData as any).densityGPerMl || 1.0;
-          itemWeight = item.quantity * 1000 * density; // L → mL → gramas
+          const density = (materialData as any).density_g_per_ml || (materialData as any).densityGPerMl;
           
-          if (!density || density === 1.0) {
-            alerts.push(`${materialData.name}: densidade não definida (usando 1.0 g/mL)`);
+          if (!density || density === 0) {
+            alerts.push(`⚠️ ${materialData.name}: DENSIDADE NÃO DEFINIDA! Peso não calculado corretamente. Configure em Materiais.`);
+            itemWeight = item.quantity * 1000 * 1.0; // Fallback para água
+          } else {
+            itemWeight = item.quantity * 1000 * density; // L → mL → gramas
           }
         } else if (unit === 'ml') {
-          const density = (materialData as any).density_g_per_ml || (materialData as any).densityGPerMl || 1.0;
-          itemWeight = item.quantity * density; // mL → gramas
+          const density = (materialData as any).density_g_per_ml || (materialData as any).densityGPerMl;
           
-          if (!density || density === 1.0) {
-            alerts.push(`${materialData.name}: densidade não definida (usando 1.0 g/mL)`);
+          if (!density || density === 0) {
+            alerts.push(`⚠️ ${materialData.name}: DENSIDADE NÃO DEFINIDA! Peso não calculado corretamente. Configure em Materiais.`);
+            itemWeight = item.quantity * 1.0; // Fallback para água
+          } else {
+            itemWeight = item.quantity * density; // mL → gramas
           }
         }
         // 3. Unidades não-peso/não-volume (un, pacote, etc) - usar unit_weight
