@@ -350,7 +350,7 @@ const Auth = () => {
           
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-foreground mb-2">
-              Acesso ao Sistema
+              Sistema de Gestão
             </h2>
             <p className="text-sm text-muted-foreground">
               Gostaria de entrar e vender uma xícara de café?
