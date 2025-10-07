@@ -344,14 +344,20 @@ const Auth = () => {
       {/* Floating login card */}
       <div className="relative z-10 w-full max-w-md">
         <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-border/50">
-          <div className="mb-6">
+          <div className="mb-6 text-center">
             <CoffeelierLogo />
           </div>
           
-          <div>
-            <h2 className="text-2xl font-bold text-foreground mb-6">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-foreground mb-2">
               Acesso ao Sistema
             </h2>
+            <p className="text-sm text-muted-foreground">
+              Gostaria de entrar e vender uma xícara de café?
+            </p>
+          </div>
+          
+          <div>
             
             <form onSubmit={handleSignIn} className="space-y-4">
               <div>
