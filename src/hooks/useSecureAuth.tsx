@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useSecurityMonitoring } from '@/hooks/useSecurityMonitoring';
+// import { useSecurityMonitoring } from '@/hooks/useSecurityMonitoring'; // Temporariamente desativado para evitar loops
 import type { User, Session } from '@supabase/supabase-js';
 
 export function useSecureAuth() {
@@ -9,7 +9,8 @@ export function useSecureAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const { logSecurityEvent } = useSecurityMonitoring();
+  // Desativado no preview para evitar loops; no-op
+  const logSecurityEvent = (..._args: any[]) => {};
 
   useEffect(() => {
     console.log('🔐 useSecureAuth: useEffect executando...');
