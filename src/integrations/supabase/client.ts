@@ -2,13 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-console.log('🔧 Supabase client: Inicializando...');
-
 const SUPABASE_URL = "https://njxxqdcwvehlvqufuyww.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qeHhxZGN3dmVobHZxdWZ1eXd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MjgzMzAsImV4cCI6MjA3NDIwNDMzMH0.IlS_EBzrNr2i2gqd9zRGL75YK4PYr3QGIsjslfuipwg";
-
-console.log('🔧 Supabase URL:', SUPABASE_URL);
-console.log('🔧 Supabase Key presente:', !!SUPABASE_ANON_KEY);
 
 // Secure storage configuration for authentication
 class SecureCookieStorage {
@@ -51,8 +46,6 @@ const storageAdapter = (typeof window !== 'undefined' && typeof window.localStor
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-console.log('🔧 Criando cliente Supabase...');
-
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     storage: storageAdapter,
@@ -62,5 +55,3 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     flowType: 'pkce'
   }
 });
-
-console.log('✅ Cliente Supabase criado com sucesso!');

@@ -4,28 +4,19 @@ import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
 export function useSecureAuth() {
-  console.log('🔐 useSecureAuth: Hook inicializando...');
-  
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  // Desativado no preview para evitar loops; no-op
-  const logSecurityEvent = (..._args: any[]) => {};
 
   useEffect(() => {
-    console.log('🔐 useSecureAuth: useEffect executando...');
     let mounted = true;
 
-    // Get initial session
     const getInitialSession = async () => {
-      console.log('🔐 useSecureAuth: Buscando sessão inicial...');
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        console.log('🔐 useSecureAuth: Sessão obtida:', { hasSession: !!session, error });
         
         if (error) {
           console.error('Session recovery error:', error);
-          await logSecurityEvent('SESSION_RECOVERY_ERROR', 'auth', undefined, { error: error.message });
         }
 
         if (mounted) {
@@ -49,28 +40,6 @@ export function useSecureAuth() {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-
-        // Log authentication events (defer to avoid blocking callback)
-        try {
-          setTimeout(() => {
-            switch (event) {
-              case 'SIGNED_IN':
-                logSecurityEvent('USER_LOGIN', 'auth', session?.user?.id, { method: 'supabase_auth' });
-                break;
-              case 'SIGNED_OUT':
-                logSecurityEvent('USER_LOGOUT', 'auth', undefined);
-                break;
-              case 'TOKEN_REFRESHED':
-                // skip
-                break;
-              case 'USER_UPDATED':
-                logSecurityEvent('USER_UPDATED', 'auth', session?.user?.id);
-                break;
-            }
-          }, 0);
-        } catch (error) {
-          console.error('Failed to log auth event:', error);
-        }
       }
     );
 

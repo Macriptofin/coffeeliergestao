@@ -52,11 +52,10 @@ import PricingDiagnostics from "./pages/stock/PricingDiagnostics";
 const queryClient = new QueryClient();
 
 function App() {
-  console.log('🚀 App.tsx: Componente App iniciando...');
-  
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <FeatureFlagRedirect>
           <Toaster />
           <Routes>
             <Route path="/auth" element={<ErrorBoundary><Auth /></ErrorBoundary>} />
@@ -132,7 +131,7 @@ function App() {
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        
+        </FeatureFlagRedirect>
       </BrowserRouter>
     </QueryClientProvider>
   );

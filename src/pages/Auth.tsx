@@ -10,8 +10,6 @@ import { useRateLimiting } from '@/hooks/useRateLimiting';
 import { toast } from 'sonner';
 
 const Auth = () => {
-  console.log('🚀 Auth: Componente Auth renderizando...');
-  
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,8 +23,6 @@ const Auth = () => {
   const { checkRateLimit, logAuthAttempt, isChecking } = useRateLimiting();
   
   const isIframe = typeof window !== 'undefined' && window.self !== window.top;
-  
-  console.log('🚀 Auth: Estado inicial carregado');
 
   useEffect(() => {
     // Detectar modo convite via múltiplos parâmetros de fallback
