@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Trash2, Calculator, AlertTriangle, Save, Package, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Calculator, AlertTriangle, Save, Package, RefreshCw, Info } from 'lucide-react';
 import { Combobox } from '@/components/ui/combobox';
 
 interface Material {
@@ -1100,50 +1100,83 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-muted/50 p-3 rounded-md mb-4">
-              <p className="text-xs text-muted-foreground">
-                Os custos são calculados automaticamente com base nos preços médios do estoque. 
-                Use o botão "Recalcular" para atualizar após ajustes de preços.
+            <div className="bg-amber-50 dark:bg-amber-950/30 p-3 rounded-md mb-4 border border-amber-200 dark:border-amber-800">
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                Custos calculados com hierarquia: BOM → Estoque → Última Compra → Cadastro
               </p>
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Custo Total:</span>
-                <span className="font-medium">
-                  R$ {costEstimate.totalCost.toFixed(2)}
-                </span>
-              </div>
-              
-              {formData.product_type !== 'composite_product' && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Custo Unitário:</span>
-                  <span className="font-medium text-primary">
-                    R$ {costEstimate.unitCost.toFixed(2)}
-                  </span>
+
+            {/* Destaque dos custos principais em duas colunas */}
+            {formData.product_type !== 'composite_product' ? (
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="bg-orange-50 dark:bg-orange-950/30 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <div className="text-xs text-orange-700 dark:text-orange-300 mb-1">Custo Total da BOM:</div>
+                  <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                    R$ {costEstimate.totalCost.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                    Soma de todos os ingredientes
+                  </div>
                 </div>
-              )}
-              
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Peso Total:</span>
+
+                <div className="bg-green-50 dark:bg-green-950/30 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                  <div className="text-xs text-green-700 dark:text-green-300 mb-1">Custo por Unidade:</div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    R$ {costEstimate.unitCost.toFixed(4)}
+                  </div>
+                  <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    Por {formData.yield_unit} (total: {formData.yield_quantity})
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-orange-50 dark:bg-orange-950/30 p-4 rounded-lg border border-orange-200 dark:border-orange-800 mb-4">
+                <div className="text-xs text-orange-700 dark:text-orange-300 mb-1">Custo Total do Composto:</div>
+                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                  R$ {costEstimate.totalCost.toFixed(2)}
+                </div>
+                <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                  Soma de todos os componentes
+                </div>
+              </div>
+            )}
+
+            {/* Informações de peso */}
+            <div className="flex items-center justify-between py-2 border-t">
+              <span className="text-sm text-muted-foreground">Peso Total:</span>
+              <span className="font-medium">
+                {costEstimate.totalWeight >= 1000 
+                  ? `${(costEstimate.totalWeight / 1000).toFixed(2)} kg`
+                  : `${costEstimate.totalWeight.toFixed(1)} g`
+                }
+              </span>
+            </div>
+            
+            {formData.product_type !== 'composite_product' && (
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm text-muted-foreground">Peso Unitário:</span>
                 <span className="font-medium">
-                  {costEstimate.totalWeight >= 1000 
-                    ? `${(costEstimate.totalWeight / 1000).toFixed(2)} kg`
-                    : `${costEstimate.totalWeight.toFixed(1)} g`
+                  {costEstimate.unitWeight >= 1000 
+                    ? `${(costEstimate.unitWeight / 1000).toFixed(2)} kg`
+                    : `${costEstimate.unitWeight.toFixed(1)} g`
                   }
                 </span>
               </div>
-              
-              {formData.product_type !== 'composite_product' && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Peso Unitário:</span>
-                  <span className="font-medium text-primary">
-                    {costEstimate.unitWeight >= 1000 
-                      ? `${(costEstimate.unitWeight / 1000).toFixed(2)} kg`
-                      : `${costEstimate.unitWeight.toFixed(1)} g`
-                    }
-                  </span>
+            )}
+
+            {/* Importante: explicação sobre gravação */}
+            <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-md border border-blue-200 dark:border-blue-800">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="text-xs space-y-1">
+                  <p className="font-medium text-blue-800 dark:text-blue-200">Importante:</p>
+                  <ul className="list-disc list-inside text-blue-700 dark:text-blue-300 space-y-0.5">
+                    <li><strong>Custo Unitário:</strong> preço médio por {formData.yield_unit}</li>
+                    <li>Será gravado como <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">average_price</code> no estoque</li>
+                    <li>Campo <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">cost_source = 'production'</code></li>
+                  </ul>
                 </div>
-              )}
+              </div>
             </div>
 
             {costEstimate.alerts.length > 0 && (

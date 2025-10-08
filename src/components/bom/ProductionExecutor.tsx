@@ -92,16 +92,16 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
     try {
       if (type === 'finished') {
         const { error } = await supabase.rpc('produce_finished_product', {
-          p_finished_material: selectedMaterial,
-          p_output_qty: quantity
+          p_material_id: selectedMaterial,
+          p_quantity: quantity
         });
 
         if (error) throw error;
         toast.success(`Produção de ${quantity} unidade(s) executada com sucesso!`);
       } else {
         const { error } = await supabase.rpc('assemble_composite', {
-          p_composite_material: selectedMaterial,
-          p_qty: quantity
+          p_material_id: selectedMaterial,
+          p_quantity: quantity
         });
 
         if (error) throw error;
