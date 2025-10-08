@@ -6,8 +6,6 @@ export const FeatureFlagRedirect = ({ children }: { children: React.ReactNode })
   const { flags, loading } = useFeatureFlags();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  console.log('🚀 FeatureFlagRedirect: renderizando...', { loading, flags });
 
   useEffect(() => {
     if (loading) return;

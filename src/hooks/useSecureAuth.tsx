@@ -4,23 +4,18 @@ import { useSecurityMonitoring } from '@/hooks/useSecurityMonitoring';
 import type { User, Session } from '@supabase/supabase-js';
 
 export function useSecureAuth() {
-  console.log('🔐 useSecureAuth: Hook inicializando...');
-  
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const { logSecurityEvent } = useSecurityMonitoring();
 
   useEffect(() => {
-    console.log('🔐 useSecureAuth: useEffect executando...');
     let mounted = true;
 
     // Get initial session
     const getInitialSession = async () => {
-      console.log('🔐 useSecureAuth: Buscando sessão inicial...');
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        console.log('🔐 useSecureAuth: Sessão obtida:', { hasSession: !!session, error });
         
         if (error) {
           console.error('Session recovery error:', error);
@@ -79,7 +74,7 @@ export function useSecureAuth() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []); // Removido logSecurityEvent das dependências para evitar loop
+  }, [logSecurityEvent]);
 
   const signOut = async () => {
     try {

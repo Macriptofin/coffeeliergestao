@@ -22,7 +22,6 @@ import Materiais from "./pages/Materiais";
 import MateriaisGestao from "./pages/stock/MateriaisGestao";
 import ProducaoMain from "./pages/ProducaoMain";
 import Financeiro from "./pages/Financeiro";
-import { ErrorBoundary } from "./components/ErrorBoundary";
 import ContasPagar from "./pages/financeiro/ContasPagar";
 import ContasReceber from "./pages/financeiro/ContasReceber";
 import FluxoCaixa from "./pages/financeiro/FluxoCaixa";
@@ -47,20 +46,17 @@ import FichasTecnicas from "./components/FichasTecnicas";
 import { MaterialEdit } from "./pages/MaterialEdit";
 import Config from "./pages/Config";
 import EstoqueRelatorios from "./pages/stock/EstoqueRelatorios";
-import PricingDiagnostics from "./pages/stock/PricingDiagnostics";
 
 const queryClient = new QueryClient();
 
 function App() {
-  console.log('🚀 App.tsx: Componente App iniciando...');
-  
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <FeatureFlagRedirect>
           <Toaster />
           <Routes>
-            <Route path="/auth" element={<ErrorBoundary><Auth /></ErrorBoundary>} />
+            <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
               
@@ -70,7 +66,6 @@ function App() {
               <Route path="materiais/gestao" element={<MateriaisGestao />} />
               <Route path="materiais/movimentacoes" element={<EstoqueMovimentacoes />} />
               <Route path="materiais/relatorios" element={<EstoqueRelatorios />} />
-              <Route path="materiais/diagnostico-precos" element={<PricingDiagnostics />} />
               <Route path="materiais/inventario-ajustes" element={<InventarioAjustes />} />
               <Route path="materiais/inventario-ajustes/ciclo/:cycleId" element={<InventarioCiclo />} />
               <Route path="materiais/importacao" element={<Stock />} />

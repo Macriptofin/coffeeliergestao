@@ -8,11 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Trash2, Calculator, AlertTriangle, AlertCircle, Save, Package, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Calculator, AlertTriangle, Save, Package, RefreshCw } from 'lucide-react';
 import { Combobox } from '@/components/ui/combobox';
 
 interface Material {
@@ -240,6 +239,9 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
       let totalWeight = 0;
       const alerts: string[] = [];
 
+      // Cache preços por material - limpar cache quando forçar recálculo
+      const priceCache = new Map<string, number>();
+
       // Informar usuário sobre recálculo manual
       if (forceRecalculate) {
         toast.info('Recalculando custos com preços atualizados...');
@@ -254,6 +256,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
         let materialData = item.material;
         if (!materialData && item.material_id) {
           materialData = materials.find(m => m.id === item.material_id);
+          console.log(`Item ${i}: material_id=${item.material_id}, found in materials array:`, !!materialData);
         }
         
         if (!materialData) {
@@ -261,55 +264,59 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
           continue;
         }
 
-        // Obter custo unitário usando função SQL com fallback hierárquico
+        console.log(`Item ${i} (${materialData.name}):`, {
+          material_id: item.material_id,
+          quantity: item.quantity,
+          unit: item.unit,
+          conversion_factor: materialData.conversion_factor,
+          price_per_purchase_unit: materialData.price_per_purchase_unit
+        });
+
+        // Obter custo unitário (com cache)
         let itemUnitCost = 0;
-        try {
-          const { data: costData } = await supabase.rpc('get_material_cost', {
-            p_material_id: item.material_id
-          });
-          
-          itemUnitCost = costData || 0;
-          
-          if (itemUnitCost === 0) {
+        const cached = priceCache.get(item.material_id);
+        if (cached !== undefined) {
+          itemUnitCost = cached;
+        } else {
+          // Buscar preço do estoque
+          const { data: stockData } = await supabase
+            .from('stock_items')
+            .select('average_price')
+            .eq('material_id', item.material_id)
+            .single();
+
+          // average_price no estoque JÁ ESTÁ na unidade de USO (usage_unit)
+          // Não precisa converter novamente!
+          if (stockData?.average_price && stockData.average_price > 0) {
+            itemUnitCost = stockData.average_price;
+            priceCache.set(item.material_id, itemUnitCost);
+            console.log(`  Custo do estoque: R$ ${stockData.average_price}/${materialData.usage_unit}`);
+          } else if (materialData.price_per_purchase_unit > 0) {
+            // Fallback: preço cadastrado está na unidade de COMPRA, converter para USO
+            const factor = materialData.conversion_factor || 1;
+            itemUnitCost = materialData.price_per_purchase_unit / factor;
+            priceCache.set(item.material_id, itemUnitCost);
+            console.log(`  Custo do cadastro: R$ ${materialData.price_per_purchase_unit}/${materialData.purchase_unit} ÷ ${factor} = R$ ${itemUnitCost}/${materialData.usage_unit}`);
+          } else {
+            console.log(`  SEM CUSTO DISPONÍVEL para ${materialData.name}`);
             alerts.push(`${materialData.name}: sem custo disponível`);
           }
-        } catch (error) {
-          console.error(`Erro ao buscar custo de ${materialData.name}:`, error);
-          alerts.push(`${materialData.name}: erro ao buscar custo`);
         }
 
         // Calcular peso do item
         let itemWeight = 0;
-        const unit = (item.unit || materialData.usage_unit).toLowerCase();
         
-        // 1. Unidades de peso (kg, g)
-        if (unit === 'kg') {
+        // Prioridade: usar unidade do item (não unit_weight para evitar erros)
+        if (item.unit === 'kg') {
           itemWeight = item.quantity * 1000; // kg para gramas
-        } else if (unit === 'g') {
+        } else if (item.unit === 'g') {
           itemWeight = item.quantity;
-        }
-        // 2. Unidades de volume (L, mL) - usar densidade
-        else if (unit === 'l') {
-          const density = (materialData as any).density_g_per_ml || (materialData as any).densityGPerMl;
-          
-          if (!density || density === 0) {
-            alerts.push(`⚠️ ${materialData.name}: DENSIDADE NÃO DEFINIDA! Peso não calculado corretamente. Configure em Materiais.`);
-            itemWeight = item.quantity * 1000 * 1.0; // Fallback para água
-          } else {
-            itemWeight = item.quantity * 1000 * density; // L → mL → gramas
-          }
-        } else if (unit === 'ml') {
-          const density = (materialData as any).density_g_per_ml || (materialData as any).densityGPerMl;
-          
-          if (!density || density === 0) {
-            alerts.push(`⚠️ ${materialData.name}: DENSIDADE NÃO DEFINIDA! Peso não calculado corretamente. Configure em Materiais.`);
-            itemWeight = item.quantity * 1.0; // Fallback para água
-          } else {
-            itemWeight = item.quantity * density; // mL → gramas
-          }
-        }
-        // 3. Unidades não-peso/não-volume (un, pacote, etc) - usar unit_weight
-        else if (materialData.unit_weight && materialData.unit_weight > 0) {
+        } else if (materialData.usage_unit === 'kg') {
+          itemWeight = item.quantity * 1000;
+        } else if (materialData.usage_unit === 'g') {
+          itemWeight = item.quantity;
+        } else if (materialData.unit_weight && materialData.unit_weight > 0) {
+          // Fallback: usar unit_weight apenas para unidades não-peso (unidade, pacote, etc)
           itemWeight = item.quantity * materialData.unit_weight;
         }
 
@@ -324,16 +331,14 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
         totalCost += itemTotalCost;
         totalWeight += itemWeight;
         
-        console.log(`Item ${i} (${materialData.name}): ${item.quantity} x R$ ${itemUnitCost} x ${wasteMultiplier} = R$ ${itemTotalCost.toFixed(2)}`);
+        console.log(`  Resultado: ${item.quantity} x R$ ${itemUnitCost} x ${wasteMultiplier} = R$ ${itemTotalCost.toFixed(2)}`);
       }
 
       // Atualiza pesos e custos dos itens sem tocar na lista de itens (evita re-render pesado)
       setItemWeights(weights);
       setItemCosts(costs);
 
-      // Calcular custos/pesos unitários por RENDIMENTO
-      // O rendimento define quantas unidades a receita produz
-      // Custo unitário = custo total ÷ quantidade de unidades produzidas
+      // Calcular custos/pesos unitários
       const unitCost = formData.yield_quantity > 0 ? totalCost / formData.yield_quantity : 0;
       const unitWeight = formData.yield_quantity > 0 ? totalWeight / formData.yield_quantity : 0;
 
@@ -347,10 +352,7 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
 
       // Informar sucesso no recálculo manual
       if (forceRecalculate) {
-        const alertMessage = alerts.length > 0 
-          ? `Custos atualizados (${alerts.length} aviso(s))` 
-          : 'Custos atualizados com sucesso!';
-        toast.success(alertMessage);
+        toast.success('Custos atualizados com sucesso!');
       }
     } catch (error) {
       console.error('Erro ao calcular custos:', error);
@@ -1100,40 +1102,30 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
           <CardContent className="space-y-4">
             <div className="bg-muted/50 p-3 rounded-md mb-4">
               <p className="text-xs text-muted-foreground">
-                Custos calculados com hierarquia: BOM → Estoque → Última Compra → Cadastro
+                Os custos são calculados automaticamente com base nos preços médios do estoque. 
+                Use o botão "Recalcular" para atualizar após ajustes de preços.
               </p>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1 p-3 bg-orange-50 rounded-md">
-                <p className="text-xs text-muted-foreground">Custo Total da BOM:</p>
-                <p className="text-xl font-bold text-orange-600">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Custo Total:</span>
+                <span className="font-medium">
                   R$ {costEstimate.totalCost.toFixed(2)}
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  Soma de todos os ingredientes
-                </p>
+                </span>
               </div>
               
               {formData.product_type !== 'composite_product' && (
-                <div className="space-y-1 p-3 bg-green-50 rounded-md">
-                  <p className="text-xs text-muted-foreground">
-                    Custo por Unidade:
-                  </p>
-                  <p className="text-xl font-bold text-green-600">
-                    R$ {costEstimate.unitCost.toFixed(4)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    Por {formData.yield_unit} (total: {formData.yield_quantity})
-                  </p>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Custo Unitário:</span>
+                  <span className="font-medium text-primary">
+                    R$ {costEstimate.unitCost.toFixed(2)}
+                  </span>
                 </div>
               )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 pt-2">
-              <div className="flex justify-between items-center">
+              
+              <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Peso Total:</span>
-                <span className="font-semibold">
+                <span className="font-medium">
                   {costEstimate.totalWeight >= 1000 
                     ? `${(costEstimate.totalWeight / 1000).toFixed(2)} kg`
                     : `${costEstimate.totalWeight.toFixed(1)} g`
@@ -1142,11 +1134,9 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
               </div>
               
               {formData.product_type !== 'composite_product' && (
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">
-                    Peso Unitário:
-                  </span>
-                  <span className="font-semibold">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Peso Unitário:</span>
+                  <span className="font-medium text-primary">
                     {costEstimate.unitWeight >= 1000 
                       ? `${(costEstimate.unitWeight / 1000).toFixed(2)} kg`
                       : `${costEstimate.unitWeight.toFixed(1)} g`
@@ -1157,38 +1147,18 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
             </div>
 
             {costEstimate.alerts.length > 0 && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>
-                  ⚠️ Custo Parcial - {costEstimate.alerts.length} item(ns) sem preço
-                </AlertTitle>
-                <AlertDescription>
-                  <ul className="list-disc list-inside space-y-1 text-xs mt-2">
-                    {costEstimate.alerts.map((alert, idx) => (
-                      <li key={idx}>{alert}</li>
-                    ))}
-                  </ul>
-                  <p className="text-xs mt-2 italic">
-                    Configure preços via: Entrada de Estoque, Ajuste de Custo ou Cadastro
-                  </p>
-                </AlertDescription>
-              </Alert>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-amber-600">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="font-medium text-sm">Alertas</span>
+                </div>
+                {costEstimate.alerts.map((alert, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">
+                    {alert}
+                  </Badge>
+                ))}
+              </div>
             )}
-
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-xs">
-              <p className="font-semibold text-blue-900 mb-1">💡 Importante:</p>
-              <ul className="list-disc list-inside space-y-0.5 text-blue-800">
-                <li>
-                  <strong>Custo Unitário</strong>: preço médio por {formData.yield_unit}
-                </li>
-                <li>
-                  Será gravado como <code className="bg-blue-100 px-1 rounded">average_price</code> no estoque
-                </li>
-                <li>
-                  Campo <code className="bg-blue-100 px-1 rounded">cost_source = 'production'</code>
-                </li>
-              </ul>
-            </div>
           </CardContent>
         </Card>
       </div>

@@ -7,17 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Play, Package, Wrench, Settings, RefreshCw } from 'lucide-react';
-import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
-import { ProductionAvailability } from './ProductionAvailability';
-import { useBOMCosting } from '@/hooks/useBOMCosting';
+import { AlertCircle, Play, Package, Wrench, Settings } from 'lucide-react';
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 interface Material {
   id: string;
   name: string;
   code: string;
   material_type: string;
-  bom_id?: string;
 }
 
 interface ProductionExecutorProps {
@@ -30,38 +27,10 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [materialType, setMaterialType] = useState<'finished_product' | 'composite_product' | ''>('');
-  const [bomId, setBomId] = useState<string>('');
-  const [availability, setAvailability] = useState<any>(null);
-  const [checkingAvailability, setCheckingAvailability] = useState(false);
-  
-  const { checkAvailability } = useBOMCosting();
 
   useEffect(() => {
     loadMaterials();
   }, []);
-  
-  useEffect(() => {
-    if (selectedMaterial && materialType && bomId && quantity > 0) {
-      checkStockAvailability();
-    } else {
-      setAvailability(null);
-    }
-  }, [selectedMaterial, materialType, bomId, quantity]);
-
-  const checkStockAvailability = async () => {
-    if (!bomId || !materialType) return;
-    
-    setCheckingAvailability(true);
-    try {
-      const bomType = materialType === 'composite_product' ? 'composite' : 'recipe';
-      const result = await checkAvailability(bomId, bomType, quantity);
-      setAvailability(result);
-    } catch (error) {
-      console.error('Erro ao verificar disponibilidade:', error);
-    } finally {
-      setCheckingAvailability(false);
-    }
-  };
 
   const loadMaterials = async () => {
     try {
@@ -91,27 +60,19 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
       if (finishedProductsQuery.error) throw finishedProductsQuery.error;
       if (compositeProductsQuery.error) throw compositeProductsQuery.error;
 
-      const finishedProducts = (finishedProductsQuery.data || []).map(item => {
-        const bomData = (item as any).recipes_bom?.[0];
-        return {
-          id: item.id,
-          name: item.name,
-          code: item.code,
-          material_type: item.material_type,
-          bom_id: bomData?.id || ''
-        };
-      });
+      const finishedProducts = (finishedProductsQuery.data || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        code: item.code,
+        material_type: item.material_type
+      }));
 
-      const compositeProducts = (compositeProductsQuery.data || []).map(item => {
-        const bomData = (item as any).composites_bom?.[0];
-        return {
-          id: item.id,
-          name: item.name,
-          code: item.code,
-          material_type: item.material_type,
-          bom_id: bomData?.id || ''
-        };
-      });
+      const compositeProducts = (compositeProductsQuery.data || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        code: item.code,
+        material_type: item.material_type
+      }));
 
       setMaterials([...finishedProducts, ...compositeProducts]);
     } catch (error) {
@@ -131,16 +92,16 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
     try {
       if (type === 'finished') {
         const { error } = await supabase.rpc('produce_finished_product', {
-          p_material_id: selectedMaterial,
-          p_quantity: quantity
+          p_finished_material: selectedMaterial,
+          p_output_qty: quantity
         });
 
         if (error) throw error;
         toast.success(`Produção de ${quantity} unidade(s) executada com sucesso!`);
       } else {
         const { error } = await supabase.rpc('assemble_composite', {
-          p_material_id: selectedMaterial,
-          p_quantity: quantity
+          p_composite_material: selectedMaterial,
+          p_qty: quantity
         });
 
         if (error) throw error;
@@ -209,7 +170,6 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
                     const material = materials.find(m => m.id === value);
                     if (material) {
                       setMaterialType(material.material_type as 'finished_product' | 'composite_product');
-                      setBomId(material.bom_id || '');
                     }
                   }}
                 >
@@ -256,22 +216,14 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
                 />
               </div>
 
-              {availability && (
-                <ProductionAvailability
-                  available={availability.available}
-                  missingItems={availability.missing_items || []}
-                  loading={checkingAvailability}
-                />
-              )}
-
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button 
                     className="w-full" 
-                    disabled={!selectedMaterial || quantity <= 0 || (materialType !== 'finished_product' && materialType !== 'composite_product') || (availability && !availability.available)}
+                    disabled={!selectedMaterial || quantity <= 0 || (materialType !== 'finished_product' && materialType !== 'composite_product')}
                   >
                     <Play className="h-4 w-4 mr-2" />
-                    {availability && !availability.available ? 'Estoque Insuficiente' : 'Executar Produção'}
+                    Executar Produção
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -287,13 +239,10 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction 
-                      onClick={() => executeProduction('finished')} 
-                      disabled={loading || (availability && !availability.available)}
-                    >
+                    <Button variant="outline">Cancelar</Button>
+                    <Button onClick={() => executeProduction('finished')} disabled={loading}>
                       {loading ? 'Executando...' : 'Confirmar'}
-                    </AlertDialogAction>
+                    </Button>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
@@ -319,10 +268,6 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
                   onValueChange={(value) => {
                     setSelectedMaterial(value);
                     setMaterialType('composite_product');
-                    const material = materials.find(m => m.id === value);
-                    if (material) {
-                      setBomId(material.bom_id || '');
-                    }
                   }}
                 >
                   <SelectTrigger>
@@ -361,22 +306,14 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
                 />
               </div>
 
-              {availability && materialType === 'composite_product' && (
-                <ProductionAvailability
-                  available={availability.available}
-                  missingItems={availability.missing_items || []}
-                  loading={checkingAvailability}
-                />
-              )}
-
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button 
                     className="w-full bg-orange-600 hover:bg-orange-700" 
-                    disabled={!selectedMaterial || materialType !== 'composite_product' || quantity <= 0 || (availability && !availability.available)}
+                    disabled={!selectedMaterial || materialType !== 'composite_product' || quantity <= 0}
                   >
                     <Wrench className="h-4 w-4 mr-2" />
-                    {availability && !availability.available ? 'Estoque Insuficiente' : 'Executar Montagem'}
+                    Executar Montagem
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -392,14 +329,14 @@ export const ProductionExecutor: React.FC<ProductionExecutorProps> = ({ onSucces
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction
+                    <Button variant="outline">Cancelar</Button>
+                    <Button 
                       onClick={() => executeProduction('composite')} 
-                      disabled={loading || (availability && !availability.available)}
+                      disabled={loading}
                       className="bg-orange-600 hover:bg-orange-700"
                     >
                       {loading ? 'Executando...' : 'Confirmar'}
-                    </AlertDialogAction>
+                    </Button>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>

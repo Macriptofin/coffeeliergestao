@@ -41,7 +41,6 @@ export const MaterialEdit = () => {
           code,
           material_type,
           unit_weight,
-          density_g_per_ml,
           is_sellable
         `)
         .order('name');
@@ -63,7 +62,6 @@ export const MaterialEdit = () => {
         code: item.code,
         materialType: (item.material_type || 'ingredient') as Material['materialType'],
         unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
-        densityGPerMl: item.density_g_per_ml ? parseFloat(item.density_g_per_ml.toString()) : undefined,
         isSellable: Boolean(item.is_sellable)
       }));
 
@@ -104,7 +102,6 @@ export const MaterialEdit = () => {
           subcategory: updatedMaterial.subcategory,
           material_type: updatedMaterial.materialType,
           unit_weight: updatedMaterial.unitWeight,
-          density_g_per_ml: updatedMaterial.densityGPerMl,
           is_sellable: updatedMaterial.isSellable || false
         })
         .eq('id', updatedMaterial.id);

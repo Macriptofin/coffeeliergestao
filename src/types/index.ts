@@ -32,8 +32,7 @@ export interface Material {
   subcategoryTermId?: string; // Reference to taxonomy term
   code: string;
   materialType: 'ingredient' | 'packaging' | 'intermediate_product' | 'finished_product' | 'composite_product';
-  unitWeight?: number; // Peso em gramas por unidade de uso (para unidades não-peso/não-volume)
-  densityGPerMl?: number; // Densidade em g/mL (para unidades volumétricas: mL, L)
+  unitWeight?: number;
   isSellable?: boolean;
 }
 

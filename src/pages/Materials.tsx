@@ -130,7 +130,6 @@ const Materials = () => {
           code,
           material_type,
           unit_weight,
-          density_g_per_ml,
           is_sellable
         `)
         .eq('is_archived', false)
@@ -170,7 +169,6 @@ const Materials = () => {
             code: item.code || `MAT-${Date.now()}-${index}`,
             materialType: (item.material_type || 'ingredient') as Material['materialType'],
             unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
-            densityGPerMl: item.density_g_per_ml ? parseFloat(item.density_g_per_ml.toString()) : undefined,
             isSellable: Boolean(item.is_sellable)
           };
           
@@ -192,7 +190,6 @@ const Materials = () => {
             code: `ERR-${Date.now()}-${index}`,
             materialType: 'ingredient' as Material['materialType'],
             unitWeight: undefined,
-            densityGPerMl: undefined,
             isSellable: false
           };
         }
@@ -236,7 +233,6 @@ const Materials = () => {
           subcategory_term_id: material.subcategoryTermId,
           material_type: material.materialType,
           unit_weight: material.unitWeight,
-          density_g_per_ml: material.densityGPerMl,
           is_sellable: material.isSellable || false
         })
         .select()
@@ -264,7 +260,6 @@ const Materials = () => {
         code: data.code || '',
         materialType: (data.material_type || 'ingredient') as Material['materialType'],
         unitWeight: data.unit_weight ? parseFloat(data.unit_weight.toString()) : undefined,
-        densityGPerMl: data.density_g_per_ml ? parseFloat(data.density_g_per_ml.toString()) : undefined,
         isSellable: data.is_sellable || false
       };
       
@@ -298,7 +293,6 @@ const Materials = () => {
           subcategory_term_id: updatedMaterial.subcategoryTermId,
           material_type: updatedMaterial.materialType,
           unit_weight: updatedMaterial.unitWeight,
-          density_g_per_ml: updatedMaterial.densityGPerMl,
           is_sellable: updatedMaterial.isSellable || false
         })
         .eq('id', updatedMaterial.id);

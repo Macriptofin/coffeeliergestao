@@ -30,9 +30,7 @@ export const useFeatureFlags = () => {
         .in('key', Object.keys(defaultFlags));
       
       if (error) {
-        console.error('❌ Error loading feature flags:', error);
-        // Continue mesmo com erro, usando flags padrão
-        setLoading(false);
+        console.error('Error loading feature flags:', error);
         return;
       }
 

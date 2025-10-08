@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Package, Plus, TrendingUp, BarChart3, FileInput, ClipboardCheck, Settings, Activity } from "lucide-react";
+import { Package, Plus, TrendingUp, BarChart3, FileInput, ClipboardCheck, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Materiais = () => {
@@ -55,13 +55,6 @@ const Materiais = () => {
       icon: ClipboardCheck,
       href: "/materiais/inventario-ajustes",
       color: "bg-indigo-500"
-    },
-    {
-      title: "Diagnóstico de Preços",
-      description: "Análise de origem de custos e saúde do sistema de precificação",
-      icon: Activity,
-      href: "/materiais/diagnostico-precos",
-      color: "bg-red-500"
     }
   ];
 
