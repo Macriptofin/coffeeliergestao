@@ -52,6 +52,8 @@ import PricingDiagnostics from "./pages/stock/PricingDiagnostics";
 const queryClient = new QueryClient();
 
 function App() {
+  console.log('🚀 App.tsx: Componente App iniciando...');
+  
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
