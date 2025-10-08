@@ -22,6 +22,7 @@ import Materiais from "./pages/Materiais";
 import MateriaisGestao from "./pages/stock/MateriaisGestao";
 import ProducaoMain from "./pages/ProducaoMain";
 import Financeiro from "./pages/Financeiro";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import ContasPagar from "./pages/financeiro/ContasPagar";
 import ContasReceber from "./pages/financeiro/ContasReceber";
 import FluxoCaixa from "./pages/financeiro/FluxoCaixa";
@@ -57,7 +58,7 @@ function App() {
         <FeatureFlagRedirect>
           <Toaster />
           <Routes>
-            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth" element={<ErrorBoundary><Auth /></ErrorBoundary>} />
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
               
