@@ -24,6 +24,8 @@ const Auth = () => {
   const { validatePassword, isValidating } = usePasswordSecurity();
   const { checkRateLimit, logAuthAttempt, isChecking } = useRateLimiting();
   
+  const isIframe = typeof window !== 'undefined' && window.self !== window.top;
+  
   console.log('🚀 Auth: Estado inicial carregado');
 
   useEffect(() => {
@@ -241,15 +243,19 @@ const Auth = () => {
   if (isInviteMode) {
     return (
       <div className="min-h-screen relative flex items-center justify-center p-4">
-        {/* Background image */}
-        <div className="absolute inset-0 z-0">
-          <img 
-            src="/lovable-uploads/capa-sistema.png"
-            alt="Mesa especial Coffeelier com diversos pratos gourmet"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-        </div>
+        {/* Background (iframe-safe) */}
+        {isIframe ? (
+          <div className="absolute inset-0 z-0 bg-gradient-subtle" />
+        ) : (
+          <div className="absolute inset-0 z-0">
+            <img 
+              src="/lovable-uploads/capa-sistema.png"
+              alt="Mesa especial Coffeelier com diversos pratos gourmet"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          </div>
+        )}
 
         {/* Floating login card */}
         <div className="relative z-10 w-full max-w-md">
@@ -335,15 +341,19 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen relative flex items-center justify-center p-4">
-      {/* Background image */}
-      <div className="absolute inset-0 z-0">
-        <img 
-          src="/lovable-uploads/capa-sistema.png"
-          alt="Mesa especial Coffeelier com diversos pratos gourmet"
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      </div>
+      {/* Background (iframe-safe) */}
+      {isIframe ? (
+        <div className="absolute inset-0 z-0 bg-gradient-subtle" />
+      ) : (
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="/lovable-uploads/capa-sistema.png"
+            alt="Mesa especial Coffeelier com diversos pratos gourmet"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+        </div>
+      )}
 
       {/* Floating login card */}
       <div className="relative z-10 w-full max-w-md">
