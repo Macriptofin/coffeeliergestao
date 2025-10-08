@@ -79,7 +79,7 @@ export function useSecureAuth() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [logSecurityEvent]);
+  }, []); // Removido logSecurityEvent das dependências para evitar loop
 
   const signOut = async () => {
     try {
