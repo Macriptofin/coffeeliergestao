@@ -18,6 +18,9 @@ const Auth = () => {
   const [error, setError] = useState('');
   const [passwordValidationMessage, setPasswordValidationMessage] = useState('');
   const [isInviteMode, setIsInviteMode] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const navigate = useNavigate();
   const { validatePassword, isValidating } = usePasswordSecurity();
   const { checkRateLimit, logAuthAttempt, isChecking } = useRateLimiting();
@@ -37,6 +40,13 @@ const Auth = () => {
     const accessToken = hash.get('access_token');
     const refreshToken = hash.get('refresh_token');
     const inviteFlag = query.get('invite');
+    
+    // Detectar modo de recuperação de senha
+    if (type === 'recovery') {
+      console.log('Modo recuperação de senha detectado');
+      setIsPasswordRecovery(true);
+      return;
+    }
     
     // Se tem access_token + refresh_token no hash, já está autenticado (convite aceito)
     if (accessToken && refreshToken) {
@@ -141,6 +151,66 @@ const Auth = () => {
   };
 
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?type=recovery`,
+      });
+
+      if (error) {
+        setError('Erro ao enviar email de recuperação. Verifique o endereço e tente novamente.');
+      } else {
+        setResetEmailSent(true);
+        toast.success('Email de recuperação enviado! Verifique sua caixa de entrada.');
+      }
+    } catch (error: any) {
+      setError('Erro inesperado. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordRecovery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    if (password !== confirmPassword) {
+      setError('As senhas não coincidem.');
+      setLoading(false);
+      return;
+    }
+
+    // Validar senha
+    const validation = await validatePassword(password);
+    if (!validation.valid) {
+      setError(validation.message);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: password
+      });
+
+      if (error) {
+        setError('Erro ao redefinir senha. Tente novamente.');
+      } else {
+        toast.success('Senha redefinida com sucesso!');
+        navigate('/');
+      }
+    } catch (error: any) {
+      setError('Erro inesperado. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleInviteActivation = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -232,6 +302,189 @@ const Auth = () => {
   };
 
   
+
+  // Render password recovery form (after clicking email link)
+  if (isPasswordRecovery) {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center p-4">
+        {/* Background image */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="/lovable-uploads/capa-sistema.png"
+            alt="Mesa especial Coffeelier com diversos pratos gourmet"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+        </div>
+
+        {/* Floating card */}
+        <div className="relative z-10 w-full max-w-md">
+          <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-border/50">
+            <div className="mb-6 flex justify-center">
+              <CoffeelierLogo />
+            </div>
+            
+            <div>
+              <h2 className="text-2xl font-bold text-foreground mb-2">
+                Redefinir Senha
+              </h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Digite sua nova senha segura
+              </p>
+              
+              <form onSubmit={handlePasswordRecovery} className="space-y-4">
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    NOVA SENHA
+                  </h3>
+                  <Input
+                    type="password"
+                    placeholder="Digite sua nova senha"
+                    value={password}
+                    onChange={(e) => handlePasswordChange(e.target.value)}
+                    required
+                  />
+                  {passwordValidationMessage && (
+                    <Alert variant="destructive" className="mt-2">
+                      <AlertDescription className="text-xs">{passwordValidationMessage}</AlertDescription>
+                    </Alert>
+                  )}
+                  {isValidating && (
+                    <p className="text-xs text-muted-foreground mt-1">Verificando segurança da senha...</p>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    CONFIRMAR SENHA
+                  </h3>
+                  <Input
+                    type="password"
+                    placeholder="Confirme sua nova senha"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription className="text-xs">{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <Button 
+                  type="submit" 
+                  className="w-full"
+                  disabled={loading || isValidating || !!passwordValidationMessage}
+                >
+                  {loading ? 'Redefinindo...' : 'Redefinir Senha'}
+                </Button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render forgot password form
+  if (isForgotPassword) {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center p-4">
+        {/* Background image */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="/lovable-uploads/capa-sistema.png"
+            alt="Mesa especial Coffeelier com diversos pratos gourmet"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+        </div>
+
+        {/* Floating card */}
+        <div className="relative z-10 w-full max-w-md">
+          <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-border/50">
+            <div className="mb-6 flex justify-center">
+              <CoffeelierLogo />
+            </div>
+            
+            {resetEmailSent ? (
+              <div className="text-center space-y-4">
+                <h2 className="text-2xl font-bold text-foreground mb-2">
+                  Email Enviado!
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
+                </p>
+                <Button 
+                  onClick={() => {
+                    setIsForgotPassword(false);
+                    setResetEmailSent(false);
+                    setEmail('');
+                  }}
+                  className="w-full"
+                >
+                  Voltar ao Login
+                </Button>
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">
+                  Esqueci Minha Senha
+                </h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Digite seu email para receber instruções de recuperação
+                </p>
+                
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div>
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                      E-MAIL
+                    </h3>
+                    <Input
+                      type="email"
+                      placeholder="seu.email@exemplo.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertDescription className="text-xs">{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <Button 
+                    type="submit" 
+                    className="w-full"
+                    disabled={loading}
+                  >
+                    {loading ? 'Enviando...' : 'Enviar Email de Recuperação'}
+                  </Button>
+
+                  <div className="text-center">
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setIsForgotPassword(false);
+                        setError('');
+                      }}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      ← Voltar ao login
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Render invite activation form
   if (isInviteMode) {
@@ -400,6 +653,16 @@ const Auth = () => {
               >
                 {loading || isChecking ? 'Verificando...' : 'Entrar'}
               </Button>
+
+              <div className="text-center mt-4">
+                <button 
+                  type="button"
+                  onClick={() => setIsForgotPassword(true)}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Esqueci minha senha
+                </button>
+              </div>
 
               <div className="mt-6 p-4 bg-accent/10 border border-accent/20 rounded-lg">
                 <p className="text-xs text-accent-foreground text-center">
