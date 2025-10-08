@@ -57,6 +57,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <FeatureFlagRedirect>
           <Toaster />
           <Routes>
             <Route path="/auth" element={<ErrorBoundary><Auth /></ErrorBoundary>} />
@@ -132,7 +133,7 @@ function App() {
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        
+        </FeatureFlagRedirect>
       </BrowserRouter>
     </QueryClientProvider>
   );
