@@ -127,9 +127,10 @@ export const BOMProductionOrdersList = () => {
 
       await loadProductionOrders();
       toast.success(`Ordem ${getStatusLabel(newStatus).toLowerCase()}!`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao atualizar status:', error);
-      toast.error('Erro ao atualizar status da ordem');
+      const message = error?.message || error?.hint || JSON.stringify(error);
+      toast.error(`Erro ao atualizar status da ordem: ${message}`);
     } finally {
       setProcessingOrder(null);
     }
