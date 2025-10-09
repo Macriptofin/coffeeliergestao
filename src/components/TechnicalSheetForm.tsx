@@ -120,15 +120,20 @@ const TechnicalSheetForm: React.FC<TechnicalSheetFormProps> = ({ onSuccess, onCa
     setLoading(true);
 
     try {
+      // Para produtos intermediários/acabados: purchase_unit = usage_unit e conversion_factor = 1
+      const isProducedProduct = productType === 'intermediate_product' || productType === 'finished_product';
+      const finalPurchaseUnit = isProducedProduct ? usageUnit : purchaseUnit;
+      const finalConversionFactor = isProducedProduct ? 1 : conversionFactor;
+      
       // 1. Create the product (material)
       const { data: materialData, error: materialError } = await supabase
         .from('materials')
         .insert({
           name: productName,
           description: productDescription,
-          purchase_unit: purchaseUnit,
+          purchase_unit: finalPurchaseUnit,
           usage_unit: usageUnit,
-          conversion_factor: conversionFactor,
+          conversion_factor: finalConversionFactor,
           price_per_purchase_unit: pricePerUnit,
           supplier: supplier || null,
           category: getCategory(),
