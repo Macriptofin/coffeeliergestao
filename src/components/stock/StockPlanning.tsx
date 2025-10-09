@@ -191,13 +191,7 @@ export function StockPlanning() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Planejamento de Estoque</h3>
-          <p className="text-sm text-muted-foreground">
-            Execute análise ABC e gere requisições de compra baseadas em estoques mínimos
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <Button onClick={runPlanning} disabled={running}>
           <Play className="h-4 w-4 mr-2" />
           {running ? 'Executando...' : 'Executar Planejamento'}
