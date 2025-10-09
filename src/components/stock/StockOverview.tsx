@@ -92,10 +92,14 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
     }
   };
 
-  const getStockStatus = (item: StockItem) => {
-    if (item.currentQuantity === 0) return { label: 'Zerado', variant: 'destructive' as const };
-    if (item.currentQuantity <= item.minimumQuantity) return { label: 'Baixo', variant: 'secondary' as const };
-    return { label: 'Normal', variant: 'default' as const };
+  const getStockStatusColor = (item: StockItem) => {
+    if (item.currentQuantity === 0 || item.currentQuantity < item.minimumQuantity) {
+      return 'text-red-600 dark:text-red-400 font-semibold';
+    }
+    if (item.currentQuantity === item.minimumQuantity) {
+      return 'text-yellow-600 dark:text-yellow-400 font-semibold';
+    }
+    return 'text-green-600 dark:text-green-400 font-semibold';
   };
 
   const isFromTechnicalSheet = (materialType: string) => {
@@ -167,19 +171,16 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
           ) : (
             <div className="space-y-3">
               {filteredItems.map(item => {
-                const status = getStockStatus(item);
+                const stockColor = getStockStatusColor(item);
                 const fromTechnicalSheet = isFromTechnicalSheet(item.ingredient.materialType);
                 return (
                   <div key={item.id} className="flex items-center justify-between p-4 bg-accent rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-medium">{item.ingredient.name}</h3>
                         <Badge variant="outline" className="font-mono text-xs">
                           {item.ingredient.code}
                         </Badge>
-                        <Badge variant={status.variant}>
-                          {status.label}
-                        </Badge>
+                        <h3 className="font-medium">{item.ingredient.name}</h3>
                         {fromTechnicalSheet && (
                           <Badge variant="secondary" className="gap-1">
                             <FileText className="h-3 w-3" />
@@ -189,10 +190,10 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground">
                         <div>
-                          <span className="block font-medium text-foreground">
+                          <span className={`block font-medium ${stockColor}`}>
                             {item.currentQuantity.toFixed(2)} {item.ingredient.usageUnit}
                           </span>
-                          <span>Quantidade Atual</span>
+                          <span>Estoque Atual</span>
                         </div>
                         <div>
                           <span className="block font-medium text-foreground">
