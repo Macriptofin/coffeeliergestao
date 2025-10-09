@@ -549,7 +549,7 @@ const Materials = () => {
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="mr-2 h-4 w-4" />
-              + Novo Material
+              Novo Material
             </Button>
             
             <Button 
