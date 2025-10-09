@@ -11,7 +11,10 @@ export interface StockItem {
   ingredient: {
     id: string;
     name: string;
+    code: string;
     usageUnit: string;
+    materialType: string;
+    category: string;
   };
   currentQuantity: number;
   minimumQuantity: number;
@@ -62,7 +65,10 @@ const Stock = () => {
         materials:material_id (
           id,
           name,
-          usage_unit
+          code,
+          usage_unit,
+          material_type,
+          category
         )
       `)
       .order('last_movement_date', { ascending: false, nullsFirst: false });
@@ -74,7 +80,10 @@ const Stock = () => {
       ingredient: {
         id: item.materials.id,
         name: item.materials.name,
-        usageUnit: item.materials.usage_unit
+        code: item.materials.code,
+        usageUnit: item.materials.usage_unit,
+        materialType: item.materials.material_type || '',
+        category: item.materials.category || ''
       },
       currentQuantity: parseFloat(item.current_quantity?.toString() || '0'),
       minimumQuantity: parseFloat(item.minimum_quantity?.toString() || '0'),

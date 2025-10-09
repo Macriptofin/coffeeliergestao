@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Edit, Plus, Package, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Edit, Plus, Package, Search, FileText } from "lucide-react";
 import type { StockItem } from "@/pages/Stock";
+import { materialCategories } from "@/lib/material-categories";
 
 interface StockOverviewProps {
   stockItems: StockItem[];
@@ -19,6 +21,7 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
   const [editingStock, setEditingStock] = useState<StockItem | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [formData, setFormData] = useState({
     minimumQuantity: 0,
     adjustmentQuantity: 0,
@@ -95,10 +98,17 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
     return { label: 'Normal', variant: 'default' as const };
   };
 
-  // Filtrar itens pela busca
-  const filteredItems = stockItems.filter(item =>
-    item.ingredient.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const isFromTechnicalSheet = (materialType: string) => {
+    return materialType === 'finished_product' || materialType === 'intermediate_product';
+  };
+
+  // Filtrar itens pela busca e categoria
+  const filteredItems = stockItems.filter(item => {
+    const matchesSearch = item.ingredient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.ingredient.code.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter === "all" || item.ingredient.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <div className="space-y-6">
@@ -115,14 +125,29 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
               </CardDescription>
             </div>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar material..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar material ou código..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Categorias</SelectItem>
+                {materialCategories.map(cat => (
+                  <SelectItem key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent>
@@ -143,14 +168,24 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
             <div className="space-y-3">
               {filteredItems.map(item => {
                 const status = getStockStatus(item);
+                const fromTechnicalSheet = isFromTechnicalSheet(item.ingredient.materialType);
                 return (
                   <div key={item.id} className="flex items-center justify-between p-4 bg-accent rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="font-medium">{item.ingredient.name}</h3>
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {item.ingredient.code}
+                        </Badge>
                         <Badge variant={status.variant}>
                           {status.label}
                         </Badge>
+                        {fromTechnicalSheet && (
+                          <Badge variant="secondary" className="gap-1">
+                            <FileText className="h-3 w-3" />
+                            Ficha Técnica
+                          </Badge>
+                        )}
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground">
                         <div>
