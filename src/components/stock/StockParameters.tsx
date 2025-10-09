@@ -127,13 +127,7 @@ export function StockParameters() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Parâmetros de Estoque</h3>
-          <p className="text-sm text-muted-foreground">
-            Configure classificação ABC e níveis de estoque para cada material
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <Button>
           <Plus className="h-4 w-4 mr-2" />
           Novo Parâmetro
