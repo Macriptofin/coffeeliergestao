@@ -181,12 +181,6 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
                           {item.ingredient.code}
                         </Badge>
                         <h3 className="font-medium">{item.ingredient.name}</h3>
-                        {fromTechnicalSheet && (
-                          <Badge variant="secondary" className="gap-1">
-                            <FileText className="h-3 w-3" />
-                            Ficha Técnica
-                          </Badge>
-                        )}
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground">
                         <div>
@@ -215,14 +209,21 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
                         </div>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditStock(item)}
-                      className="ml-4"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2 ml-4">
+                      {fromTechnicalSheet && (
+                        <Badge variant="secondary" className="gap-1">
+                          <FileText className="h-3 w-3" />
+                          Ficha Técnica
+                        </Badge>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditStock(item)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
