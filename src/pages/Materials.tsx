@@ -666,9 +666,11 @@ const Materials = () => {
             {/* Actions */}
             <MaterialsActions 
               selectedCount={selectedMaterials.length}
+              selectedMaterials={filteredMaterials.filter(m => selectedMaterials.includes(m.id))}
               onBulkDelete={handleBulkDelete}
               onBulkArchive={handleBulkArchive}
               onClearSelection={() => setSelectedMaterials([])}
+              onRefresh={loadMaterials}
             />
           </div>
 

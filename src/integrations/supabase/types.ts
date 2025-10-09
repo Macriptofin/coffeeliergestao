@@ -6283,6 +6283,10 @@ export type Database = {
         Args: { p_dry_run?: boolean; p_material_id: string }
         Returns: Json
       }
+      recalculate_product_stock_cost: {
+        Args: { p_material_id: string }
+        Returns: Json
+      }
       recalculate_stock_total_values: {
         Args: Record<PropertyKey, never>
         Returns: undefined
