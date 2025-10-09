@@ -6202,6 +6202,23 @@ export type Database = {
         }
         Returns: string
       }
+      process_order_component_consumption: {
+        Args: {
+          p_material_id: string
+          p_production_order_id: string
+          p_quantity: number
+          p_unit: string
+        }
+        Returns: undefined
+      }
+      process_order_finish_input: {
+        Args: {
+          p_material_id: string
+          p_production_order_id: string
+          p_quantity: number
+        }
+        Returns: undefined
+      }
       process_stock_entry_with_conversion: {
         Args:
           | {
