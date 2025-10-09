@@ -19,22 +19,10 @@ const MateriaisGestao = () => {
         </TabsList>
         
         <TabsContent value="parametros" className="mt-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold mb-1">Parâmetros de Estoque</h2>
-            <p className="text-sm text-muted-foreground">
-              Configure classificação ABC e níveis de estoque (mín/máx) para cada material
-            </p>
-          </div>
           <StockParameters />
         </TabsContent>
         
         <TabsContent value="planejamento" className="mt-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold mb-1">Planejamento de Estoque</h2>
-            <p className="text-sm text-muted-foreground">
-              Execute análise ABC e gere necessidades de compra baseadas em estoques mínimos
-            </p>
-          </div>
           <StockPlanning />
         </TabsContent>
       </Tabs>
