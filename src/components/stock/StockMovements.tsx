@@ -15,7 +15,7 @@ interface StockMovement {
   movementType: 'Entrada' | 'Saida' | 'Ajuste';
   quantity: number;
   unitPrice?: number;
-  referenceType?: 'Compra' | 'Producao' | 'Ajuste' | 'Perda';
+  referenceType?: 'Compra' | 'Producao' | 'Ajuste' | 'Perda' | 'ProducaoOrdem';
   notes?: string;
   movementDate: string;
 }
@@ -65,7 +65,7 @@ export function StockMovements({ onRefresh }: StockMovementsProps) {
         movementType: item.movement_type as 'Entrada' | 'Saida' | 'Ajuste',
         quantity: parseFloat(item.quantity?.toString() || '0'),
         unitPrice: item.unit_price ? parseFloat(item.unit_price?.toString() || '0') : undefined,
-        referenceType: item.reference_type as 'Compra' | 'Producao' | 'Ajuste' | 'Perda' | undefined,
+        referenceType: item.reference_type as 'Compra' | 'Producao' | 'Ajuste' | 'Perda' | 'ProducaoOrdem' | undefined,
         notes: item.notes,
         movementDate: item.movement_date
       }));
@@ -99,6 +99,7 @@ export function StockMovements({ onRefresh }: StockMovementsProps) {
     switch (type) {
       case 'Compra': return 'Compra';
       case 'Producao': return 'Produção';
+      case 'ProducaoOrdem': return 'Ordem de Produção';
       case 'Ajuste': return 'Ajuste';
       case 'Perda': return 'Perda';
       default: return 'Outros';
