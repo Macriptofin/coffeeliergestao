@@ -5867,6 +5867,10 @@ export type Database = {
         Args: { p_proposal_id: string }
         Returns: Json
       }
+      fix_corrupted_production_costs: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       generate_event_production: {
         Args: { p_event_table_id: string; p_target_table?: string }
         Returns: string
