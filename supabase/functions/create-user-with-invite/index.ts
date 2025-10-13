@@ -19,14 +19,15 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, role, full_name, display_name }: { 
+    const { email, role, full_name, display_name, password }: { 
       email: string; 
       role: string;
       full_name?: string;
       display_name?: string;
+      password?: string;
     } = await req.json();
 
-    console.log("Creating user with invite:", { email, role, full_name, display_name });
+    console.log("Creating user:", { email, role, full_name, display_name, hasPassword: !!password });
 
     // Validate input
     if (!email || !role) {
@@ -48,9 +49,6 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
 
-    // Initialize Resend
-    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
     // Check if user already exists
     const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
     const userExists = existingUser?.users?.some(u => u.email === email);
@@ -63,7 +61,68 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Se senha foi fornecida, criar usuário diretamente
+    if (password) {
+      console.log("Creating user directly with password");
+
+      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true, // Auto-confirmar email
+        user_metadata: {
+          full_name: full_name || null,
+          display_name: display_name || full_name || null,
+          invited_role: role,
+        },
+      });
+
+      if (userError) {
+        console.error("Error creating user:", userError);
+        return new Response(
+          JSON.stringify({ error: "Failed to create user" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Criar role do usuário
+      const { error: roleError } = await supabaseAdmin
+        .from('user_roles')
+        .insert({
+          user_id: userData.user.id,
+          role: role,
+        });
+
+      if (roleError) {
+        console.error("Error creating user role:", roleError);
+      }
+
+      // Criar perfil do usuário
+      const { error: profileError } = await supabaseAdmin
+        .from('user_profiles')
+        .upsert({
+          user_id: userData.user.id,
+          full_name: full_name || null,
+          display_name: display_name || full_name || null,
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (profileError) {
+        console.error("Error creating user profile:", profileError);
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          message: "Usuário criado com sucesso"
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fluxo de convite (sem senha)
     console.log("Generating invite link for new user:", email);
+    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
     // CORREÇÃO DO BUG: generateLink com type='invite' JÁ CRIA o usuário
     // Documentação Supabase: "generateLink() handles the creation of the user for signup, invite and magiclink"

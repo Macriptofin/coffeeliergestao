@@ -21,12 +21,18 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
     email: '',
     fullName: '',
     displayName: '',
-    role: 'user' as 'admin' | 'manager' | 'financial' | 'user'
+    role: 'user' as 'admin' | 'manager' | 'financial' | 'user',
+    password: ''
   });
 
   const createUser = async () => {
     if (!formData.email || !formData.fullName) {
       toast.error('Email e Nome Completo são obrigatórios');
+      return;
+    }
+
+    if (!formData.password || formData.password.length < 6) {
+      toast.error('A senha deve ter pelo menos 6 caracteres');
       return;
     }
 
@@ -40,16 +46,14 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
     try {
       setLoading(true);
 
-      // Invoke edge function to create user with invite
-      // IMPORTANTE: generateLink não cria o usuário imediatamente!
-      // O usuário só é criado quando aceita o convite via link
-      // O perfil será criado automaticamente pelo trigger sync_user_profile_email
+      // Criar usuário diretamente com senha definida pelo admin
       const { data, error } = await supabase.functions.invoke('create-user-with-invite', {
         body: {
           email: formData.email,
           role: formData.role,
           full_name: formData.fullName,
-          display_name: formData.displayName || formData.fullName
+          display_name: formData.displayName || formData.fullName,
+          password: formData.password
         }
       });
 
@@ -69,7 +73,7 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
       }
 
       toast.success(
-        `Convite enviado com sucesso! Um email foi enviado para ${formData.email}. O usuário será criado quando aceitar o convite.`,
+        `Usuário criado com sucesso! Email: ${formData.email}`,
         { duration: 5000 }
       );
       onSuccess();
@@ -101,11 +105,11 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Alert informativo sobre o processo de convite */}
+          {/* Alert informativo sobre senha */}
           <Alert>
-            <Mail className="h-4 w-4" />
+            <Info className="h-4 w-4" />
             <AlertDescription>
-              Um email de convite será enviado para o endereço informado. O usuário precisará aceitar o convite e definir sua senha para acessar o sistema.
+              Você está definindo a senha inicial do usuário como administrador. O usuário poderá alterá-la após o primeiro login.
             </AlertDescription>
           </Alert>
 
@@ -147,6 +151,20 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
                 />
                 <p className="text-xs text-muted-foreground">
                   Se não informado, será usado o nome completo
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha Inicial *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                  placeholder="Mínimo 6 caracteres"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Defina a senha inicial para o usuário (mínimo 6 caracteres)
                 </p>
               </div>
               <div className="space-y-2">

@@ -34,6 +34,7 @@ interface UserEditorProps {
 
 export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
   const [loading, setLoading] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
   const [profileData, setProfileData] = useState({
     full_name: user.full_name || '',
     display_name: user.display_name || ''
@@ -100,25 +101,31 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
     }
   };
 
-  const sendPasswordReset = async () => {
+  const setUserPassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error('A senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+
     try {
       setLoading(true);
       
-      const { error } = await supabase.functions.invoke('password-reset', {
+      const { error } = await supabase.functions.invoke('admin-set-password', {
         body: {
-          email: user.email,
-          redirectTo: `${window.location.origin}/auth?type=recovery`
+          user_id: user.id,
+          password: newPassword
         }
       });
 
       if (error) {
-        toast.error(`Erro ao enviar email: ${error.message}`);
+        toast.error(`Erro ao definir senha: ${error.message}`);
       } else {
-        toast.success(`Email de redefinição de senha enviado para ${user.email}`);
+        toast.success('Senha definida com sucesso!');
+        setNewPassword('');
       }
     } catch (error) {
-      console.error('Erro ao enviar reset de senha:', error);
-      toast.error('Erro ao enviar email de redefinição');
+      console.error('Erro ao definir senha:', error);
+      toast.error('Erro ao definir senha');
     } finally {
       setLoading(false);
     }
@@ -264,33 +271,50 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
 
               <Separator />
 
+              <div className="space-y-4">
+                <h4 className="font-medium flex items-center gap-2">
+                  <KeyRound className="h-4 w-4" />
+                  Definir Nova Senha
+                </h4>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      type="password"
+                      placeholder="Nova senha (mínimo 6 caracteres)"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                  </div>
+                  <Button 
+                    onClick={setUserPassword} 
+                    disabled={loading || !newPassword}
+                  >
+                    Definir Senha
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Defina uma nova senha para o usuário. O usuário poderá alterá-la após o login.
+                </p>
+              </div>
+
+              <Separator />
+
               <div className="text-sm text-muted-foreground">
                 <p><strong>Criado em:</strong> {new Date(user.created_at).toLocaleString('pt-BR')}</p>
               </div>
 
-              <div className="flex justify-between">
-                <div className="flex gap-2">
+              <div className="flex justify-end gap-2">
+                {!user.email_confirmed && (
                   <Button 
                     variant="outline" 
-                    onClick={sendPasswordReset} 
+                    onClick={sendEmailVerification} 
                     disabled={loading}
                     className="flex items-center gap-2"
                   >
-                    <KeyRound className="h-4 w-4" />
-                    Resetar Senha
+                    <Mail className="h-4 w-4" />
+                    Reenviar Verificação
                   </Button>
-                  {!user.email_confirmed && (
-                    <Button 
-                      variant="outline" 
-                      onClick={sendEmailVerification} 
-                      disabled={loading}
-                      className="flex items-center gap-2"
-                    >
-                      <Mail className="h-4 w-4" />
-                      Reenviar Verificação
-                    </Button>
-                  )}
-                </div>
+                )}
                 <Button onClick={saveProfile} disabled={loading}>
                   <Save className="h-4 w-4 mr-2" />
                   Salvar Perfil
