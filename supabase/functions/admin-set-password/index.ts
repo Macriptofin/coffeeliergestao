@@ -97,10 +97,13 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
 
-    // Update user password
+    // Update user password and confirm email
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       user_id,
-      { password }
+      { 
+        password,
+        email_confirm: true // Confirma o email para permitir login imediato
+      }
     );
 
     if (updateError) {
