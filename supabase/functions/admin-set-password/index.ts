@@ -29,9 +29,22 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    if (password.length < 6) {
+    // Validar requisitos de senha forte
+    if (password.length < 8) {
       return new Response(
-        JSON.stringify({ error: "Password must be at least 6 characters" }),
+        JSON.stringify({ 
+          error: "A senha deve ter pelo menos 8 caracteres" 
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+    if (!passwordRegex.test(password)) {
+      return new Response(
+        JSON.stringify({ 
+          error: "A senha deve conter: letra maiúscula, minúscula, número e caractere especial (@$!%*?&)" 
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -92,8 +105,19 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (updateError) {
       console.error("Error updating password:", updateError);
+      
+      // Retornar erro mais específico para senha fraca
+      if (updateError.message?.includes('weak_password') || updateError.message?.includes('Password')) {
+        return new Response(
+          JSON.stringify({ 
+            error: "A senha deve conter: letra maiúscula, minúscula, número e caractere especial (@$!%*?&)" 
+          }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       return new Response(
-        JSON.stringify({ error: "Failed to update password" }),
+        JSON.stringify({ error: "Erro ao atualizar senha" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

@@ -102,8 +102,21 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
   };
 
   const setUserPassword = async () => {
-    if (!newPassword || newPassword.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
+    // Validação de senha forte
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    
+    if (!newPassword) {
+      toast.error('Digite uma senha');
+      return;
+    }
+    
+    if (newPassword.length < 8) {
+      toast.error('A senha deve ter pelo menos 8 caracteres');
+      return;
+    }
+    
+    if (!passwordRegex.test(newPassword)) {
+      toast.error('A senha deve conter: maiúscula, minúscula, número e caractere especial (@$!%*?&)');
       return;
     }
 
@@ -277,13 +290,16 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
                   Definir Nova Senha
                 </h4>
                 <div className="flex gap-2">
-                  <div className="flex-1">
+                  <div className="flex-1 space-y-2">
                     <Input
                       type="password"
-                      placeholder="Nova senha (mínimo 6 caracteres)"
+                      placeholder="Nova senha"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Requisitos: mínimo 8 caracteres, incluindo maiúscula, minúscula, número e caractere especial (@$!%*?&)
+                    </p>
                   </div>
                   <Button 
                     onClick={setUserPassword} 
@@ -293,7 +309,7 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Defina uma nova senha para o usuário. O usuário poderá alterá-la após o login.
+                  O usuário poderá alterar esta senha após o primeiro login.
                 </p>
               </div>
 

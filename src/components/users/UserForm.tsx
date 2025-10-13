@@ -31,15 +31,28 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
       return;
     }
 
-    if (!formData.password || formData.password.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
-      return;
-    }
-
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       toast.error('Por favor, insira um email válido');
+      return;
+    }
+
+    // Validação de senha forte
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    
+    if (!formData.password) {
+      toast.error('A senha é obrigatória');
+      return;
+    }
+    
+    if (formData.password.length < 8) {
+      toast.error('A senha deve ter pelo menos 8 caracteres');
+      return;
+    }
+    
+    if (!passwordRegex.test(formData.password)) {
+      toast.error('A senha deve conter: maiúscula, minúscula, número e caractere especial (@$!%*?&)');
       return;
     }
 
@@ -160,11 +173,11 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Ex: Senha@123"
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Defina a senha inicial para o usuário (mínimo 6 caracteres)
+                  Requisitos: mínimo 8 caracteres, incluindo maiúscula, minúscula, número e caractere especial (@$!%*?&)
                 </p>
               </div>
               <div className="space-y-2">
