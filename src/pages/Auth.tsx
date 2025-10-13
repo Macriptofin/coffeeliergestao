@@ -34,6 +34,12 @@ const Auth = () => {
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const query = new URLSearchParams(window.location.search);
 
+    // DEBUG: Log completo da URL
+    console.log('=== AUTH PAGE DEBUG ===');
+    console.log('Full URL:', window.location.href);
+    console.log('Hash params:', Object.fromEntries(hash.entries()));
+    console.log('Query params:', Object.fromEntries(query.entries()));
+
     const type = hash.get('type') ?? query.get('type');
     const tokenHash = hash.get('token_hash') ?? query.get('token_hash');
     const code = query.get('code') ?? hash.get('code');
@@ -41,15 +47,34 @@ const Auth = () => {
     const refreshToken = hash.get('refresh_token');
     const inviteFlag = query.get('invite');
     
+    console.log('Detected type:', type);
+    console.log('Has token_hash:', !!tokenHash);
+    console.log('Has access_token:', !!accessToken);
+    
     // Detectar modo de recuperação de senha
     if (type === 'recovery') {
-      console.log('Modo recuperação de senha detectado');
+      console.log('✅ Modo recuperação de senha ATIVADO');
       setIsPasswordRecovery(true);
       return;
     }
     
-    // Se tem access_token + refresh_token no hash, já está autenticado (convite aceito)
+    console.log('Type não é recovery, continuando...');
+    
+    // Se tem access_token + refresh_token no hash, já está autenticado (convite aceito ou recovery)
     if (accessToken && refreshToken) {
+      console.log('Access token detectado - pode ser recovery ou convite aceito');
+      
+      // Se veio de um link de recovery, o error_description pode conter "recovery"
+      const errorDescription = hash.get('error_description') ?? query.get('error_description');
+      if (errorDescription?.includes('recovery') || hash.get('type') === 'recovery' || query.get('type') === 'recovery') {
+        console.log('✅ Modo recuperação de senha ATIVADO via access_token');
+        setIsPasswordRecovery(true);
+        // Estabelecer sessão primeiro
+        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          .catch(err => console.error('Erro ao estabelecer sessão para recovery:', err));
+        return;
+      }
+      
       console.log('Convite já processado, estabelecendo sessão...');
       supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
         .then(async ({ data, error }) => {
