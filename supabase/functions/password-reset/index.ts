@@ -67,8 +67,21 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     // Send password reset email
+    if (!redirectTo) {
+      console.error('redirectTo is required');
+      return new Response(
+        JSON.stringify({ error: 'Redirect URL is required' }),
+        { 
+          status: 400, 
+          headers: { 'Content-Type': 'application/json', ...corsHeaders } 
+        }
+      );
+    }
+    
+    console.log(`Using redirect URL: ${redirectTo}`);
+    
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: redirectTo || `${supabaseUrl}/auth/callback`
+      redirectTo: redirectTo
     });
 
     if (error) {

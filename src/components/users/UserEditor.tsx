@@ -107,7 +107,7 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
       const { error } = await supabase.functions.invoke('password-reset', {
         body: {
           email: user.email,
-          redirectTo: `${window.location.origin}/auth`
+          redirectTo: `${window.location.origin}/auth?type=recovery`
         }
       });
 
