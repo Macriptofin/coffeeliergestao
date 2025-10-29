@@ -16,7 +16,8 @@ interface CSVRow {
   nome: string;
   codigo?: string;
   quantidade: string;
-  unidade: string;
+  unidade_compra: string;
+  unidade_uso: string;
   categoria?: string;
   subcategoria?: string;
   tipo_material?: string;
@@ -47,14 +48,19 @@ export const InventoryImportCSV = () => {
 
   const downloadTemplate = () => {
     const template = [
-      ['TEMPLATE DE INVENTÁRIO FÍSICO'],
-      ['Preencha as colunas abaixo com os dados do inventário'],
+      ['TEMPLATE DE INVENTÁRIO FÍSICO - FORMATO A4'],
+      ['Preencha as colunas abaixo com os dados do inventário físico'],
+      ['unidade_compra: unidade em que o material é comprado (ex: kg, pacote, caixa)'],
+      ['unidade_uso: unidade usada nas receitas/produção (ex: g, ml, un)'],
       [''],
-      ['nome', 'codigo', 'quantidade', 'unidade', 'categoria', 'subcategoria', 'tipo_material', 'observacoes'],
-      ['Café Especial Bourbon', 'CAF001', '25', 'kg', 'Matéria Prima', 'Cafés', 'ingredient', 'Lote 2024-01'],
-      ['Açúcar Refinado', 'ACU001', '50', 'kg', 'Matéria Prima', 'Insumos Básicos', 'ingredient', ''],
-      ['Copo Descartável 200ml', 'EMB001', '5000', 'un', 'Embalagens', 'Copos', 'packaging', 'Caixa fechada'],
+      ['nome', 'codigo', 'quantidade', 'unidade_compra', 'unidade_uso', 'categoria', 'subcategoria', 'tipo_material', 'observacoes'],
+      ['Café Especial Bourbon', 'CAF001', '25', 'kg', 'g', 'Matéria Prima', 'Cafés', 'ingredient', 'Lote 2024-01'],
     ];
+
+    // Adicionar 60 linhas em branco para preenchimento manual
+    for (let i = 0; i < 60; i++) {
+      template.push(['', '', '', '', '', '', '', '', '']);
+    }
 
     const csv = template.map(row => row.join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -217,8 +223,8 @@ export const InventoryImportCSV = () => {
               .insert({
                 name: item.csvData.nome,
                 code: item.csvData.codigo || null,
-                purchase_unit: item.csvData.unidade,
-                usage_unit: item.csvData.unidade,
+                purchase_unit: item.csvData.unidade_compra,
+                usage_unit: item.csvData.unidade_uso,
                 conversion_factor: 1,
                 price_per_purchase_unit: 0,
                 category: item.csvData.categoria || 'Sem Categoria',
@@ -236,7 +242,7 @@ export const InventoryImportCSV = () => {
               material_id: newMaterial.id,
               movement_type: 'in',
               quantity,
-              unit: item.csvData.unidade,
+              unit: item.csvData.unidade_uso,
               unit_price: 0,
               notes: `Inventário inicial - ${item.csvData.observacoes || 'Importação CSV'}`,
               responsible_user_id: user.id,
@@ -253,7 +259,7 @@ export const InventoryImportCSV = () => {
                 material_id: item.matchedMaterial!.id,
                 movement_type: 'inventory_adjustment',
                 quantity: Math.abs(diff),
-                unit: item.csvData.unidade,
+                unit: item.matchedMaterial!.usage_unit,
                 unit_price: 0,
                 notes: `Ajuste de inventário: ${oldQty} → ${newQty}${item.csvData.observacoes ? ` - ${item.csvData.observacoes}` : ''}`,
                 responsible_user_id: user.id,
@@ -409,7 +415,8 @@ export const InventoryImportCSV = () => {
                     <TableHead>Nome</TableHead>
                     <TableHead>Código</TableHead>
                     <TableHead className="text-right">Qtd.</TableHead>
-                    <TableHead>Unidade</TableHead>
+                    <TableHead>Un. Compra</TableHead>
+                    <TableHead>Un. Uso</TableHead>
                     <TableHead>Categoria</TableHead>
                     <TableHead>Match</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -433,7 +440,8 @@ export const InventoryImportCSV = () => {
                       <TableCell className="font-medium">{item.csvData.nome}</TableCell>
                       <TableCell>{item.csvData.codigo || '-'}</TableCell>
                       <TableCell className="text-right font-mono">{item.csvData.quantidade}</TableCell>
-                      <TableCell>{item.csvData.unidade}</TableCell>
+                      <TableCell>{item.csvData.unidade_compra}</TableCell>
+                      <TableCell>{item.csvData.unidade_uso}</TableCell>
                       <TableCell className="text-sm">{item.csvData.categoria || '-'}</TableCell>
                       <TableCell>
                         {item.matchedMaterial ? (
@@ -545,12 +553,22 @@ export const InventoryImportCSV = () => {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Unidade</Label>
+                  <Label>Unidade de Compra</Label>
                   <Input
-                    value={editingItem.editData?.unidade || editingItem.csvData.unidade}
+                    value={editingItem.editData?.unidade_compra || editingItem.csvData.unidade_compra}
                     onChange={(e) => setEditingItem({
                       ...editingItem,
-                      editData: { ...editingItem.editData, unidade: e.target.value }
+                      editData: { ...editingItem.editData, unidade_compra: e.target.value }
+                    })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Unidade de Uso</Label>
+                  <Input
+                    value={editingItem.editData?.unidade_uso || editingItem.csvData.unidade_uso}
+                    onChange={(e) => setEditingItem({
+                      ...editingItem,
+                      editData: { ...editingItem.editData, unidade_uso: e.target.value }
                     })}
                   />
                 </div>
