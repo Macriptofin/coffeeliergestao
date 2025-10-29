@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardCheck, Calculator, History, RotateCcw } from "lucide-react";
+import { ClipboardCheck, Calculator, History, RotateCcw, FileSpreadsheet } from "lucide-react";
 import { InventoryCountForm } from "@/components/inventory/InventoryCountForm";
 import { CostAdjustmentForm } from "@/components/inventory/CostAdjustmentForm";
 import { AdjustmentHistory } from "@/components/inventory/AdjustmentHistory";
 import { InventoryCyclesList } from "@/components/inventory/InventoryCyclesList";
+import { InventoryImportCSV } from "@/components/inventory/InventoryImportCSV";
 
 const InventarioAjustes = () => {
   const [activeTab, setActiveTab] = useState("cycles");
@@ -20,18 +21,22 @@ const InventarioAjustes = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="cycles" className="flex items-center gap-2">
             <RotateCcw className="h-4 w-4" />
-            Ciclos de Inventário
+            Ciclos
+          </TabsTrigger>
+          <TabsTrigger value="csv" className="flex items-center gap-2">
+            <FileSpreadsheet className="h-4 w-4" />
+            Importação CSV
           </TabsTrigger>
           <TabsTrigger value="inventory" className="flex items-center gap-2">
             <ClipboardCheck className="h-4 w-4" />
-            Contagem Individual
+            Contagem
           </TabsTrigger>
           <TabsTrigger value="cost" className="flex items-center gap-2">
             <Calculator className="h-4 w-4" />
-            Ajuste de Custo
+            Custo
           </TabsTrigger>
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="h-4 w-4" />
@@ -41,6 +46,10 @@ const InventarioAjustes = () => {
 
         <TabsContent value="cycles">
           <InventoryCyclesList />
+        </TabsContent>
+
+        <TabsContent value="csv">
+          <InventoryImportCSV />
         </TabsContent>
 
         <TabsContent value="inventory">
