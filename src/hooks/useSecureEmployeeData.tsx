@@ -227,11 +227,7 @@ export function useSecureEmployeeData() {
       
       return result;
     } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao salvar colaborador.",
-        variant: "destructive",
-      });
+      console.error('Error saving employee:', error);
       throw error;
     }
   };

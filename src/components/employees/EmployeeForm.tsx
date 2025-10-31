@@ -137,7 +137,12 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
 
       onSuccess();
     } catch (error: any) {
-      // Error handling is done in the hook
+      console.error('Erro ao salvar colaborador:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: error?.message || "Ocorreu um erro ao salvar o colaborador. Tente novamente.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
