@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useSecureEmployeeData } from "@/hooks/useSecureEmployeeData";
 import { useUserRole } from "@/hooks/useUserRole";
+import { toast } from "sonner";
 
 const employeeSchema = z.object({
   employee_number: z.string().optional(),
@@ -64,7 +65,6 @@ interface EmployeeFormProps {
 }
 
 export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps) => {
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const { saveEmployee, logPIIAccess } = useSecureEmployeeData();
   const { isAdmin } = useUserRole();
@@ -128,20 +128,22 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
 
       await saveEmployee(employeeData, !!employee?.id);
 
-      toast({
-        title: employee ? "Colaborador atualizado" : "Colaborador cadastrado",
-        description: employee 
-          ? "Os dados do colaborador foram atualizados com sucesso."
-          : "O novo colaborador foi cadastrado com sucesso.",
-      });
+      toast.success(
+        employee ? "Colaborador atualizado" : "Colaborador cadastrado",
+        {
+          description: employee
+            ? "Os dados do colaborador foram atualizados com sucesso."
+            : "O novo colaborador foi cadastrado com sucesso.",
+        }
+      );
 
       onSuccess();
     } catch (error: any) {
       console.error('Erro ao salvar colaborador:', error);
-      toast({
-        title: "Erro ao salvar",
-        description: error?.message || "Ocorreu um erro ao salvar o colaborador. Tente novamente.",
-        variant: "destructive",
+      toast.error("Erro ao salvar", {
+        description:
+          error?.message ||
+          "Ocorreu um erro ao salvar o colaborador. Tente novamente.",
       });
     } finally {
       setLoading(false);
