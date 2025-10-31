@@ -1415,6 +1415,7 @@ export type Database = {
           termination_date: string | null
           updated_at: string
           voter_registration: string | null
+          work_schedule_id: string | null
           zip_code: string | null
         }
         Insert: {
@@ -1453,6 +1454,7 @@ export type Database = {
           termination_date?: string | null
           updated_at?: string
           voter_registration?: string | null
+          work_schedule_id?: string | null
           zip_code?: string | null
         }
         Update: {
@@ -1491,9 +1493,18 @@ export type Database = {
           termination_date?: string | null
           updated_at?: string
           voter_registration?: string | null
+          work_schedule_id?: string | null
           zip_code?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "employees_work_schedule_id_fkey"
+            columns: ["work_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "work_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_category_standards: {
         Row: {
@@ -5430,6 +5441,62 @@ export type Database = {
           },
         ]
       }
+      time_records: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          employee_id: string
+          id: string
+          ip_address: string | null
+          location_lat: number | null
+          location_lng: number | null
+          notes: string | null
+          record_date: string
+          record_time: string
+          record_type: string
+          updated_at: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          employee_id: string
+          id?: string
+          ip_address?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          notes?: string | null
+          record_date: string
+          record_time: string
+          record_type: string
+          updated_at?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          employee_id?: string
+          id?: string
+          ip_address?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          notes?: string | null
+          record_date?: string
+          record_time?: string
+          record_type?: string
+          updated_at?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_permissions: {
         Row: {
           category: Database["public"]["Enums"]["permission_category"]
@@ -5508,6 +5575,51 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      work_schedules: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          end_time: string
+          id: string
+          is_active: boolean | null
+          lunch_end: string | null
+          lunch_start: string | null
+          name: string
+          start_time: string
+          total_hours: number
+          updated_at: string | null
+          work_days: number[]
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          end_time: string
+          id?: string
+          is_active?: boolean | null
+          lunch_end?: string | null
+          lunch_start?: string | null
+          name: string
+          start_time: string
+          total_hours: number
+          updated_at?: string | null
+          work_days?: number[]
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          end_time?: string
+          id?: string
+          is_active?: boolean | null
+          lunch_end?: string | null
+          lunch_start?: string | null
+          name?: string
+          start_time?: string
+          total_hours?: number
+          updated_at?: string | null
+          work_days?: number[]
         }
         Relationships: []
       }
@@ -5733,26 +5845,17 @@ export type Database = {
       }
     }
     Functions: {
-      admin_exists: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      admin_exists: { Args: never; Returns: boolean }
       analyze_material_price_history: {
         Args: { p_material_id: string }
         Returns: Json
       }
-      analyze_system_pricing_health: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      analyze_system_pricing_health: { Args: never; Returns: Json }
       archive_composite_bom: {
         Args: { p_bom_id: string; p_should_archive: boolean }
         Returns: Json
       }
-      archive_material: {
-        Args: { p_id: string }
-        Returns: undefined
-      }
+      archive_material: { Args: { p_id: string }; Returns: undefined }
       archive_recipe_bom: {
         Args: { p_bom_id: string; p_should_archive: boolean }
         Returns: Json
@@ -5781,14 +5884,8 @@ export type Database = {
         }
         Returns: number
       }
-      can_hard_delete_material: {
-        Args: { p_id: string }
-        Returns: boolean
-      }
-      check_account_lockout: {
-        Args: { p_email: string }
-        Returns: Json
-      }
+      can_hard_delete_material: { Args: { p_id: string }; Returns: boolean }
+      check_account_lockout: { Args: { p_email: string }; Returns: Json }
       check_production_availability: {
         Args: { p_bom_id: string; p_bom_type: string; p_multiplier?: number }
         Returns: Json
@@ -5840,10 +5937,7 @@ export type Database = {
         }
         Returns: undefined
       }
-      diag_bom_migration_report: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      diag_bom_migration_report: { Args: never; Returns: Json }
       execute_event_production: {
         Args: { p_event_table_id: string }
         Returns: undefined
@@ -5867,10 +5961,7 @@ export type Database = {
         Args: { p_proposal_id: string }
         Returns: Json
       }
-      fix_corrupted_production_costs: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      fix_corrupted_production_costs: { Args: never; Returns: Json }
       generate_event_production: {
         Args: { p_event_table_id: string; p_target_table?: string }
         Returns: string
@@ -5884,19 +5975,16 @@ export type Database = {
         Returns: Json
       }
       get_cost_source_summary: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           cost_source: Database["public"]["Enums"]["cost_source_type"]
           count: number
           material_type: string
         }[]
       }
-      get_flag: {
-        Args: { p_key: string }
-        Returns: boolean
-      }
+      get_flag: { Args: { p_key: string }; Returns: boolean }
       get_masked_client_data: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           address: string
           city: string
@@ -5918,7 +6006,7 @@ export type Database = {
         }[]
       }
       get_masked_employee_data: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           account_type: string
           address: string
@@ -5961,12 +6049,9 @@ export type Database = {
           zip_code: string
         }[]
       }
-      get_material_cost: {
-        Args: { p_material_id: string }
-        Returns: number
-      }
+      get_material_cost: { Args: { p_material_id: string }; Returns: number }
       get_secure_user_profiles: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           display_name: string
@@ -5976,34 +6061,8 @@ export type Database = {
           user_id: string
         }[]
       }
-      get_security_summary: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      get_user_email_safe: {
-        Args: { p_user_id: string }
-        Returns: string
-      }
-      gtrgm_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_options: {
-        Args: { "": unknown }
-        Returns: undefined
-      }
-      gtrgm_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
+      get_security_summary: { Args: never; Returns: Json }
+      get_user_email_safe: { Args: { p_user_id: string }; Returns: string }
       has_financial_permission: {
         Args: {
           p_department?: string
@@ -6034,22 +6093,13 @@ export type Database = {
         }
         Returns: boolean
       }
-      import_taxonomy_from_csv: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      import_taxonomy_from_csv: { Args: never; Returns: Json }
       is_admin_not_self: {
         Args: { _target_user_id: string; _user_id: string }
         Returns: boolean
       }
-      is_admin_or_manager: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
-      is_flag_enabled: {
-        Args: { p_flag_name: string }
-        Returns: boolean
-      }
+      is_admin_or_manager: { Args: { _user_id: string }; Returns: boolean }
+      is_flag_enabled: { Args: { p_flag_name: string }; Returns: boolean }
       is_within_allowed_time: {
         Args: { p_operation_type: string }
         Returns: boolean
@@ -6108,26 +6158,11 @@ export type Database = {
         Args: { p_alert_id: string }
         Returns: undefined
       }
-      mask_cnpj_cpf: {
-        Args: { cnpj_cpf_value: string }
-        Returns: string
-      }
-      mask_cpf: {
-        Args: { cpf_value: string }
-        Returns: string
-      }
-      mask_email: {
-        Args: { email_value: string }
-        Returns: string
-      }
-      mask_phone: {
-        Args: { phone_value: string }
-        Returns: string
-      }
-      mask_rg: {
-        Args: { rg_value: string }
-        Returns: string
-      }
+      mask_cnpj_cpf: { Args: { cnpj_cpf_value: string }; Returns: string }
+      mask_cpf: { Args: { cpf_value: string }; Returns: string }
+      mask_email: { Args: { email_value: string }; Returns: string }
+      mask_phone: { Args: { phone_value: string }; Returns: string }
+      mask_rg: { Args: { rg_value: string }; Returns: string }
       merge_duplicate_materials: {
         Args: { p_duplicate_ids: string[]; p_target_id: string }
         Returns: Json
@@ -6136,14 +6171,8 @@ export type Database = {
         Args: { dry_run?: boolean; dst: string; src: string }
         Returns: Json
       }
-      no_admin_exists: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      normalize_text: {
-        Args: { text_input: string }
-        Returns: string
-      }
+      no_admin_exists: { Args: never; Returns: boolean }
+      normalize_text: { Args: { text_input: string }; Returns: string }
       ops_archive_legacy_recipes: {
         Args: { dry_run?: boolean }
         Returns: {
@@ -6181,21 +6210,24 @@ export type Database = {
         }
         Returns: undefined
       }
-      process_finish_input_with_bom_cost: {
-        Args:
-          | {
+      process_finish_input_with_bom_cost:
+        | {
+            Args: {
+              p_material_id: string
+              p_movement_type: string
+              p_quantity: number
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
               p_idempotency_key?: string
               p_material_id: string
               p_movement_type: string
               p_quantity: number
             }
-          | {
-              p_material_id: string
-              p_movement_type: string
-              p_quantity: number
-            }
-        Returns: undefined
-      }
+            Returns: undefined
+          }
       process_inventory_adjustment: {
         Args: {
           p_adjustment_reason: string
@@ -6223,9 +6255,20 @@ export type Database = {
         }
         Returns: undefined
       }
-      process_stock_entry_with_conversion: {
-        Args:
-          | {
+      process_stock_entry_with_conversion:
+        | {
+            Args: {
+              p_material_id: string
+              p_notes?: string
+              p_quantity_purchased: number
+              p_reference_id?: string
+              p_reference_type?: string
+              p_unit_price_purchase: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
               p_entry_unit: string
               p_invoice_number?: string
               p_material_id: string
@@ -6234,7 +6277,10 @@ export type Database = {
               p_supplier_id?: string
               p_unit_price: number
             }
-          | {
+            Returns: Json
+          }
+        | {
+            Args: {
               p_idempotency_key?: string
               p_material_id: string
               p_notes?: string
@@ -6243,16 +6289,8 @@ export type Database = {
               p_reference_type: string
               p_unit_price_purchase: number
             }
-          | {
-              p_material_id: string
-              p_notes?: string
-              p_quantity_purchased: number
-              p_reference_id?: string
-              p_reference_type?: string
-              p_unit_price_purchase: number
-            }
-        Returns: Json
-      }
+            Returns: Json
+          }
       produce_composite_product_with_correct_cost: {
         Args: {
           p_composite_material_id: string
@@ -6287,10 +6325,7 @@ export type Database = {
         Args: { p_material_id: string }
         Returns: Json
       }
-      recalculate_stock_total_values: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      recalculate_stock_total_values: { Args: never; Returns: undefined }
       refresh_bom_costs_for_material: {
         Args: { p_material_id: string }
         Returns: Json
@@ -6307,20 +6342,14 @@ export type Database = {
         Args: { p_name: string; p_notes?: string }
         Returns: string
       }
-      rpc_inventory_finalize: {
-        Args: { p_cycle_id: string }
-        Returns: Json
-      }
+      rpc_inventory_finalize: { Args: { p_cycle_id: string }; Returns: Json }
       rpc_inventory_update_status: {
         Args: { p_cycle_id: string; p_new_status: string }
         Returns: undefined
       }
-      run_bom_cleanup_playbook: {
-        Args: { confirm?: boolean }
-        Returns: Json
-      }
+      run_bom_cleanup_playbook: { Args: { confirm?: boolean }; Returns: Json }
       run_pricing_tests: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           details: string
           status: string
@@ -6331,10 +6360,7 @@ export type Database = {
         Args: { finished_material: string }
         Returns: Json
       }
-      sanitize_error_message: {
-        Args: { error_msg: string }
-        Returns: string
-      }
+      sanitize_error_message: { Args: { error_msg: string }; Returns: string }
       save_material_mapping: {
         Args: {
           p_invoice_description: string
@@ -6343,18 +6369,8 @@ export type Database = {
         }
         Returns: undefined
       }
-      set_limit: {
-        Args: { "": number }
-        Returns: number
-      }
-      show_limit: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      show_trgm: {
-        Args: { "": string }
-        Returns: string[]
-      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       suggest_material_matches: {
         Args: {
           p_item_description: string
@@ -6371,7 +6387,7 @@ export type Database = {
         }[]
       }
       suggest_material_taxonomy_migration: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           confidence_score: number
           current_category: string
@@ -6384,10 +6400,7 @@ export type Database = {
           suggested_subcategory_name: string
         }[]
       }
-      test_bom_cleanup_and_migration: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      test_bom_cleanup_and_migration: { Args: never; Returns: Json }
       update_production_order_status: {
         Args: { p_new_status: string; p_production_order_id: string }
         Returns: undefined

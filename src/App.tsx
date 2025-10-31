@@ -30,6 +30,7 @@ import AnaliseFinanceira from "./pages/financeiro/AnaliseFinanceira";
 import RelatoriosContabeis from "./pages/financeiro/RelatoriosContabeis";
 import RecursosHumanos from "./pages/RecursosHumanos";
 import Colaboradores from "./pages/Colaboradores";
+import ControlePonto from "./pages/rh/ControlePonto";
 import EstoqueMovimentacoes from "./pages/EstoqueMovimentacoes";
 import Agenda from "./pages/Agenda";
 import EnhancedSecurity from "./pages/EnhancedSecurity";
@@ -116,6 +117,7 @@ function App() {
               {/* Categoria Recursos Humanos */}
               <Route path="rh" element={<RecursosHumanos />} />
               <Route path="rh/colaboradores" element={<Colaboradores />} />
+              <Route path="rh/ponto" element={<ControlePonto />} />
               <Route path="usuarios" element={<UserManagement />} />
               <Route path="seguranca" element={<SecurityMonitoring />} />
               <Route path="seguranca/avancado" element={<EnhancedSecurity />} />
