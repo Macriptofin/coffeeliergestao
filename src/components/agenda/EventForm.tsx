@@ -57,11 +57,12 @@ interface EventFormData {
 
 interface EventFormProps {
   event?: Event | null;
+  initialDate?: Date;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export function EventForm({ event, onSuccess, onCancel }: EventFormProps) {
+export function EventForm({ event, initialDate, onSuccess, onCancel }: EventFormProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingClients, setLoadingClients] = useState(true);
@@ -71,7 +72,7 @@ export function EventForm({ event, onSuccess, onCancel }: EventFormProps) {
     defaultValues: {
       client_id: event?.client_id || '',
       event_name: event?.event_name || '',
-      event_date: event ? new Date(event.event_date) : new Date(),
+      event_date: event ? new Date(event.event_date) : (initialDate || new Date()),
       setup_time: event?.setup_time || '',
       event_duration: event?.event_duration || 4,
       status: event?.status || 'Agendado',

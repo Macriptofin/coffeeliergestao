@@ -40,6 +40,7 @@ export default function Agenda() {
   const [loading, setLoading] = useState(true);
   const [showEventForm, setShowEventForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [selectedDateForNewEvent, setSelectedDateForNewEvent] = useState<Date | undefined>();
   const [activeTab, setActiveTab] = useState('dashboard');
   const { userRole, isAdminOrManager, loading: roleLoading } = useUserRole();
 
@@ -77,6 +78,7 @@ export default function Agenda() {
   const handleEventSuccess = () => {
     setShowEventForm(false);
     setEditingEvent(null);
+    setSelectedDateForNewEvent(undefined);
     loadEvents();
     toast.success(editingEvent ? 'Evento atualizado!' : 'Evento criado!');
   };
@@ -309,7 +311,10 @@ export default function Agenda() {
           <EventCalendar 
             events={events} 
             onEventSelect={handleEditEvent}
-            onEventCreate={() => setShowEventForm(true)}
+            onEventCreate={(date) => {
+              setSelectedDateForNewEvent(date);
+              setShowEventForm(true);
+            }}
           />
         </TabsContent>
 
@@ -331,10 +336,12 @@ export default function Agenda() {
       {showEventForm && (
         <EventForm
           event={editingEvent}
+          initialDate={selectedDateForNewEvent}
           onSuccess={handleEventSuccess}
           onCancel={() => {
             setShowEventForm(false);
             setEditingEvent(null);
+            setSelectedDateForNewEvent(undefined);
           }}
         />
       )}

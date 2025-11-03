@@ -22,7 +22,7 @@ interface Event {
 interface EventCalendarProps {
   events: Event[];
   onEventSelect: (event: Event) => void;
-  onEventCreate: () => void;
+  onEventCreate: (date?: Date) => void;
 }
 
 export function EventCalendar({ events, onEventSelect, onEventCreate }: EventCalendarProps) {
@@ -134,7 +134,7 @@ export function EventCalendar({ events, onEventSelect, onEventCreate }: EventCal
             {selectedDate && (
               <Button
                 size="sm"
-                onClick={onEventCreate}
+                onClick={() => onEventCreate(selectedDate)}
                 className="h-8 w-8 p-0"
               >
                 <Plus className="h-4 w-4" />
@@ -155,7 +155,7 @@ export function EventCalendar({ events, onEventSelect, onEventCreate }: EventCal
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={onEventCreate}
+                  onClick={() => onEventCreate(selectedDate)}
                   className="mt-4"
                 >
                   <Plus className="h-4 w-4 mr-2" />
