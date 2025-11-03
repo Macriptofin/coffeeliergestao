@@ -1,8 +1,20 @@
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Calendar, Clock, Users, MapPin, User, Phone } from 'lucide-react';
 import { EventAttachmentsList } from './EventAttachmentsList';
+import { supabase } from '@/integrations/supabase/client';
+
+interface EventSession {
+  id: string;
+  event_id: string;
+  session_date: string;
+  session_time: string;
+  session_type: string;
+  quantity: number;
+  notes?: string;
+}
 
 interface Event {
   id: string;
@@ -33,6 +45,29 @@ interface EventDetailsDialogProps {
 }
 
 export function EventDetailsDialog({ event, open, onOpenChange }: EventDetailsDialogProps) {
+  const [sessions, setSessions] = useState<EventSession[]>([]);
+
+  useEffect(() => {
+    const loadSessions = async () => {
+      if (!event?.id) return;
+
+      const { data } = await supabase
+        .from('event_sessions')
+        .select('*')
+        .eq('event_id', event.id)
+        .order('session_date', { ascending: true })
+        .order('session_time', { ascending: true });
+
+      if (data) {
+        setSessions(data);
+      }
+    };
+
+    if (open) {
+      loadSessions();
+    }
+  }, [event?.id, open]);
+
   if (!event) return null;
 
   const getStatusColor = (status: string) => {
@@ -121,7 +156,57 @@ export function EventDetailsDialog({ event, open, onOpenChange }: EventDetailsDi
             </div>
           </div>
 
+          {/* Agendas de Fornecimento */}
+          {sessions.length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <h3 className="font-semibold mb-3">Agendas de Fornecimento</h3>
+                <div className="space-y-2">
+                  {sessions.map((session, idx) => (
+                    <div
+                      key={session.id}
+                      className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg text-sm"
+                    >
+                      <div className="flex items-center gap-2 min-w-[120px]">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">
+                          {new Date(session.session_date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 min-w-[80px]">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{session.session_time}</span>
+                      </div>
+                      <div className="min-w-[80px]">
+                        <Badge variant="outline">{session.session_type}</Badge>
+                      </div>
+                      <div className="flex items-center gap-2 min-w-[120px]">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{session.quantity} pessoas</span>
+                      </div>
+                      {session.notes && (
+                        <div className="flex-1 text-muted-foreground italic text-xs">
+                          {session.notes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex justify-end pt-2">
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Total de pessoas (agendas):</span>{' '}
+                      <span className="font-semibold text-lg">
+                        {sessions.reduce((sum, s) => sum + s.quantity, 0)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
           {/* Valores */}
+          <Separator />
           <div>
             <h3 className="font-semibold mb-3">Valores</h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
