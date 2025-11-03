@@ -112,9 +112,12 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
   const onSubmit = async (values: z.infer<typeof employeeSchema>) => {
     setLoading(true);
     try {
+      // Remover salary do values pois não existe na tabela employees
+      const { salary, ...employeeValues } = values;
+      
       const employeeData = {
-        ...values,
-        salary_amount: values.salary ? parseFloat(values.salary) : null,
+        ...employeeValues,
+        salary_amount: salary ? parseFloat(salary) : null,
         benefits: values.benefits ? values.benefits.split(",").map(b => b.trim()).filter(Boolean) : [],
         birth_date: values.birth_date ? format(values.birth_date, "yyyy-MM-dd") : null,
         hire_date: format(values.hire_date, "yyyy-MM-dd"),
