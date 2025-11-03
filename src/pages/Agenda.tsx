@@ -272,7 +272,7 @@ export default function Agenda() {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-4 w-4" />
-                            {new Date(event.event_date).toLocaleDateString('pt-BR')}
+                            {event.event_date.split('T')[0].split('-').reverse().join('/')}
                           </span>
                           <span className="flex items-center gap-1">
                             <Users className="h-4 w-4" />

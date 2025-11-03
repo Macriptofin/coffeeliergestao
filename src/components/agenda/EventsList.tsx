@@ -140,7 +140,7 @@ export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListPr
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>{new Date(event.event_date).toLocaleDateString('pt-BR')}</span>
+                      <span>{event.event_date.split('T')[0].split('-').reverse().join('/')}</span>
                     </div>
                     {event.setup_time && (
                       <div className="flex items-center gap-1 mt-1">
