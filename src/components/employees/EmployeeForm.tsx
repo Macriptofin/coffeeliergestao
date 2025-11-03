@@ -115,20 +115,50 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
       // Remover salary do values pois não existe na tabela employees
       const { salary, ...employeeValues } = values;
       
+      // Função helper para converter strings vazias em null
+      const cleanValue = (value: any) => {
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          return trimmed === '' ? null : trimmed;
+        }
+        return value;
+      };
+      
       const employeeData = {
-        ...employeeValues,
+        employee_number: cleanValue(employeeValues.employee_number),
+        full_name: cleanValue(employeeValues.full_name),
+        cpf: cleanValue(employeeValues.cpf),
+        rg: cleanValue(employeeValues.rg),
+        birth_date: employeeValues.birth_date ? format(employeeValues.birth_date, "yyyy-MM-dd") : null,
+        gender: cleanValue(employeeValues.gender),
+        marital_status: cleanValue(employeeValues.marital_status),
+        email: cleanValue(employeeValues.email),
+        phone: cleanValue(employeeValues.phone),
+        mobile_phone: cleanValue(employeeValues.mobile_phone),
+        emergency_contact_name: cleanValue(employeeValues.emergency_contact_name),
+        emergency_contact_phone: cleanValue(employeeValues.emergency_contact_phone),
+        address: cleanValue(employeeValues.address),
+        city: cleanValue(employeeValues.city),
+        state: cleanValue(employeeValues.state),
+        zip_code: cleanValue(employeeValues.zip_code),
+        department: cleanValue(employeeValues.department),
+        position: cleanValue(employeeValues.position),
+        hire_date: format(employeeValues.hire_date, "yyyy-MM-dd"),
+        termination_date: employeeValues.termination_date ? format(employeeValues.termination_date, "yyyy-MM-dd") : null,
+        employment_type: cleanValue(employeeValues.employment_type),
         salary_amount: salary ? parseFloat(salary) : null,
-        benefits: values.benefits ? values.benefits.split(",").map(b => b.trim()).filter(Boolean) : [],
-        birth_date: values.birth_date ? format(values.birth_date, "yyyy-MM-dd") : null,
-        hire_date: format(values.hire_date, "yyyy-MM-dd"),
-        termination_date: values.termination_date ? format(values.termination_date, "yyyy-MM-dd") : null,
-        // Garantir que campos com constraints sejam null ao invés de string vazia
-        gender: values.gender?.trim() || null,
-        marital_status: values.marital_status?.trim() || null,
-        account_type: values.account_type?.trim() || null,
-        bank_name: values.bank_name?.trim() || null,
-        bank_branch: values.bank_branch?.trim() || null,
-        bank_account: values.bank_account?.trim() || null,
+        benefits: employeeValues.benefits ? employeeValues.benefits.split(",").map(b => b.trim()).filter(Boolean) : [],
+        pis_pasep: cleanValue(employeeValues.pis_pasep),
+        ctps_number: cleanValue(employeeValues.ctps_number),
+        ctps_series: cleanValue(employeeValues.ctps_series),
+        voter_registration: cleanValue(employeeValues.voter_registration),
+        military_service: cleanValue(employeeValues.military_service),
+        bank_name: cleanValue(employeeValues.bank_name),
+        bank_branch: cleanValue(employeeValues.bank_branch),
+        bank_account: cleanValue(employeeValues.bank_account),
+        account_type: cleanValue(employeeValues.account_type),
+        status: cleanValue(employeeValues.status),
+        notes: cleanValue(employeeValues.notes),
       };
 
       // Log PII access before saving
