@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Calendar, Clock, Users, MapPin, Edit, Trash2, Eye } from 'lucide-react';
+import { Calendar, Clock, Users, MapPin, Edit, Trash2, Eye, FileText } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { EventDetailsDialog } from './EventDetailsDialog';
 
 interface Event {
   id: string;
@@ -41,6 +42,8 @@ interface EventsListProps {
 export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -180,6 +183,17 @@ export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListPr
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => {
+                          setSelectedEvent(event);
+                          setShowDetails(true);
+                        }}
+                        title="Ver detalhes e anexos"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => onEdit(event)}
                       >
                         <Edit className="h-4 w-4" />
@@ -200,6 +214,12 @@ export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListPr
           </Table>
         )}
       </CardContent>
+
+      <EventDetailsDialog
+        event={selectedEvent}
+        open={showDetails}
+        onOpenChange={setShowDetails}
+      />
     </Card>
   );
 }
