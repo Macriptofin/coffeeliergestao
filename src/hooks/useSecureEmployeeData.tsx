@@ -184,13 +184,15 @@ export function useSecureEmployeeData() {
         if (error) throw error;
         result = data?.[0];
         
-        // Update salary separately if user is admin
-        if (isAdmin && salary_amount !== undefined) {
+        // Update salary separately if user is admin and salary is provided
+        if (isAdmin && salary_amount !== undefined && salary_amount !== null) {
           const { error: salaryError } = await supabase
             .from("employee_salary_info")
             .upsert({
               employee_id: employeeData.id,
               salary: salary_amount
+            }, {
+              onConflict: 'employee_id'
             });
           
           if (salaryError) throw salaryError;
@@ -208,13 +210,15 @@ export function useSecureEmployeeData() {
         if (error) throw error;
         result = data?.[0];
         
-        // Insert salary separately if user is admin and salary provided
-        if (isAdmin && salary_amount !== undefined && result?.id) {
+        // Insert salary separately if user is admin and salary provided  
+        if (isAdmin && salary_amount !== undefined && salary_amount !== null && result?.id) {
           const { error: salaryError } = await supabase
             .from("employee_salary_info")
-            .insert({
+            .upsert({
               employee_id: result.id,
               salary: salary_amount
+            }, {
+              onConflict: 'employee_id'
             });
           
           if (salaryError) throw salaryError;
