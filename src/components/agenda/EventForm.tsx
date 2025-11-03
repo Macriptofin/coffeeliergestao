@@ -68,7 +68,7 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
   const [loadingClients, setLoadingClients] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<EventFormData>({
+  const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<EventFormData>({
     defaultValues: {
       client_id: event?.client_id || '',
       event_name: event?.event_name || '',
@@ -92,6 +92,26 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
   useEffect(() => {
     loadClients();
   }, []);
+
+  // Atualiza o formulário quando o evento ou data inicial mudar
+  useEffect(() => {
+    reset({
+      client_id: event?.client_id || '',
+      event_name: event?.event_name || '',
+      event_date: event ? new Date(event.event_date) : (initialDate || new Date()),
+      setup_time: event?.setup_time || '',
+      event_duration: event?.event_duration || 4,
+      status: event?.status || 'Agendado',
+      venue: event?.venue || '',
+      contact_person: event?.contact_person || '',
+      contact_phone: event?.contact_phone || '',
+      total_people: event?.total_people || 0,
+      total_weight: event?.total_weight || 0,
+      total_amount: event?.total_amount || 0,
+      setup_notes: event?.setup_notes || '',
+      special_requirements: event?.special_requirements || ''
+    });
+  }, [event, initialDate, reset]);
 
   const loadClients = async () => {
     try {
