@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, X } from 'lucide-react';
+import { CalendarIcon, X, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -38,6 +38,15 @@ interface Event {
   special_requirements?: string;
 }
 
+interface EventSession {
+  id?: string;
+  session_date: Date;
+  session_time?: string;
+  session_type?: string;
+  quantity: number;
+  notes?: string;
+}
+
 interface EventFormData {
   client_id: string;
   event_name: string;
@@ -53,6 +62,7 @@ interface EventFormData {
   total_amount: number;
   setup_notes?: string;
   special_requirements?: string;
+  sessions?: EventSession[];
 }
 
 interface EventFormProps {
@@ -67,6 +77,8 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
   const [loading, setLoading] = useState(false);
   const [loadingClients, setLoadingClients] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [sessions, setSessions] = useState<EventSession[]>([]);
+  const [sessionCalendarOpen, setSessionCalendarOpen] = useState<number | null>(null);
 
   // Helper para converter data do banco (YYYY-MM-DD) para Date local
   const parseLocalDate = (dateString: string): Date => {
@@ -97,7 +109,37 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
 
   useEffect(() => {
     loadClients();
-  }, []);
+    if (event?.id) {
+      loadSessions();
+    }
+  }, [event]);
+
+  const loadSessions = async () => {
+    if (!event?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('event_sessions')
+        .select('*')
+        .eq('event_id', event.id)
+        .order('session_date', { ascending: true });
+
+      if (error) throw error;
+      
+      if (data) {
+        setSessions(data.map(s => ({
+          id: s.id,
+          session_date: parseLocalDate(s.session_date),
+          session_time: s.session_time || '',
+          session_type: s.session_type || '',
+          quantity: s.quantity,
+          notes: s.notes || ''
+        })));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar sessões:', error);
+    }
+  };
 
   // Atualiza o formulário quando o evento ou data inicial mudar
   useEffect(() => {
@@ -158,6 +200,8 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
         special_requirements: data.special_requirements || null
       };
 
+      let eventId: string;
+
       if (event?.id) {
         // Atualizar evento existente
         const { error } = await supabase
@@ -166,6 +210,7 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
           .eq('id', event.id);
 
         if (error) throw error;
+        eventId = event.id;
       } else {
         // Criar novo evento
         const { data: newEvent, error } = await supabase
@@ -179,9 +224,40 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
         // Criar notificações automáticas para o novo evento
         if (newEvent) {
           await supabase.rpc('create_event_notifications', { p_event_id: newEvent.id });
+          eventId = newEvent.id;
+        } else {
+          throw new Error('Erro ao criar evento');
         }
       }
 
+      // Salvar sessões
+      if (sessions.length > 0) {
+        // Remover sessões antigas se estiver editando
+        if (event?.id) {
+          await supabase
+            .from('event_sessions')
+            .delete()
+            .eq('event_id', eventId);
+        }
+
+        // Inserir novas sessões
+        const sessionsData = sessions.map(s => ({
+          event_id: eventId,
+          session_date: format(s.session_date, 'yyyy-MM-dd'),
+          session_time: s.session_time || null,
+          session_type: s.session_type || null,
+          quantity: s.quantity,
+          notes: s.notes || null
+        }));
+
+        const { error: sessionsError } = await supabase
+          .from('event_sessions')
+          .insert(sessionsData);
+
+        if (sessionsError) throw sessionsError;
+      }
+
+      toast.success(event?.id ? 'Evento atualizado com sucesso!' : 'Evento criado com sucesso!');
       onSuccess();
     } catch (error: any) {
       console.error('Erro ao salvar evento:', error);
@@ -189,6 +265,26 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
     } finally {
       setLoading(false);
     }
+  };
+
+  const addSession = () => {
+    setSessions([...sessions, {
+      session_date: new Date(),
+      session_time: '',
+      session_type: 'Manhã',
+      quantity: 0,
+      notes: ''
+    }]);
+  };
+
+  const removeSession = (index: number) => {
+    setSessions(sessions.filter((_, i) => i !== index));
+  };
+
+  const updateSession = (index: number, field: keyof EventSession, value: any) => {
+    const updated = [...sessions];
+    updated[index] = { ...updated[index], [field]: value };
+    setSessions(updated);
   };
 
   return (
@@ -420,6 +516,155 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
                   rows={3}
                 />
               </div>
+            </div>
+
+            {/* Sessões/Agendas Múltiplas */}
+            <div className="space-y-4 border-t pt-6 mt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium">Agendas de Fornecimento</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Configure diferentes horários e quantidades para o evento
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addSession}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Agenda
+                </Button>
+              </div>
+
+              {sessions.length > 0 && (
+                <div className="space-y-4">
+                  {sessions.map((session, index) => (
+                    <Card key={index} className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
+                          {/* Data da Sessão */}
+                          <div className="space-y-2">
+                            <Label>Data *</Label>
+                            <Popover 
+                              open={sessionCalendarOpen === index} 
+                              onOpenChange={(open) => setSessionCalendarOpen(open ? index : null)}
+                            >
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="w-full justify-start text-left font-normal"
+                                  size="sm"
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {format(session.session_date, 'dd/MM', { locale: ptBR })}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={session.session_date}
+                                  onSelect={(date) => {
+                                    if (date) {
+                                      updateSession(index, 'session_date', date);
+                                      setSessionCalendarOpen(null);
+                                    }
+                                  }}
+                                  locale={ptBR}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+
+                          {/* Horário */}
+                          <div className="space-y-2">
+                            <Label>Horário</Label>
+                            <Input
+                              type="time"
+                              value={session.session_time}
+                              onChange={(e) => updateSession(index, 'session_time', e.target.value)}
+                              size={1}
+                            />
+                          </div>
+
+                          {/* Tipo */}
+                          <div className="space-y-2">
+                            <Label>Período</Label>
+                            <Select
+                              value={session.session_type}
+                              onValueChange={(value) => updateSession(index, 'session_type', value)}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Manhã">Manhã</SelectItem>
+                                <SelectItem value="Tarde">Tarde</SelectItem>
+                                <SelectItem value="Noite">Noite</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Quantidade */}
+                          <div className="space-y-2">
+                            <Label>Quantidade *</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={session.quantity}
+                              onChange={(e) => updateSession(index, 'quantity', parseInt(e.target.value) || 0)}
+                              size={1}
+                            />
+                          </div>
+
+                          {/* Observações */}
+                          <div className="space-y-2 md:col-span-1">
+                            <Label>Obs.</Label>
+                            <Input
+                              value={session.notes}
+                              onChange={(e) => updateSession(index, 'notes', e.target.value)}
+                              placeholder="Observações"
+                              size={1}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Botão Remover */}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeSession(index)}
+                          className="mt-7"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+
+                  {/* Total Geral */}
+                  <div className="flex justify-end">
+                    <Card className="p-4 bg-muted/50">
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Total de Pessoas</p>
+                        <p className="text-2xl font-bold">
+                          {sessions.reduce((sum, s) => sum + (s.quantity || 0), 0)}
+                        </p>
+                      </div>
+                    </Card>
+                  </div>
+                </div>
+              )}
+
+              {sessions.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                  <p>Nenhuma agenda configurada</p>
+                  <p className="text-sm">Clique em "Adicionar Agenda" para configurar os horários de fornecimento</p>
+                </div>
+              )}
             </div>
 
             {/* Botões */}

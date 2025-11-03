@@ -1816,6 +1816,50 @@ export type Database = {
           },
         ]
       }
+      event_sessions: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          notes: string | null
+          quantity: number
+          session_date: string
+          session_time: string | null
+          session_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          notes?: string | null
+          quantity?: number
+          session_date: string
+          session_time?: string | null
+          session_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          notes?: string | null
+          quantity?: number
+          session_date?: string
+          session_time?: string | null
+          session_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_sessions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_table_items: {
         Row: {
           category_label: string
