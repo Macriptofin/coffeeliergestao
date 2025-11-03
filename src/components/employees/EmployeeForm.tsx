@@ -119,6 +119,11 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
         birth_date: values.birth_date ? format(values.birth_date, "yyyy-MM-dd") : null,
         hire_date: format(values.hire_date, "yyyy-MM-dd"),
         termination_date: values.termination_date ? format(values.termination_date, "yyyy-MM-dd") : null,
+        // Garantir que campos vazios sejam null ao invés de string vazia
+        account_type: values.account_type?.trim() || null,
+        bank_name: values.bank_name?.trim() || null,
+        bank_branch: values.bank_branch?.trim() || null,
+        bank_account: values.bank_account?.trim() || null,
       };
 
       // Log PII access before saving
