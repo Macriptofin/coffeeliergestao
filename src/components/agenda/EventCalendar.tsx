@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -98,33 +98,12 @@ export function EventCalendar({ events, onEventSelect, onEventCreate }: EventCal
       {/* Calendário */}
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5" />
-              Calendário de Eventos
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentDate(subMonths(currentDate, 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm font-medium min-w-[120px] text-center">
-                {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentDate(addMonths(currentDate, 1))}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarIcon className="h-5 w-5" />
+            Calendário de Eventos
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Calendar
             mode="single"
             selected={selectedDate}
@@ -132,7 +111,7 @@ export function EventCalendar({ events, onEventSelect, onEventCreate }: EventCal
             month={currentDate}
             onMonthChange={setCurrentDate}
             locale={ptBR}
-            className="rounded-md border"
+            className="w-full"
             components={{
               DayContent: ({ date }) => {
                 const dayEvents = getEventsForDate(date);
