@@ -125,6 +125,7 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
       };
       
       const employeeData = {
+        id: employee?.id, // necessário para UPDATE
         employee_number: cleanValue(employeeValues.employee_number),
         full_name: cleanValue(employeeValues.full_name),
         cpf: cleanValue(employeeValues.cpf),
