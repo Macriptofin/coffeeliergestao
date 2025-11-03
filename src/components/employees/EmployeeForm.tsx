@@ -119,7 +119,9 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
         birth_date: values.birth_date ? format(values.birth_date, "yyyy-MM-dd") : null,
         hire_date: format(values.hire_date, "yyyy-MM-dd"),
         termination_date: values.termination_date ? format(values.termination_date, "yyyy-MM-dd") : null,
-        // Garantir que campos vazios sejam null ao invés de string vazia
+        // Garantir que campos com constraints sejam null ao invés de string vazia
+        gender: values.gender?.trim() || null,
+        marital_status: values.marital_status?.trim() || null,
         account_type: values.account_type?.trim() || null,
         bank_name: values.bank_name?.trim() || null,
         bank_branch: values.bank_branch?.trim() || null,
