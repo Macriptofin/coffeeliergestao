@@ -42,7 +42,7 @@ export function EventCalendar({ events, onEventSelect, onEventCreate }: EventCal
 
   const getEventsForDate = (date: Date) => {
     return events.filter(event => 
-      isSameDay(new Date(event.event_date), date)
+      isSameDay(new Date(event.event_date + 'T00:00:00'), date)
     );
   };
 

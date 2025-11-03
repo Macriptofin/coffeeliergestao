@@ -138,7 +138,7 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
       const eventData = {
         client_id: data.client_id,
         event_name: data.event_name,
-        event_date: data.event_date.toISOString().split('T')[0],
+        event_date: format(data.event_date, 'yyyy-MM-dd'),
         setup_time: data.setup_time || null,
         event_duration: data.event_duration,
         status: data.status,
