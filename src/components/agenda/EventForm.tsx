@@ -68,11 +68,17 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
   const [loadingClients, setLoadingClients] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
+  // Helper para converter data do banco (YYYY-MM-DD) para Date local
+  const parseLocalDate = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<EventFormData>({
     defaultValues: {
       client_id: event?.client_id || '',
       event_name: event?.event_name || '',
-      event_date: event ? new Date(event.event_date) : (initialDate || new Date()),
+      event_date: event ? parseLocalDate(event.event_date) : (initialDate || new Date()),
       setup_time: event?.setup_time || '',
       event_duration: event?.event_duration || 4,
       status: event?.status || 'Agendado',
@@ -98,7 +104,7 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
     reset({
       client_id: event?.client_id || '',
       event_name: event?.event_name || '',
-      event_date: event ? new Date(event.event_date) : (initialDate || new Date()),
+      event_date: event ? parseLocalDate(event.event_date) : (initialDate || new Date()),
       setup_time: event?.setup_time || '',
       event_duration: event?.event_duration || 4,
       status: event?.status || 'Agendado',
