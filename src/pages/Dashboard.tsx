@@ -248,23 +248,15 @@ const Dashboard = () => {
 
       {/* Calendário de Eventos */}
       <div className="mb-8">
-        <Card className="shadow-elegant">
-          <CardHeader>
-            <CardTitle>Calendário de Eventos</CardTitle>
-            <CardDescription>Visualização rápida dos próximos eventos</CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <EventCalendar 
-              events={events}
-              onEventSelect={(event) => {
-                toast.info(`Evento selecionado: ${event.event_name}`);
-              }}
-              onEventCreate={(date) => {
-                toast.info('Para criar um evento, acesse a página Agenda');
-              }}
-            />
-          </CardContent>
-        </Card>
+        <EventCalendar 
+          events={events}
+          onEventSelect={(event) => {
+            toast.info(`Evento selecionado: ${event.event_name}`);
+          }}
+          onEventCreate={(date) => {
+            toast.info('Para criar um evento, acesse a página Agenda');
+          }}
+        />
       </div>
 
       {/* Resumos Recentes */}
