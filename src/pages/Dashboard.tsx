@@ -5,11 +5,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Plus, ChefHat, Calculator, Building2 } from "lucide-react";
 import type { Ingredient, Recipe } from "@/types";
 import type { Supplier } from "@/components/SupplierForm";
+import { EventCalendar } from "@/components/agenda/EventCalendar";
+
+interface DashboardEvent {
+  id: string;
+  event_name: string;
+  event_date: string;
+  status: string;
+  venue?: string;
+  total_people: number;
+  total_weight: number;
+  total_amount: number;
+  clients?: {
+    name: string;
+  };
+}
 
 const Dashboard = () => {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,7 +38,8 @@ const Dashboard = () => {
       await Promise.all([
         loadIngredients(),
         loadRecipes(),
-        loadSuppliers()
+        loadSuppliers(),
+        loadEvents()
       ]);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -119,6 +136,20 @@ const Dashboard = () => {
     setSuppliers(formattedSuppliers);
   };
 
+  const loadEvents = async () => {
+    const { data, error } = await supabase
+      .from('events')
+      .select(`
+        *,
+        clients(name)
+      `)
+      .order('event_date', { ascending: true });
+    
+    if (error) throw error;
+    
+    setEvents(data || []);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -211,6 +242,27 @@ const Dashboard = () => {
                 }
               </span>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Calendário de Eventos */}
+      <div className="mb-8">
+        <Card className="shadow-elegant">
+          <CardHeader>
+            <CardTitle>Calendário de Eventos</CardTitle>
+            <CardDescription>Visualização rápida dos próximos eventos</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <EventCalendar 
+              events={events}
+              onEventSelect={(event) => {
+                toast.info(`Evento selecionado: ${event.event_name}`);
+              }}
+              onEventCreate={(date) => {
+                toast.info('Para criar um evento, acesse a página Agenda');
+              }}
+            />
           </CardContent>
         </Card>
       </div>
