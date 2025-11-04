@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from '@supabase/supabase-js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClipboardList, Building2, FileText, Package } from "lucide-react";
+import { ClipboardList, Building2, FileText, Package, Calendar } from "lucide-react";
 import { CoffeelierLogo } from "@/components/CoffeelierLogo";
 
 const Index = () => {
@@ -71,7 +71,7 @@ const Index = () => {
 
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-center mb-6">Categorias Master</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">
             <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/materiais')}>
               <CardHeader className="text-center pb-4">
                 <div className="mx-auto p-3 bg-blue-500 text-white rounded-lg w-fit mb-2">
@@ -89,6 +89,16 @@ const Index = () => {
                 </div>
                 <CardTitle className="text-lg">Produção</CardTitle>
                 <CardDescription>Receitas, ordens e planejamento</CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/agenda')}>
+              <CardHeader className="text-center pb-4">
+                <div className="mx-auto p-3 bg-orange-500 text-white rounded-lg w-fit mb-2">
+                  <Calendar className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-lg">Agenda</CardTitle>
+                <CardDescription>Calendário de eventos</CardDescription>
               </CardHeader>
             </Card>
 
