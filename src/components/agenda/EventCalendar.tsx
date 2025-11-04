@@ -111,7 +111,7 @@ export function EventCalendar({ events, onEventSelect, onEventCreate }: EventCal
             month={currentDate}
             onMonthChange={setCurrentDate}
             locale={ptBR}
-            className="w-full"
+            className="w-full p-6"
             components={{
               DayContent: ({ date }) => {
                 const dayEvents = getEventsForDate(date);
