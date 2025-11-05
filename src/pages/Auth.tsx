@@ -63,11 +63,31 @@ const Auth = () => {
     if (isRecoveryFlow) {
       console.log('✅ Modo recuperação de senha ATIVADO');
       setIsPasswordRecovery(true);
-      
-      // Se já tem access_token, estabelecer sessão para permitir a troca de senha
-      if (accessToken && refreshToken) {
+
+      // Trocar "code" por sessão (fluxo PKCE) OU estabelecer sessão via tokens no hash
+      if (code) {
+        console.log('Trocando code por sessão (recovery)...');
+        setTimeout(async () => {
+          try {
+            const { error } = await supabase.auth.exchangeCodeForSession(code);
+            if (error) {
+              console.error('Erro ao trocar code por sessão (recovery):', error);
+            } else {
+              // Limpar o code da URL para não reprocessar
+              const base = `${window.location.origin}/auth#type=recovery`;
+              window.history.replaceState({}, '', base);
+            }
+          } catch (err) {
+            console.error('Falha ao processar sessão de recovery:', err);
+          }
+        }, 0);
+      } else if (accessToken && refreshToken) {
         console.log('Estabelecendo sessão para recovery...');
         supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          .then(() => {
+            const base = `${window.location.origin}/auth#type=recovery`;
+            window.history.replaceState({}, '', base);
+          })
           .catch(err => console.error('Erro ao estabelecer sessão para recovery:', err));
       }
       return;
