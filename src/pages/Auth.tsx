@@ -26,15 +26,9 @@ const Auth = () => {
   const { checkRateLimit, logAuthAttempt, isChecking } = useRateLimiting();
 
   useEffect(() => {
-    // Detectar modo convite via múltiplos parâmetros de fallback
-    // O Supabase pode retornar o link de convite em diferentes formatos:
-    // - ?type=invite&token_hash=... (formato padrão)
-    // - #access_token=...&refresh_token=... (após aceitar convite)
-    // - ?code=... (PKCE flow)
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const query = new URLSearchParams(window.location.search);
 
-    // DEBUG: Log completo da URL
     console.log('=== AUTH PAGE DEBUG ===');
     console.log('Full URL:', window.location.href);
     console.log('Hash params:', Object.fromEntries(hash.entries()));
@@ -46,35 +40,41 @@ const Auth = () => {
     const accessToken = hash.get('access_token');
     const refreshToken = hash.get('refresh_token');
     const inviteFlag = query.get('invite');
+    const error = hash.get('error') ?? query.get('error');
+    const errorDescription = hash.get('error_description') ?? query.get('error_description');
     
     console.log('Detected type:', type);
     console.log('Has token_hash:', !!tokenHash);
     console.log('Has access_token:', !!accessToken);
+    console.log('Error:', error);
+    console.log('Error Description:', errorDescription);
     
-    // Detectar modo de recuperação de senha
-    if (type === 'recovery') {
+    // PRIORIDADE 1: Detectar modo de recuperação de senha
+    // Verificar se é um fluxo de recovery por vários indicadores
+    const isRecoveryFlow = 
+      type === 'recovery' || 
+      (accessToken && refreshToken && (
+        errorDescription?.toLowerCase().includes('password') ||
+        errorDescription?.toLowerCase().includes('recovery') ||
+        hash.toString().includes('recovery') ||
+        query.toString().includes('recovery')
+      ));
+    
+    if (isRecoveryFlow) {
       console.log('✅ Modo recuperação de senha ATIVADO');
       setIsPasswordRecovery(true);
+      
+      // Se já tem access_token, estabelecer sessão para permitir a troca de senha
+      if (accessToken && refreshToken) {
+        console.log('Estabelecendo sessão para recovery...');
+        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          .catch(err => console.error('Erro ao estabelecer sessão para recovery:', err));
+      }
       return;
     }
     
-    console.log('Type não é recovery, continuando...');
-    
-    // Se tem access_token + refresh_token no hash, já está autenticado (convite aceito ou recovery)
-    if (accessToken && refreshToken) {
-      console.log('Access token detectado - pode ser recovery ou convite aceito');
-      
-      // Se veio de um link de recovery, o error_description pode conter "recovery"
-      const errorDescription = hash.get('error_description') ?? query.get('error_description');
-      if (errorDescription?.includes('recovery') || hash.get('type') === 'recovery' || query.get('type') === 'recovery') {
-        console.log('✅ Modo recuperação de senha ATIVADO via access_token');
-        setIsPasswordRecovery(true);
-        // Estabelecer sessão primeiro
-        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-          .catch(err => console.error('Erro ao estabelecer sessão para recovery:', err));
-        return;
-      }
-      
+    // PRIORIDADE 2: Processar convites já aceitos (com access_token)
+    if (accessToken && refreshToken && !isRecoveryFlow) {
       console.log('Convite já processado, estabelecendo sessão...');
       supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
         .then(async ({ data, error }) => {
@@ -84,11 +84,9 @@ const Auth = () => {
             return;
           }
           
-          // Verificar se sessão foi estabelecida
           const { data: { session: verifiedSession } } = await supabase.auth.getSession();
           if (verifiedSession) {
             console.log('Sessão estabelecida com sucesso, redirecionando...');
-            // Pequeno delay para garantir que a sessão está pronta
             setTimeout(() => navigate('/'), 100);
           } else {
             setError('Erro ao processar convite. Tente novamente.');
@@ -101,14 +99,14 @@ const Auth = () => {
       return;
     }
     
-    // Se tem indicadores de convite, ativar modo convite
+    // PRIORIDADE 3: Modo convite (ainda não processado)
     if (type === 'invite' || inviteFlag === 'true' || tokenHash || code) {
       console.log('Modo convite detectado:', { type, tokenHash: !!tokenHash, code: !!code });
       setIsInviteMode(true);
       return;
     }
 
-    // Check if user is already logged in
+    // PRIORIDADE 4: Verificar se já está logado
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -183,14 +181,14 @@ const Auth = () => {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth?type=recovery`,
+        redirectTo: `${window.location.origin}/auth#type=recovery`,
       });
 
       if (error) {
         setError('Erro ao enviar email de recuperação. Verifique o endereço e tente novamente.');
       } else {
         setResetEmailSent(true);
-        toast.success('Email de recuperação enviado! Verifique sua caixa de entrada.');
+        toast.success('Email de recuperação enviado! Verifique sua caixa de entrada e clique no link apenas UMA vez.');
       }
     } catch (error: any) {
       setError('Erro inesperado. Tente novamente.');
@@ -439,9 +437,19 @@ const Auth = () => {
                 <h2 className="text-2xl font-bold text-foreground mb-2">
                   Email Enviado!
                 </h2>
-                <p className="text-sm text-muted-foreground">
-                  Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
-                </p>
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
+                  </p>
+                  <div className="bg-accent/30 border border-accent rounded-lg p-3 text-left">
+                    <p className="text-xs font-medium text-accent-foreground mb-1">⚠️ Importante:</p>
+                    <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                      <li>Clique no link do email apenas UMA vez</li>
+                      <li>O link expira em 1 hora</li>
+                      <li>Se expirar, solicite um novo link</li>
+                    </ul>
+                  </div>
+                </div>
                 <Button 
                   onClick={() => {
                     setIsForgotPassword(false);
