@@ -76,6 +76,18 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   ];
 
 
+  // Auto-sync category with material_type
+  const syncCategoryWithMaterialType = (materialType: Material['materialType']) => {
+    const categoryMap: Record<Material['materialType'], string> = {
+      'ingredient': 'Insumo',
+      'packaging': 'Embalagem',
+      'intermediate_product': 'Produto Intermediário',
+      'finished_product': 'Produto Acabado',
+      'composite_product': 'Produto Composto'
+    };
+    return categoryMap[materialType] || 'Insumo';
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.purchaseUnit || !formData.usageUnit || !formData.conversionFactor) return;
@@ -95,27 +107,31 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
 
     setDuplicateError('');
     
+    // Auto-sync category based on material_type
+    const syncedCategory = syncCategoryWithMaterialType(formData.materialType);
+    const finalFormData = { ...formData, category: syncedCategory };
+    
     // Find taxonomy term IDs for the selected category and subcategory
-    const categoryTerm = materialCategories.find(cat => cat.name === formData.category);
+    const categoryTerm = materialCategories.find(cat => cat.name === syncedCategory);
     const subcategoryTerm = formData.subcategory 
       ? availableSubcategories.find(sub => sub.name === formData.subcategory)
       : undefined;
 
     onSubmit({
-      name: formData.name,
-      description: formData.description || undefined,
-      purchaseUnit: formData.purchaseUnit,
-      usageUnit: formData.usageUnit,
-      conversionFactor: parseFloat(formData.conversionFactor),
+      name: finalFormData.name,
+      description: finalFormData.description || undefined,
+      purchaseUnit: finalFormData.purchaseUnit,
+      usageUnit: finalFormData.usageUnit,
+      conversionFactor: parseFloat(finalFormData.conversionFactor),
       pricePerPurchaseUnit: 0, // Valor padrão, será definido no controle de estoque
-      supplier: formData.supplier || undefined,
-      allowedBrands: formData.allowedBrands ? formData.allowedBrands.split(',').map(b => b.trim()).filter(b => b) : undefined,
-      category: formData.category,
-      subcategory: formData.subcategory || undefined,
+      supplier: finalFormData.supplier || undefined,
+      allowedBrands: finalFormData.allowedBrands ? finalFormData.allowedBrands.split(',').map(b => b.trim()).filter(b => b) : undefined,
+      category: syncedCategory, // Using synced category
+      subcategory: finalFormData.subcategory || undefined,
       categoryTermId: categoryTerm?.id,
       subcategoryTermId: subcategoryTerm?.id,
-      materialType: formData.materialType,
-      unitWeight: formData.unitWeight ? parseFloat(formData.unitWeight) : undefined,
+      materialType: finalFormData.materialType,
+      unitWeight: finalFormData.unitWeight ? parseFloat(finalFormData.unitWeight) : undefined,
     });
   };
 

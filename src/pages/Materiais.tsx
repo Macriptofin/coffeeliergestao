@@ -55,6 +55,13 @@ const Materiais = () => {
       icon: ClipboardCheck,
       href: "/materiais/inventario-ajustes",
       color: "bg-indigo-500"
+    },
+    {
+      title: "Materiais com Problemas",
+      description: "Diagnóstico e correção de códigos e categorias inconsistentes",
+      icon: Settings,
+      href: "/materiais/problemas",
+      color: "bg-red-500"
     }
   ];
 

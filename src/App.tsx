@@ -47,6 +47,7 @@ import FichasTecnicas from "./components/FichasTecnicas";
 import { MaterialEdit } from "./pages/MaterialEdit";
 import Config from "./pages/Config";
 import EstoqueRelatorios from "./pages/stock/EstoqueRelatorios";
+import MateriaisProblemas from "./pages/stock/MateriaisProblemas";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +72,7 @@ function App() {
               <Route path="materiais/inventario-ajustes/ciclo/:cycleId" element={<InventarioCiclo />} />
               <Route path="materiais/importacao" element={<Stock />} />
               <Route path="materiais/:id/editar" element={<MaterialEdit />} />
+              <Route path="materiais/problemas" element={<MateriaisProblemas />} />
               
               {/* Redirects de rotas antigas para manter bookmarks */}
               <Route path="estoque" element={<Materiais />} />
@@ -83,6 +85,7 @@ function App() {
               <Route path="estoque/inventario-ajustes/ciclo/:cycleId" element={<InventarioCiclo />} />
               <Route path="estoque/importacao" element={<Stock />} />
               <Route path="estoque/materiais/:id/editar" element={<MaterialEdit />} />
+              <Route path="estoque/problemas" element={<MateriaisProblemas />} />
               <Route path="estoque/*" element={<Stock />} />
               
               {/* Cadastro de materiais */}

@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Edit, Plus, Package, Search, FileText } from "lucide-react";
 import type { StockItem } from "@/pages/Stock";
-import { materialCategories } from "@/lib/material-categories";
 
 interface StockOverviewProps {
   stockItems: StockItem[];
@@ -21,7 +20,7 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
   const [editingStock, setEditingStock] = useState<StockItem | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [materialTypeFilter, setMaterialTypeFilter] = useState<string>("all");
   const [formData, setFormData] = useState({
     minimumQuantity: 0,
     adjustmentQuantity: 0,
@@ -106,13 +105,22 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
     return materialType === 'finished_product' || materialType === 'intermediate_product';
   };
 
-  // Filtrar itens pela busca e categoria
+  // Filtrar itens pela busca e tipo de material
   const filteredItems = stockItems.filter(item => {
     const matchesSearch = item.ingredient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.ingredient.code.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === "all" || item.ingredient.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+    const matchesMaterialType = materialTypeFilter === "all" || item.ingredient.materialType === materialTypeFilter;
+    return matchesSearch && matchesMaterialType;
   });
+
+  const materialTypeOptions = [
+    { value: 'all', label: 'Todos os Tipos' },
+    { value: 'ingredient', label: 'Insumos (INS)' },
+    { value: 'packaging', label: 'Embalagens (EMB)' },
+    { value: 'intermediate_product', label: 'Produtos Intermediários (INT)' },
+    { value: 'finished_product', label: 'Produtos Acabados (FIN)' },
+    { value: 'composite_product', label: 'Produtos Compostos (COM)' }
+  ];
 
   return (
     <div className="space-y-6">
@@ -139,15 +147,14 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
                 className="pl-10"
               />
             </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Categoria" />
+            <Select value={materialTypeFilter} onValueChange={setMaterialTypeFilter}>
+              <SelectTrigger className="w-[250px]">
+                <SelectValue placeholder="Tipo de Material" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas as Categorias</SelectItem>
-                {materialCategories.map(cat => (
-                  <SelectItem key={cat.value} value={cat.value}>
-                    {cat.label}
+                {materialTypeOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
                   </SelectItem>
                 ))}
               </SelectContent>
