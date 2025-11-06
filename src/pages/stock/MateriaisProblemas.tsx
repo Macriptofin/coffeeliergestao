@@ -5,74 +5,106 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, CheckCircle2, Wrench, RefreshCw } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertTriangle, CheckCircle2, Wrench, RefreshCw, ChevronLeft, ChevronRight, Save } from "lucide-react";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTaxonomy } from "@/hooks/useConfig";
 
-interface MaterialIssue {
+interface Material {
   id: string;
   name: string;
   code: string;
   material_type: string;
   category: string;
+  subcategory?: string;
+}
+
+interface MaterialIssue extends Material {
   issues: string[];
+  suggestedCategory?: string;
+  suggestedSubcategory?: string;
 }
 
 const MateriaisProblemas = () => {
   const [issues, setIssues] = useState<MaterialIssue[]>([]);
+  const [allMaterials, setAllMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [fixing, setFixing] = useState<string | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [editMode, setEditMode] = useState<'list' | 'individual'>('list');
+  const { getTermsByTaxonomy } = useTaxonomy();
+  
+  // Edição individual
+  const [editedMaterial, setEditedMaterial] = useState<Material | null>(null);
 
   useEffect(() => {
-    loadIssues();
+    loadMaterials();
   }, []);
 
-  const loadIssues = async () => {
+  const loadMaterials = async () => {
     setLoading(true);
     try {
       const { data: materials, error } = await supabase
         .from('materials')
-        .select('id, name, code, material_type, category')
+        .select('id, name, code, material_type, category, subcategory')
         .order('code');
 
       if (error) throw error;
 
-      const problematicMaterials: MaterialIssue[] = [];
-
-      materials?.forEach(material => {
-        const materialIssues: string[] = [];
-
-        // Check 1: Invalid code prefix
-        const expectedPrefix = getExpectedPrefix(material.material_type);
-        if (!material.code.startsWith(expectedPrefix)) {
-          materialIssues.push(`Código "${material.code}" não inicia com prefixo esperado "${expectedPrefix}"`);
-        }
-
-        // Check 2: Invalid code format (PAC, OLD prefixes)
-        if (material.code.match(/^(PAC|OLD|MAT)\d+/)) {
-          materialIssues.push(`Código usa prefixo obsoleto ou inválido: "${material.code}"`);
-        }
-
-        // Check 3: Category vs material_type mismatch
-        const expectedCategory = getCategoryFromMaterialType(material.material_type);
-        if (material.category !== expectedCategory) {
-          materialIssues.push(`Category "${material.category}" não corresponde ao material_type "${material.material_type}" (esperado: "${expectedCategory}")`);
-        }
-
-        if (materialIssues.length > 0) {
-          problematicMaterials.push({
-            ...material,
-            issues: materialIssues
-          });
-        }
-      });
-
+      setAllMaterials(materials || []);
+      const problematicMaterials = analyzeMaterials(materials || []);
       setIssues(problematicMaterials);
     } catch (error) {
-      console.error('Erro ao carregar problemas:', error);
-      toast.error('Erro ao carregar materiais com problemas');
+      console.error('Erro ao carregar materiais:', error);
+      toast.error('Erro ao carregar materiais');
     } finally {
       setLoading(false);
     }
+  };
+
+  const analyzeMaterials = (materials: Material[]): MaterialIssue[] => {
+    const problematicMaterials: MaterialIssue[] = [];
+
+    materials.forEach(material => {
+      const materialIssues: string[] = [];
+      let suggestedCategory: string | undefined;
+      let suggestedSubcategory: string | undefined;
+
+      // Check 1: Invalid code prefix
+      const expectedPrefix = getExpectedPrefix(material.material_type);
+      if (!material.code.startsWith(expectedPrefix)) {
+        materialIssues.push(`Código com prefixo incorreto (esperado: ${expectedPrefix})`);
+      }
+
+      // Check 2: Invalid code format (obsolete prefixes)
+      if (material.code.match(/^(PAC|OLD|MAT)\d+/)) {
+        materialIssues.push(`Código usa prefixo obsoleto`);
+      }
+
+      // Check 3: Category precisa revisão (antigas categorias operacionais)
+      const oldOperationalCategories = ['Insumo', 'Embalagem', 'Produto Intermediário', 'Produto Acabado', 'Produto Composto', 'Produto de Revenda'];
+      if (oldOperationalCategories.includes(material.category)) {
+        materialIssues.push(`Categoria operacional antiga "${material.category}" precisa ser atualizada para categoria comercial`);
+        suggestedCategory = getSuggestedCategory(material.material_type);
+      }
+
+      // Check 4: Missing subcategory
+      if (!material.subcategory) {
+        materialIssues.push(`Subcategoria não definida`);
+      }
+
+      if (materialIssues.length > 0) {
+        problematicMaterials.push({
+          ...material,
+          issues: materialIssues,
+          suggestedCategory,
+          suggestedSubcategory
+        });
+      }
+    });
+
+    return problematicMaterials;
   };
 
   const getExpectedPrefix = (materialType: string): string => {
@@ -87,96 +119,82 @@ const MateriaisProblemas = () => {
     return prefixMap[materialType] || 'MAT';
   };
 
-  const getCategoryFromMaterialType = (materialType: string): string => {
-    const categoryMap: Record<string, string> = {
-      'ingredient': 'Insumo',
-      'packaging': 'Embalagem',
-      'intermediate_product': 'Produto Intermediário',
-      'finished_product': 'Produto Acabado',
-      'composite_product': 'Produto Composto',
-      'resale_product': 'Produto de Revenda'
+  const getSuggestedCategory = (materialType: string): string => {
+    // Sugere categorias comerciais baseadas no tipo operacional
+    const suggestionMap: Record<string, string> = {
+      'ingredient': 'Alimentos & Ingredientes',
+      'packaging': 'Embalagens',
+      'intermediate_product': 'Doces & Confeitaria',
+      'finished_product': 'Doces & Confeitaria',
+      'composite_product': 'Kits & Mesas',
+      'resale_product': 'Bebidas'
     };
-    return categoryMap[materialType] || 'Insumo';
+    return suggestionMap[materialType] || 'Alimentos & Ingredientes';
   };
 
-  const fixMaterial = async (material: MaterialIssue) => {
+  const saveMaterial = async (material: Material) => {
     setFixing(material.id);
     try {
-      const expectedPrefix = getExpectedPrefix(material.material_type);
-      const expectedCategory = getCategoryFromMaterialType(material.material_type);
-      
-      // Get next available code number
-      const { data: maxCodeData } = await supabase
-        .from('materials')
-        .select('code')
-        .like('code', `${expectedPrefix}%`)
-        .order('code', { ascending: false })
-        .limit(1);
-
-      let nextNumber = 1;
-      if (maxCodeData && maxCodeData.length > 0) {
-        const lastCode = maxCodeData[0].code;
-        const match = lastCode.match(/\d+$/);
-        if (match) {
-          nextNumber = parseInt(match[0]) + 1;
-        }
-      }
-
-      const newCode = `${expectedPrefix}${String(nextNumber).padStart(4, '0')}`;
-
-      // Update material
       const { error } = await supabase
         .from('materials')
         .update({
-          code: newCode,
-          category: expectedCategory
+          category: material.category,
+          subcategory: material.subcategory
         })
         .eq('id', material.id);
 
       if (error) throw error;
 
-      toast.success(`Material corrigido: ${material.name} → ${newCode}`);
-      loadIssues(); // Reload to refresh list
+      toast.success(`Material "${material.name}" atualizado`);
+      await loadMaterials();
+      
+      // Avançar para o próximo material automaticamente
+      if (currentIndex < issues.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+      } else if (issues.length > 0) {
+        // Se era o último e ainda tem problemas, voltar ao início
+        setCurrentIndex(0);
+      }
     } catch (error) {
-      console.error('Erro ao corrigir material:', error);
-      toast.error('Erro ao corrigir material');
+      console.error('Erro ao salvar material:', error);
+      toast.error('Erro ao salvar material');
     } finally {
       setFixing(null);
     }
   };
 
-  const fixAllMaterials = async () => {
-    if (issues.length === 0) return;
-    
-    const confirmFix = window.confirm(
-      `Deseja corrigir automaticamente ${issues.length} materiais com problemas?\n\n` +
-      'Isso irá:\n' +
-      '- Regenerar códigos inválidos com prefixos corretos\n' +
-      '- Sincronizar campo "category" com "material_type"\n\n' +
-      'Esta ação não pode ser desfeita.'
-    );
-
-    if (!confirmFix) return;
-
-    setLoading(true);
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (const material of issues) {
-      try {
-        await fixMaterial(material);
-        successCount++;
-      } catch (error) {
-        errorCount++;
-      }
+  const handleIndividualSave = () => {
+    if (editedMaterial) {
+      saveMaterial(editedMaterial);
     }
-
-    toast.success(`Correção concluída: ${successCount} sucesso, ${errorCount} erros`);
-    setLoading(false);
   };
 
+  const navigateToMaterial = (direction: 'prev' | 'next') => {
+    if (direction === 'prev' && currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    } else if (direction === 'next' && currentIndex < issues.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (issues.length > 0 && issues[currentIndex]) {
+      setEditedMaterial(issues[currentIndex]);
+    }
+  }, [currentIndex, issues]);
+
+  const materialCategories = getTermsByTaxonomy('material_category').filter(term => term.is_active && !term.parent_id);
+  const allSubcategories = getTermsByTaxonomy('material_subcategory').filter(term => term.is_active);
+  
+  const availableSubcategories = editedMaterial
+    ? allSubcategories.filter(sub => {
+        const categoryTerm = materialCategories.find(cat => cat.name === editedMaterial.category);
+        return categoryTerm && sub.parent_id === categoryTerm.id;
+      })
+    : [];
+
   const getSeverityColor = (issueCount: number) => {
-    if (issueCount >= 3) return 'text-red-600';
+    if (issueCount >= 3) return 'text-destructive';
     if (issueCount >= 2) return 'text-orange-600';
     return 'text-yellow-600';
   };
@@ -193,11 +211,11 @@ const MateriaisProblemas = () => {
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto py-6 space-y-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Materiais com Problemas</h1>
+        <h1 className="text-3xl font-bold mb-2">Limpeza de Materiais</h1>
         <p className="text-muted-foreground">
-          Diagnóstico e correção de inconsistências em códigos e categorias
+          Revise e atualize tipo, categoria e subcategoria de todos os materiais
         </p>
       </div>
 
@@ -215,106 +233,224 @@ const MateriaisProblemas = () => {
         </Card>
       ) : (
         <>
-          <Alert className="mb-6 border-orange-200 bg-orange-50">
+          <Alert className="border-orange-200 bg-orange-50">
             <AlertTriangle className="h-4 w-4 text-orange-600" />
             <AlertDescription className="text-orange-800">
-              <strong>{issues.length} materiais</strong> com problemas identificados. 
-              Recomenda-se corrigir para garantir consistência do sistema.
+              <strong>{issues.length} materiais</strong> precisam de revisão. 
+              Revise tipo, categoria e subcategoria de cada um.
             </AlertDescription>
           </Alert>
 
-          <Card className="mb-6">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Wrench className="h-5 w-5" />
-                    Ações de Correção
-                  </CardTitle>
-                  <CardDescription>
-                    Corrigir automaticamente códigos e categorias
-                  </CardDescription>
-                </div>
-                <Button 
-                  onClick={fixAllMaterials} 
-                  disabled={loading}
-                  variant="default"
-                  size="lg"
-                >
-                  <Wrench className="h-4 w-4 mr-2" />
-                  Corrigir Todos ({issues.length})
-                </Button>
-              </div>
-            </CardHeader>
-          </Card>
+          <Tabs value={editMode} onValueChange={(v) => setEditMode(v as 'list' | 'individual')} className="w-full">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="list">Lista Completa</TabsTrigger>
+              <TabsTrigger value="individual">Revisão Individual</TabsTrigger>
+            </TabsList>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Lista de Problemas Detectados</CardTitle>
-              <CardDescription>
-                Clique em "Corrigir" para normalizar cada material individualmente
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Código Atual</TableHead>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Problemas</TableHead>
-                    <TableHead className="text-right">Ação</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {issues.map((material) => (
-                    <TableRow key={material.id}>
-                      <TableCell>
-                        <Badge variant="outline" className="font-mono">
-                          {material.code}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">{material.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {material.material_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {material.issues.map((issue, idx) => (
-                            <div key={idx} className={`text-xs ${getSeverityColor(material.issues.length)}`}>
-                              <AlertTriangle className="h-3 w-3 inline mr-1" />
-                              {issue}
-                            </div>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          onClick={() => fixMaterial(material)}
-                          disabled={fixing === material.id}
+            <TabsContent value="list" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Materiais Pendentes</CardTitle>
+                  <CardDescription>
+                    {issues.length} materiais precisam de revisão
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Código</TableHead>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Categoria Atual</TableHead>
+                        <TableHead>Problemas</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {issues.map((material, idx) => (
+                        <TableRow 
+                          key={material.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => {
+                            setCurrentIndex(idx);
+                            setEditMode('individual');
+                          }}
                         >
-                          {fixing === material.id ? (
-                            <>
-                              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                              Corrigindo...
-                            </>
-                          ) : (
-                            <>
-                              <Wrench className="h-3 w-3 mr-1" />
-                              Corrigir
-                            </>
-                          )}
+                          <TableCell>
+                            <Badge variant="outline" className="font-mono">
+                              {material.code}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-medium">{material.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">
+                              {material.material_type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{material.category}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className={getSeverityColor(material.issues.length)}>
+                                {material.issues.length} {material.issues.length === 1 ? 'problema' : 'problemas'}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="individual" className="mt-6">
+              {editedMaterial && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <CardTitle className="flex items-center gap-2">
+                          <Badge variant="outline" className="font-mono">
+                            {editedMaterial.code}
+                          </Badge>
+                          {editedMaterial.name}
+                        </CardTitle>
+                        <CardDescription>
+                          Material {currentIndex + 1} de {issues.length}
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigateToMaterial('prev')}
+                          disabled={currentIndex === 0}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigateToMaterial('next')}
+                          disabled={currentIndex >= issues.length - 1}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Problemas detectados */}
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Problemas Detectados:</h4>
+                      <div className="space-y-1">
+                        {issues[currentIndex].issues.map((issue, idx) => (
+                          <div key={idx} className="text-sm flex items-start gap-2">
+                            <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                            <span>{issue}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Edição */}
+                    <div className="grid gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Tipo Operacional (não editável)</label>
+                        <Select value={editedMaterial.material_type} disabled>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          O tipo define o comportamento operacional e não pode ser alterado aqui
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Categoria Comercial *</label>
+                        <Select
+                          value={editedMaterial.category}
+                          onValueChange={(value) =>
+                            setEditedMaterial({ ...editedMaterial, category: value, subcategory: '' })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione categoria" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {materialCategories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.name}>
+                                {cat.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {issues[currentIndex].suggestedCategory && (
+                          <p className="text-xs text-muted-foreground">
+                            Sugestão: {issues[currentIndex].suggestedCategory}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Subcategoria</label>
+                        <Select
+                          value={editedMaterial.subcategory || 'none'}
+                          onValueChange={(value) =>
+                            setEditedMaterial({ ...editedMaterial, subcategory: value === 'none' ? '' : value })
+                          }
+                          disabled={availableSubcategories.length === 0}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={
+                              availableSubcategories.length === 0
+                                ? "Nenhuma subcategoria disponível"
+                                : "Selecione subcategoria"
+                            } />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Nenhuma subcategoria</SelectItem>
+                            {availableSubcategories.map((sub) => (
+                              <SelectItem key={sub.id} value={sub.name}>
+                                {sub.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Ações */}
+                    <div className="flex gap-2 justify-end pt-4 border-t">
+                      <Button
+                        variant="outline"
+                        onClick={() => setEditMode('list')}
+                      >
+                        Voltar à Lista
+                      </Button>
+                      <Button
+                        onClick={handleIndividualSave}
+                        disabled={fixing === editedMaterial.id}
+                      >
+                        {fixing === editedMaterial.id ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Salvando...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 mr-2" />
+                            Salvar e Próximo
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+          </Tabs>
         </>
       )}
     </div>
