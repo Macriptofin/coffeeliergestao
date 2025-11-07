@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, CheckCircle2, Wrench, RefreshCw, ChevronLeft, ChevronRight, Save } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCw, ChevronLeft, ChevronRight, Save, Sparkles, Info } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTaxonomy } from "@/hooks/useConfig";
+import { useMaterialsDiagnostics } from "@/hooks/useMaterialsDiagnostics";
 
 interface Material {
   id: string;
@@ -21,14 +22,40 @@ interface Material {
 }
 
 interface MaterialIssue extends Material {
-  issues: string[];
-  suggestedCategory?: string;
-  suggestedSubcategory?: string;
+  issues: {
+    field: string;
+    current: string | number;
+    expected: string | number;
+    severity: 'high' | 'medium' | 'low';
+  }[];
+  csvSuggestions?: {
+    material_type?: string;
+    category?: string;
+    subcategory?: string;
+  };
 }
 
+const materialTypeMap: Record<string, string> = {
+  'Insumo': 'ingredient',
+  'Embalagem': 'packaging',
+  'Produto Intermediário': 'intermediate_product',
+  'Produto Acabado': 'finished_product',
+  'Produto Composto': 'composite_product',
+  'Produto de Revenda': 'resale_product'
+};
+
+const materialTypeLabels: Record<string, string> = {
+  'ingredient': 'Insumo',
+  'packaging': 'Embalagem',
+  'intermediate_product': 'Produto Intermediário',
+  'finished_product': 'Produto Acabado',
+  'composite_product': 'Produto Composto',
+  'resale_product': 'Produto de Revenda'
+};
+
 const MateriaisProblemas = () => {
+  const { diagnostics, loading: diagLoading, runDiagnostics } = useMaterialsDiagnostics();
   const [issues, setIssues] = useState<MaterialIssue[]>([]);
-  const [allMaterials, setAllMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [fixing, setFixing] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -36,25 +63,59 @@ const MateriaisProblemas = () => {
   const { getTermsByTaxonomy } = useTaxonomy();
   
   // Edição individual
-  const [editedMaterial, setEditedMaterial] = useState<Material | null>(null);
+  const [editedMaterial, setEditedMaterial] = useState<MaterialIssue | null>(null);
 
   useEffect(() => {
-    loadMaterials();
+    runDiagnostics();
   }, []);
 
-  const loadMaterials = async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (diagnostics) {
+      // Carregar dados completos dos materiais com problemas
+      loadMaterialsDetails(diagnostics.discrepancies.map(d => d.id));
+    }
+  }, [diagnostics]);
+
+  const loadMaterialsDetails = async (materialIds: string[]) => {
+    if (materialIds.length === 0) {
+      setIssues([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data: materials, error } = await supabase
         .from('materials')
         .select('id, name, code, material_type, category, subcategory')
-        .order('code');
+        .in('id', materialIds);
 
       if (error) throw error;
 
-      setAllMaterials(materials || []);
-      const problematicMaterials = analyzeMaterials(materials || []);
-      setIssues(problematicMaterials);
+      // Combinar com diagnósticos do CSV
+      const materialIssues: MaterialIssue[] = (materials || []).map(material => {
+        const diag = diagnostics!.discrepancies.find(d => d.id === material.id);
+        if (!diag) return null;
+
+        const csvSuggestions: MaterialIssue['csvSuggestions'] = {};
+        
+        diag.issues.forEach(issue => {
+          if (issue.field === 'material_type') {
+            csvSuggestions.material_type = materialTypeMap[String(issue.expected)] || String(issue.expected);
+          } else if (issue.field === 'category') {
+            csvSuggestions.category = String(issue.expected);
+          } else if (issue.field === 'subcategory') {
+            csvSuggestions.subcategory = String(issue.expected);
+          }
+        });
+
+        return {
+          ...material,
+          issues: diag.issues,
+          csvSuggestions
+        } as MaterialIssue;
+      }).filter(m => m !== null && m.issues.length > 0);
+
+      setIssues(materialIssues);
     } catch (error) {
       console.error('Erro ao carregar materiais:', error);
       toast.error('Erro ao carregar materiais');
@@ -63,96 +124,29 @@ const MateriaisProblemas = () => {
     }
   };
 
-  const analyzeMaterials = (materials: Material[]): MaterialIssue[] => {
-    const problematicMaterials: MaterialIssue[] = [];
-
-    materials.forEach(material => {
-      const materialIssues: string[] = [];
-      let suggestedCategory: string | undefined;
-      let suggestedSubcategory: string | undefined;
-
-      // Check 1: Invalid code prefix
-      const expectedPrefix = getExpectedPrefix(material.material_type);
-      if (!material.code.startsWith(expectedPrefix)) {
-        materialIssues.push(`Código com prefixo incorreto (esperado: ${expectedPrefix})`);
-      }
-
-      // Check 2: Invalid code format (obsolete prefixes)
-      if (material.code.match(/^(PAC|OLD|MAT)\d+/)) {
-        materialIssues.push(`Código usa prefixo obsoleto`);
-      }
-
-      // Check 3: Category precisa revisão (antigas categorias operacionais)
-      const oldOperationalCategories = ['Insumo', 'Embalagem', 'Produto Intermediário', 'Produto Acabado', 'Produto Composto', 'Produto de Revenda'];
-      if (oldOperationalCategories.includes(material.category)) {
-        materialIssues.push(`Categoria operacional antiga "${material.category}" precisa ser atualizada para categoria comercial`);
-        suggestedCategory = getSuggestedCategory(material.material_type);
-      }
-
-      // Check 4: Missing subcategory
-      if (!material.subcategory) {
-        materialIssues.push(`Subcategoria não definida`);
-      }
-
-      if (materialIssues.length > 0) {
-        problematicMaterials.push({
-          ...material,
-          issues: materialIssues,
-          suggestedCategory,
-          suggestedSubcategory
-        });
-      }
-    });
-
-    return problematicMaterials;
-  };
-
-  const getExpectedPrefix = (materialType: string): string => {
-    const prefixMap: Record<string, string> = {
-      'ingredient': 'INS',
-      'packaging': 'EMB',
-      'finished_product': 'FIN',
-      'intermediate_product': 'INT',
-      'composite_product': 'COM',
-      'resale_product': 'REV'
-    };
-    return prefixMap[materialType] || 'MAT';
-  };
-
-  const getSuggestedCategory = (materialType: string): string => {
-    // Sugere categorias comerciais baseadas no tipo operacional
-    const suggestionMap: Record<string, string> = {
-      'ingredient': 'Alimentos & Ingredientes',
-      'packaging': 'Embalagens',
-      'intermediate_product': 'Doces & Confeitaria',
-      'finished_product': 'Doces & Confeitaria',
-      'composite_product': 'Kits & Mesas',
-      'resale_product': 'Bebidas'
-    };
-    return suggestionMap[materialType] || 'Alimentos & Ingredientes';
-  };
-
-  const saveMaterial = async (material: Material) => {
+  const saveMaterial = async (material: MaterialIssue) => {
     setFixing(material.id);
     try {
       const { error } = await supabase
         .from('materials')
         .update({
+          material_type: material.material_type,
           category: material.category,
-          subcategory: material.subcategory
+          subcategory: material.subcategory || null
         })
         .eq('id', material.id);
 
       if (error) throw error;
 
       toast.success(`Material "${material.name}" atualizado`);
-      await loadMaterials();
+      
+      // Recarregar diagnósticos
+      await runDiagnostics();
       
       // Avançar para o próximo material automaticamente
       if (currentIndex < issues.length - 1) {
         setCurrentIndex(currentIndex + 1);
-      } else if (issues.length > 0) {
-        // Se era o último e ainda tem problemas, voltar ao início
+      } else {
         setCurrentIndex(0);
       }
     } catch (error) {
@@ -160,6 +154,27 @@ const MateriaisProblemas = () => {
       toast.error('Erro ao salvar material');
     } finally {
       setFixing(null);
+    }
+  };
+
+  const applySuggestion = (field: 'material_type' | 'category' | 'subcategory') => {
+    if (!editedMaterial || !editedMaterial.csvSuggestions) return;
+
+    const suggestion = editedMaterial.csvSuggestions[field];
+    if (!suggestion) return;
+
+    if (field === 'category') {
+      // Ao mudar categoria, limpar subcategoria
+      setEditedMaterial({ 
+        ...editedMaterial, 
+        category: suggestion,
+        subcategory: ''
+      });
+    } else {
+      setEditedMaterial({ 
+        ...editedMaterial, 
+        [field]: suggestion 
+      });
     }
   };
 
@@ -199,12 +214,22 @@ const MateriaisProblemas = () => {
     return 'text-yellow-600';
   };
 
-  if (loading) {
+  const getIssueLabel = (issue: MaterialIssue['issues'][0]) => {
+    const labels: Record<string, string> = {
+      'material_type': 'Tipo Operacional',
+      'category': 'Categoria Comercial',
+      'subcategory': 'Subcategoria',
+      'code_prefix': 'Prefixo do Código'
+    };
+    return labels[issue.field] || issue.field;
+  };
+
+  if (loading || diagLoading) {
     return (
       <div className="container mx-auto py-6">
         <div className="text-center py-12">
           <RefreshCw className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-spin" />
-          <p className="text-muted-foreground">Analisando materiais...</p>
+          <p className="text-muted-foreground">Analisando materiais com referência CSV...</p>
         </div>
       </div>
     );
@@ -215,7 +240,7 @@ const MateriaisProblemas = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Limpeza de Materiais</h1>
         <p className="text-muted-foreground">
-          Revise e atualize tipo, categoria e subcategoria de todos os materiais
+          Revise e corrija tipo, categoria e subcategoria com base em PRODUTOS_LIMPOS.csv
         </p>
       </div>
 
@@ -226,25 +251,24 @@ const MateriaisProblemas = () => {
               <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">Sistema Íntegro!</h3>
               <p className="text-muted-foreground">
-                Nenhuma inconsistência encontrada. Todos os materiais estão corretamente configurados.
+                Todos os materiais estão consistentes com PRODUTOS_LIMPOS.csv
               </p>
             </div>
           </CardContent>
         </Card>
       ) : (
         <>
-          <Alert className="border-orange-200 bg-orange-50">
+          <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950">
             <AlertTriangle className="h-4 w-4 text-orange-600" />
-            <AlertDescription className="text-orange-800">
-              <strong>{issues.length} materiais</strong> precisam de revisão. 
-              Revise tipo, categoria e subcategoria de cada um.
+            <AlertDescription className="text-orange-800 dark:text-orange-200">
+              <strong>{issues.length} materiais</strong> precisam de correção baseada no CSV de referência
             </AlertDescription>
           </Alert>
 
           <Tabs value={editMode} onValueChange={(v) => setEditMode(v as 'list' | 'individual')} className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="list">Lista Completa</TabsTrigger>
-              <TabsTrigger value="individual">Revisão Individual</TabsTrigger>
+              <TabsTrigger value="individual">Correção Individual</TabsTrigger>
             </TabsList>
 
             <TabsContent value="list" className="mt-6">
@@ -252,7 +276,7 @@ const MateriaisProblemas = () => {
                 <CardHeader>
                   <CardTitle>Materiais Pendentes</CardTitle>
                   <CardDescription>
-                    {issues.length} materiais precisam de revisão
+                    {issues.length} materiais com discrepâncias em relação ao CSV
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -261,7 +285,7 @@ const MateriaisProblemas = () => {
                       <TableRow>
                         <TableHead>Código</TableHead>
                         <TableHead>Nome</TableHead>
-                        <TableHead>Tipo</TableHead>
+                        <TableHead>Tipo Atual</TableHead>
                         <TableHead>Categoria Atual</TableHead>
                         <TableHead>Problemas</TableHead>
                       </TableRow>
@@ -284,7 +308,7 @@ const MateriaisProblemas = () => {
                           <TableCell className="font-medium">{material.name}</TableCell>
                           <TableCell>
                             <Badge variant="secondary">
-                              {material.material_type}
+                              {materialTypeLabels[material.material_type] || material.material_type}
                             </Badge>
                           </TableCell>
                           <TableCell>{material.category}</TableCell>
@@ -342,33 +366,90 @@ const MateriaisProblemas = () => {
                   <CardContent className="space-y-6">
                     {/* Problemas detectados */}
                     <div className="space-y-2">
-                      <h4 className="font-medium text-sm">Problemas Detectados:</h4>
-                      <div className="space-y-1">
-                        {issues[currentIndex].issues.map((issue, idx) => (
-                          <div key={idx} className="text-sm flex items-start gap-2">
-                            <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                            <span>{issue}</span>
+                      <h4 className="font-medium text-sm">Discrepâncias Encontradas:</h4>
+                      <div className="space-y-2">
+                        {editedMaterial.issues.map((issue, idx) => (
+                          <div key={idx} className="p-3 bg-muted/50 rounded-lg">
+                            <div className="flex items-start gap-2 mb-1">
+                              <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                              <span className="font-medium text-sm">{getIssueLabel(issue)}</span>
+                            </div>
+                            <div className="ml-6 text-xs space-y-1">
+                              <div>
+                                <span className="text-muted-foreground">Atual: </span>
+                                <span className="text-destructive">{String(issue.current)}</span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Esperado (CSV): </span>
+                                <span className="text-green-600 dark:text-green-400">{String(issue.expected)}</span>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
                     </div>
 
+                    <Alert>
+                      <Info className="h-4 w-4" />
+                      <AlertDescription className="text-sm">
+                        Use os botões <Sparkles className="h-3 w-3 inline mx-1" /> para aplicar as sugestões do CSV automaticamente
+                      </AlertDescription>
+                    </Alert>
+
                     {/* Edição */}
                     <div className="grid gap-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Tipo Operacional (não editável)</label>
-                        <Select value={editedMaterial.material_type} disabled>
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium">Tipo Operacional *</label>
+                          {editedMaterial.csvSuggestions?.material_type && 
+                           editedMaterial.csvSuggestions.material_type !== editedMaterial.material_type && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => applySuggestion('material_type')}
+                              className="h-7 text-xs"
+                            >
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              Aplicar: {materialTypeLabels[editedMaterial.csvSuggestions.material_type]}
+                            </Button>
+                          )}
+                        </div>
+                        <Select
+                          value={editedMaterial.material_type}
+                          onValueChange={(value) =>
+                            setEditedMaterial({ ...editedMaterial, material_type: value })
+                          }
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ingredient">Insumo</SelectItem>
+                            <SelectItem value="packaging">Embalagem</SelectItem>
+                            <SelectItem value="intermediate_product">Produto Intermediário</SelectItem>
+                            <SelectItem value="finished_product">Produto Acabado</SelectItem>
+                            <SelectItem value="composite_product">Produto Composto</SelectItem>
+                            <SelectItem value="resale_product">Produto de Revenda</SelectItem>
+                          </SelectContent>
                         </Select>
-                        <p className="text-xs text-muted-foreground">
-                          O tipo define o comportamento operacional e não pode ser alterado aqui
-                        </p>
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Categoria Comercial *</label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium">Categoria Comercial *</label>
+                          {editedMaterial.csvSuggestions?.category && 
+                           editedMaterial.csvSuggestions.category !== editedMaterial.category && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => applySuggestion('category')}
+                              className="h-7 text-xs"
+                            >
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              Aplicar: {editedMaterial.csvSuggestions.category}
+                            </Button>
+                          )}
+                        </div>
                         <Select
                           value={editedMaterial.category}
                           onValueChange={(value) =>
@@ -386,15 +467,24 @@ const MateriaisProblemas = () => {
                             ))}
                           </SelectContent>
                         </Select>
-                        {issues[currentIndex].suggestedCategory && (
-                          <p className="text-xs text-muted-foreground">
-                            Sugestão: {issues[currentIndex].suggestedCategory}
-                          </p>
-                        )}
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Subcategoria</label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium">Subcategoria</label>
+                          {editedMaterial.csvSuggestions?.subcategory && 
+                           editedMaterial.csvSuggestions.subcategory !== editedMaterial.subcategory && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => applySuggestion('subcategory')}
+                              className="h-7 text-xs"
+                            >
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              Aplicar: {editedMaterial.csvSuggestions.subcategory}
+                            </Button>
+                          )}
+                        </div>
                         <Select
                           value={editedMaterial.subcategory || 'none'}
                           onValueChange={(value) =>

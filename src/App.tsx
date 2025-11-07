@@ -48,6 +48,7 @@ import { MaterialEdit } from "./pages/MaterialEdit";
 import Config from "./pages/Config";
 import EstoqueRelatorios from "./pages/stock/EstoqueRelatorios";
 import MateriaisProblemas from "./pages/stock/MateriaisProblemas";
+import MateriaisDiagnostico from "./pages/stock/MateriaisDiagnostico";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +73,7 @@ function App() {
               <Route path="materiais/inventario-ajustes/ciclo/:cycleId" element={<InventarioCiclo />} />
               <Route path="materiais/importacao" element={<Stock />} />
               <Route path="materiais/:id/editar" element={<MaterialEdit />} />
+              <Route path="materiais/diagnostico" element={<MateriaisDiagnostico />} />
               <Route path="materiais/problemas" element={<MateriaisProblemas />} />
               
               {/* Redirects de rotas antigas para manter bookmarks */}
