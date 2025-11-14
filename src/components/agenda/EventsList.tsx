@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { Calendar, Clock, Users, MapPin, Edit, Trash2, Eye, FileText, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -59,11 +59,16 @@ export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListPr
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [eventSessions, setEventSessions] = useState<Record<string, EventSession[]>>({});
 
-  // Carregar sessões para todos os eventos
+  // Carregar sessões para todos os eventos - otimizado com debounce
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     const loadSessions = async () => {
       const eventIds = events.map(e => e.id);
-      if (eventIds.length === 0) return;
+      if (eventIds.length === 0) {
+        setEventSessions({});
+        return;
+      }
 
       const { data } = await supabase
         .from('event_sessions')
@@ -84,8 +89,11 @@ export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListPr
       }
     };
 
-    loadSessions();
-  }, [events]);
+    // Debounce para evitar múltiplas chamadas
+    timeoutId = setTimeout(loadSessions, 300);
+    
+    return () => clearTimeout(timeoutId);
+  }, [events.length, events.map(e => e.id).join(',')]);
 
   const toggleEventExpansion = (eventId: string) => {
     setExpandedEvents(prev => {
@@ -187,8 +195,8 @@ export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListPr
                 const totalSessionQuantity = sessions.reduce((sum, s) => sum + s.quantity, 0);
 
                 return (
-                  <>
-                    <TableRow key={event.id}>
+                  <Fragment key={event.id}>
+                    <TableRow>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {sessions.length > 0 && (
@@ -339,7 +347,7 @@ export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListPr
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </TableBody>

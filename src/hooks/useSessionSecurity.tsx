@@ -110,21 +110,19 @@ export function useSessionSecurity() {
     }
   };
 
-  // Track user activity
+  // Track user activity - otimizado para reduzir CPU
   useEffect(() => {
+    // Removido mousemove para evitar sobrecarga de CPU
     const activities = [
       'mousedown',
-      'mousemove',
       'keypress',
-      'scroll',
-      'touchstart',
       'click'
     ];
 
-    const throttledUpdate = throttle(updateActivity, 30000); // Update max once per 30 seconds
+    const throttledUpdate = throttle(updateActivity, 60000); // Reduzido para 1 minuto
 
     activities.forEach(activity => {
-      document.addEventListener(activity, throttledUpdate, true);
+      document.addEventListener(activity, throttledUpdate, { passive: true });
     });
 
     return () => {
