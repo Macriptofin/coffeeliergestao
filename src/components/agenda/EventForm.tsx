@@ -79,6 +79,7 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [sessions, setSessions] = useState<EventSession[]>([]);
   const [sessionCalendarOpen, setSessionCalendarOpen] = useState<number | null>(null);
+  const [originalEventDate, setOriginalEventDate] = useState<Date | null>(null);
 
   // Helper para converter data do banco (YYYY-MM-DD) para Date local
   const parseLocalDate = (dateString: string): Date => {
@@ -135,11 +136,42 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
           quantity: s.quantity,
           notes: s.notes || ''
         })));
+        
+        // Armazenar a data original do evento para detectar mudanças
+        if (event) {
+          setOriginalEventDate(parseLocalDate(event.event_date));
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar sessões:', error);
     }
   };
+
+  // Ajustar datas das sessions automaticamente quando a data do evento muda
+  useEffect(() => {
+    if (!originalEventDate || !selectedDate || sessions.length === 0) return;
+    
+    // Calcular diferença em dias entre data original e nova data
+    const timeDiff = selectedDate.getTime() - originalEventDate.getTime();
+    const daysDiff = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+    
+    // Se houve mudança na data, ajustar todas as sessions
+    if (daysDiff !== 0) {
+      setSessions(prevSessions => prevSessions.map(session => {
+        const newDate = new Date(session.session_date);
+        newDate.setDate(newDate.getDate() + daysDiff);
+        return {
+          ...session,
+          session_date: newDate
+        };
+      }));
+      
+      // Atualizar a data original para a nova data
+      setOriginalEventDate(selectedDate);
+      
+      toast.info(`Datas dos fornecimentos ajustadas automaticamente (${daysDiff > 0 ? '+' : ''}${daysDiff} dias)`);
+    }
+  }, [selectedDate]);
 
   // Atualiza o formulário quando o evento ou data inicial mudar
   useEffect(() => {
