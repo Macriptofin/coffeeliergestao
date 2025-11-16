@@ -410,12 +410,16 @@ export const InvoiceEditDialog = ({
             });
           
           // Criar entrada de estoque para cada item
+          const quantity = item.converted_quantity || item.quantidade;
+          const unitPrice = item.preco_unitario || 0;
           const { error: stockError } = await supabase
             .from('stock_movements')
             .insert({
               material_id: item.material_id,
               movement_type: 'Entrada',
-              quantity: item.converted_quantity || item.quantidade,
+              quantity: quantity,
+              unit_price: unitPrice,
+              total_cost: quantity * unitPrice,
               reference_type: 'Compra',
               reference_id: invoiceRecord.id,
               notes: `NF ${editedData.numero_nota || 'S/N'} - ${fornecedorNome} - ${item.nome}${item.desconto ? ` (Desconto: R$ ${item.desconto.toFixed(2)})` : ''}`

@@ -238,12 +238,14 @@ export const InventoryImportCSV = () => {
 
             // Registrar entrada inicial de estoque
             const quantity = parseFloat(item.csvData.quantidade);
+            const unitPrice = 0;
             await supabase.from('stock_movements').insert({
               material_id: newMaterial.id,
               movement_type: 'in',
               quantity,
               unit: item.csvData.unidade_uso,
-              unit_price: 0,
+              unit_price: unitPrice,
+              total_cost: quantity * unitPrice,
               notes: `Inventário inicial - ${item.csvData.observacoes || 'Importação CSV'}`,
               responsible_user_id: user.id,
             });
@@ -255,12 +257,15 @@ export const InventoryImportCSV = () => {
             const diff = newQty - oldQty;
 
             if (diff !== 0) {
+              const adjustQuantity = Math.abs(diff);
+              const unitPrice = 0;
               await supabase.from('stock_movements').insert({
                 material_id: item.matchedMaterial!.id,
                 movement_type: 'inventory_adjustment',
-                quantity: Math.abs(diff),
+                quantity: adjustQuantity,
                 unit: item.matchedMaterial!.usage_unit,
-                unit_price: 0,
+                unit_price: unitPrice,
+                total_cost: adjustQuantity * unitPrice,
                 notes: `Ajuste de inventário: ${oldQty} → ${newQty}${item.csvData.observacoes ? ` - ${item.csvData.observacoes}` : ''}`,
                 responsible_user_id: user.id,
               });

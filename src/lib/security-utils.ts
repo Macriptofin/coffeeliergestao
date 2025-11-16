@@ -2,57 +2,116 @@
  * Security utility functions for the application
  */
 
+// Cache configuration for IP detection
+const IP_CACHE_KEY = 'client_ip_cache';
+const IP_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
+interface IPCache {
+  ip: string;
+  timestamp: number;
+}
+
 /**
  * Attempts to get the client's real IP address from various sources
  * Enhanced for production environments with better detection methods
+ * NOW WITH CACHING to prevent excessive HTTP requests
  */
 export const getClientIP = async (): Promise<string> => {
   try {
+    // Check cache first to avoid unnecessary HTTP requests
+    const cachedIP = getIPFromCache();
+    if (cachedIP) {
+      return cachedIP;
+    }
+
+    let detectedIP: string | null = null;
+
     // Method 1: Check for forwarded headers (production environments)
     try {
       const forwardedIP = getIPFromHeaders();
       if (forwardedIP && !isPrivateIP(forwardedIP)) {
-        return forwardedIP;
+        detectedIP = forwardedIP;
       }
     } catch (error) {
       console.debug('Header IP detection failed:', error);
     }
 
     // Method 2: Try external IP services with enhanced error handling
-    try {
-      const externalIP = await getIPFromExternalService();
-      if (externalIP && !isPrivateIP(externalIP)) {
-        return externalIP;
+    if (!detectedIP) {
+      try {
+        const externalIP = await getIPFromExternalService();
+        if (externalIP && !isPrivateIP(externalIP)) {
+          detectedIP = externalIP;
+        }
+      } catch (error) {
+        console.debug('External IP service failed:', error);
       }
-    } catch (error) {
-      console.debug('External IP service failed:', error);
     }
 
     // Method 3: WebRTC as fallback (may be blocked in some environments)
-    try {
-      const rtcIP = await getIPFromWebRTC();
-      if (rtcIP && !isPrivateIP(rtcIP)) {
-        return rtcIP;
+    if (!detectedIP) {
+      try {
+        const rtcIP = await getIPFromWebRTC();
+        if (rtcIP && !isPrivateIP(rtcIP)) {
+          detectedIP = rtcIP;
+        }
+      } catch (error) {
+        console.debug('WebRTC IP detection failed:', error);
       }
-    } catch (error) {
-      console.debug('WebRTC IP detection failed:', error);
     }
 
-    // Method 4: Enhanced geolocation IP detection
-    try {
-      const geoIP = await getIPFromGeolocation();
-      if (geoIP && !isPrivateIP(geoIP)) {
-        return geoIP;
-      }
-    } catch (error) {
-      console.debug('Geolocation IP detection failed:', error);
-    }
-
-    // Fallback to localhost with environment detection
-    return isProductionEnvironment() ? 'production-unknown' : '127.0.0.1';
+    // Use detected IP or fallback
+    const finalIP = detectedIP || (isProductionEnvironment() ? 'production-unknown' : '127.0.0.1');
+    
+    // Cache the result
+    saveIPToCache(finalIP);
+    
+    return finalIP;
   } catch (error) {
     console.warn('All IP detection methods failed:', error);
     return 'unknown';
+  }
+};
+
+/**
+ * Get IP from cache if valid
+ */
+const getIPFromCache = (): string | null => {
+  try {
+    const cached = localStorage.getItem(IP_CACHE_KEY);
+    if (!cached) return null;
+
+    const cacheData: IPCache = JSON.parse(cached);
+    const age = Date.now() - cacheData.timestamp;
+
+    // Return cached IP if less than 24 hours old
+    if (age < IP_CACHE_DURATION) {
+      console.debug('Using cached IP address:', cacheData.ip);
+      return cacheData.ip;
+    }
+
+    // Cache expired, remove it
+    localStorage.removeItem(IP_CACHE_KEY);
+    return null;
+  } catch (error) {
+    console.debug('Cache read failed:', error);
+    return null;
+  }
+};
+
+/**
+ * Save IP to cache
+ */
+const saveIPToCache = (ip: string): void => {
+  try {
+    const cacheData: IPCache = {
+      ip,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(IP_CACHE_KEY, JSON.stringify(cacheData));
+    console.debug('IP address cached:', ip);
+  } catch (error) {
+    console.debug('Cache write failed:', error);
   }
 };
 

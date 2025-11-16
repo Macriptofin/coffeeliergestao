@@ -393,6 +393,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             movement_type: 'Entrada',
             quantity: usageQuantity,
             unit_price: usageUnitPrice,
+            total_cost: usageQuantity * usageUnitPrice,
             reference_type: 'Compra',
             reference_id: invoiceId,
             notes: `Nota fiscal ${invoice.invoice_number} - Compra: ${item.quantity} ${material.purchase_unit} = ${usageQuantity} ${material.usage_unit}`
