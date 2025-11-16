@@ -1,4 +1,13 @@
-# Welcome to your Lovable project
+# Coffeelier ERP - Sistema de Gestão para Catering
+
+Sistema ERP completo para gestão de cafeterias, confeitarias e empresas de catering.
+
+## 📚 Documentação
+
+A documentação completa do sistema está organizada em:
+- **[/docs/](./docs/)** - Documentação técnica e guias operacionais
+- **[/diagnostics/](./diagnostics/)** - Arquivos de diagnóstico e análise
+- **[/scripts/](./scripts/)** - Scripts SQL de manutenção
 
 ## Project info
 
