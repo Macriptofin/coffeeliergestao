@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSecurityMonitoring } from '@/hooks/useSecurityMonitoring';
 import type { User, Session } from '@supabase/supabase-js';
+import { isSecurityMonitoringDisabled } from '@/lib/security-utils';
 
 export function useSecureAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const { logSecurityEvent } = useSecurityMonitoring();
+  const loginLoggedRef = useRef(false); // Prevent duplicate USER_LOGIN logs
 
   useEffect(() => {
     let mounted = true;
@@ -45,25 +47,32 @@ export function useSecureAuth() {
         setLoading(false);
 
         // Log authentication events (defer to avoid blocking callback)
-        try {
-          setTimeout(() => {
-            switch (event) {
-              case 'SIGNED_IN':
-                logSecurityEvent('USER_LOGIN', 'auth', session?.user?.id, { method: 'supabase_auth' });
-                break;
-              case 'SIGNED_OUT':
-                logSecurityEvent('USER_LOGOUT', 'auth', undefined);
-                break;
-              case 'TOKEN_REFRESHED':
-                // skip
-                break;
-              case 'USER_UPDATED':
-                logSecurityEvent('USER_UPDATED', 'auth', session?.user?.id);
-                break;
-            }
-          }, 0);
-        } catch (error) {
-          console.error('Failed to log auth event:', error);
+        if (!isSecurityMonitoringDisabled()) {
+          try {
+            setTimeout(() => {
+              switch (event) {
+                case 'SIGNED_IN':
+                  // Only log once per session to prevent loops
+                  if (!loginLoggedRef.current) {
+                    logSecurityEvent('USER_LOGIN', 'auth', session?.user?.id, { method: 'supabase_auth' });
+                    loginLoggedRef.current = true;
+                  }
+                  break;
+                case 'SIGNED_OUT':
+                  logSecurityEvent('USER_LOGOUT', 'auth', undefined);
+                  loginLoggedRef.current = false; // Reset for next session
+                  break;
+                case 'TOKEN_REFRESHED':
+                  // skip to avoid noise
+                  break;
+                case 'USER_UPDATED':
+                  logSecurityEvent('USER_UPDATED', 'auth', session?.user?.id);
+                  break;
+              }
+            }, 0);
+          } catch (error) {
+            console.error('Failed to log auth event:', error);
+          }
         }
       }
     );
