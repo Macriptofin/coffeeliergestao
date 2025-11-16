@@ -46,6 +46,14 @@ export function useEnhancedSecurityMonitoring() {
     resourceType: string = 'clients'
 ) => {
     if (isSecurityMonitoringDisabled()) return;
+    
+    // CRITICAL: Disable in preview/dev to prevent loops
+    const isPreview = window.location.hostname.includes('lovableproject.com') || 
+                      window.location.hostname.includes('lovable.app') ||
+                      window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1';
+    if (isPreview) return;
+    
     try {
       const ipAddress = await getClientIP();
       const { data: { user } } = await supabase.auth.getUser();
