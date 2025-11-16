@@ -26,6 +26,14 @@ export function useSecurityMonitoring() {
     details?: any
   ) => {
     if (isSecurityMonitoringDisabled()) return;
+    
+    // CRITICAL: Disable in preview/dev to prevent loops
+    const isPreview = window.location.hostname.includes('lovableproject.com') || 
+                      window.location.hostname.includes('lovable.app') ||
+                      window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1';
+    if (isPreview) return;
+    
     try {
       // Validate that user is authenticated for this action
       const { data: { user } } = await supabase.auth.getUser();
@@ -64,6 +72,14 @@ export function useSecurityMonitoring() {
     fields: string[]
   ) => {
     if (isSecurityMonitoringDisabled()) return;
+    
+    // CRITICAL: Disable in preview/dev to prevent loops
+    const isPreview = window.location.hostname.includes('lovableproject.com') || 
+                      window.location.hostname.includes('lovable.app') ||
+                      window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1';
+    if (isPreview) return;
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!validateAuthenticatedAction(user?.id || null)) return;
@@ -104,6 +120,14 @@ export function useSecurityMonitoring() {
     metadata?: any
   ) => {
     if (isSecurityMonitoringDisabled()) return;
+    
+    // CRITICAL: Disable in preview/dev to prevent loops
+    const isPreview = window.location.hostname.includes('lovableproject.com') || 
+                      window.location.hostname.includes('lovable.app') ||
+                      window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1';
+    if (isPreview) return;
+    
     try {
       const severity = getSeverityForAction(alertType);
       const title = getAlertTitle(alertType);
