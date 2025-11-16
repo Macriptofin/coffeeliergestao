@@ -22,9 +22,8 @@ export const isSecurityMonitoringDisabled = (): boolean => {
     if (localStorage.getItem('SECURITY_MONITORING_DISABLED') === '1') return true;
     // Global flag for emergency toggling
     if ((window as any).__SECURITY_DISABLED === true) return true;
-    // Build-time flag
-    // @ts-ignore - vite injects import.meta.env
-    if (import.meta?.env?.VITE_DISABLE_SECURITY_MONITORING === 'true') return true;
+    // Build-time flag removed (Lovable does not support VITE_* env here)
+
   } catch (_) {}
   return false;
 };
@@ -40,57 +39,58 @@ export const getClientIP = async (): Promise<string> => {
     if (isSecurityMonitoringDisabled()) {
       return 'disabled';
     }
+
     // Check cache first to avoid unnecessary HTTP requests
     const cachedIP = getIPFromCache();
-    if (cachedIP) {
-      return cachedIP;
-    }
+    if (cachedIP) return cachedIP;
 
-    let detectedIP: string | null = null;
+    // Coalesce concurrent calls into a single in-flight promise
+    if (ipPromise) return await ipPromise;
 
-    // Method 1: Check for forwarded headers (production environments)
-    try {
-      const forwardedIP = getIPFromHeaders();
-      if (forwardedIP && !isPrivateIP(forwardedIP)) {
-        detectedIP = forwardedIP;
-      }
-    } catch (error) {
-      console.debug('Header IP detection failed:', error);
-    }
+    ipPromise = (async () => {
+      let detectedIP: string | null = null;
 
-    // Method 2: Try external IP services with enhanced error handling
-    if (!detectedIP) {
+      // Method 1: forwarded headers (no-op in browser for now)
       try {
-        const externalIP = await getIPFromExternalService();
-        if (externalIP && !isPrivateIP(externalIP)) {
-          detectedIP = externalIP;
-        }
+        const forwardedIP = getIPFromHeaders();
+        if (forwardedIP && !isPrivateIP(forwardedIP)) detectedIP = forwardedIP;
       } catch (error) {
-        console.debug('External IP service failed:', error);
+        console.debug('Header IP detection failed:', error);
       }
-    }
 
-    // Method 3: WebRTC as fallback (may be blocked in some environments)
-    if (!detectedIP) {
-      try {
-        const rtcIP = await getIPFromWebRTC();
-        if (rtcIP && !isPrivateIP(rtcIP)) {
-          detectedIP = rtcIP;
+      // Method 2: external service (fast timeout + single attempt sequence)
+      if (!detectedIP) {
+        try {
+          const externalIP = await getIPFromExternalService();
+          if (externalIP && !isPrivateIP(externalIP)) detectedIP = externalIP;
+        } catch (error) {
+          console.debug('External IP service failed:', error);
         }
-      } catch (error) {
-        console.debug('WebRTC IP detection failed:', error);
       }
-    }
 
-    // Use detected IP or fallback
-    const finalIP = detectedIP || (isProductionEnvironment() ? 'production-unknown' : '127.0.0.1');
-    
-    // Cache the result
-    saveIPToCache(finalIP);
-    
-    return finalIP;
+      // Method 3: WebRTC fallback (best-effort)
+      if (!detectedIP) {
+        try {
+          const rtcIP = await getIPFromWebRTC();
+          if (rtcIP && !isPrivateIP(rtcIP)) detectedIP = rtcIP;
+        } catch (error) {
+          console.debug('WebRTC IP detection failed:', error);
+        }
+      }
+
+      const finalIP = detectedIP || (isProductionEnvironment() ? 'production-unknown' : '127.0.0.1');
+      saveIPToCache(finalIP);
+      return finalIP;
+    })();
+
+    const result = await ipPromise;
+    ipPromise = null; // reset; subsequent calls will hit cache
+    return result;
   } catch (error) {
     console.warn('All IP detection methods failed:', error);
+    ipPromise = null;
+    // Cache failure result for a short period to prevent storms
+    try { localStorage.setItem('cached_ip', 'unknown'); } catch {}
     return 'unknown';
   }
 };
