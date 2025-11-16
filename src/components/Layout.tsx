@@ -115,9 +115,9 @@ if (!session || !user) {
         </div>
       </div>
 
-      <div className="flex pt-24">
-        {/* Desktop Sidebar - positioned in flow to push content */}
-        <aside className="hidden md:block w-64 h-[calc(100vh-6rem)] sticky top-24 bg-card border-r">
+      <div className="relative pt-24">
+        {/* Desktop Sidebar - fixed position to prevent horizontal scroll */}
+        <aside className="hidden md:block fixed left-0 top-24 w-64 h-[calc(100vh-6rem)] bg-card border-r overflow-y-auto z-40">
           <Sidebar />
         </aside>
 
@@ -144,8 +144,8 @@ if (!session || !user) {
           </div>
         )}
 
-        {/* Main Content */}
-        <main className="flex-1 min-h-[calc(100vh-6rem)] pt-8">
+        {/* Main Content - with left margin to account for fixed sidebar */}
+        <main className="md:ml-64 min-h-[calc(100vh-6rem)] pt-8">
           <div className="container mx-auto px-6 max-w-7xl">
             <Outlet />
           </div>
