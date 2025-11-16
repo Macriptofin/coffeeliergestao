@@ -6,10 +6,28 @@
 const IP_CACHE_KEY = 'client_ip_cache';
 const IP_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
+// In-flight promise to prevent parallel requests storm
+let ipPromise: Promise<string> | null = null;
+
 interface IPCache {
   ip: string;
   timestamp: number;
 }
+
+// Global kill switch (env or localStorage) to temporarily disable security monitoring
+export const isSecurityMonitoringDisabled = (): boolean => {
+  try {
+    if (typeof window === 'undefined') return false;
+    // Local quick toggle in console: localStorage.setItem('SECURITY_MONITORING_DISABLED','1')
+    if (localStorage.getItem('SECURITY_MONITORING_DISABLED') === '1') return true;
+    // Global flag for emergency toggling
+    if ((window as any).__SECURITY_DISABLED === true) return true;
+    // Build-time flag
+    // @ts-ignore - vite injects import.meta.env
+    if (import.meta?.env?.VITE_DISABLE_SECURITY_MONITORING === 'true') return true;
+  } catch (_) {}
+  return false;
+};
 
 /**
  * Attempts to get the client's real IP address from various sources
@@ -18,6 +36,10 @@ interface IPCache {
  */
 export const getClientIP = async (): Promise<string> => {
   try {
+    // Temporary kill switch: skip any network calls when disabled
+    if (isSecurityMonitoringDisabled()) {
+      return 'disabled';
+    }
     // Check cache first to avoid unnecessary HTTP requests
     const cachedIP = getIPFromCache();
     if (cachedIP) {
@@ -109,6 +131,8 @@ const saveIPToCache = (ip: string): void => {
       timestamp: Date.now()
     };
     localStorage.setItem(IP_CACHE_KEY, JSON.stringify(cacheData));
+    // Mirror key for quick DevTools inspection
+    localStorage.setItem('cached_ip', ip);
     console.debug('IP address cached:', ip);
   } catch (error) {
     console.debug('Cache write failed:', error);

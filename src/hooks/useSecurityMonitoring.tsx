@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
-import { getClientIP, sanitizeForLogging, validateAuthenticatedAction } from '@/lib/security-utils';
+import { getClientIP, sanitizeForLogging, validateAuthenticatedAction, isSecurityMonitoringDisabled } from '@/lib/security-utils';
 
 interface SecurityEvent {
   id: string;
@@ -25,6 +25,7 @@ export function useSecurityMonitoring() {
     resourceId?: string,
     details?: any
   ) => {
+    if (isSecurityMonitoringDisabled()) return;
     try {
       // Validate that user is authenticated for this action
       const { data: { user } } = await supabase.auth.getUser();
@@ -62,6 +63,7 @@ export function useSecurityMonitoring() {
     accessType: string,
     fields: string[]
   ) => {
+    if (isSecurityMonitoringDisabled()) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!validateAuthenticatedAction(user?.id || null)) return;
@@ -101,6 +103,7 @@ export function useSecurityMonitoring() {
     resourceType: string,
     metadata?: any
   ) => {
+    if (isSecurityMonitoringDisabled()) return;
     try {
       const severity = getSeverityForAction(alertType);
       const title = getAlertTitle(alertType);
