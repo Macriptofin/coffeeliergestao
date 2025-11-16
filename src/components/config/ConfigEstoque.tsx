@@ -1,12 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Package, Palette, List, Database, FileSpreadsheet } from "lucide-react";
+import { Package, Palette, List, FileSpreadsheet } from "lucide-react";
 import { ConfigParams } from "./ConfigParams";
 import { ConfigColors } from "./ConfigColors";
 import { TaxonomyManager } from "./TaxonomyManager";
 import { TaxonomyImporter } from "./TaxonomyImporter";
-import { showMigrationDialog } from "@/utils/migrateCategoresToTaxonomy";
 
 export const ConfigEstoque = () => {
   return (
@@ -48,23 +47,6 @@ export const ConfigEstoque = () => {
         </TabsContent>
 
         <TabsContent value="taxonomias" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Migração de Categorias</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Migre as categorias existentes dos materiais para o novo sistema de taxonomias
-                  </p>
-                </div>
-                <Button onClick={showMigrationDialog} variant="outline">
-                  <Database className="h-4 w-4 mr-2" />
-                  Migrar Categorias
-                </Button>
-              </div>
-            </CardHeader>
-          </Card>
-          
           <div className="grid gap-6">
             <TaxonomyManager 
               taxonomyKey="material_category" 
