@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Save, Building2 } from "lucide-react";
 import { useConfig } from "@/hooks/useConfig";
 import { useState, useEffect } from "react";
+import { MaterialsMigration } from "./MaterialsMigration";
 
 export const ConfigGeneral = () => {
   const { getConfigValue, setConfigValue, getOptionsByNamespace, loading } = useConfig();
@@ -97,6 +98,8 @@ export const ConfigGeneral = () => {
           </div>
         </CardContent>
       </Card>
+
+      <MaterialsMigration />
     </div>
   );
 };
