@@ -1,7 +1,0 @@
-issue,description,status
-BOM_CYCLES,"Verificação de ciclos em Recipe BOM (produtos acabados/intermediários)",NO_CYCLES_FOUND
-COMPOSITE_CYCLES,"Verificação de ciclos em Composite BOM (produtos compostos)",NO_CYCLES_FOUND
-EMPTY_BOMS,"Verificação de BOMs sem itens",SYSTEM_CLEAN
-
-Note: Sistema atualmente não possui BOMs criadas (recipes_bom: 0 registros, composites_bom: 0 registros).
-O sistema está preparado para detectar ciclos quando houver dados.
