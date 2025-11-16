@@ -33,14 +33,35 @@ const Dashboard = () => {
   }, []);
 
   const loadData = async () => {
+    // Helper to cap each fetch to 10s and name failures
+    const withTimeout = async <T,>(p: Promise<T>, ms: number, name: string) => {
+      return await Promise.race<PromiseSettledResult<T>>([
+        p.then((res) => ({ status: 'fulfilled', value: res } as PromiseSettledResult<T>))
+         .catch((err) => ({ status: 'rejected', reason: err } as PromiseSettledResult<T>)),
+        new Promise<PromiseSettledResult<T>>((resolve) =>
+          setTimeout(() => resolve({ status: 'rejected', reason: new Error(`${name} timeout`) }), ms)
+        )
+      ]);
+    };
+
     try {
       setLoading(true);
-      await Promise.all([
-        loadIngredients(),
-        loadRecipes(),
-        loadSuppliers(),
-        loadEvents()
+      const results = await Promise.all([
+        withTimeout(loadIngredients(), 10_000, 'ingredientes'),
+        withTimeout(loadRecipes(), 10_000, 'receitas'),
+        withTimeout(loadSuppliers(), 10_000, 'fornecedores'),
+        withTimeout(loadEvents(), 10_000, 'eventos')
       ]);
+
+      const failed = results
+        .map((r, i) => ({ r, i }))
+        .filter(({ r }) => r.status === 'rejected')
+        .map(({ i }) => ['ingredientes', 'receitas', 'fornecedores', 'eventos'][i]);
+
+      if (failed.length) {
+        console.warn('Falhas ao carregar:', failed);
+        toast.warning(`Alguns dados não carregaram: ${failed.join(', ')}`);
+      }
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados do dashboard');
@@ -48,7 +69,6 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
-
   const loadIngredients = async () => {
     const { data, error } = await supabase
       .from('materials')
