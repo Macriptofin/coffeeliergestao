@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getClientIP, sanitizeForLogging } from '@/lib/security-utils';
+import { getClientIP, sanitizeForLogging, isSecurityMonitoringDisabled } from '@/lib/security-utils';
 
 interface RateLimitResult {
   allowed: boolean;
@@ -16,7 +16,7 @@ export function useRateLimiting() {
     email: string,
     attemptType: 'signin' | 'signup' | 'password_reset'
   ): Promise<RateLimitResult> => {
-    if (!email) {
+    if (!email || isSecurityMonitoringDisabled()) {
       return { allowed: true };
     }
 
@@ -67,6 +67,7 @@ export function useRateLimiting() {
     success: boolean,
     failureReason?: string
   ) => {
+    if (isSecurityMonitoringDisabled()) return;
     try {
       const ipAddress = await getClientIP();
       const userAgent = navigator.userAgent;

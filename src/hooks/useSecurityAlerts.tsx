@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from './useUserRole';
-import { getClientIP, sanitizeForLogging } from '@/lib/security-utils';
+import { getClientIP, sanitizeForLogging, isSecurityMonitoringDisabled } from '@/lib/security-utils';
 
 interface SecurityAlert {
   id: string;
@@ -78,6 +78,7 @@ export function useSecurityAlerts() {
   };
 
   const acknowledgeAlert = async (alertId: string) => {
+    if (isSecurityMonitoringDisabled()) return false;
     try {
       const ipAddress = await getClientIP();
       const { data: { user } } = await supabase.auth.getUser();
