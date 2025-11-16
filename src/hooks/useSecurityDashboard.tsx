@@ -38,10 +38,10 @@ export function useSecurityDashboard() {
   
   const { alerts, getUnacknowledgedCount, getCriticalAlertsCount } = useSecurityAlerts();
   const { fetchSecurityEvents } = useSecurityMonitoring();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, userRole } = useUserRole();
 
   const fetchSecurityMetrics = async () => {
-    if (!isAdmin) return;
+    if (!isAdmin()) return;
     
     setLoading(true);
     try {
@@ -134,7 +134,7 @@ export function useSecurityDashboard() {
   };
 
   const generateSecurityReport = async () => {
-    if (!isAdmin) return null;
+    if (!isAdmin()) return null;
 
     try {
       const reportData = {
@@ -190,13 +190,13 @@ export function useSecurityDashboard() {
   };
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin()) {
       fetchSecurityMetrics();
       // Refresh metrics every 5 minutes
       const interval = setInterval(fetchSecurityMetrics, 5 * 60 * 1000);
       return () => clearInterval(interval);
     }
-  }, [isAdmin, alerts]);
+  }, [userRole, alerts]);
 
   return {
     metrics,
@@ -205,6 +205,6 @@ export function useSecurityDashboard() {
     fetchSecurityMetrics,
     generateSecurityReport,
     generateRecommendations,
-    isAuthorized: isAdmin,
+    isAuthorized: isAdmin(),
   };
 }
