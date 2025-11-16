@@ -115,11 +115,11 @@ if (!session || !user) {
         </div>
       </div>
 
-      <div className="flex pt-24"> {/* Increased padding for fixed header */}
-        {/* Desktop Sidebar */}
-        <div className="hidden md:block fixed left-0 top-24 h-[calc(100vh-6rem)] bg-card border-r z-40">
+      <div className="flex pt-24">
+        {/* Desktop Sidebar - positioned in flow to push content */}
+        <aside className="hidden md:block w-64 h-[calc(100vh-6rem)] sticky top-24 bg-card border-r">
           <Sidebar />
-        </div>
+        </aside>
 
         {/* Mobile Sidebar Overlay */}
         {sidebarOpen && (
@@ -145,7 +145,7 @@ if (!session || !user) {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 md:ml-64 min-h-[calc(100vh-6rem)] pt-8"> {/* Consistent top padding for all pages */}
+        <main className="flex-1 min-h-[calc(100vh-6rem)] pt-8">
           <div className="container mx-auto px-6 max-w-7xl">
             <Outlet />
           </div>
