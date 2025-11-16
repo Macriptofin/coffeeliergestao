@@ -17,7 +17,7 @@ interface SecurityEvent {
 export function useSecurityMonitoring() {
   const [events, setEvents] = useState<SecurityEvent[]>([]);
   const [loading, setLoading] = useState(false);
-  const { isAdmin } = useUserRole();
+  const { isAdmin, userRole } = useUserRole();
 
   const logSecurityEvent = async (
     action: string,

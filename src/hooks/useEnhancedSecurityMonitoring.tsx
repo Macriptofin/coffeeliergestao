@@ -33,7 +33,7 @@ interface AccountLockout {
 }
 
 export function useEnhancedSecurityMonitoring() {
-  const { isAdminOrManager, isAdmin } = useUserRole();
+  const { isAdminOrManager, isAdmin, userRole } = useUserRole();
   const [piiAnomalies, setPiiAnomalies] = useState<PIIAnomalyData[]>([]);
   const [accountLockouts, setAccountLockouts] = useState<AccountLockout[]>([]);
   const [loading, setLoading] = useState(false);
@@ -126,7 +126,7 @@ export function useEnhancedSecurityMonitoring() {
 
   // Unlock account (admin only)
   const unlockAccount = async (lockoutId: string) => {
-    if (!isAdmin) return false;
+    if (!isAdmin()) return false;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -196,7 +196,7 @@ export function useEnhancedSecurityMonitoring() {
     anomalyId: string,
     notes: string
   ) => {
-    if (!isAdmin) return false;
+    if (!isAdmin()) return false;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -225,7 +225,7 @@ export function useEnhancedSecurityMonitoring() {
 
   // Get security metrics for dashboard
   const getSecurityMetrics = async () => {
-    if (!isAdminOrManager) return null;
+    if (!isAdminOrManager()) return null;
 
     try {
       const [anomaliesResult, lockoutsResult] = await Promise.all([
@@ -317,6 +317,6 @@ export function useEnhancedSecurityMonitoring() {
     fetchAccountLockouts,
     investigatePIIAnomaly,
     getSecurityMetrics,
-    isAuthorized: isAdminOrManager
+    isAuthorized: isAdminOrManager()
   };
 }
