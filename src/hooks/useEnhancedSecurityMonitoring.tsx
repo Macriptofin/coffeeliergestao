@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from './useUserRole';
-import { getClientIP, sanitizeForLogging } from '@/lib/security-utils';
+import { getClientIP, sanitizeForLogging, isSecurityMonitoringDisabled } from '@/lib/security-utils';
 import { toast } from 'sonner';
 
 interface PIIAnomalyData {
@@ -44,7 +44,8 @@ export function useEnhancedSecurityMonitoring() {
     accessType: string,
     fields: string[],
     resourceType: string = 'clients'
-  ) => {
+) => {
+    if (isSecurityMonitoringDisabled()) return;
     try {
       const ipAddress = await getClientIP();
       const { data: { user } } = await supabase.auth.getUser();
