@@ -154,7 +154,11 @@ export function useEnhancedSecurityMonitoring() {
 
   // Fetch PII anomalies
   const fetchPIIAnomalies = async () => {
-    if (!isAdminOrManager) return;
+    if (!isAdminOrManager()) return;
+
+    // Extra safety: ensure we have a valid session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
 
     try {
       setLoading(true);
@@ -175,7 +179,11 @@ export function useEnhancedSecurityMonitoring() {
 
   // Fetch account lockouts
   const fetchAccountLockouts = async () => {
-    if (!isAdminOrManager) return;
+    if (!isAdminOrManager()) return;
+
+    // Extra safety: ensure we have a valid session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
 
     try {
       const { data, error } = await supabase
@@ -257,7 +265,7 @@ export function useEnhancedSecurityMonitoring() {
 
   // Set up real-time subscriptions for anomalies and lockouts
   useEffect(() => {
-    if (isAdminOrManager) {
+    if (isAdminOrManager()) {
       fetchPIIAnomalies();
       fetchAccountLockouts();
 
@@ -303,7 +311,7 @@ export function useEnhancedSecurityMonitoring() {
         lockoutsSubscription.unsubscribe();
       };
     }
-  }, [isAdminOrManager]);
+  }, [userRole]);
 
   return {
     piiAnomalies,
