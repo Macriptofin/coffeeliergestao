@@ -19,7 +19,7 @@ interface SecurityAlert {
 }
 
 export function useSecurityAlerts() {
-  const { isAdminOrManager } = useUserRole();
+  const { isAdminOrManager, userRole } = useUserRole();
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,9 +31,15 @@ export function useSecurityAlerts() {
       setAlerts([]);
       setLoading(false);
     }
-  }, [isAdminOrManager()]);
+  }, [userRole]);
 
   const fetchAlerts = async () => {
+    if (!isAdminOrManager()) return;
+    
+    // Extra safety: ensure we have a valid session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    
     try {
       setLoading(true);
       

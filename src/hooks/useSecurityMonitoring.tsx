@@ -204,7 +204,11 @@ export function useSecurityMonitoring() {
   };
 
   const fetchSecurityEvents = async () => {
-    if (!isAdmin) return;
+    if (!isAdmin()) return;
+    
+    // Extra safety: ensure we have a valid session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
     
     setLoading(true);
     try {
@@ -241,10 +245,10 @@ export function useSecurityMonitoring() {
     const isPreview = window.location.hostname.includes('lovableproject.com') || 
                       window.location.hostname.includes('lovable.app');
     
-    if (isAdmin && !isPreview) {
+    if (isAdmin() && !isPreview) {
       fetchSecurityEvents();
     }
-  }, [isAdmin]);
+  }, [userRole]);
 
   return {
     events,

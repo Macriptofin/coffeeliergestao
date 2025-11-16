@@ -43,6 +43,10 @@ export function useSecurityDashboard() {
   const fetchSecurityMetrics = async () => {
     if (!isAdmin()) return;
     
+    // Extra safety: ensure we have a valid session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    
     setLoading(true);
     try {
       // Get alert metrics
