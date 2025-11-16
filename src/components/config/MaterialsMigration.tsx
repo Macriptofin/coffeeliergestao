@@ -91,7 +91,6 @@ export function MaterialsMigration() {
         }
 
         const hasChanges = 
-          dbMat.material_type !== csvMat.material_type_NOVO ||
           dbMat.category !== csvMat.category_NOVO ||
           dbMat.subcategory !== csvMat.subcategory_NOVO;
 
@@ -168,7 +167,6 @@ export function MaterialsMigration() {
             const { error } = await supabase
               .from("materials")
               .update({
-                material_type: csvMat.material_type_NOVO || null,
                 category: csvMat.category_NOVO || null,
                 subcategory: csvMat.subcategory_NOVO || null,
                 updated_at: new Date().toISOString(),
@@ -329,12 +327,12 @@ export function MaterialsMigration() {
                   <div className="font-medium text-primary">{change.code} - {change.name}</div>
                   <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
                     <div className="text-muted-foreground">
-                      <div>Tipo: {change.old.material_type || "—"}</div>
+                      
                       <div>Categoria: {change.old.category || "—"}</div>
                       <div>Subcategoria: {change.old.subcategory || "—"}</div>
                     </div>
                     <div className="text-green-600">
-                      <div>→ {change.new.material_type || "—"}</div>
+                      
                       <div>→ {change.new.category || "—"}</div>
                       <div>→ {change.new.subcategory || "—"}</div>
                     </div>
