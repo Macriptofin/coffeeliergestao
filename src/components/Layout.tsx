@@ -89,7 +89,7 @@ if (!session || !user) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setSidebarOpen(true)}
-                className="text-primary-foreground hover:bg-primary-foreground/10 lg:hidden"
+                className="text-primary-foreground hover:bg-primary-foreground/10 md:hidden"
               >
                 <Menu className="h-5 w-5" />
               </Button>
@@ -117,13 +117,13 @@ if (!session || !user) {
 
       <div className="flex pt-24"> {/* Increased padding for fixed header */}
         {/* Desktop Sidebar */}
-        <div className="hidden lg:block fixed left-0 top-24 h-[calc(100vh-6rem)] bg-card border-r z-40">
+        <div className="hidden md:block fixed left-0 top-24 h-[calc(100vh-6rem)] bg-card border-r z-40">
           <Sidebar />
         </div>
 
         {/* Mobile Sidebar Overlay */}
         {sidebarOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="fixed inset-0 z-50 md:hidden">
             <div 
               className="absolute inset-0 bg-black/50" 
               onClick={() => setSidebarOpen(false)}
@@ -145,7 +145,7 @@ if (!session || !user) {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 lg:ml-64 min-h-[calc(100vh-6rem)] pt-8"> {/* Consistent top padding for all pages */}
+        <main className="flex-1 md:ml-64 min-h-[calc(100vh-6rem)] pt-8"> {/* Consistent top padding for all pages */}
           <div className="container mx-auto px-6 max-w-7xl">
             <Outlet />
           </div>
