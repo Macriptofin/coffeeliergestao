@@ -10,6 +10,11 @@ export function useSecureAuth() {
   const [loading, setLoading] = useState(true);
   const { logSecurityEvent } = useSecurityMonitoring();
   const loginLoggedRef = useRef(false); // Prevent duplicate USER_LOGIN logs
+  // Stabilize logger to avoid effect re-subscribing and creating loops
+  const logRef = useRef(logSecurityEvent);
+  useEffect(() => {
+    logRef.current = logSecurityEvent;
+  }, [logSecurityEvent]);
 
   useEffect(() => {
     let mounted = true;
@@ -21,7 +26,8 @@ export function useSecureAuth() {
         
         if (error) {
           console.error('Session recovery error:', error);
-          await logSecurityEvent('SESSION_RECOVERY_ERROR', 'auth', undefined, { error: error.message });
+          // Use stable ref to avoid dependency loop
+          try { logRef.current?.('SESSION_RECOVERY_ERROR', 'auth', undefined, { error: error.message }); } catch {}
         }
 
         if (mounted) {
@@ -54,19 +60,19 @@ export function useSecureAuth() {
                 case 'SIGNED_IN':
                   // Only log once per session to prevent loops
                   if (!loginLoggedRef.current) {
-                    logSecurityEvent('USER_LOGIN', 'auth', session?.user?.id, { method: 'supabase_auth' });
+                    try { logRef.current?.('USER_LOGIN', 'auth', session?.user?.id, { method: 'supabase_auth' }); } catch {}
                     loginLoggedRef.current = true;
                   }
                   break;
                 case 'SIGNED_OUT':
-                  logSecurityEvent('USER_LOGOUT', 'auth', undefined);
+                  try { logRef.current?.('USER_LOGOUT', 'auth', undefined); } catch {}
                   loginLoggedRef.current = false; // Reset for next session
                   break;
                 case 'TOKEN_REFRESHED':
                   // skip to avoid noise
                   break;
                 case 'USER_UPDATED':
-                  logSecurityEvent('USER_UPDATED', 'auth', session?.user?.id);
+                  try { logRef.current?.('USER_UPDATED', 'auth', session?.user?.id); } catch {}
                   break;
               }
             }, 0);
@@ -83,7 +89,7 @@ export function useSecureAuth() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [logSecurityEvent]);
+  }, []);
 
   const signOut = async () => {
     try {
