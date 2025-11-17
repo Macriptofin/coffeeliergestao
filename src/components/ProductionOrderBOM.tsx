@@ -191,7 +191,9 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
         const totalYield = bom.yield_quantity * item.quantity * item.multiplier;
         const itemIngredients = bom.recipe_bom_items.map(bomItem => {
           const totalNeeded = bomItem.quantity * item.quantity * item.multiplier;
-          const pricePerUsage = bomItem.material.price_per_purchase_unit / bomItem.material.conversion_factor;
+          const pricePerPurchase = bomItem.material.price_per_purchase_unit || 0;
+          const conversionFactor = bomItem.material.conversion_factor || 1;
+          const pricePerUsage = pricePerPurchase / conversionFactor;
           return totalNeeded * pricePerUsage;
         });
         const itemCost = itemIngredients.reduce((sum, cost) => sum + cost, 0);
@@ -294,7 +296,17 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
         if (!material) return;
 
         const totalNeeded = bomItem.quantity * productionItem.quantity * productionItem.multiplier;
-        const pricePerUsage = material.price_per_purchase_unit / material.conversion_factor;
+        
+        // Verificar se os valores necessários existem
+        const pricePerPurchase = material.price_per_purchase_unit || 0;
+        const conversionFactor = material.conversion_factor || 1;
+        
+        // Log para debug se houver material sem preço
+        if (!material.price_per_purchase_unit || material.price_per_purchase_unit === 0) {
+          console.warn(`Material "${material.name}" (${material.code}) sem preço definido`);
+        }
+        
+        const pricePerUsage = pricePerPurchase / conversionFactor;
         const cost = totalNeeded * pricePerUsage;
 
         if (consolidated[material.id]) {
