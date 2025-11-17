@@ -1017,9 +1017,11 @@ export type Database = {
           cached_total_cost: number | null
           composite_material_id: string
           cost_last_calculated_at: string | null
+          cost_status: string | null
           created_at: string | null
           id: string
           is_archived: boolean | null
+          missing_cost_items: Json | null
           notes: string | null
           updated_at: string | null
         }
@@ -1027,9 +1029,11 @@ export type Database = {
           cached_total_cost?: number | null
           composite_material_id: string
           cost_last_calculated_at?: string | null
+          cost_status?: string | null
           created_at?: string | null
           id?: string
           is_archived?: boolean | null
+          missing_cost_items?: Json | null
           notes?: string | null
           updated_at?: string | null
         }
@@ -1037,9 +1041,11 @@ export type Database = {
           cached_total_cost?: number | null
           composite_material_id?: string
           cost_last_calculated_at?: string | null
+          cost_status?: string | null
           created_at?: string | null
           id?: string
           is_archived?: boolean | null
+          missing_cost_items?: Json | null
           notes?: string | null
           updated_at?: string | null
         }
@@ -4521,10 +4527,12 @@ export type Database = {
           cached_total_cost: number | null
           cached_unit_cost: number | null
           cost_last_calculated_at: string | null
+          cost_status: string | null
           created_at: string | null
           finished_material_id: string
           id: string
           is_archived: boolean | null
+          missing_cost_items: Json | null
           notes: string | null
           updated_at: string | null
           waste_percent: number
@@ -4535,10 +4543,12 @@ export type Database = {
           cached_total_cost?: number | null
           cached_unit_cost?: number | null
           cost_last_calculated_at?: string | null
+          cost_status?: string | null
           created_at?: string | null
           finished_material_id: string
           id?: string
           is_archived?: boolean | null
+          missing_cost_items?: Json | null
           notes?: string | null
           updated_at?: string | null
           waste_percent?: number
@@ -4549,10 +4559,12 @@ export type Database = {
           cached_total_cost?: number | null
           cached_unit_cost?: number | null
           cost_last_calculated_at?: string | null
+          cost_status?: string | null
           created_at?: string | null
           finished_material_id?: string
           id?: string
           is_archived?: boolean | null
+          missing_cost_items?: Json | null
           notes?: string | null
           updated_at?: string | null
           waste_percent?: number
