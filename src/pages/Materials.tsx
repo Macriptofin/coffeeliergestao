@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Material } from "@/types";
+import { useTaxonomy } from "@/hooks/useConfig";
 import { materialCategories, getSubcategoriesByCategory } from "@/lib/material-categories";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -20,6 +21,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 const Materials = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { terms, getTermsByTaxonomy } = useTaxonomy();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [filteredMaterials, setFilteredMaterials] = useState<Material[]>([]);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
@@ -32,28 +34,33 @@ const Materials = () => {
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
 
+  // Get dynamic categories from taxonomy
+  const materialCategories = getTermsByTaxonomy('material_category').filter(term => term.is_active && !term.parent_id);
+  
   // Get categories with counts
   const categoriesWithCounts = [
     { value: "all", label: "Todas as Categorias", color: "default", count: materials.length },
     ...materialCategories.map(cat => ({
-      value: cat.value,
-      label: cat.label,
-      color: cat.color,
-      count: materials.filter(m => m.category === cat.value).length
+      value: cat.name,
+      label: cat.name,
+      color: 'default',
+      count: materials.filter(m => m.category === cat.name).length
     }))
   ];
 
   // Get subcategories for selected category
-  const availableSubcategories = selectedCategory !== "all" 
-    ? getSubcategoriesByCategory(selectedCategory)
+  const selectedCategoryTerm = materialCategories.find(cat => cat.name === selectedCategory);
+  const allSubcategories = getTermsByTaxonomy('material_subcategory').filter(term => term.is_active);
+  const availableSubcategories = selectedCategoryTerm 
+    ? allSubcategories.filter(sub => sub.parent_id === selectedCategoryTerm.id)
     : [];
 
   const subcategoriesWithCounts = [
     { value: "all", label: "Todas as Subcategorias", count: materials.filter(m => m.category === selectedCategory).length },
     ...availableSubcategories.map(sub => ({
-      value: sub.value,
-      label: sub.label,
-      count: materials.filter(m => m.category === selectedCategory && m.subcategory === sub.value).length
+      value: sub.name,
+      label: sub.name,
+      count: materials.filter(m => m.category === selectedCategory && m.subcategory === sub.name).length
     }))
   ];
 
