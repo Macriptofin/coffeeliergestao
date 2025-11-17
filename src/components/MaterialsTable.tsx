@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Edit, Trash2, Package, Tag, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import type { Material } from "@/types";
 import { useTaxonomy } from "@/hooks/useConfig";
+import { CostSourceBadge } from "@/components/stock/CostSourceBadge";
 
 interface MaterialsTableProps {
   materials: Material[];
@@ -175,6 +176,7 @@ export const MaterialsTable = ({
                 {getSortIcon('supplier')}
               </div>
             </TableHead>
+            <TableHead>Origem Custo</TableHead>
             <TableHead 
               className="cursor-pointer hover:bg-muted/50 text-right"
               onClick={() => handleSort('pricePerPurchaseUnit')}
@@ -234,6 +236,12 @@ export const MaterialsTable = ({
                 {material.supplier || (
                   <span className="text-muted-foreground italic">Não informado</span>
                 )}
+              </TableCell>
+              <TableCell>
+                <CostSourceBadge 
+                  costSource={material.costSource || null} 
+                  manualPrice={material.manualPrice}
+                />
               </TableCell>
               <TableCell className="text-right font-mono text-sm">
                 {formatCurrency(material.pricePerPurchaseUnit)}

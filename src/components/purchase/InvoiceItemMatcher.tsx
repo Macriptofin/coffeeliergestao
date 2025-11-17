@@ -5,7 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Check, AlertTriangle, Clock, Plus } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Check, AlertTriangle, Clock, Plus, Factory } from 'lucide-react';
 
 interface Material {
   id: string;
@@ -78,11 +79,20 @@ export const InvoiceItemMatcher = ({
 
   const loadSuggestions = async () => {
     try {
-      // Buscar materiais similares
+      // Buscar apenas materiais SEM ficha técnica (que podem receber NF)
       const { data: materials } = await supabase
         .from('materials')
-        .select('id, name, code, usage_unit, conversion_factor')
+        .select(`
+          id, 
+          name, 
+          code, 
+          usage_unit, 
+          conversion_factor,
+          material_type,
+          stock_items(cost_source)
+        `)
         .eq('is_archived', false)
+        .not('material_type', 'in', '(finished_product,intermediate_product,composite_product)')
         .limit(100);
 
       if (!materials) return;
@@ -351,6 +361,14 @@ export const InvoiceItemMatcher = ({
                 </SelectItem>
               </SelectContent>
             </Select>
+            
+            {/* Alerta informativo sobre materiais com BOM */}
+            <Alert className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
+              <Factory className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <AlertDescription className="text-xs text-blue-700 dark:text-blue-300">
+                <strong>Importante:</strong> Materiais com Ficha Técnica (Produtos Acabados/Intermediários) têm seu custo calculado automaticamente pela composição e <strong>não podem receber entrada por Nota Fiscal</strong>.
+              </AlertDescription>
+            </Alert>
             
             {/* Preview de conversão com fator editável */}
             {item.material_id && item.conversion_factor && (

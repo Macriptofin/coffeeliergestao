@@ -34,6 +34,8 @@ export interface Material {
   materialType: 'ingredient' | 'packaging' | 'intermediate_product' | 'finished_product' | 'composite_product';
   unitWeight?: number;
   isSellable?: boolean;
+  costSource?: 'purchase' | 'production' | 'manual';
+  manualPrice?: boolean;
 }
 
 export interface Recipe {
