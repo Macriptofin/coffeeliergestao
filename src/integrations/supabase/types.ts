@@ -6492,6 +6492,10 @@ export type Database = {
         }[]
       }
       test_bom_cleanup_and_migration: { Args: never; Returns: Json }
+      trigger_refresh_bom_costs_on_material_price_change: {
+        Args: { p_material_id: string }
+        Returns: undefined
+      }
       update_production_order_status: {
         Args: { p_new_status: string; p_production_order_id: string }
         Returns: undefined
