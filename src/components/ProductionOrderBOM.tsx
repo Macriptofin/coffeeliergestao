@@ -404,8 +404,9 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold border-b pb-2">Adicionar Fichas Técnicas</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div className="md:col-span-1">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+              <div className="md:col-span-1 space-y-1">
+                <Label className="text-xs text-muted-foreground">Ficha Técnica</Label>
                 <Select value={selectedBOM} onValueChange={setSelectedBOM}>
                   <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Selecione uma ficha técnica" />
