@@ -704,7 +704,6 @@ export const BOMProductionOrdersList = () => {
                 totalCost: material.total_cost,
                 usedInBOMs: Array.isArray(material.used_in_boms) ? material.used_in_boms : []
               }))}
-              totalCost={orderToPrint.total_cost}
               boms={orderToPrint.items.map(item => ({
                 id: item.bom_id,
                 yield_quantity: item.total_yield_quantity / (item.quantity * item.multiplier),

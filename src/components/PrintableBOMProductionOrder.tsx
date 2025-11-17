@@ -36,13 +36,12 @@ interface PrintableBOMProductionOrderProps {
   orderNumber?: string;
   productionItems: BOMProductionItem[];
   consolidatedIngredients: BOMConsolidatedMaterial[];
-  totalCost: number;
   boms?: BOM[];
   technicalSheets?: any[];
 }
 
 export const PrintableBOMProductionOrder = forwardRef<HTMLDivElement, PrintableBOMProductionOrderProps>(
-  ({ orderName, orderDate, orderNumber, productionItems, consolidatedIngredients, totalCost, boms = [], technicalSheets = [] }, ref) => {
+  ({ orderName, orderDate, orderNumber, productionItems, consolidatedIngredients, boms = [], technicalSheets = [] }, ref) => {
     return (
       <div ref={ref} className="print-recipe bg-white text-black p-4 max-w-full mx-auto">
         {/* Header */}
@@ -55,13 +54,6 @@ export const PrintableBOMProductionOrder = forwardRef<HTMLDivElement, PrintableB
           <p className="text-sm text-gray-600">Data: {new Date(orderDate).toLocaleDateString('pt-BR')}</p>
         </div>
 
-        {/* Resumo Financeiro */}
-        <div className="grid grid-cols-1 gap-4 mb-5 p-3 bg-gray-100 rounded text-sm" style={{ pageBreakInside: 'avoid' }}>
-          <div className="text-center">
-            <h3 className="font-bold text-gray-700 mb-1">CUSTO TOTAL</h3>
-            <p className="text-lg font-bold text-red-600">R$ {totalCost.toFixed(2)}</p>
-          </div>
-        </div>
 
         {/* Fichas Técnicas a Produzir */}
         <div className="mb-5" style={{ pageBreakInside: 'avoid' }}>
@@ -107,45 +99,47 @@ export const PrintableBOMProductionOrder = forwardRef<HTMLDivElement, PrintableB
           </div>
         </div>
 
-        {/* Lista de Compras Consolidada */}
+        {/* Materiais Necessários para Produção */}
         <div className="mb-5" style={{ pageBreakInside: 'avoid' }}>
           <h2 className="text-lg font-bold text-gray-800 mb-2 border-b border-gray-400 pb-1">
-            LISTA DE COMPRAS CONSOLIDADA
+            MATERIAIS NECESSÁRIOS PARA PRODUÇÃO
           </h2>
           <div className="overflow-hidden">
             <table className="w-full border-collapse border border-gray-400 text-xs">
               <thead>
                 <tr className="bg-gray-100">
-                  <th className="border border-gray-400 px-2 py-1 text-left font-bold">MATERIAL</th>
-                  <th className="border border-gray-400 px-2 py-1 text-center font-bold">QTD TOTAL</th>
-                  <th className="border border-gray-400 px-1 py-1 text-center font-bold">UNI</th>
-                  <th className="border border-gray-400 px-2 py-1 text-right font-bold">CUSTO</th>
-                  <th className="border border-gray-400 px-1 py-1 text-center font-bold">OK</th>
+                  <th className="border border-gray-400 px-2 py-1 text-left font-bold">CÓDIGO</th>
+                  <th className="border border-gray-400 px-2 py-1 text-left font-bold">DESCRIÇÃO</th>
+                  <th className="border border-gray-400 px-1 py-1 text-center font-bold">UN</th>
+                  <th className="border border-gray-400 px-1 py-1 text-right font-bold">NECESSIDADE</th>
+                  <th className="border border-gray-400 px-1 py-1 text-right font-bold">ESTOQUE</th>
+                  <th className="border border-gray-400 px-1 py-1 text-center font-bold">STATUS</th>
+                  <th className="border border-gray-400 px-2 py-1 text-center font-bold">OK</th>
                 </tr>
               </thead>
               <tbody>
                 {consolidatedIngredients.map((item, index) => (
                   <tr key={item.material.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                    <td className="border border-gray-400 px-2 py-1 font-medium">{item.material.name}</td>
-                    <td className="border border-gray-400 px-2 py-1 text-center font-semibold">
-                      {item.totalQuantity.toFixed(2)}
+                    <td className="border border-gray-400 px-2 py-1 font-mono text-xs">{item.material.code}</td>
+                    <td className="border border-gray-400 px-2 py-1 font-medium">
+                      <div>{item.material.name}</div>
+                      {item.usedInBOMs.length > 1 && (
+                        <div className="text-[10px] text-gray-600 mt-0.5">
+                          Usado em: {item.usedInBOMs.map(b => b.bomName).join(', ')}
+                        </div>
+                      )}
                     </td>
                     <td className="border border-gray-400 px-1 py-1 text-center">{item.material.usage_unit}</td>
-                    <td className="border border-gray-400 px-2 py-1 text-right font-semibold">
-                      R$ {item.totalCost.toFixed(2)}
-                    </td>
+                    <td className="border border-gray-400 px-1 py-1 text-right font-bold">{item.totalQuantity.toFixed(2)}</td>
+                    <td className="border border-gray-400 px-1 py-1 text-right">_________</td>
                     <td className="border border-gray-400 px-1 py-1 text-center">
-                      <input type="checkbox" className="w-3 h-3" />
+                      <span className="inline-block w-4 h-4 border border-gray-400 rounded"></span>
+                    </td>
+                    <td className="border border-gray-400 px-2 py-1 text-center">
+                      <span className="inline-block w-4 h-4 border border-gray-400 rounded"></span>
                     </td>
                   </tr>
                 ))}
-                <tr className="bg-gray-200 font-bold">
-                  <td className="border border-gray-400 px-2 py-1" colSpan={3}>CUSTO TOTAL DOS MATERIAIS</td>
-                  <td className="border border-gray-400 px-2 py-1 text-right">
-                    R$ {totalCost.toFixed(2)}
-                  </td>
-                  <td className="border border-gray-400 px-1 py-1"></td>
-                </tr>
               </tbody>
             </table>
           </div>
