@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Users, Package, Play, CheckCircle, Clock, AlertCircle, Eye, EyeOff, RefreshCcw, Printer } from 'lucide-react';
+import { Calendar, Users, Package, Play, CheckCircle, Clock, AlertCircle, Eye, EyeOff, RefreshCcw, Printer, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -75,11 +75,26 @@ export const BOMProductionOrdersList = () => {
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [includeTechnicalSheets, setIncludeTechnicalSheets] = useState(false);
   const [technicalSheetsData, setTechnicalSheetsData] = useState<any[]>([]);
+  const [stockItems, setStockItems] = useState<Array<{ material_id: string; current_quantity: number }>>([]);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadProductionOrders();
+    loadStockItems();
   }, []);
+
+  const loadStockItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('stock_items')
+        .select('material_id, current_quantity');
+      
+      if (error) throw error;
+      setStockItems(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar estoque:', error);
+    }
+  };
 
   const loadProductionOrders = async () => {
     try {
@@ -618,22 +633,49 @@ export const BOMProductionOrdersList = () => {
                         <p className="text-sm text-muted-foreground">{material.material.category}</p>
                       </div>
                       
-                      <div className="space-y-2">
+                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span>Necessário:</span>
                           <span className="font-semibold">
                             {material.total_quantity.toFixed(2)} {material.unit}
                           </span>
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Custo:</span>
-                          <span className="font-semibold text-primary">
-                            R$ {material.total_cost.toFixed(2)}
-                          </span>
-                        </div>
+                        
+                        {(() => {
+                          const stockItem = stockItems.find(s => s.material_id === material.material_id);
+                          const currentStock = stockItem?.current_quantity || 0;
+                          const hasEnoughStock = currentStock >= material.total_quantity;
+                          
+                          return (
+                            <>
+                              <div className="flex justify-between text-sm">
+                                <span>Estoque:</span>
+                                <span className="font-semibold">
+                                  {currentStock.toFixed(2)} {material.unit}
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center gap-2 pt-2">
+                                {hasEnoughStock ? (
+                                  <>
+                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                    <span className="text-sm font-medium text-green-600">Disponível</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <AlertCircle className="h-4 w-4 text-red-600" />
+                                    <span className="text-sm font-medium text-red-600">
+                                      Faltam {(material.total_quantity - currentStock).toFixed(2)} {material.unit}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
                         
                         {material.is_reserved && (
-                          <div className="flex justify-between text-sm">
+                          <div className="flex justify-between text-sm mt-2 pt-2 border-t">
                             <span>Reservado:</span>
                             <span className="font-semibold text-yellow-600">
                               {material.reserved_quantity.toFixed(2)} {material.unit}
@@ -644,7 +686,7 @@ export const BOMProductionOrdersList = () => {
                         {material.is_consumed && (
                           <div className="flex justify-between text-sm">
                             <span>Consumido:</span>
-                            <span className="font-semibold text-red-600">
+                            <span className="font-semibold text-green-600">
                               {material.consumed_quantity.toFixed(2)} {material.unit}
                             </span>
                           </div>
