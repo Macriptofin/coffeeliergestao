@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Edit, Trash2, Package, Tag, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import type { Material } from "@/types";
-import { materialCategories, getSubcategoryByValue } from "@/lib/material-categories";
+import { useTaxonomy } from "@/hooks/useConfig";
 
 interface MaterialsTableProps {
   materials: Material[];
@@ -27,8 +27,20 @@ export const MaterialsTable = ({
   onSelectMaterial, 
   onSelectAll 
 }: MaterialsTableProps) => {
+  const { terms, getTermsByTaxonomy } = useTaxonomy();
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const getSubcategoryName = (categoryName: string, subcategoryName?: string) => {
+    if (!subcategoryName) return null;
+    const categories = getTermsByTaxonomy('material_category');
+    const category = categories.find(c => c.name === categoryName);
+    if (!category) return subcategoryName;
+    
+    const subcategories = getTermsByTaxonomy('material_subcategory');
+    const subcategory = subcategories.find(s => s.parent_id === category.id && s.name === subcategoryName);
+    return subcategory?.name || subcategoryName;
+  };
 
   const sortedMaterials = useMemo(() => {
     return [...materials].sort((a, b) => {
@@ -209,7 +221,7 @@ export const MaterialsTable = ({
               <TableCell className="text-sm">
                 {material.subcategory ? (
                   <Badge variant="secondary" className="text-xs">
-                    {getSubcategoryByValue(material.category, material.subcategory)?.label || material.subcategory}
+                    {getSubcategoryName(material.category, material.subcategory) || material.subcategory}
                   </Badge>
                 ) : (
                   <span className="text-muted-foreground italic">-</span>

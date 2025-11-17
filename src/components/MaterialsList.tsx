@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, Package, Tag, Code, Wrench, Building } from "lucide-react";
 import type { Material } from "@/types";
-import { materialCategories, getSubcategoryByValue } from "@/lib/material-categories";
+import { useTaxonomy } from "@/hooks/useConfig";
 
 interface MaterialsListProps {
   materials: Material[];
@@ -12,6 +12,19 @@ interface MaterialsListProps {
 }
 
 export const MaterialsList = ({ materials, onEdit, onDelete }: MaterialsListProps) => {
+  const { terms, getTermsByTaxonomy } = useTaxonomy();
+  
+  const getSubcategoryName = (categoryName: string, subcategoryName?: string) => {
+    if (!subcategoryName) return null;
+    const categories = getTermsByTaxonomy('material_category');
+    const category = categories.find(c => c.name === categoryName);
+    if (!category) return subcategoryName;
+    
+    const subcategories = getTermsByTaxonomy('material_subcategory');
+    const subcategory = subcategories.find(s => s.parent_id === category.id && s.name === subcategoryName);
+    return subcategory?.name || subcategoryName;
+  };
+
   if (materials.length === 0) {
     return (
       <div className="text-center py-12">
@@ -23,26 +36,18 @@ export const MaterialsList = ({ materials, onEdit, onDelete }: MaterialsListProp
   }
 
   const getCategoryIcon = (category: string) => {
-    // Map category to icon based on new structure
-    const categoryData = materialCategories.find(cat => cat.value === category);
-    switch (categoryData?.icon || 'Package') {
-      case 'Package':
-        return <Package className="h-4 w-4" />;
-      case 'Tag':
-        return <Tag className="h-4 w-4" />;
-      case 'Wrench':
-        return <Wrench className="h-4 w-4" />;
-      case 'Building':
-        return <Building className="h-4 w-4" />;
-      default:
-        return <Package className="h-4 w-4" />;
-    }
+    if (category?.toLowerCase().includes('embalagem')) return <Package className="h-4 w-4" />;
+    if (category?.toLowerCase().includes('produto')) return <Tag className="h-4 w-4" />;
+    if (category?.toLowerCase().includes('higiene')) return <Wrench className="h-4 w-4" />;
+    if (category?.toLowerCase().includes('infraestrutura')) return <Building className="h-4 w-4" />;
+    return <Package className="h-4 w-4" />;
   };
 
   const getCategoryColor = (category: string) => {
-    // Map category to color based on new structure
-    const categoryData = materialCategories.find(cat => cat.value === category);
-    return categoryData?.color || 'default';
+    if (category?.toLowerCase().includes('embalagem')) return 'secondary';
+    if (category?.toLowerCase().includes('produto acabado')) return 'default';
+    if (category?.toLowerCase().includes('produto composto')) return 'outline';
+    return 'default';
   };
 
 
@@ -66,7 +71,7 @@ export const MaterialsList = ({ materials, onEdit, onDelete }: MaterialsListProp
                   </Badge>
                   {material.subcategory && (
                     <Badge variant="secondary" className="text-xs">
-                      {getSubcategoryByValue(material.category, material.subcategory)?.label || material.subcategory}
+                      {getSubcategoryName(material.category, material.subcategory) || material.subcategory}
                     </Badge>
                   )}
                   <Badge variant="outline" className="text-xs flex items-center gap-1">
