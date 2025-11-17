@@ -6291,7 +6291,7 @@ export type Database = {
           p_notes?: string
           p_reference_document?: string
         }
-        Returns: string
+        Returns: Json
       }
       process_finish_input: {
         Args: {
