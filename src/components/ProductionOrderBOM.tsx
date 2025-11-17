@@ -156,7 +156,7 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
     try {
       const { data, error } = await supabase
         .from('stock_items')
-        .select('material_id, quantity, unit');
+        .select('material_id, current_quantity');
       
       if (error) throw error;
       setStockItems(data || []);
@@ -558,7 +558,7 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
               <div className="grid grid-cols-1 gap-3">
                 {consolidatedIngredients.map((item) => {
                   const stockItem = stockItems.find(s => s.material_id === item.material.id);
-                  const currentStock = stockItem?.quantity || 0;
+                  const currentStock = stockItem?.current_quantity || 0;
                   const hasEnoughStock = currentStock >= item.totalQuantity;
                   const difference = currentStock - item.totalQuantity;
                   
