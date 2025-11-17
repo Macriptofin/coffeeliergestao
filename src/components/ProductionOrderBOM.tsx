@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useReactToPrint } from "react-to-print";
-import { Plus, Minus, Printer, FileDown, ShoppingCart, X } from "lucide-react";
+import { Plus, Minus, Printer, FileDown, ShoppingCart, X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { PrintableBOMProductionOrder } from "./PrintableBOMProductionOrder";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -70,10 +70,12 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
   const [orderName, setOrderName] = useState('');
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
+  const [stockItems, setStockItems] = useState<any[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadBOMs();
+    loadStockItems();
   }, []);
 
   const loadBOMs = async () => {
@@ -150,6 +152,19 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
     }
   };
 
+  const loadStockItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('stock_items')
+        .select('material_id, quantity, unit');
+      
+      if (error) throw error;
+      setStockItems(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar estoque:', error);
+    }
+  };
+
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Ordem_Producao_BOM_${orderName.replace(/\s+/g, '_') || 'Sem_Nome'}`,
@@ -168,7 +183,7 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
 
     try {
       const consolidatedIngredients = consolidateIngredients();
-      const totalCost = getTotalProductionCost();
+      const totalCost = consolidatedIngredients.reduce((total, item) => total + item.totalCost, 0);
 
       // 1. Criar a ordem de produção
       const { data: productionOrder, error: productionOrderError } = await supabase
@@ -333,12 +348,7 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
     return Object.values(consolidated).sort((a, b) => a.material.name.localeCompare(b.material.name));
   };
 
-  const getTotalProductionCost = () => {
-    return consolidateIngredients().reduce((total, item) => total + item.totalCost, 0);
-  };
-
   const consolidatedIngredients = consolidateIngredients();
-  const totalCost = getTotalProductionCost();
 
   if (loading) {
     return (
@@ -536,52 +546,79 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
                   );
                 })}
                 
-                {/* Resumo Total */}
-                <div className="p-4 bg-primary/10 rounded-lg border-2 border-primary/20">
-                  <div className="text-center">
-                    <div className="text-sm text-muted-foreground">Custo Total</div>
-                    <div className="text-xl font-bold text-primary">R$ {totalCost.toFixed(2)}</div>
-                  </div>
-                </div>
               </div>
             </div>
           )}
 
-          {/* Lista Consolidada de Ingredientes */}
+          {/* Lista Consolidada de Materiais */}
           {consolidatedIngredients.length > 0 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">Lista de Compras Consolidada</h3>
+              <h3 className="text-lg font-semibold border-b pb-2">Materiais Necessários para Produção</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {consolidatedIngredients.map((item) => (
-                  <Card key={item.material.id} className="p-3">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-medium text-sm">{item.material.name}</h4>
-                        <Badge variant="outline" className="text-xs">
-                          {item.material.usage_unit}
-                        </Badge>
+              <div className="grid grid-cols-1 gap-3">
+                {consolidatedIngredients.map((item) => {
+                  const stockItem = stockItems.find(s => s.material_id === item.material.id);
+                  const currentStock = stockItem?.quantity || 0;
+                  const hasEnoughStock = currentStock >= item.totalQuantity;
+                  const difference = currentStock - item.totalQuantity;
+                  
+                  return (
+                    <Card key={item.material.id} className={`p-4 ${!hasEnoughStock ? 'border-destructive/50 bg-destructive/5' : 'border-green-500/30 bg-green-50/50 dark:bg-green-950/20'}`}>
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                        {/* Código e Descrição */}
+                        <div className="md:col-span-2">
+                          <div className="flex items-start gap-2">
+                            <Badge variant="outline" className="font-mono text-xs shrink-0">
+                              {item.material.code}
+                            </Badge>
+                            <div>
+                              <h4 className="font-medium text-sm">{item.material.name}</h4>
+                              {item.usedInBOMs.length > 1 && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Usado em {item.usedInBOMs.length} produtos
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Unidade de Medida */}
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-1">Unidade</p>
+                          <Badge variant="secondary" className="text-xs">
+                            {item.material.usage_unit}
+                          </Badge>
+                        </div>
+                        
+                        {/* Necessidade vs Estoque */}
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-1">Necessidade</p>
+                          <p className="font-semibold text-sm">{item.totalQuantity.toFixed(2)}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Estoque: <span className={!hasEnoughStock ? "text-destructive font-medium" : "text-green-600 dark:text-green-400"}>{currentStock.toFixed(2)}</span>
+                          </p>
+                        </div>
+                        
+                        {/* Status */}
+                        <div className="text-center">
+                          {hasEnoughStock ? (
+                            <div className="flex flex-col items-center gap-1">
+                              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                              <span className="text-xs font-medium text-green-600 dark:text-green-400">Disponível</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-1">
+                              <AlertCircle className="h-5 w-5 text-destructive" />
+                              <span className="text-xs font-medium text-destructive">
+                                Faltam {Math.abs(difference).toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>Quantidade:</span>
-                          <span className="font-semibold">{item.totalQuantity.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Custo:</span>
-                          <span className="font-semibold text-primary">R$ {item.totalCost.toFixed(2)}</span>
-                        </div>
-                      </div>
-                      
-                      {item.usedInBOMs.length > 1 && (
-                        <div className="text-xs text-muted-foreground">
-                          Usado em {item.usedInBOMs.length} produtos
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -619,7 +656,6 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
             orderDate={orderDate}
             productionItems={productionItems}
             consolidatedIngredients={consolidatedIngredients}
-            totalCost={totalCost}
             boms={boms}
           />
         </div>
