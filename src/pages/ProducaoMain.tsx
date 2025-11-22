@@ -57,7 +57,7 @@ const ProducaoMain = () => {
       description: "Gestão unificada de produtos, receitas e composições com custos automáticos",
       icon: Package2,
       href: "/producao/fichas-tecnicas",
-      color: "bg-emerald-500",
+      color: "bg-purple-500",
       shown: flags.FF_UNIFY_BOM_RECEITAS
     },
     {
