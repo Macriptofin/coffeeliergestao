@@ -81,6 +81,26 @@ export const BOMProductionOrdersList = () => {
   useEffect(() => {
     loadProductionOrders();
     loadStockItems();
+
+    // Subscribe to realtime changes for automatic refresh
+    const channel = supabase
+      .channel('bom-production-orders-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bom_production_orders'
+        },
+        () => {
+          loadProductionOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadStockItems = async () => {
