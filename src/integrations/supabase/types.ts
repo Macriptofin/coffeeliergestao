@@ -6361,17 +6361,6 @@ export type Database = {
       process_stock_entry_with_conversion:
         | {
             Args: {
-              p_material_id: string
-              p_notes?: string
-              p_quantity_purchased: number
-              p_reference_id?: string
-              p_reference_type?: string
-              p_unit_price_purchase: number
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
               p_entry_unit: string
               p_invoice_number?: string
               p_material_id: string
@@ -6379,6 +6368,17 @@ export type Database = {
               p_quantity: number
               p_supplier_id?: string
               p_unit_price: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_material_id: string
+              p_notes?: string
+              p_quantity_purchased: number
+              p_reference_id?: string
+              p_reference_type?: string
+              p_unit_price_purchase: number
             }
             Returns: Json
           }
