@@ -5979,14 +5979,16 @@ export type Database = {
         Args: { composite_material_id: string }
         Returns: number
       }
-      calculate_weighted_average_price: {
-        Args: {
-          p_material_id: string
-          p_new_price: number
-          p_new_quantity: number
-        }
-        Returns: number
-      }
+      calculate_weighted_average_price:
+        | { Args: { p_material_id: string }; Returns: undefined }
+        | {
+            Args: {
+              p_material_id: string
+              p_new_price: number
+              p_new_quantity: number
+            }
+            Returns: number
+          }
       can_hard_delete_material: { Args: { p_id: string }; Returns: boolean }
       check_account_lockout: { Args: { p_email: string }; Returns: Json }
       check_production_availability: {
