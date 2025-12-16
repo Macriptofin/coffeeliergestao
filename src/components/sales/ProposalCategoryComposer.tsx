@@ -14,6 +14,7 @@ interface Material {
   code: string;
   name: string;
   category: string;
+  subcategory: string;
   unit_weight: number;
   price_per_purchase_unit: number;
 }
@@ -31,7 +32,7 @@ interface Props {
 
 const productCategories = [
   { key: 'Salgados', label: 'Salgados', color: 'bg-red-100 text-red-800' },
-  { key: 'Doces', label: 'Doces', color: 'bg-pink-100 text-pink-800' },
+  { key: 'Doces & Confeitaria', label: 'Doces', color: 'bg-pink-100 text-pink-800' },
   { key: 'Low Fat', label: 'Low Fat', color: 'bg-green-100 text-green-800' },
   { key: 'Bebidas', label: 'Bebidas', color: 'bg-blue-100 text-blue-800' }
 ];
@@ -277,7 +278,7 @@ export default function ProposalCategoryComposer({ proposalId, onComplete, onCan
 
   const groupedMaterials = productCategories.map(category => ({
     ...category,
-    materials: materials.filter(m => m.category === category.key)
+    materials: materials.filter(m => m.subcategory === category.key)
   }));
 
   const totals = calculateTotals();
