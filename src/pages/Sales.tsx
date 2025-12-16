@@ -126,13 +126,15 @@ const Sales = () => {
   };
 
   const handleEditProposal = (id: string) => {
-    setEditingProposalId(id);
-    setShowProposalForm(true);
+    // Abrir o compositor para editar os itens da proposta
+    setCreatedProposalId(id);
+    setShowProposalComposer(true);
   };
 
   const handleViewProposal = (id: string) => {
-    // TODO: Implement proposal view
-    toast.info('Visualização de proposta será implementada em breve');
+    // Por enquanto, visualizar também abre o compositor (modo edição)
+    setCreatedProposalId(id);
+    setShowProposalComposer(true);
   };
 
   const handleProposalSuccess = (proposalId?: string) => {
