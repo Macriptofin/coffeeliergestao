@@ -365,7 +365,32 @@ export const InvoiceEditDialog = ({
       return;
     }
 
-    if (!editedData || !supplierId || !responsavelId) return;
+    if (!editedData) {
+      toast({
+        title: 'Dados incompletos',
+        description: 'Não há dados da nota fiscal para lançar.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!supplierId) {
+      toast({
+        title: 'Fornecedor não selecionado',
+        description: 'Selecione um fornecedor antes de lançar a nota.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!responsavelId) {
+      toast({
+        title: 'Responsável não selecionado',
+        description: 'Selecione o responsável pelo lançamento.',
+        variant: 'destructive'
+      });
+      return;
+    }
 
     setLaunching(true);
 
