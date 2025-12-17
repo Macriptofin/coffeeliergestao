@@ -147,9 +147,32 @@ export default function Agenda() {
     );
   };
 
-  const upcomingEvents = events.filter(event => 
-    new Date(event.event_date) >= new Date() && event.status !== 'Cancelado'
-  ).slice(0, 5);
+  const upcomingEvents = events.filter(event => {
+    if (event.status === 'Cancelado') return false;
+    
+    const now = new Date();
+    const eventDate = new Date(event.event_date);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+    
+    // Evento é de um dia futuro - incluir
+    if (eventDay > today) return true;
+    
+    // Evento é de hoje - considerar horário se disponível
+    if (eventDay.getTime() === today.getTime()) {
+      // Se tem horário de setup, verificar se já passou
+      if (event.setup_time) {
+        const [hours, minutes] = event.setup_time.split(':').map(Number);
+        const eventDateTime = new Date(eventDay);
+        eventDateTime.setHours(hours, minutes, 0, 0);
+        return eventDateTime >= now;
+      }
+      // Se não tem horário, incluir todos os eventos de hoje
+      return true;
+    }
+    
+    return false;
+  }).slice(0, 5);
 
   const todayEvents = events.filter(event => 
     new Date(event.event_date).toDateString() === new Date().toDateString()
