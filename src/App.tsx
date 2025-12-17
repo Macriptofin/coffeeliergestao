@@ -28,6 +28,10 @@ import FluxoCaixa from "./pages/financeiro/FluxoCaixa";
 import CentrosCusto from "./pages/financeiro/CentrosCusto";
 import AnaliseFinanceira from "./pages/financeiro/AnaliseFinanceira";
 import RelatoriosContabeis from "./pages/financeiro/RelatoriosContabeis";
+import ContasBancarias from "./pages/financeiro/ContasBancarias";
+import RecurringTransactions from "./pages/financeiro/RecurringTransactions";
+import AgingReport from "./pages/financeiro/AgingReport";
+import CashFlowForecast from "./pages/financeiro/CashFlowForecast";
 import RecursosHumanos from "./pages/RecursosHumanos";
 import Colaboradores from "./pages/Colaboradores";
 import ControlePonto from "./pages/rh/ControlePonto";
@@ -119,6 +123,10 @@ function App() {
               <Route path="financeiro/custos" element={<CentrosCusto />} />
               <Route path="financeiro/analises" element={<AnaliseFinanceira />} />
               <Route path="financeiro/relatorios" element={<RelatoriosContabeis />} />
+              <Route path="financeiro/bancos" element={<ContasBancarias />} />
+              <Route path="financeiro/recorrentes" element={<RecurringTransactions />} />
+              <Route path="financeiro/aging" element={<AgingReport />} />
+              <Route path="financeiro/previsao" element={<CashFlowForecast />} />
               {/* Categoria Recursos Humanos */}
               <Route path="rh" element={<RecursosHumanos />} />
               <Route path="rh/colaboradores" element={<Colaboradores />} />

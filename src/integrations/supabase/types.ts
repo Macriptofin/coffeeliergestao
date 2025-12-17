@@ -86,6 +86,7 @@ export type Database = {
       accounts_payable: {
         Row: {
           account_id: string | null
+          bank_account_id: string | null
           cost_center_id: string | null
           created_at: string
           description: string
@@ -99,13 +100,17 @@ export type Database = {
           notes: string | null
           original_amount: number
           paid_amount: number | null
+          payment_date: string | null
           remaining_amount: number
+          source_id: string | null
+          source_type: string | null
           status: string
           supplier_id: string | null
           updated_at: string
         }
         Insert: {
           account_id?: string | null
+          bank_account_id?: string | null
           cost_center_id?: string | null
           created_at?: string
           description: string
@@ -119,13 +124,17 @@ export type Database = {
           notes?: string | null
           original_amount: number
           paid_amount?: number | null
+          payment_date?: string | null
           remaining_amount: number
+          source_id?: string | null
+          source_type?: string | null
           status?: string
           supplier_id?: string | null
           updated_at?: string
         }
         Update: {
           account_id?: string | null
+          bank_account_id?: string | null
           cost_center_id?: string | null
           created_at?: string
           description?: string
@@ -139,7 +148,10 @@ export type Database = {
           notes?: string | null
           original_amount?: number
           paid_amount?: number | null
+          payment_date?: string | null
           remaining_amount?: number
+          source_id?: string | null
+          source_type?: string | null
           status?: string
           supplier_id?: string | null
           updated_at?: string
@@ -150,6 +162,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -171,6 +190,7 @@ export type Database = {
       accounts_receivable: {
         Row: {
           account_id: string | null
+          bank_account_id: string | null
           client_id: string | null
           cost_center_id: string | null
           created_at: string
@@ -185,13 +205,17 @@ export type Database = {
           notes: string | null
           original_amount: number
           proposal_id: string | null
+          receipt_date: string | null
           received_amount: number | null
           remaining_amount: number
+          source_id: string | null
+          source_type: string | null
           status: string
           updated_at: string
         }
         Insert: {
           account_id?: string | null
+          bank_account_id?: string | null
           client_id?: string | null
           cost_center_id?: string | null
           created_at?: string
@@ -206,13 +230,17 @@ export type Database = {
           notes?: string | null
           original_amount: number
           proposal_id?: string | null
+          receipt_date?: string | null
           received_amount?: number | null
           remaining_amount: number
+          source_id?: string | null
+          source_type?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
           account_id?: string | null
+          bank_account_id?: string | null
           client_id?: string | null
           cost_center_id?: string | null
           created_at?: string
@@ -227,8 +255,11 @@ export type Database = {
           notes?: string | null
           original_amount?: number
           proposal_id?: string | null
+          receipt_date?: string | null
           received_amount?: number | null
           remaining_amount?: number
+          source_id?: string | null
+          source_type?: string | null
           status?: string
           updated_at?: string
         }
@@ -238,6 +269,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -340,6 +378,104 @@ export type Database = {
           user_agent?: string | null
         }
         Relationships: []
+      }
+      bank_accounts: {
+        Row: {
+          account_number: string | null
+          account_type: string
+          agency_number: string | null
+          bank_name: string
+          created_at: string
+          current_balance: number
+          id: string
+          initial_balance: number
+          is_active: boolean
+          is_default: boolean
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_number?: string | null
+          account_type?: string
+          agency_number?: string | null
+          bank_name: string
+          created_at?: string
+          current_balance?: number
+          id?: string
+          initial_balance?: number
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_number?: string | null
+          account_type?: string
+          agency_number?: string | null
+          bank_name?: string
+          created_at?: string
+          current_balance?: number
+          id?: string
+          initial_balance?: number
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bank_reconciliations: {
+        Row: {
+          bank_account_id: string
+          created_at: string
+          difference: number
+          id: string
+          notes: string | null
+          reconciled_at: string | null
+          reconciled_by: string | null
+          reconciliation_date: string
+          statement_balance: number
+          status: string
+          system_balance: number
+        }
+        Insert: {
+          bank_account_id: string
+          created_at?: string
+          difference?: number
+          id?: string
+          notes?: string | null
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          reconciliation_date: string
+          statement_balance: number
+          status?: string
+          system_balance: number
+        }
+        Update: {
+          bank_account_id?: string
+          created_at?: string
+          difference?: number
+          id?: string
+          notes?: string | null
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          reconciliation_date?: string
+          statement_balance?: number
+          status?: string
+          system_balance?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_reconciliations_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bom_cost_alerts: {
         Row: {
@@ -738,6 +874,7 @@ export type Database = {
           account_id: string | null
           amount: number
           bank_account: string | null
+          bank_account_id: string | null
           category: string
           cost_center_id: string | null
           created_at: string
@@ -756,6 +893,7 @@ export type Database = {
           account_id?: string | null
           amount: number
           bank_account?: string | null
+          bank_account_id?: string | null
           category: string
           cost_center_id?: string | null
           created_at?: string
@@ -774,6 +912,7 @@ export type Database = {
           account_id?: string | null
           amount?: number
           bank_account?: string | null
+          bank_account_id?: string | null
           category?: string
           cost_center_id?: string | null
           created_at?: string
@@ -794,6 +933,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -2223,6 +2369,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      financial_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          due_date: string | null
+          id: string
+          is_read: boolean
+          message: string
+          read_at: string | null
+          read_by: string | null
+          reference_id: string
+          reference_type: string
+          severity: string
+          title: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          is_read?: boolean
+          message: string
+          read_at?: string | null
+          read_by?: string | null
+          reference_id: string
+          reference_type: string
+          severity?: string
+          title: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          is_read?: boolean
+          message?: string
+          read_at?: string | null
+          read_by?: string | null
+          reference_id?: string
+          reference_type?: string
+          severity?: string
+          title?: string
+        }
+        Relationships: []
       }
       financial_permissions: {
         Row: {
@@ -3719,12 +3910,16 @@ export type Database = {
       }
       purchase_invoices: {
         Row: {
+          accounts_payable_generated: boolean
+          accounts_payable_id: string | null
           created_at: string
           due_date: string | null
           id: string
           invoice_date: string
           invoice_number: string
           notes: string | null
+          payment_due_date: string | null
+          payment_terms: string | null
           purchase_order_id: string | null
           status: string
           stock_posted: boolean
@@ -3734,12 +3929,16 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accounts_payable_generated?: boolean
+          accounts_payable_id?: string | null
           created_at?: string
           due_date?: string | null
           id?: string
           invoice_date?: string
           invoice_number: string
           notes?: string | null
+          payment_due_date?: string | null
+          payment_terms?: string | null
           purchase_order_id?: string | null
           status?: string
           stock_posted?: boolean
@@ -3749,12 +3948,16 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accounts_payable_generated?: boolean
+          accounts_payable_id?: string | null
           created_at?: string
           due_date?: string | null
           id?: string
           invoice_date?: string
           invoice_number?: string
           notes?: string | null
+          payment_due_date?: string | null
+          payment_terms?: string | null
           purchase_order_id?: string | null
           status?: string
           stock_posted?: boolean
@@ -3764,6 +3967,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_accounts_payable_id_fkey"
+            columns: ["accounts_payable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "purchase_invoices_purchase_order_id_fkey"
             columns: ["purchase_order_id"]
@@ -4613,6 +4823,91 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
+          },
+        ]
+      }
+      recurring_transactions: {
+        Row: {
+          account_id: string | null
+          amount: number
+          bank_account_id: string | null
+          category: string
+          cost_center_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          end_date: string | null
+          frequency: string
+          id: string
+          is_active: boolean
+          last_execution: string | null
+          next_execution: string
+          notes: string | null
+          start_date: string
+          transaction_type: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          bank_account_id?: string | null
+          category: string
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          end_date?: string | null
+          frequency: string
+          id?: string
+          is_active?: boolean
+          last_execution?: string | null
+          next_execution: string
+          notes?: string | null
+          start_date: string
+          transaction_type: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          bank_account_id?: string | null
+          category?: string
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_execution?: string | null
+          next_execution?: string
+          notes?: string | null
+          start_date?: string
+          transaction_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transactions_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -6067,6 +6362,15 @@ export type Database = {
         Returns: Json
       }
       fix_corrupted_production_costs: { Args: never; Returns: Json }
+      generate_accounts_payable_from_invoice: {
+        Args: {
+          p_cost_center_id?: string
+          p_due_date?: string
+          p_invoice_id: string
+        }
+        Returns: string
+      }
+      generate_due_date_alerts: { Args: never; Returns: undefined }
       generate_event_production: {
         Args: { p_event_table_id: string; p_target_table?: string }
         Returns: string
