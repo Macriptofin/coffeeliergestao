@@ -175,15 +175,23 @@ export default function Agenda() {
     return false;
   }).slice(0, 5);
 
-  const todayEvents = events.filter(event => 
-    new Date(event.event_date).toDateString() === new Date().toDateString()
-  );
+  const todayEvents = events.filter(event => {
+    if (event.status === 'Cancelado') return false;
+    const [year, month, day] = event.event_date.split('T')[0].split('-').map(Number);
+    const eventDay = new Date(year, month - 1, day);
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return eventDay.getTime() === todayStart.getTime();
+  });
 
   const thisWeekEvents = events.filter(event => {
-    const eventDate = new Date(event.event_date);
+    if (event.status === 'Cancelado') return false;
+    const [year, month, day] = event.event_date.split('T')[0].split('-').map(Number);
+    const eventDay = new Date(year, month - 1, day);
     const today = new Date();
-    const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-    return eventDate >= today && eventDate <= oneWeekFromNow;
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const oneWeekFromNow = new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return eventDay >= todayStart && eventDay <= oneWeekFromNow;
   });
 
   return (
