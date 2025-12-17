@@ -35,6 +35,9 @@ export interface PurchaseInvoice {
   status: 'Pendente' | 'Pago' | 'Vencido' | 'Cancelado';
   stockPosted: boolean;
   stockPostedAt?: string;
+  workflowStatus?: 'rascunho' | 'pendente' | 'lancada';
+  discountTotal?: number;
+  itemsLocked?: boolean;
 }
 
 const Stock = () => {

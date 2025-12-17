@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, Plus, ShoppingCart, X, Package, Shield, Trash2, CreditCard } from "lucide-react";
+import { FileText, Plus, ShoppingCart, X, Package, Shield, Trash2, CreditCard, FileEdit, Lock, Clock } from "lucide-react";
 import type { PurchaseInvoice } from "@/pages/Stock";
 import { useUserRole } from "@/hooks/useUserRole";
 import { InvoiceEditDialog } from "../purchase/InvoiceEditDialog";
@@ -45,7 +45,7 @@ interface PurchaseInvoicesProps {
 }
 
 export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps) {
-  const { isAdminOrManager, loading: roleLoading } = useUserRole();
+  const { isAdminOrManager, isAdmin, loading: roleLoading } = useUserRole();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
@@ -608,6 +608,34 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     }
   };
 
+  const getWorkflowStatusBadge = (workflowStatus?: string) => {
+    switch (workflowStatus) {
+      case 'rascunho':
+        return (
+          <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
+            <FileEdit className="h-3 w-3 mr-1" />
+            Rascunho
+          </Badge>
+        );
+      case 'pendente':
+        return (
+          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">
+            <Clock className="h-3 w-3 mr-1" />
+            Aguardando Lançamento
+          </Badge>
+        );
+      case 'lancada':
+        return (
+          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+            <Package className="h-3 w-3 mr-1" />
+            Lançada no Estoque
+          </Badge>
+        );
+      default:
+        return null;
+    }
+  };
+
   if (roleLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -690,14 +718,16 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               {invoices.map(invoice => (
                 <div key={invoice.id} className="flex items-center justify-between p-4 bg-accent rounded-lg">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <h3 className="font-medium">Nota #{invoice.invoiceNumber}</h3>
                       <Badge variant={getStatusColor(invoice.status)}>
                         {invoice.status}
                       </Badge>
-                      {invoice.stockPosted && (
-                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                          Lançada no Estoque
+                      {getWorkflowStatusBadge(invoice.workflowStatus)}
+                      {invoice.itemsLocked && (
+                        <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
+                          <Lock className="h-3 w-3 mr-1" />
+                          Bloqueada
                         </Badge>
                       )}
                     </div>
@@ -732,7 +762,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                        <FileText className="h-4 w-4" />
                        Editar
                      </Button>
-                     {!invoice.stockPosted ? (
+                     {invoice.workflowStatus !== 'lancada' && !invoice.stockPosted && (
                        <Button
                          variant="default"
                          size="sm"
@@ -743,19 +773,18 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                          <Package className="h-4 w-4" />
                          Lançar no Estoque
                        </Button>
-                     ) : (
-                       !invoiceHasPayable(invoice) && (
-                         <Button
-                           variant="outline"
-                           size="sm"
-                           onClick={() => handleRetroactivePayableCreation(invoice)}
-                           disabled={loading}
-                           className="flex items-center gap-2"
-                         >
-                           <CreditCard className="h-4 w-4" />
-                           Gerar Conta a Pagar
-                         </Button>
-                       )
+                     )}
+                     {(invoice.workflowStatus === 'lancada' || invoice.stockPosted) && !invoiceHasPayable(invoice) && (
+                       <Button
+                         variant="outline"
+                         size="sm"
+                         onClick={() => handleRetroactivePayableCreation(invoice)}
+                         disabled={loading}
+                         className="flex items-center gap-2"
+                       >
+                         <CreditCard className="h-4 w-4" />
+                         Gerar Conta a Pagar
+                       </Button>
                      )}
                      <Button
                        variant="destructive"

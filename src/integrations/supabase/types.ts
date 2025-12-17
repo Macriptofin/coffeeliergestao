@@ -2567,6 +2567,9 @@ export type Database = {
       invoice_items: {
         Row: {
           created_at: string
+          discount_amount: number | null
+          discount_percent: number | null
+          final_price: number | null
           id: string
           invoice_id: string
           material_id: string
@@ -2576,6 +2579,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          discount_amount?: number | null
+          discount_percent?: number | null
+          final_price?: number | null
           id?: string
           invoice_id: string
           material_id: string
@@ -2585,6 +2591,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          discount_amount?: number | null
+          discount_percent?: number | null
+          final_price?: number | null
           id?: string
           invoice_id?: string
           material_id?: string
@@ -3913,10 +3922,15 @@ export type Database = {
           accounts_payable_generated: boolean
           accounts_payable_id: string | null
           created_at: string
+          discount_total: number | null
+          discount_type: string | null
           due_date: string | null
+          edit_approved_at: string | null
+          edit_approved_by: string | null
           id: string
           invoice_date: string
           invoice_number: string
+          items_locked: boolean
           notes: string | null
           payment_due_date: string | null
           payment_terms: string | null
@@ -3927,15 +3941,21 @@ export type Database = {
           supplier_id: string | null
           total_amount: number
           updated_at: string
+          workflow_status: string
         }
         Insert: {
           accounts_payable_generated?: boolean
           accounts_payable_id?: string | null
           created_at?: string
+          discount_total?: number | null
+          discount_type?: string | null
           due_date?: string | null
+          edit_approved_at?: string | null
+          edit_approved_by?: string | null
           id?: string
           invoice_date?: string
           invoice_number: string
+          items_locked?: boolean
           notes?: string | null
           payment_due_date?: string | null
           payment_terms?: string | null
@@ -3946,15 +3966,21 @@ export type Database = {
           supplier_id?: string | null
           total_amount?: number
           updated_at?: string
+          workflow_status?: string
         }
         Update: {
           accounts_payable_generated?: boolean
           accounts_payable_id?: string | null
           created_at?: string
+          discount_total?: number | null
+          discount_type?: string | null
           due_date?: string | null
+          edit_approved_at?: string | null
+          edit_approved_by?: string | null
           id?: string
           invoice_date?: string
           invoice_number?: string
+          items_locked?: boolean
           notes?: string | null
           payment_due_date?: string | null
           payment_terms?: string | null
@@ -3965,6 +3991,7 @@ export type Database = {
           supplier_id?: string | null
           total_amount?: number
           updated_at?: string
+          workflow_status?: string
         }
         Relationships: [
           {
@@ -6249,6 +6276,14 @@ export type Database = {
         Returns: Json
       }
       analyze_system_pricing_health: { Args: never; Returns: Json }
+      apply_global_discount_to_invoice: {
+        Args: {
+          p_discount_total: number
+          p_discount_type?: string
+          p_invoice_id: string
+        }
+        Returns: undefined
+      }
       archive_composite_bom: {
         Args: { p_bom_id: string; p_should_archive: boolean }
         Returns: Json
@@ -6284,6 +6319,10 @@ export type Database = {
             }
             Returns: number
           }
+      can_edit_invoice_items: {
+        Args: { p_invoice_id: string; p_user_id: string }
+        Returns: boolean
+      }
       can_hard_delete_material: { Args: { p_id: string }; Returns: boolean }
       check_account_lockout: { Args: { p_email: string }; Returns: Json }
       check_production_availability: {
