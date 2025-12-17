@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, ChefHat, Calculator, Building2 } from "lucide-react";
+import { Plus, ChefHat, Calculator, Building2, Calendar, Users, MapPin, Bell } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Ingredient, Recipe } from "@/types";
 import type { Supplier } from "@/components/SupplierForm";
 import { EventCalendar } from "@/components/agenda/EventCalendar";
@@ -11,6 +13,7 @@ interface DashboardEvent {
   id: string;
   event_name: string;
   event_date: string;
+  setup_time?: string;
   status: string;
   venue?: string;
   total_people: number;
@@ -266,17 +269,104 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Calendário de Eventos */}
-      <div className="mb-8">
-        <EventCalendar 
-          events={events}
-          onEventSelect={(event) => {
-            toast.info(`Evento selecionado: ${event.event_name}`);
-          }}
-          onEventCreate={(date) => {
-            toast.info('Para criar um evento, acesse a página Agenda');
-          }}
-        />
+      {/* Calendário de Eventos e Próximos Eventos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="h-[450px]">
+          <EventCalendar 
+            events={events}
+            onEventSelect={(event) => {
+              toast.info(`Evento selecionado: ${event.event_name}`);
+            }}
+            onEventCreate={(date) => {
+              toast.info('Para criar um evento, acesse a página Agenda');
+            }}
+          />
+        </div>
+        
+        <Card className="shadow-soft h-[450px] flex flex-col">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              Próximos Eventos
+            </CardTitle>
+            <CardDescription>Eventos de hoje e futuros</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-hidden">
+            <ScrollArea className="h-full pr-4">
+              {(() => {
+                const upcomingEvents = events.filter(event => {
+                  if (event.status === 'Cancelado') return false;
+                  
+                  const now = new Date();
+                  const eventDate = new Date(event.event_date);
+                  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                  const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+                  
+                  if (eventDay > today) return true;
+                  
+                  if (eventDay.getTime() === today.getTime()) {
+                    if (event.setup_time) {
+                      const [hours, minutes] = event.setup_time.split(':').map(Number);
+                      const eventDateTime = new Date(eventDay);
+                      eventDateTime.setHours(hours, minutes, 0, 0);
+                      return eventDateTime >= now;
+                    }
+                    return true;
+                  }
+                  
+                  return false;
+                }).slice(0, 10);
+
+                const getStatusBadge = (status: string) => {
+                  const variants: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
+                    'Agendado': 'default',
+                    'Em Preparação': 'secondary',
+                    'Em Andamento': 'outline',
+                    'Concluído': 'default',
+                    'Cancelado': 'destructive'
+                  };
+                  return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
+                };
+
+                if (upcomingEvents.length === 0) {
+                  return (
+                    <p className="text-muted-foreground text-center py-4">
+                      Nenhum evento próximo agendado
+                    </p>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {upcomingEvents.map((event) => (
+                      <div key={event.id} className="p-3 border rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium text-sm truncate flex-1">{event.event_name}</h3>
+                          {getStatusBadge(event.status)}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {event.event_date.split('T')[0].split('-').reverse().join('/')}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {event.total_people}
+                          </span>
+                        </div>
+                        {event.clients && (
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            {event.clients.name}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </ScrollArea>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Resumos Recentes */}
