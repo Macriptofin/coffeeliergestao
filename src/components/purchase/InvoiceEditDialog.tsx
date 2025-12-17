@@ -434,12 +434,28 @@ export const InvoiceEditDialog = ({
 
       if (invoiceError) {
         console.error('Erro ao criar nota fiscal:', invoiceError);
-        toast({
-          title: '❌ Erro ao criar nota fiscal',
-          description: invoiceError.message || 'Erro desconhecido ao criar nota fiscal',
-          variant: 'destructive'
-        });
-        throw invoiceError;
+        
+        // Detectar erro de nota duplicada
+        const isDuplicateError = invoiceError.code === '23505' || 
+          invoiceError.message?.includes('unique_invoice_number') ||
+          invoiceError.message?.includes('duplicate key');
+        
+        if (isDuplicateError) {
+          toast({
+            title: '⚠️ Nota fiscal já existe',
+            description: `Uma nota com o número "${editedData.numero_nota}" já foi cadastrada no sistema. Verifique se não é uma duplicação.`,
+            variant: 'destructive',
+            duration: 8000
+          });
+        } else {
+          toast({
+            title: '❌ Erro ao criar nota fiscal',
+            description: invoiceError.message || 'Erro desconhecido ao criar nota fiscal',
+            variant: 'destructive'
+          });
+        }
+        setLaunching(false);
+        return;
       }
 
       // Criar itens da nota fiscal com desconto rateado
