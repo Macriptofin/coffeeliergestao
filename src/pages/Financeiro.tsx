@@ -1,7 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, CreditCard, FileText, TrendingUp, Calculator, PieChart } from "lucide-react";
+import { DollarSign, CreditCard, FileText, TrendingUp, Calculator, PieChart, Building2, Repeat, CalendarClock, LineChart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { FinancialAlerts } from "@/components/financeiro/FinancialAlerts";
 
 const Financeiro = () => {
   const navigate = useNavigate();
@@ -27,6 +28,34 @@ const Financeiro = () => {
       icon: TrendingUp,
       href: "/financeiro/fluxo",
       color: "bg-blue-500"
+    },
+    {
+      title: "Contas Bancárias",
+      description: "Cadastro de bancos e controle de saldos",
+      icon: Building2,
+      href: "/financeiro/bancos",
+      color: "bg-indigo-500"
+    },
+    {
+      title: "Transações Recorrentes",
+      description: "Lançamentos automáticos periódicos",
+      icon: Repeat,
+      href: "/financeiro/recorrentes",
+      color: "bg-violet-500"
+    },
+    {
+      title: "Previsão de Caixa",
+      description: "Projeção de fluxo de caixa futuro",
+      icon: LineChart,
+      href: "/financeiro/previsao",
+      color: "bg-emerald-500"
+    },
+    {
+      title: "Aging de Contas",
+      description: "Análise de vencimentos por faixa de tempo",
+      icon: CalendarClock,
+      href: "/financeiro/aging",
+      color: "bg-amber-500"
     },
     {
       title: "Centros de Custo",
