@@ -151,9 +151,11 @@ export default function Agenda() {
     if (event.status === 'Cancelado') return false;
     
     const now = new Date();
-    const eventDate = new Date(event.event_date);
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+    
+    // Parse da data do evento como data local (evita problemas de timezone)
+    const [year, month, day] = event.event_date.split('T')[0].split('-').map(Number);
+    const eventDay = new Date(year, month - 1, day);
     
     // Evento é de um dia futuro - incluir
     if (eventDay > today) return true;
@@ -163,8 +165,7 @@ export default function Agenda() {
       // Se tem horário de setup, verificar se já passou
       if (event.setup_time) {
         const [hours, minutes] = event.setup_time.split(':').map(Number);
-        const eventDateTime = new Date(eventDay);
-        eventDateTime.setHours(hours, minutes, 0, 0);
+        const eventDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
         return eventDateTime >= now;
       }
       // Se não tem horário, incluir todos os eventos de hoje
