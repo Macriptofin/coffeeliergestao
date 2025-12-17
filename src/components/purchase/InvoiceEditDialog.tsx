@@ -412,50 +412,98 @@ export const InvoiceEditDialog = ({
       const totalWithDiscount = Math.max(0, subtotal - discountValue);
       const totalWithFreight = totalWithDiscount + freightAmount;
 
-      // Criar registro da nota fiscal como PENDENTE (pronta para lançar no estoque)
-      const { data: invoiceRecord, error: invoiceError } = await supabase
-        .from('purchase_invoices')
-        .insert({
-          invoice_number: editedData.numero_nota,
-          supplier_id: supplierId,
-          invoice_date: new Date(editedData.data).toISOString().split('T')[0],
-          total_amount: totalWithFreight,
-          discount_total: discountValue,
-          discount_type: discountType,
-          freight_amount: freightAmount,
-          freight_cost_center_id: freightAmount > 0 ? freightCostCenterId : null,
-          workflow_status: 'pendente',
-          stock_posted: false,
-          items_locked: false,
-          notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
-        })
-        .select()
-        .single();
+      // Verificar se é uma nota existente (rascunho) ou nova
+      let invoiceRecord: { id: string } | null = null;
+      
+      if (invoiceId) {
+        // ATUALIZAR nota existente
+        const { data: updatedInvoice, error: updateError } = await supabase
+          .from('purchase_invoices')
+          .update({
+            invoice_number: editedData.numero_nota,
+            supplier_id: supplierId,
+            invoice_date: new Date(editedData.data).toISOString().split('T')[0],
+            total_amount: totalWithFreight,
+            discount_total: discountValue,
+            discount_type: discountType,
+            freight_amount: freightAmount,
+            freight_cost_center_id: freightAmount > 0 ? freightCostCenterId : null,
+            workflow_status: 'pendente',
+            stock_posted: false,
+            items_locked: false,
+            notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
+          })
+          .eq('id', invoiceId)
+          .select()
+          .single();
 
-      if (invoiceError) {
-        console.error('Erro ao criar nota fiscal:', invoiceError);
-        
-        // Detectar erro de nota duplicada
-        const isDuplicateError = invoiceError.code === '23505' || 
-          invoiceError.message?.includes('unique_invoice_number') ||
-          invoiceError.message?.includes('duplicate key');
-        
-        if (isDuplicateError) {
+        if (updateError) {
+          console.error('Erro ao atualizar nota fiscal:', updateError);
           toast({
-            title: '⚠️ Nota fiscal já existe',
-            description: `Uma nota com o número "${editedData.numero_nota}" já foi cadastrada no sistema. Verifique se não é uma duplicação.`,
-            variant: 'destructive',
-            duration: 8000
-          });
-        } else {
-          toast({
-            title: '❌ Erro ao criar nota fiscal',
-            description: invoiceError.message || 'Erro desconhecido ao criar nota fiscal',
+            title: '❌ Erro ao atualizar nota fiscal',
+            description: updateError.message || 'Erro desconhecido ao atualizar nota fiscal',
             variant: 'destructive'
           });
+          setLaunching(false);
+          return;
         }
-        setLaunching(false);
-        return;
+        
+        invoiceRecord = updatedInvoice;
+        
+        // Remover itens antigos antes de inserir novos
+        await supabase
+          .from('invoice_items')
+          .delete()
+          .eq('invoice_id', invoiceId);
+          
+      } else {
+        // CRIAR nova nota fiscal
+        const { data: newInvoice, error: invoiceError } = await supabase
+          .from('purchase_invoices')
+          .insert({
+            invoice_number: editedData.numero_nota,
+            supplier_id: supplierId,
+            invoice_date: new Date(editedData.data).toISOString().split('T')[0],
+            total_amount: totalWithFreight,
+            discount_total: discountValue,
+            discount_type: discountType,
+            freight_amount: freightAmount,
+            freight_cost_center_id: freightAmount > 0 ? freightCostCenterId : null,
+            workflow_status: 'pendente',
+            stock_posted: false,
+            items_locked: false,
+            notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
+          })
+          .select()
+          .single();
+
+        if (invoiceError) {
+          console.error('Erro ao criar nota fiscal:', invoiceError);
+          
+          // Detectar erro de nota duplicada
+          const isDuplicateError = invoiceError.code === '23505' || 
+            invoiceError.message?.includes('unique_invoice_number') ||
+            invoiceError.message?.includes('duplicate key');
+          
+          if (isDuplicateError) {
+            toast({
+              title: '⚠️ Nota fiscal já existe',
+              description: `Uma nota com o número "${editedData.numero_nota}" já foi cadastrada no sistema. Verifique se não é uma duplicação.`,
+              variant: 'destructive',
+              duration: 8000
+            });
+          } else {
+            toast({
+              title: '❌ Erro ao criar nota fiscal',
+              description: invoiceError.message || 'Erro desconhecido ao criar nota fiscal',
+              variant: 'destructive'
+            });
+          }
+          setLaunching(false);
+          return;
+        }
+        
+        invoiceRecord = newInvoice;
       }
 
       // Criar itens da nota fiscal com desconto rateado
