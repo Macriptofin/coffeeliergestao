@@ -25,6 +25,9 @@ export interface PurchaseInvoice {
   status: 'Pendente' | 'Pago' | 'Vencido' | 'Cancelado';
   stockPosted: boolean;
   stockPostedAt?: string;
+  workflowStatus?: 'rascunho' | 'pendente' | 'lancada';
+  discountTotal?: number;
+  itemsLocked?: boolean;
 }
 
 const Purchases = () => {
@@ -72,7 +75,10 @@ const Purchases = () => {
       totalAmount: parseFloat(item.total_amount?.toString() || '0'),
       status: item.status as 'Pendente' | 'Pago' | 'Vencido' | 'Cancelado',
       stockPosted: item.stock_posted || false,
-      stockPostedAt: item.stock_posted_at || undefined
+      stockPostedAt: item.stock_posted_at || undefined,
+      workflowStatus: (item.workflow_status || 'pendente') as 'rascunho' | 'pendente' | 'lancada',
+      discountTotal: parseFloat(item.discount_total?.toString() || '0'),
+      itemsLocked: item.items_locked || false
     }));
 
     setPurchaseInvoices(formattedInvoices);

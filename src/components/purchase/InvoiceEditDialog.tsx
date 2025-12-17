@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Check, AlertTriangle, Banknote, Smartphone, CreditCard, FileText, Calendar } from 'lucide-react';
+import { Loader2, Check, AlertTriangle, Banknote, Smartphone, CreditCard, FileText, Calendar, Save, Percent, DollarSign, Lock, Unlock } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { SupplierMatcher } from './SupplierMatcher';
 import { InvoiceItemMatcher } from './InvoiceItemMatcher';
@@ -39,6 +39,8 @@ interface InvoiceData {
   data: string;
   numero_nota?: string;
   itens: InvoiceItem[];
+  discount_total?: number;
+  discount_type?: 'value' | 'percent';
 }
 
 interface ValidationError {
@@ -52,12 +54,17 @@ interface InvoiceEditDialogProps {
   onOpenChange: (open: boolean) => void;
   invoiceData: InvoiceData | null;
   onLaunch: () => void;
+  onSaveDraft?: () => void;
   supplierId?: string | null;
   formaPagamento?: string;
   numeroParcelas?: number;
   prazoPagamentoDias?: number;
   responsavelId?: string | null;
   observacoes?: string;
+  invoiceId?: string | null;
+  isEditMode?: boolean;
+  itemsLocked?: boolean;
+  isAdmin?: boolean;
 }
 
 export const InvoiceEditDialog = ({
@@ -65,12 +72,17 @@ export const InvoiceEditDialog = ({
   onOpenChange,
   invoiceData,
   onLaunch,
+  onSaveDraft,
   supplierId: initialSupplierId,
   formaPagamento: initialFormaPagamento,
   numeroParcelas: initialNumeroParcelas,
   prazoPagamentoDias: initialPrazoPagamentoDias,
   responsavelId: initialResponsavelId,
-  observacoes: initialObservacoes
+  observacoes: initialObservacoes,
+  invoiceId,
+  isEditMode = false,
+  itemsLocked = false,
+  isAdmin = false
 }: InvoiceEditDialogProps) => {
   const [editedData, setEditedData] = useState<InvoiceData | null>(null);
   const [supplierId, setSupplierId] = useState<string | null>(initialSupplierId || null);
@@ -82,8 +94,13 @@ export const InvoiceEditDialog = ({
   const [users, setUsers] = useState<any[]>([]);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [launching, setLaunching] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateItemIndex, setQuickCreateItemIndex] = useState<number | null>(null);
+  const [discountTotal, setDiscountTotal] = useState(0);
+  const [discountType, setDiscountType] = useState<'value' | 'percent'>('value');
+  
+  const canEditItems = !itemsLocked || isAdmin;
 
   useEffect(() => {
     if (invoiceData && open) {
@@ -334,16 +351,27 @@ export const InvoiceEditDialog = ({
 
       const fornecedorNome = supplier?.company_name || editedData.fornecedor;
 
-      // Criar registro da nota fiscal
+      // Calcular valores com desconto
+      const subtotal = editedData.itens.reduce((sum, item) => sum + item.preco_total, 0);
+      const discountValue = discountType === 'percent' 
+        ? (discountTotal / 100) * subtotal 
+        : discountTotal;
+      const totalWithDiscount = Math.max(0, subtotal - discountValue);
+
+      // Criar registro da nota fiscal como PENDENTE (pronta para lançar no estoque)
       const { data: invoiceRecord, error: invoiceError } = await supabase
         .from('purchase_invoices')
         .insert({
           invoice_number: editedData.numero_nota,
           supplier_id: supplierId,
           invoice_date: new Date(editedData.data).toISOString().split('T')[0],
-          total_amount: editedData.itens.reduce((sum, item) => sum + item.preco_total, 0),
-          notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}`,
-          stock_posted: true
+          total_amount: totalWithDiscount,
+          discount_total: discountValue,
+          discount_type: discountType,
+          workflow_status: 'pendente',
+          stock_posted: false,
+          items_locked: false,
+          notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}`
         })
         .select()
         .single();
@@ -358,14 +386,23 @@ export const InvoiceEditDialog = ({
         throw invoiceError;
       }
 
-      // Criar itens da nota fiscal
-      const invoiceItemsData = editedData.itens.map(item => ({
-        invoice_id: invoiceRecord.id,
-        material_id: item.material_id,
-        quantity: item.quantidade,
-        unit_price: item.preco_unitario,
-        total_price: item.preco_total
-      }));
+      // Criar itens da nota fiscal com desconto rateado
+      const invoiceItemsData = editedData.itens.map(item => {
+        const itemDiscount = discountValue > 0 && subtotal > 0
+          ? (item.preco_total / subtotal) * discountValue
+          : (item.desconto || 0);
+        
+        return {
+          invoice_id: invoiceRecord.id,
+          material_id: item.material_id,
+          quantity: item.quantidade,
+          unit_price: item.preco_unitario,
+          total_price: item.preco_total,
+          discount_amount: itemDiscount,
+          discount_percent: item.preco_total > 0 ? (itemDiscount / item.preco_total) * 100 : 0,
+          final_price: item.preco_total - itemDiscount
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from('invoice_items')
@@ -381,23 +418,10 @@ export const InvoiceEditDialog = ({
         throw itemsError;
       }
 
-      // Processar cada item
-      let successCount = 0;
-      let errorCount = 0;
-
-      for (let i = 0; i < editedData.itens.length; i++) {
-        const item = editedData.itens[i];
-        
-        if (!item.material_id) {
-          errorCount++;
-          continue;
-        }
-
-        try {
-          // Salvar match no histórico para aprendizado
+      // Salvar matches para aprendizado (sem processar estoque)
+      for (const item of editedData.itens) {
+        if (item.material_id) {
           const itemNameNormalized = item.nome.toLowerCase().trim();
-          
-          // Upsert incrementa automaticamente o match_count via trigger
           await supabase
             .from('invoice_material_matches')
             .upsert({
@@ -408,84 +432,12 @@ export const InvoiceEditDialog = ({
             }, {
               onConflict: 'invoice_item_name_normalized,material_id,supplier_id'
             });
-          
-          // Criar entrada de estoque para cada item
-          const quantity = item.converted_quantity || item.quantidade;
-          const unitPrice = item.preco_unitario || 0;
-          const { error: stockError } = await supabase
-            .from('stock_movements')
-            .insert({
-              material_id: item.material_id,
-              movement_type: 'Entrada',
-              quantity: quantity,
-              unit_price: unitPrice,
-              total_cost: quantity * unitPrice,
-              reference_type: 'Compra',
-              reference_id: invoiceRecord.id,
-              notes: `NF ${editedData.numero_nota || 'S/N'} - ${fornecedorNome} - ${item.nome}${item.desconto ? ` (Desconto: R$ ${item.desconto.toFixed(2)})` : ''}`
-            });
-
-          if (stockError) throw stockError;
-
-          // Atualizar stock_items
-          const { data: stockItem } = await supabase
-            .from('stock_items')
-            .select('*')
-            .eq('material_id', item.material_id)
-            .maybeSingle();
-
-          const effectiveTotal = item.preco_com_desconto || item.preco_total;
-          const newQuantity = (stockItem?.current_quantity || 0) + (item.converted_quantity || item.quantidade);
-          const newTotalValue = (stockItem?.total_value || 0) + effectiveTotal;
-          const newAverage = newTotalValue / newQuantity;
-
-          if (stockItem) {
-            await supabase
-              .from('stock_items')
-              .update({
-                current_quantity: newQuantity,
-                average_price: newAverage,
-                total_value: newTotalValue,
-                last_movement_date: new Date().toISOString()
-              })
-              .eq('material_id', item.material_id);
-          } else {
-            await supabase
-              .from('stock_items')
-              .insert({
-                material_id: item.material_id,
-                current_quantity: newQuantity,
-                average_price: newAverage,
-                total_value: newTotalValue,
-                minimum_quantity: 0
-              });
-          }
-
-          successCount++;
-          
-          toast({
-            title: `✅ ${item.nome}`,
-            description: 'Item lançado com sucesso',
-            duration: 1000
-          });
-
-        } catch (itemError) {
-          console.error(`Erro ao lançar item ${item.nome}:`, itemError);
-          errorCount++;
-          
-          toast({
-            title: `❌ ${item.nome}`,
-            description: 'Erro ao lançar item',
-            variant: 'destructive',
-            duration: 2000
-          });
         }
       }
 
       // Salvar histórico de fornecedor
       if (supplierId && editedData.fornecedor) {
         const supplierTextNormalized = editedData.fornecedor.toLowerCase().trim();
-        
         await supabase
           .from('invoice_supplier_matches')
           .upsert({
@@ -497,30 +449,13 @@ export const InvoiceEditDialog = ({
           });
       }
 
-      // Mostrar resultado final
-      if (errorCount === 0) {
-        toast({
-          title: '🎉 Sucesso!',
-          description: `Nota fiscal lançada! ${successCount} ${successCount === 1 ? 'item processado' : 'itens processados'}.`
-        });
-        
-        onOpenChange(false);
-        onLaunch();
-        
-      } else if (successCount > 0) {
-        toast({
-          title: '⚠️ Parcialmente OK',
-          description: `${successCount} ${successCount === 1 ? 'item lançado' : 'itens lançados'}, ${errorCount} com erro.`,
-          variant: 'default'
-        });
-        
-      } else {
-        toast({
-          title: '❌ Erro',
-          description: 'Nenhum item foi lançado. Verifique os erros.',
-          variant: 'destructive'
-        });
-      }
+      toast({
+        title: '✅ Nota fiscal criada!',
+        description: 'A nota está pronta para ser lançada no estoque.'
+      });
+      
+      onOpenChange(false);
+      onLaunch();
 
     } catch (error: any) {
       console.error('Erro ao lançar nota fiscal:', error);
@@ -532,6 +467,124 @@ export const InvoiceEditDialog = ({
       });
     } finally {
       setLaunching(false);
+    }
+  };
+
+  // Função para salvar como rascunho (sem validação completa)
+  const handleSaveDraft = async () => {
+    if (!editedData) return;
+
+    setSaving(true);
+
+    try {
+      const subtotal = editedData.itens.reduce((sum, item) => sum + item.preco_total, 0);
+      const discountValue = discountType === 'percent' 
+        ? (discountTotal / 100) * subtotal 
+        : discountTotal;
+      const totalWithDiscount = subtotal - discountValue;
+
+      // Buscar nome do fornecedor se selecionado
+      let fornecedorNome = editedData.fornecedor;
+      if (supplierId) {
+        const { data: supplier } = await supabase
+          .from('suppliers')
+          .select('company_name')
+          .eq('id', supplierId)
+          .single();
+        fornecedorNome = supplier?.company_name || editedData.fornecedor;
+      }
+
+      // Criar ou atualizar registro da nota fiscal como rascunho
+      const invoicePayload = {
+        invoice_number: editedData.numero_nota || `RASCUNHO-${Date.now()}`,
+        supplier_id: supplierId,
+        invoice_date: editedData.data ? new Date(editedData.data).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        total_amount: totalWithDiscount,
+        discount_total: discountValue,
+        discount_type: discountType,
+        workflow_status: 'rascunho',
+        stock_posted: false,
+        items_locked: false,
+        notes: `${observacoes || ''}\n\nForma de Pagamento: ${formaPagamento || 'Não definida'}\nResponsável: ${responsavelId || 'Não definido'}`
+      };
+
+      let invoiceRecord;
+      
+      if (invoiceId) {
+        // Atualizar nota existente
+        const { data, error } = await supabase
+          .from('purchase_invoices')
+          .update(invoicePayload)
+          .eq('id', invoiceId)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        invoiceRecord = data;
+
+        // Deletar itens existentes para recriar
+        await supabase
+          .from('invoice_items')
+          .delete()
+          .eq('invoice_id', invoiceId);
+      } else {
+        // Criar nova nota
+        const { data, error } = await supabase
+          .from('purchase_invoices')
+          .insert(invoicePayload)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        invoiceRecord = data;
+      }
+
+      // Criar itens da nota fiscal
+      if (editedData.itens.length > 0) {
+        const invoiceItemsData = editedData.itens.map(item => {
+          const itemDiscount = discountValue > 0 && subtotal > 0
+            ? (item.preco_total / subtotal) * discountValue
+            : (item.desconto || 0);
+          
+          return {
+            invoice_id: invoiceRecord.id,
+            material_id: item.material_id || null,
+            quantity: item.quantidade,
+            unit_price: item.preco_unitario,
+            total_price: item.preco_total,
+            discount_amount: itemDiscount,
+            discount_percent: item.preco_total > 0 ? (itemDiscount / item.preco_total) * 100 : 0,
+            final_price: item.preco_total - itemDiscount
+          };
+        });
+
+        const { error: itemsError } = await supabase
+          .from('invoice_items')
+          .insert(invoiceItemsData);
+
+        if (itemsError) {
+          console.error('Erro ao criar itens:', itemsError);
+          throw itemsError;
+        }
+      }
+
+      toast({
+        title: '✅ Rascunho salvo',
+        description: 'Nota fiscal salva como rascunho. Você pode continuar editando depois.'
+      });
+
+      onOpenChange(false);
+      onSaveDraft?.();
+
+    } catch (error: any) {
+      console.error('Erro ao salvar rascunho:', error);
+      toast({
+        title: '❌ Erro ao salvar',
+        description: error?.message || 'Ocorreu um erro ao salvar o rascunho.',
+        variant: 'destructive'
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -724,15 +777,102 @@ export const InvoiceEditDialog = ({
               ))}
             </div>
 
-            {/* Total */}
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-semibold">Total da Nota:</span>
-                <span className="text-2xl font-bold text-primary">
-                  R$ {editedData.itens.reduce((sum, item) => sum + item.preco_total, 0).toFixed(2)}
-                </span>
+            {/* Desconto Global */}
+            <div className="p-4 bg-muted/30 rounded-lg border">
+              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                <Percent className="h-4 w-4" />
+                Desconto na Nota
+              </h4>
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground">Tipo</Label>
+                  <Select 
+                    value={discountType} 
+                    onValueChange={(v: 'value' | 'percent') => setDiscountType(v)}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="value">
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="h-3 w-3" />
+                          Valor (R$)
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="percent">
+                        <div className="flex items-center gap-2">
+                          <Percent className="h-3 w-3" />
+                          Percentual (%)
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground">
+                    {discountType === 'percent' ? 'Percentual' : 'Valor'}
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step={discountType === 'percent' ? '0.1' : '0.01'}
+                    max={discountType === 'percent' ? '100' : undefined}
+                    value={discountTotal}
+                    onChange={(e) => setDiscountTotal(parseFloat(e.target.value) || 0)}
+                    placeholder={discountType === 'percent' ? '5%' : 'R$ 50,00'}
+                    className="h-9"
+                  />
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                O desconto será rateado proporcionalmente entre todos os itens da nota.
+              </p>
             </div>
+
+            {/* Total */}
+            <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+              {(() => {
+                const subtotal = editedData.itens.reduce((sum, item) => sum + item.preco_total, 0);
+                const discountValue = discountType === 'percent' 
+                  ? (discountTotal / 100) * subtotal 
+                  : discountTotal;
+                const total = Math.max(0, subtotal - discountValue);
+                
+                return (
+                  <>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Subtotal:</span>
+                      <span className="font-medium">R$ {subtotal.toFixed(2)}</span>
+                    </div>
+                    {discountValue > 0 && (
+                      <div className="flex justify-between items-center text-sm text-green-600">
+                        <span>Desconto ({discountType === 'percent' ? `${discountTotal}%` : 'valor'}):</span>
+                        <span>- R$ {discountValue.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <span className="text-lg font-semibold">Total da Nota:</span>
+                      <span className="text-2xl font-bold text-primary">
+                        R$ {total.toFixed(2)}
+                      </span>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Aviso de itens travados */}
+            {itemsLocked && !isAdmin && (
+              <Alert className="border-amber-200 bg-amber-50">
+                <Lock className="h-4 w-4 text-amber-600" />
+                <AlertTitle className="text-amber-800">Itens Bloqueados</AlertTitle>
+                <AlertDescription className="text-amber-700">
+                  Esta nota já foi lançada e os itens estão bloqueados para edição. 
+                  Apenas administradores podem modificar os itens.
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Validação */}
             {validationErrors.length > 0 && (
@@ -740,17 +880,30 @@ export const InvoiceEditDialog = ({
             )}
           </div>
 
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={launching}>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={launching || saving}>
               Cancelar
             </Button>
-            <Button onClick={handleLaunch} disabled={launching}>
-              {launching ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Lançando...</>
-              ) : (
-                <><Check className="h-4 w-4 mr-2" />Criar Nota Fiscal</>
-              )}
-            </Button>
+            <div className="flex gap-2 flex-1 justify-end">
+              <Button 
+                variant="secondary" 
+                onClick={handleSaveDraft} 
+                disabled={launching || saving}
+              >
+                {saving ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</>
+                ) : (
+                  <><Save className="h-4 w-4 mr-2" />Salvar Rascunho</>
+                )}
+              </Button>
+              <Button onClick={handleLaunch} disabled={launching || saving}>
+                {launching ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Lançando...</>
+                ) : (
+                  <><Check className="h-4 w-4 mr-2" />Lançar Nota</>
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
