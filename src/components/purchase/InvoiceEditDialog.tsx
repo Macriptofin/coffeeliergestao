@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Check, AlertTriangle, Banknote, Smartphone, CreditCard, FileText, Calendar, Save, Percent, DollarSign, Lock, Unlock } from 'lucide-react';
+import { Loader2, Check, AlertTriangle, Banknote, Smartphone, CreditCard, FileText, Calendar, Save, Percent, DollarSign, Lock, Unlock, Truck } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { SupplierMatcher } from './SupplierMatcher';
 import { InvoiceItemMatcher } from './InvoiceItemMatcher';
@@ -92,6 +92,7 @@ export const InvoiceEditDialog = ({
   const [responsavelId, setResponsavelId] = useState<string | null>(initialResponsavelId || null);
   const [observacoes, setObservacoes] = useState(initialObservacoes || '');
   const [users, setUsers] = useState<any[]>([]);
+  const [costCenters, setCostCenters] = useState<any[]>([]);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [launching, setLaunching] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -99,6 +100,8 @@ export const InvoiceEditDialog = ({
   const [quickCreateItemIndex, setQuickCreateItemIndex] = useState<number | null>(null);
   const [discountTotal, setDiscountTotal] = useState(0);
   const [discountType, setDiscountType] = useState<'value' | 'percent'>('value');
+  const [freightAmount, setFreightAmount] = useState(0);
+  const [freightCostCenterId, setFreightCostCenterId] = useState<string | null>(null);
   
   const canEditItems = !itemsLocked || isAdmin;
 
@@ -106,6 +109,7 @@ export const InvoiceEditDialog = ({
     if (invoiceData && open) {
       setEditedData(JSON.parse(JSON.stringify(invoiceData)));
       loadUsers();
+      loadCostCenters();
       
       // Inicializar itens com status
       const itemsWithStatus: InvoiceItem[] = invoiceData.itens.map(item => ({
@@ -115,6 +119,30 @@ export const InvoiceEditDialog = ({
       setEditedData({ ...invoiceData, itens: itemsWithStatus });
     }
   }, [invoiceData, open]);
+
+  const loadCostCenters = async () => {
+    try {
+      const { data } = await supabase
+        .from('cost_centers')
+        .select('id, name, code')
+        .eq('is_active', true)
+        .order('name');
+      
+      setCostCenters(data || []);
+      
+      // Auto-selecionar centro de custo de frete se existir
+      const freightCC = data?.find(cc => 
+        cc.name.toLowerCase().includes('frete') || 
+        cc.name.toLowerCase().includes('logística') ||
+        cc.name.toLowerCase().includes('entrega')
+      );
+      if (freightCC) {
+        setFreightCostCenterId(freightCC.id);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar centros de custo:', error);
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -357,6 +385,7 @@ export const InvoiceEditDialog = ({
         ? (discountTotal / 100) * subtotal 
         : discountTotal;
       const totalWithDiscount = Math.max(0, subtotal - discountValue);
+      const totalWithFreight = totalWithDiscount + freightAmount;
 
       // Criar registro da nota fiscal como PENDENTE (pronta para lançar no estoque)
       const { data: invoiceRecord, error: invoiceError } = await supabase
@@ -365,13 +394,15 @@ export const InvoiceEditDialog = ({
           invoice_number: editedData.numero_nota,
           supplier_id: supplierId,
           invoice_date: new Date(editedData.data).toISOString().split('T')[0],
-          total_amount: totalWithDiscount,
+          total_amount: totalWithFreight,
           discount_total: discountValue,
           discount_type: discountType,
+          freight_amount: freightAmount,
+          freight_cost_center_id: freightAmount > 0 ? freightCostCenterId : null,
           workflow_status: 'pendente',
           stock_posted: false,
           items_locked: false,
-          notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}`
+          notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
         })
         .select()
         .single();
@@ -482,6 +513,7 @@ export const InvoiceEditDialog = ({
         ? (discountTotal / 100) * subtotal 
         : discountTotal;
       const totalWithDiscount = subtotal - discountValue;
+      const totalWithFreight = totalWithDiscount + freightAmount;
 
       // Buscar nome do fornecedor se selecionado
       let fornecedorNome = editedData.fornecedor;
@@ -499,13 +531,15 @@ export const InvoiceEditDialog = ({
         invoice_number: editedData.numero_nota || `RASCUNHO-${Date.now()}`,
         supplier_id: supplierId,
         invoice_date: editedData.data ? new Date(editedData.data).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        total_amount: totalWithDiscount,
+        total_amount: totalWithFreight,
         discount_total: discountValue,
         discount_type: discountType,
+        freight_amount: freightAmount,
+        freight_cost_center_id: freightAmount > 0 ? freightCostCenterId : null,
         workflow_status: 'rascunho',
         stock_posted: false,
         items_locked: false,
-        notes: `${observacoes || ''}\n\nForma de Pagamento: ${formaPagamento || 'Não definida'}\nResponsável: ${responsavelId || 'Não definido'}`
+        notes: `${observacoes || ''}\n\nForma de Pagamento: ${formaPagamento || 'Não definida'}\nResponsável: ${responsavelId || 'Não definido'}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
       };
 
       let invoiceRecord;
@@ -830,6 +864,50 @@ export const InvoiceEditDialog = ({
               </p>
             </div>
 
+            {/* Frete como Despesa Separada */}
+            <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+              <h4 className="text-sm font-medium mb-3 flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                <Truck className="h-4 w-4" />
+                Frete / Tele-entrega (Despesa Separada)
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Valor do Frete</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={freightAmount}
+                    onChange={(e) => setFreightAmount(parseFloat(e.target.value) || 0)}
+                    placeholder="R$ 0,00"
+                    className="h-9"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Centro de Custo</Label>
+                  <Select 
+                    value={freightCostCenterId || ''} 
+                    onValueChange={setFreightCostCenterId}
+                    disabled={freightAmount === 0}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Selecione o centro de custo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {costCenters.map(cc => (
+                        <SelectItem key={cc.id} value={cc.id}>
+                          {cc.code} - {cc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                O frete será lançado como despesa no centro de custo selecionado, não afetando o custo dos produtos.
+              </p>
+            </div>
+
             {/* Total */}
             <div className="p-4 bg-muted/50 rounded-lg space-y-2">
               {(() => {
@@ -837,12 +915,13 @@ export const InvoiceEditDialog = ({
                 const discountValue = discountType === 'percent' 
                   ? (discountTotal / 100) * subtotal 
                   : discountTotal;
-                const total = Math.max(0, subtotal - discountValue);
+                const totalProducts = Math.max(0, subtotal - discountValue);
+                const totalWithFreight = totalProducts + freightAmount;
                 
                 return (
                   <>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Subtotal:</span>
+                      <span className="text-muted-foreground">Subtotal Produtos:</span>
                       <span className="font-medium">R$ {subtotal.toFixed(2)}</span>
                     </div>
                     {discountValue > 0 && (
@@ -851,10 +930,20 @@ export const InvoiceEditDialog = ({
                         <span>- R$ {discountValue.toFixed(2)}</span>
                       </div>
                     )}
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Total Produtos:</span>
+                      <span className="font-medium">R$ {totalProducts.toFixed(2)}</span>
+                    </div>
+                    {freightAmount > 0 && (
+                      <div className="flex justify-between items-center text-sm text-blue-600">
+                        <span>Frete (despesa):</span>
+                        <span>+ R$ {freightAmount.toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center pt-2 border-t">
                       <span className="text-lg font-semibold">Total da Nota:</span>
                       <span className="text-2xl font-bold text-primary">
-                        R$ {total.toFixed(2)}
+                        R$ {totalWithFreight.toFixed(2)}
                       </span>
                     </div>
                   </>
