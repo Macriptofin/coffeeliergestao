@@ -323,6 +323,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           invoice_number,
           invoice_date,
           total_amount,
+          discount_total,
+          freight_amount,
+          freight_cost_center_id,
           suppliers:supplier_id (
             id,
             company_name
@@ -417,55 +420,99 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         }
       }
 
-      // Criar conta a pagar se configurado
+      // Criar contas a pagar se configurado
       if (paymentData.createPayable) {
         const currentDate = new Date().toISOString().split('T')[0];
         const dueDate = paymentData.paymentDate;
-        const invoiceAmount = parseFloat(invoice.total_amount?.toString() || '0');
+        const totalAmount = parseFloat(invoice.total_amount?.toString() || '0');
+        const freightAmount = parseFloat(invoice.freight_amount?.toString() || '0');
+        const productsAmount = totalAmount - freightAmount;
         
         // Verificar se deve ser criada como paga (data de vencimento igual ou anterior à data atual)
         const isPaid = dueDate <= currentDate;
         
-        const { data: payableAccount, error: payableError } = await supabase
-          .from('accounts_payable')
-          .insert({
-            supplier_id: invoice.suppliers.id,
-            invoice_number: invoice.invoice_number,
-            document_number: invoice.invoice_number,
-            description: `Nota fiscal ${invoice.invoice_number} - ${invoice.suppliers.company_name}`,
-            issue_date: invoice.invoice_date || currentDate,
-            due_date: dueDate,
-            original_amount: invoiceAmount,
-            remaining_amount: isPaid ? 0 : invoiceAmount,
-            paid_amount: isPaid ? invoiceAmount : 0,
-            discount_amount: 0,
-            interest_amount: 0,
-            status: isPaid ? 'Pago' : 'Pendente',
-            notes: `Gerado automaticamente do lançamento da nota fiscal. Método: ${paymentData.paymentMethod}${paymentData.responsiblePerson ? `, Responsável: ${paymentData.responsiblePerson}` : ''}${isPaid ? ' - Pago automaticamente (vencimento até a data atual)' : ''}`
-          })
-          .select()
-          .single();
+        // 1. CONTA A PAGAR - PRODUTOS (vinculada ao fornecedor)
+        if (productsAmount > 0) {
+          const { data: productsPayable, error: productsPayableError } = await supabase
+            .from('accounts_payable')
+            .insert({
+              supplier_id: invoice.suppliers.id,
+              invoice_number: invoice.invoice_number,
+              document_number: invoice.invoice_number,
+              description: `NF ${invoice.invoice_number} - ${invoice.suppliers.company_name} (Produtos)`,
+              issue_date: invoice.invoice_date || currentDate,
+              due_date: dueDate,
+              original_amount: productsAmount,
+              remaining_amount: isPaid ? 0 : productsAmount,
+              paid_amount: isPaid ? productsAmount : 0,
+              discount_amount: parseFloat(invoice.discount_total?.toString() || '0'),
+              interest_amount: 0,
+              status: isPaid ? 'Pago' : 'Pendente',
+              source_type: 'purchase_invoice',
+              source_id: invoiceId,
+              notes: `Produtos da nota fiscal. Método: ${paymentData.paymentMethod}${paymentData.responsiblePerson ? `, Responsável: ${paymentData.responsiblePerson}` : ''}${isPaid ? ' - Pago automaticamente' : ''}`
+            })
+            .select()
+            .single();
 
-        if (payableError) {
-          console.error('Erro ao criar conta a pagar:', payableError);
-          // Não interrompe o processo, apenas alerta
-          toast.error('Estoque lançado, mas houve erro ao criar conta a pagar');
-        } else {
-          // Se foi marcada como paga, criar transação de pagamento
-          if (isPaid && payableAccount) {
-            const { error: paymentError } = await supabase
+          if (productsPayableError) {
+            console.error('Erro ao criar conta a pagar de produtos:', productsPayableError);
+            toast.error('Estoque lançado, mas houve erro ao criar conta a pagar de produtos');
+          } else if (isPaid && productsPayable) {
+            // Criar transação de pagamento para produtos
+            await supabase
               .from('payment_transactions')
               .insert({
-                account_payable_id: payableAccount.id,
+                account_payable_id: productsPayable.id,
                 payment_date: currentDate,
-                amount: invoiceAmount,
+                amount: productsAmount,
                 payment_method: paymentData.paymentMethod,
-                notes: `Pagamento automático - ${paymentData.paymentMethod}${paymentData.responsiblePerson ? ` - Responsável: ${paymentData.responsiblePerson}` : ''}`
+                notes: `Pagamento automático - Produtos - ${paymentData.paymentMethod}`
               });
+          }
+        }
+        
+        // 2. CONTA A PAGAR - FRETE (vinculada ao centro de custo de logística)
+        if (freightAmount > 0) {
+          const freightCostCenterId = invoice.freight_cost_center_id;
+          
+          const { data: freightPayable, error: freightPayableError } = await supabase
+            .from('accounts_payable')
+            .insert({
+              supplier_id: invoice.suppliers.id,
+              invoice_number: `${invoice.invoice_number}-FRETE`,
+              document_number: invoice.invoice_number,
+              description: `NF ${invoice.invoice_number} - Frete/Tele-entrega`,
+              issue_date: invoice.invoice_date || currentDate,
+              due_date: dueDate,
+              original_amount: freightAmount,
+              remaining_amount: isPaid ? 0 : freightAmount,
+              paid_amount: isPaid ? freightAmount : 0,
+              discount_amount: 0,
+              interest_amount: 0,
+              status: isPaid ? 'Pago' : 'Pendente',
+              cost_center_id: freightCostCenterId,
+              source_type: 'purchase_invoice_freight',
+              source_id: invoiceId,
+              notes: `Frete/Tele-entrega da nota fiscal ${invoice.invoice_number}. Método: ${paymentData.paymentMethod}${isPaid ? ' - Pago automaticamente' : ''}`
+            })
+            .select()
+            .single();
 
-            if (paymentError) {
-              console.error('Erro ao criar transação de pagamento:', paymentError);
-            }
+          if (freightPayableError) {
+            console.error('Erro ao criar conta a pagar de frete:', freightPayableError);
+            toast.error('Conta de produtos criada, mas houve erro ao criar conta de frete');
+          } else if (isPaid && freightPayable) {
+            // Criar transação de pagamento para frete
+            await supabase
+              .from('payment_transactions')
+              .insert({
+                account_payable_id: freightPayable.id,
+                payment_date: currentDate,
+                amount: freightAmount,
+                payment_method: paymentData.paymentMethod,
+                notes: `Pagamento automático - Frete - ${paymentData.paymentMethod}`
+              });
           }
         }
       }
