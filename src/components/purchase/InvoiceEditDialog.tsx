@@ -414,8 +414,23 @@ export const InvoiceEditDialog = ({
 
       // Verificar se é uma nota existente (rascunho) ou nova
       let invoiceRecord: { id: string } | null = null;
+      let existingInvoiceId = invoiceId;
       
-      if (invoiceId) {
+      // Se não temos invoiceId mas temos número da nota, verificar se já existe
+      if (!existingInvoiceId && editedData.numero_nota) {
+        const { data: existingInvoice } = await supabase
+          .from('purchase_invoices')
+          .select('id, workflow_status')
+          .eq('invoice_number', editedData.numero_nota)
+          .maybeSingle();
+        
+        if (existingInvoice) {
+          existingInvoiceId = existingInvoice.id;
+          console.log('Nota existente encontrada:', existingInvoiceId, 'status:', existingInvoice.workflow_status);
+        }
+      }
+      
+      if (existingInvoiceId) {
         // ATUALIZAR nota existente
         const { data: updatedInvoice, error: updateError } = await supabase
           .from('purchase_invoices')
@@ -433,7 +448,7 @@ export const InvoiceEditDialog = ({
             items_locked: false,
             notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
           })
-          .eq('id', invoiceId)
+          .eq('id', existingInvoiceId)
           .select()
           .single();
 
@@ -454,7 +469,7 @@ export const InvoiceEditDialog = ({
         await supabase
           .from('invoice_items')
           .delete()
-          .eq('invoice_id', invoiceId);
+          .eq('invoice_id', existingInvoiceId);
           
       } else {
         // CRIAR nova nota fiscal
