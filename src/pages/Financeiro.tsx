@@ -81,7 +81,7 @@ const Financeiro = () => {
   ];
 
   return (
-    <div>
+    <div className="space-y-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Gestão Financeira</h1>
         <p className="text-muted-foreground">
@@ -89,32 +89,26 @@ const Financeiro = () => {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Alertas Financeiros */}
+      <FinancialAlerts maxItems={3} />
+
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {modules.map((module) => {
           const Icon = module.icon;
           return (
-            <Card key={module.title} className="cursor-pointer hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-4">
+            <Card key={module.title} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate(module.href)}>
+              <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${module.color} text-white`}>
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-4 w-4" />
                   </div>
-                  <div>
-                    <CardTitle className="text-lg">{module.title}</CardTitle>
-                  </div>
+                  <CardTitle className="text-base">{module.title}</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent>
-                <CardDescription className="mb-4">
+              <CardContent className="pt-0">
+                <CardDescription className="text-xs">
                   {module.description}
                 </CardDescription>
-                <Button 
-                  onClick={() => navigate(module.href)}
-                  variant="outline" 
-                  className="w-full"
-                >
-                  Acessar
-                </Button>
               </CardContent>
             </Card>
           );
