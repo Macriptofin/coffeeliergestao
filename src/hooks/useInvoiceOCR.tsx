@@ -41,9 +41,16 @@ export const useInvoiceOCR = () => {
         reader.readAsDataURL(file);
       });
 
+      // Determine file type
+      const isPDF = file.type === 'application/pdf';
+      const mimeType = isPDF ? 'application/pdf' : file.type;
+
       // Call edge function
       const { data, error } = await supabase.functions.invoke('invoice-ocr', {
-        body: { image_base64: base64 }
+        body: { 
+          image_base64: base64,
+          mime_type: mimeType
+        }
       });
 
       if (error) throw error;
