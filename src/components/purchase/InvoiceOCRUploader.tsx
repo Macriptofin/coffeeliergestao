@@ -22,11 +22,18 @@ export const InvoiceOCRUploader = ({ onCreated }: InvoiceOCRUploaderProps) => {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+      // Só criar preview para imagens
+      if (file.type.startsWith('image/')) {
+        const url = URL.createObjectURL(file);
+        setPreviewUrl(url);
+      } else {
+        setPreviewUrl(null);
+      }
       clearData();
     }
   };
+
+  const isPDF = selectedFile?.type === 'application/pdf';
 
   const handleProcess = async () => {
     if (!selectedFile) return;
@@ -69,11 +76,11 @@ export const InvoiceOCRUploader = ({ onCreated }: InvoiceOCRUploaderProps) => {
             <div className="border-2 border-dashed rounded-lg p-8 text-center">
               <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-sm text-muted-foreground mb-4">
-                Selecione uma imagem da nota fiscal (JPG, PNG)
+                Selecione uma imagem ou PDF da nota fiscal (JPG, PNG, PDF)
               </p>
               <Input
                 type="file"
-                accept="image/*"
+                accept="image/*,application/pdf"
                 onChange={handleFileSelect}
                 className="max-w-xs mx-auto"
               />
@@ -111,7 +118,17 @@ export const InvoiceOCRUploader = ({ onCreated }: InvoiceOCRUploaderProps) => {
                 </div>
               </div>
 
-              {previewUrl && (
+              {isPDF ? (
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <FileText className="h-16 w-16 text-primary mb-2" />
+                    <p className="text-sm text-muted-foreground">Documento PDF selecionado</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      O OCR irá processar a primeira página do documento
+                    </p>
+                  </div>
+                </div>
+              ) : previewUrl && (
                 <div className="border rounded-lg p-4">
                   <img 
                     src={previewUrl} 

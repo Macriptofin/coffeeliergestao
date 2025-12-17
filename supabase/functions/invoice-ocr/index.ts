@@ -44,13 +44,17 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY não configurada. Por favor, configure a chave nas secrets do Supabase.');
     }
 
-    const { image_base64 } = await req.json();
+    const { image_base64, mime_type } = await req.json();
 
     if (!image_base64) {
       throw new Error('image_base64 is required');
     }
 
-    console.log('Processando nota fiscal com gpt-4o...');
+    // Detect file type - default to image/jpeg if not provided
+    const detectedMimeType = mime_type || 'image/jpeg';
+    const isPDF = detectedMimeType === 'application/pdf';
+    
+    console.log(`Processando nota fiscal com gpt-4o... Tipo: ${detectedMimeType}`);
 
     // Call OpenAI Vision API
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -106,19 +110,33 @@ REGRAS CRÍTICAS:
           },
           {
             role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Extraia todos os dados desta nota fiscal:'
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${image_base64}`,
-                  detail: 'high'
-                }
-              }
-            ]
+            content: isPDF 
+              ? [
+                  {
+                    type: 'text',
+                    text: 'Extraia todos os dados desta nota fiscal em PDF:'
+                  },
+                  {
+                    type: 'file',
+                    file: {
+                      filename: 'nota_fiscal.pdf',
+                      file_data: `data:application/pdf;base64,${image_base64}`
+                    }
+                  }
+                ]
+              : [
+                  {
+                    type: 'text',
+                    text: 'Extraia todos os dados desta nota fiscal:'
+                  },
+                  {
+                    type: 'image_url',
+                    image_url: {
+                      url: `data:${detectedMimeType};base64,${image_base64}`,
+                      detail: 'high'
+                    }
+                  }
+                ]
           }
         ],
         max_tokens: 4096,
