@@ -123,15 +123,53 @@ export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListPr
     );
   };
 
-  const filteredEvents = events.filter(event => {
-    const matchesSearch = event.event_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         event.clients?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         event.venue?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || statusFilter === '' || event.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  // Ordenação inteligente: eventos ativos primeiro (por data mais próxima), depois finalizados (por data mais recente)
+  const getStatusPriority = (status: string): number => {
+    const priorities: Record<string, number> = {
+      'Em Andamento': 0,
+      'Em Preparação': 1,
+      'Agendado': 2,
+      'Concluído': 3,
+      'Cancelado': 4
+    };
+    return priorities[status] ?? 5;
+  };
+
+  const isActiveStatus = (status: string): boolean => {
+    return ['Em Andamento', 'Em Preparação', 'Agendado'].includes(status);
+  };
+
+  const filteredEvents = events
+    .filter(event => {
+      const matchesSearch = event.event_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           event.clients?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           event.venue?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || statusFilter === '' || event.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const priorityA = getStatusPriority(a.status);
+      const priorityB = getStatusPriority(b.status);
+      
+      // Primeiro, ordenar por prioridade de status
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      
+      // Dentro do mesmo grupo de prioridade, ordenar por data
+      const dateA = new Date(a.event_date).getTime();
+      const dateB = new Date(b.event_date).getTime();
+      
+      // Eventos ativos: data mais próxima primeiro (ascendente)
+      // Eventos finalizados: data mais recente primeiro (descendente)
+      if (isActiveStatus(a.status)) {
+        return dateA - dateB; // Mais próximo primeiro
+      } else {
+        return dateB - dateA; // Mais recente primeiro
+      }
+    });
 
   return (
     <Card>
