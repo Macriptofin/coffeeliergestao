@@ -194,6 +194,13 @@ export default function Agenda() {
     return eventDay >= todayStart && eventDay <= oneWeekFromNow;
   });
 
+  const thisMonthEvents = events.filter(event => {
+    if (event.status === 'Cancelado') return false;
+    const [year, month] = event.event_date.split('T')[0].split('-').map(Number);
+    const today = new Date();
+    return year === today.getFullYear() && month === today.getMonth() + 1;
+  });
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
@@ -265,15 +272,13 @@ export default function Agenda() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Receita Semanal</CardTitle>
-                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Este Mês</CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  R$ {thisWeekEvents.reduce((acc, event) => acc + Number(event.total_amount), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </div>
+                <div className="text-2xl font-bold">{thisMonthEvents.length}</div>
                 <p className="text-xs text-muted-foreground">
-                  faturamento previsto
+                  eventos · {thisMonthEvents.reduce((acc, event) => acc + event.total_people, 0)} pessoas
                 </p>
               </CardContent>
             </Card>
