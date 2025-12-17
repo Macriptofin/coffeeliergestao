@@ -22,7 +22,8 @@ interface CashTransaction {
   category: string;
   amount: number;
   payment_method: string;
-  bank_account?: string;
+  bank_account_id?: string;
+  bank_accounts?: { name: string; bank_name: string };
   cost_center_id?: string;
   cost_centers?: { name: string };
   account_id?: string;
@@ -43,10 +44,17 @@ interface Account {
   code: string;
 }
 
+interface BankAccount {
+  id: string;
+  name: string;
+  bank_name: string;
+}
+
 const FluxoCaixa = () => {
   const [transactions, setTransactions] = useState<CashTransaction[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [chartAccounts, setChartAccounts] = useState<Account[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -62,7 +70,7 @@ const FluxoCaixa = () => {
     category: "",
     amount: "",
     payment_method: "",
-    bank_account: "",
+    bank_account_id: "",
     cost_center_id: "",
     account_id: "",
     document_number: "",
@@ -92,20 +100,31 @@ const FluxoCaixa = () => {
 
   const fetchData = async () => {
     try {
-      const [transactionsRes, costCentersRes, chartAccountsRes] = await Promise.all([
+      const [transactionsRes, costCentersRes, chartAccountsRes, bankAccountsRes] = await Promise.all([
         supabase
           .from('cash_transactions')
           .select(`
             *,
             cost_centers(name),
-            chart_of_accounts(name)
+            chart_of_accounts(name),
+            bank_accounts(name, bank_name)
           `)
           .gte('transaction_date', dateFilter.start)
           .lte('transaction_date', dateFilter.end)
           .order('transaction_date', { ascending: false }),
         supabase.from('cost_centers').select('id, name, code').eq('is_active', true),
-        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true)
+        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true),
+        supabase.from('bank_accounts').select('id, name, bank_name').eq('is_active', true)
       ]);
+
+      if (transactionsRes.error) throw transactionsRes.error;
+      if (costCentersRes.error) throw costCentersRes.error;
+      if (chartAccountsRes.error) throw chartAccountsRes.error;
+
+      setTransactions(transactionsRes.data || []);
+      setCostCenters(costCentersRes.data || []);
+      setChartAccounts(chartAccountsRes.data || []);
+      setBankAccounts(bankAccountsRes.data || []);
 
       if (transactionsRes.error) throw transactionsRes.error;
       if (costCentersRes.error) throw costCentersRes.error;
@@ -131,6 +150,7 @@ const FluxoCaixa = () => {
           ...formData,
           cost_center_id: formData.cost_center_id || null,
           account_id: formData.account_id || null,
+          bank_account_id: formData.bank_account_id || null,
           amount: parseFloat(formData.amount),
           reference_type: 'manual'
         }]);
@@ -155,7 +175,7 @@ const FluxoCaixa = () => {
       category: "",
       amount: "",
       payment_method: "",
-      bank_account: "",
+      bank_account_id: "",
       cost_center_id: "",
       account_id: "",
       document_number: "",
@@ -387,13 +407,19 @@ const FluxoCaixa = () => {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="bank_account">Conta Bancária</Label>
-                  <Input
-                    id="bank_account"
-                    value={formData.bank_account}
-                    onChange={(e) => setFormData({...formData, bank_account: e.target.value})}
-                    placeholder="Ex: Conta Corrente - Banco do Brasil"
-                  />
+                  <Label htmlFor="bank_account_id">Conta Bancária</Label>
+                  <Select value={formData.bank_account_id} onValueChange={(value) => setFormData({...formData, bank_account_id: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a conta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bankAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name} - {account.bank_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -478,7 +504,8 @@ const FluxoCaixa = () => {
                 <TableHead>Categoria</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Valor</TableHead>
-                <TableHead>Forma de Pagamento</TableHead>
+                <TableHead>Forma Pgto</TableHead>
+                <TableHead>Conta</TableHead>
                 <TableHead>Centro de Custo</TableHead>
               </TableRow>
             </TableHeader>
@@ -500,6 +527,7 @@ const FluxoCaixa = () => {
                     {transaction.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </TableCell>
                   <TableCell>{transaction.payment_method}</TableCell>
+                  <TableCell>{transaction.bank_accounts?.name || '-'}</TableCell>
                   <TableCell>{transaction.cost_centers?.name || '-'}</TableCell>
                 </TableRow>
               ))}
