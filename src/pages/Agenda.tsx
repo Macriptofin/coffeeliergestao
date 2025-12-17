@@ -228,7 +228,7 @@ export default function Agenda() {
 
         <TabsContent value="dashboard" className="space-y-6">
           {/* Cards de Resumo */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Hoje</CardTitle>
@@ -237,7 +237,7 @@ export default function Agenda() {
               <CardContent>
                 <div className="text-2xl font-bold">{todayEvents.length}</div>
                 <p className="text-xs text-muted-foreground">
-                  eventos programados
+                  eventos · {todayEvents.reduce((acc, event) => acc + event.total_people, 0)} pessoas
                 </p>
               </CardContent>
             </Card>
@@ -250,22 +250,7 @@ export default function Agenda() {
               <CardContent>
                 <div className="text-2xl font-bold">{thisWeekEvents.length}</div>
                 <p className="text-xs text-muted-foreground">
-                  eventos próximos
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total de Pessoas</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {thisWeekEvents.reduce((acc, event) => acc + event.total_people, 0)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  pessoas esta semana
+                  eventos · {thisWeekEvents.reduce((acc, event) => acc + event.total_people, 0)} pessoas
                 </p>
               </CardContent>
             </Card>
