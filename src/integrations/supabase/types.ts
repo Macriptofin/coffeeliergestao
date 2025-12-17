@@ -3927,6 +3927,8 @@ export type Database = {
           due_date: string | null
           edit_approved_at: string | null
           edit_approved_by: string | null
+          freight_amount: number | null
+          freight_cost_center_id: string | null
           id: string
           invoice_date: string
           invoice_number: string
@@ -3952,6 +3954,8 @@ export type Database = {
           due_date?: string | null
           edit_approved_at?: string | null
           edit_approved_by?: string | null
+          freight_amount?: number | null
+          freight_cost_center_id?: string | null
           id?: string
           invoice_date?: string
           invoice_number: string
@@ -3977,6 +3981,8 @@ export type Database = {
           due_date?: string | null
           edit_approved_at?: string | null
           edit_approved_by?: string | null
+          freight_amount?: number | null
+          freight_cost_center_id?: string | null
           id?: string
           invoice_date?: string
           invoice_number?: string
@@ -3999,6 +4005,13 @@ export type Database = {
             columns: ["accounts_payable_id"]
             isOneToOne: false
             referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_freight_cost_center_id_fkey"
+            columns: ["freight_cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
           {
