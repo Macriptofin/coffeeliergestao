@@ -50,6 +50,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [manualInvoiceData, setManualInvoiceData] = useState<any>(null);
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
+  const [editingItemsLocked, setEditingItemsLocked] = useState(false);
   const [paymentData, setPaymentData] = useState({
     paymentMethod: 'Dinheiro',
     responsiblePerson: '',
@@ -140,12 +143,18 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     };
     
     setManualInvoiceData(emptyInvoiceData);
+    setEditingInvoiceId(null);
+    setEditingSupplierId(null);
+    setEditingItemsLocked(false);
     setIsInvoiceDialogOpen(true);
   };
 
   const handleInvoiceLaunch = () => {
     setIsInvoiceDialogOpen(false);
     setManualInvoiceData(null);
+    setEditingInvoiceId(null);
+    setEditingSupplierId(null);
+    setEditingItemsLocked(false);
     onRefresh();
   };
 
@@ -168,16 +177,52 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       if (error) throw error;
 
-      setEditingInvoice(invoice);
-      setEditFormData({
-        invoiceNumber: invoice.invoice_number || '',
-        invoiceDate: invoice.invoice_date || '',
-        notes: invoice.notes || '',
-        formaPagamento: 'Dinheiro',
-        numeroParcelas: 1,
-        prazoPagamentoDias: 30,
-      });
-      setShowEditDialog(true);
+      // Carregar itens da nota fiscal
+      const { data: items, error: itemsError } = await supabase
+        .from('invoice_items')
+        .select(`
+          *,
+          materials:material_id (
+            id,
+            name,
+            code,
+            usage_unit
+          )
+        `)
+        .eq('invoice_id', invoiceId)
+        .order('position');
+
+      if (itemsError) throw itemsError;
+
+      // Converter para formato do InvoiceEditDialog
+      const invoiceData = {
+        fornecedor: invoice.suppliers?.company_name || '',
+        data: invoice.invoice_date || '',
+        numero_nota: invoice.invoice_number || '',
+        itens: (items || []).map((item: any) => ({
+          nome: item.description || item.materials?.name || '',
+          quantidade: item.quantity || 0,
+          unidade: item.unit || 'un',
+          preco_unitario: item.unit_price || 0,
+          preco_total: (item.quantity || 0) * (item.unit_price || 0),
+          desconto: item.discount_amount || 0,
+          material_id: item.material_id,
+          material_nome: item.materials?.name,
+          material_codigo: item.materials?.code,
+          status: item.material_id ? 'matched' : 'not_found',
+          conversion_factor: item.conversion_factor || 1,
+          usage_unit: item.materials?.usage_unit || item.unit,
+          converted_quantity: item.converted_quantity || item.quantity,
+          converted_unit_price: item.converted_unit_price || item.unit_price
+        })),
+        discount_total: invoice.discount_total || 0
+      };
+
+      setManualInvoiceData(invoiceData);
+      setEditingInvoiceId(invoiceId);
+      setEditingSupplierId(invoice.supplier_id);
+      setEditingItemsLocked(invoice.items_locked || false);
+      setIsInvoiceDialogOpen(true);
     } catch (error) {
       console.error('Erro ao carregar nota fiscal:', error);
       toast.error('Erro ao carregar dados da nota fiscal');
@@ -758,12 +803,24 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             {/* Dialog robusto de lançamento com todos os campos */}
             <InvoiceEditDialog
               open={isInvoiceDialogOpen}
-              onOpenChange={setIsInvoiceDialogOpen}
+              onOpenChange={(open) => {
+                setIsInvoiceDialogOpen(open);
+                if (!open) {
+                  setEditingInvoiceId(null);
+                  setEditingSupplierId(null);
+                  setEditingItemsLocked(false);
+                }
+              }}
               invoiceData={manualInvoiceData}
               onLaunch={handleInvoiceLaunch}
               formaPagamento="dinheiro"
               numeroParcelas={1}
               prazoPagamentoDias={30}
+              invoiceId={editingInvoiceId}
+              supplierId={editingSupplierId}
+              isEditMode={!!editingInvoiceId}
+              itemsLocked={editingItemsLocked}
+              isAdmin={isAdmin()}
             />
           </div>
         </CardHeader>
