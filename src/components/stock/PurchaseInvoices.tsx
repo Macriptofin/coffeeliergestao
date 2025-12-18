@@ -433,6 +433,13 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         
         // 1. CONTA A PAGAR - PRODUTOS (vinculada ao fornecedor)
         if (productsAmount > 0) {
+          // Buscar conta contábil 5.1.1 - Compras de Mercadorias
+          const { data: purchaseAccount } = await supabase
+            .from('chart_of_accounts')
+            .select('id')
+            .eq('code', '5.1.1')
+            .single();
+
           const { data: productsPayable, error: productsPayableError } = await supabase
             .from('accounts_payable')
             .insert({
@@ -450,6 +457,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               status: isPaid ? 'Pago' : 'Pendente',
               source_type: 'purchase_invoice',
               source_id: invoiceId,
+              account_id: purchaseAccount?.id || null,
               notes: `Produtos da nota fiscal. Método: ${paymentData.paymentMethod}${paymentData.responsiblePerson ? `, Responsável: ${paymentData.responsiblePerson}` : ''}${isPaid ? ' - Pago automaticamente' : ''}`
             })
             .select()
@@ -476,6 +484,13 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         if (freightAmount > 0) {
           const freightCostCenterId = invoice.freight_cost_center_id;
           
+          // Buscar conta contábil 5.2.3 - Frete e Logística
+          const { data: freightAccount } = await supabase
+            .from('chart_of_accounts')
+            .select('id')
+            .eq('code', '5.2.3')
+            .single();
+
           const { data: freightPayable, error: freightPayableError } = await supabase
             .from('accounts_payable')
             .insert({
@@ -494,6 +509,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               cost_center_id: freightCostCenterId,
               source_type: 'purchase_invoice_freight',
               source_id: invoiceId,
+              account_id: freightAccount?.id || null,
               notes: `Frete/Tele-entrega da nota fiscal ${invoice.invoice_number}. Método: ${paymentData.paymentMethod}${isPaid ? ' - Pago automaticamente' : ''}`
             })
             .select()

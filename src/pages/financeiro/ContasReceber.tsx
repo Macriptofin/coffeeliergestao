@@ -113,8 +113,8 @@ const ContasReceber = () => {
           .order('due_date', { ascending: false }),
         supabase.from('clients').select('id, name').eq('status', 'Ativo'),
         supabase.from('proposals').select('id, proposal_number').order('proposal_number', { ascending: false }),
-        supabase.from('cost_centers').select('id, name, code').eq('is_active', true),
-        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Receitas')
+        supabase.from('cost_centers').select('id, name, code').eq('is_active', true).order('code'),
+        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Receitas').order('code')
       ]);
 
       if (accountsRes.error) throw accountsRes.error;
