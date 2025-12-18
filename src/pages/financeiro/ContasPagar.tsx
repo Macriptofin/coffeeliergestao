@@ -102,8 +102,8 @@ const ContasPagar = () => {
           `)
           .order('due_date', { ascending: false }),
         supabase.from('suppliers').select('id, company_name').eq('status', 'Ativo'),
-        supabase.from('cost_centers').select('id, name, code').eq('is_active', true),
-        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Despesas')
+        supabase.from('cost_centers').select('id, name, code').eq('is_active', true).order('code'),
+        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Despesas').order('code')
       ]);
 
       if (accountsRes.error) throw accountsRes.error;
