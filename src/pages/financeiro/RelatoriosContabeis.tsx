@@ -140,7 +140,7 @@ const RelatoriosContabeis = () => {
       // Buscar transações de caixa para complementar
       const { data: cashTransactions, error: cashError } = await supabase
         .from('cash_transactions')
-        .select('account_id, amount, transaction_type, category')
+        .select('account_id, amount, transaction_type, category, reference_type, reference_id')
         .gte('transaction_date', dateFilter.start)
         .lte('transaction_date', dateFilter.end);
 
@@ -165,9 +165,10 @@ const RelatoriosContabeis = () => {
         }
       });
 
-      // Processar transações de caixa
+      // Processar transações de caixa - APENAS receitas/despesas não contabilizadas em AR/AP
+      // Para evitar duplicação, excluímos transações que tenham reference_id (vinculadas a AP/AR)
       (cashTransactions || []).forEach(item => {
-        if (item.account_id) {
+        if (item.account_id && !item.reference_id) {
           const current = accountValues.get(item.account_id) || 0;
           accountValues.set(item.account_id, current + (item.amount || 0));
         }
