@@ -189,8 +189,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             usage_unit
           )
         `)
-        .eq('invoice_id', invoiceId)
-        .order('position');
+        .eq('invoice_id', invoiceId);
 
       if (itemsError) throw itemsError;
 
