@@ -156,7 +156,7 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
     try {
       const { data, error } = await supabase
         .from('stock_items')
-        .select('material_id, current_quantity');
+        .select('material_id, current_quantity, average_price');
       
       if (error) throw error;
       setStockItems(data || []);
@@ -312,16 +312,22 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
 
         const totalNeeded = bomItem.quantity * productionItem.quantity * productionItem.multiplier;
         
-        // Verificar se os valores necessários existem
-        const pricePerPurchase = material.price_per_purchase_unit || 0;
-        const conversionFactor = material.conversion_factor || 1;
+        // Buscar preço médio do estoque (persiste mesmo com estoque zerado)
+        const stockItem = stockItems.find(s => s.material_id === material.id);
+        const averagePrice = stockItem?.average_price || 0;
         
-        // Log para debug se houver material sem preço
-        if (!material.price_per_purchase_unit || material.price_per_purchase_unit === 0) {
-          console.warn(`Material "${material.name}" (${material.code}) sem preço definido`);
+        // Se não houver preço médio no estoque, usar price_per_purchase_unit como fallback
+        let pricePerUsage = averagePrice;
+        if (!pricePerUsage || pricePerUsage === 0) {
+          const pricePerPurchase = material.price_per_purchase_unit || 0;
+          const conversionFactor = material.conversion_factor || 1;
+          pricePerUsage = pricePerPurchase / conversionFactor;
+          
+          if (pricePerUsage === 0) {
+            console.warn(`Material "${material.name}" (${material.code}) sem preço médio ou de compra definido`);
+          }
         }
         
-        const pricePerUsage = pricePerPurchase / conversionFactor;
         const cost = totalNeeded * pricePerUsage;
 
         if (consolidated[material.id]) {

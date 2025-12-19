@@ -75,7 +75,7 @@ export const BOMProductionOrdersList = () => {
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [includeTechnicalSheets, setIncludeTechnicalSheets] = useState(false);
   const [technicalSheetsData, setTechnicalSheetsData] = useState<any[]>([]);
-  const [stockItems, setStockItems] = useState<Array<{ material_id: string; current_quantity: number }>>([]);
+  const [stockItems, setStockItems] = useState<Array<{ material_id: string; current_quantity: number; average_price: number }>>([]);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -107,7 +107,7 @@ export const BOMProductionOrdersList = () => {
     try {
       const { data, error } = await supabase
         .from('stock_items')
-        .select('material_id, current_quantity');
+        .select('material_id, current_quantity, average_price');
       
       if (error) throw error;
       setStockItems(data || []);
@@ -391,6 +391,30 @@ export const BOMProductionOrdersList = () => {
     return validTransitions[currentStatus]?.includes(targetStatus) || false;
   };
 
+  // Calcula o custo total da ordem usando os preços médios atuais do estoque
+  const calculateOrderCost = (order: ProductionOrder): number => {
+    if (!order.consolidated_materials || order.consolidated_materials.length === 0) {
+      return order.total_cost || 0;
+    }
+    
+    let totalCost = 0;
+    order.consolidated_materials.forEach(cm => {
+      // Buscar preço médio atualizado do estoque
+      const stockItem = stockItems.find(s => s.material_id === cm.material_id);
+      const averagePrice = stockItem?.average_price || 0;
+      
+      // Se houver preço médio no estoque, usar ele; senão, usar o custo salvo
+      if (averagePrice > 0) {
+        totalCost += cm.total_quantity * averagePrice;
+      } else {
+        // Fallback para o custo salvo no material consolidado
+        totalCost += cm.total_cost || 0;
+      }
+    });
+    
+    return totalCost;
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -447,7 +471,7 @@ export const BOMProductionOrdersList = () => {
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-bold text-primary">
-                    R$ {order.total_cost.toFixed(2)}
+                    R$ {calculateOrderCost(order).toFixed(2)}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {order.items.length} produto(s)
