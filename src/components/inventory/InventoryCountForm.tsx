@@ -71,17 +71,17 @@ export const InventoryCountForm = () => {
 
       if (stockError) throw stockError;
 
+      const systemQty = stockData?.current_quantity || 0;
+      
       setStockInfo({
         materialName: materialData.name,
-        systemQuantity: stockData?.current_quantity || 0,
+        systemQuantity: systemQty,
         unit: materialData.usage_unit,
       });
 
-      // Calculate difference when physical quantity changes
-      const physicalQty = form.getValues("physicalQuantity");
-      if (physicalQty !== undefined) {
-        setDifference(physicalQty - (stockData?.current_quantity || 0));
-      }
+      // Calcular diferença imediatamente com a quantidade física atual
+      const physicalQty = form.getValues("physicalQuantity") || 0;
+      setDifference(physicalQty - systemQty);
     } catch (error) {
       console.error("Error fetching material info:", error);
       toast({
@@ -294,7 +294,7 @@ export const InventoryCountForm = () => {
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={loading || !stockInfo || difference === null}
+            disabled={loading || !stockInfo}
           >
             {loading ? "Processando..." : "Processar Ajuste de Inventário"}
           </Button>
