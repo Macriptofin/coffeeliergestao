@@ -153,10 +153,13 @@ export function UsersList({ onEditUser }: UsersListProps) {
     try {
       setLoading(true);
       
+      // Usar URL de produção para garantir que o link funcione corretamente
+      const productionUrl = 'https://app.coffeelier.com.br';
+      
       const { error } = await supabase.functions.invoke('password-reset', {
         body: {
           email: userEmail,
-          redirectTo: `${window.location.origin}/auth?type=recovery`
+          redirectTo: `${productionUrl}/auth?type=recovery`
         }
       });
 
