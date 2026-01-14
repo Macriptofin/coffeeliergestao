@@ -45,6 +45,7 @@ const Auth = () => {
     
     console.log('Detected type:', type);
     console.log('Has token_hash:', !!tokenHash);
+    console.log('Has code:', !!code);
     console.log('Has access_token:', !!accessToken);
     console.log('Error:', error);
     console.log('Error Description:', errorDescription);
@@ -53,6 +54,7 @@ const Auth = () => {
     // Verificar se é um fluxo de recovery por vários indicadores
     const isRecoveryFlow = 
       type === 'recovery' || 
+      window.location.href.includes('type=recovery') ||
       (accessToken && refreshToken && (
         errorDescription?.toLowerCase().includes('password') ||
         errorDescription?.toLowerCase().includes('recovery') ||
@@ -72,6 +74,7 @@ const Auth = () => {
             const { error } = await supabase.auth.exchangeCodeForSession(code);
             if (error) {
               console.error('Erro ao trocar code por sessão (recovery):', error);
+              setError('Link expirado ou inválido. Solicite um novo link de recuperação.');
             } else {
               // Limpar o code da URL para não reprocessar
               const base = `${window.location.origin}/auth#type=recovery`;
@@ -79,6 +82,7 @@ const Auth = () => {
             }
           } catch (err) {
             console.error('Falha ao processar sessão de recovery:', err);
+            setError('Erro ao processar link. Solicite um novo link de recuperação.');
           }
         }, 0);
       } else if (accessToken && refreshToken) {
@@ -119,8 +123,9 @@ const Auth = () => {
       return;
     }
     
-    // PRIORIDADE 3: Modo convite (ainda não processado)
-    if (type === 'invite' || inviteFlag === 'true' || tokenHash || code) {
+    // PRIORIDADE 3: Modo convite (ainda não processado) - MAS não se for recovery!
+    const isInviteFlow = (type === 'invite' || inviteFlag === 'true' || tokenHash || code) && !isRecoveryFlow;
+    if (isInviteFlow) {
       console.log('Modo convite detectado:', { type, tokenHash: !!tokenHash, code: !!code });
       setIsInviteMode(true);
       return;
