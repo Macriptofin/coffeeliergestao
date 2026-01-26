@@ -3,11 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Download, Trash2, FileText, Plus } from 'lucide-react';
+import { Download, Trash2, FileText, Plus, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { EventAttachmentsUpload } from './EventAttachmentsUpload';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface Attachment {
   id: string;
@@ -28,10 +34,23 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<string>('');
+  const [previewName, setPreviewName] = useState<string>('');
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     loadAttachments();
   }, [eventId]);
+
+  // Limpar URL do preview ao fechar
+  useEffect(() => {
+    if (!previewOpen && previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+  }, [previewOpen]);
 
   const loadAttachments = async () => {
     try {
@@ -51,6 +70,44 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
     }
   };
 
+  const handlePreview = async (attachment: Attachment) => {
+    setPreviewLoading(true);
+    setPreviewName(attachment.file_name);
+    setPreviewType(attachment.file_type);
+    setPreviewOpen(true);
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('event-attachments')
+        .download(attachment.file_path);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      setPreviewUrl(url);
+    } catch (error) {
+      console.error('Erro ao carregar preview:', error);
+      toast.error('Erro ao carregar visualização');
+      setPreviewOpen(false);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const canPreview = (fileType: string) => {
+    const previewableTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/svg+xml',
+      'application/pdf',
+      'text/plain',
+      'text/csv',
+    ];
+    return previewableTypes.includes(fileType);
+  };
+
   const handleDownload = async (attachment: Attachment) => {
     try {
       const { data, error } = await supabase.storage
@@ -59,7 +116,6 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
 
       if (error) throw error;
 
-      // Criar URL e fazer download
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
@@ -80,14 +136,12 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
     if (!confirm('Tem certeza que deseja excluir este anexo?')) return;
 
     try {
-      // Deletar do storage
       const { error: storageError } = await supabase.storage
         .from('event-attachments')
         .remove([attachment.file_path]);
 
       if (storageError) throw storageError;
 
-      // Deletar do banco
       const { error: dbError } = await supabase
         .from('event_attachments')
         .delete()
@@ -125,86 +179,159 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
     return colors[type] || 'bg-gray-500';
   };
 
+  const renderPreviewContent = () => {
+    if (previewLoading) {
+      return (
+        <div className="flex items-center justify-center h-96">
+          <div className="text-muted-foreground">Carregando...</div>
+        </div>
+      );
+    }
+
+    if (!previewUrl) return null;
+
+    if (previewType.startsWith('image/')) {
+      return (
+        <div className="flex items-center justify-center max-h-[70vh] overflow-auto">
+          <img
+            src={previewUrl}
+            alt={previewName}
+            className="max-w-full max-h-[70vh] object-contain"
+          />
+        </div>
+      );
+    }
+
+    if (previewType === 'application/pdf') {
+      return (
+        <iframe
+          src={previewUrl}
+          className="w-full h-[70vh] border-0"
+          title={previewName}
+        />
+      );
+    }
+
+    if (previewType.startsWith('text/')) {
+      return (
+        <iframe
+          src={previewUrl}
+          className="w-full h-[70vh] border rounded bg-white"
+          title={previewName}
+        />
+      );
+    }
+
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        Tipo de arquivo não suportado para visualização
+      </div>
+    );
+  };
+
   if (loading) {
     return <div className="text-center py-4">Carregando anexos...</div>;
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Anexos do Evento</span>
-          {!showUpload && (
-            <Button size="sm" onClick={() => setShowUpload(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Anexar Arquivo
-            </Button>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Anexos do Evento</span>
+            {!showUpload && (
+              <Button size="sm" onClick={() => setShowUpload(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Anexar Arquivo
+              </Button>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {showUpload && (
+            <div className="mb-4">
+              <EventAttachmentsUpload
+                eventId={eventId}
+                onUploadSuccess={() => {
+                  setShowUpload(false);
+                  loadAttachments();
+                }}
+                onCancel={() => setShowUpload(false)}
+              />
+            </div>
           )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {showUpload && (
-          <div className="mb-4">
-            <EventAttachmentsUpload
-              eventId={eventId}
-              onUploadSuccess={() => {
-                setShowUpload(false);
-                loadAttachments();
-              }}
-              onCancel={() => setShowUpload(false)}
-            />
-          </div>
-        )}
 
-        {attachments.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>Nenhum arquivo anexado</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {attachments.map((attachment) => (
-              <div
-                key={attachment.id}
-                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <FileText className="h-4 w-4 flex-shrink-0" />
-                    <p className="font-medium truncate">{attachment.file_name}</p>
-                    <Badge className={getTypeColor(attachment.attachment_type)}>
-                      {getTypeLabel(attachment.attachment_type)}
-                    </Badge>
+          {attachments.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>Nenhum arquivo anexado</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {attachments.map((attachment) => (
+                <div
+                  key={attachment.id}
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <FileText className="h-4 w-4 flex-shrink-0" />
+                      <p className="font-medium truncate">{attachment.file_name}</p>
+                      <Badge className={getTypeColor(attachment.attachment_type)}>
+                        {getTypeLabel(attachment.attachment_type)}
+                      </Badge>
+                    </div>
+                    {attachment.description && (
+                      <p className="text-sm text-muted-foreground mb-1">{attachment.description}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {(attachment.file_size / 1024 / 1024).toFixed(2)} MB • 
+                      Enviado em {format(new Date(attachment.uploaded_at), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+                    </p>
                   </div>
-                  {attachment.description && (
-                    <p className="text-sm text-muted-foreground mb-1">{attachment.description}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {(attachment.file_size / 1024 / 1024).toFixed(2)} MB • 
-                    Enviado em {format(new Date(attachment.uploaded_at), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
-                  </p>
+                  <div className="flex gap-2 ml-4">
+                    {canPreview(attachment.file_type) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePreview(attachment)}
+                        title="Visualizar"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownload(attachment)}
+                      title="Baixar"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(attachment)}
+                      title="Excluir"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-2 ml-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDownload(attachment)}
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDelete(attachment)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="truncate">{previewName}</DialogTitle>
+          </DialogHeader>
+          {renderPreviewContent()}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
