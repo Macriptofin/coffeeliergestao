@@ -39,16 +39,21 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
   const [previewType, setPreviewType] = useState<string>('');
   const [previewName, setPreviewName] = useState<string>('');
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [isSignedUrl, setIsSignedUrl] = useState(false);
 
   useEffect(() => {
     loadAttachments();
   }, [eventId]);
 
-  // Limpar URL do preview ao fechar
+  // Limpar URL do preview ao fechar (apenas blob URLs)
   useEffect(() => {
-    if (!previewOpen && previewUrl) {
+    if (!previewOpen && previewUrl && !isSignedUrl) {
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
+    }
+    if (!previewOpen) {
+      setPreviewUrl(null);
+      setIsSignedUrl(false);
     }
   }, [previewOpen]);
 
@@ -77,16 +82,29 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
     setPreviewOpen(true);
 
     try {
-      const { data, error } = await supabase.storage
-        .from('event-attachments')
-        .download(attachment.file_path);
+      // Para PDFs, usar URL assinada diretamente (funciona melhor com visualizadores)
+      if (attachment.file_type === 'application/pdf') {
+        const { data, error } = await supabase.storage
+          .from('event-attachments')
+          .createSignedUrl(attachment.file_path, 3600); // 1 hora de validade
 
-      if (error) throw error;
+        if (error) throw error;
+        
+        setPreviewUrl(data.signedUrl);
+        setIsSignedUrl(true);
+      } else {
+        // Para outros tipos, baixar e criar blob URL
+        const { data, error } = await supabase.storage
+          .from('event-attachments')
+          .download(attachment.file_path);
 
-      // Criar blob com o tipo MIME correto
-      const blob = new Blob([data], { type: attachment.file_type });
-      const url = URL.createObjectURL(blob);
-      setPreviewUrl(url);
+        if (error) throw error;
+
+        const blob = new Blob([data], { type: attachment.file_type });
+        const url = URL.createObjectURL(blob);
+        setPreviewUrl(url);
+        setIsSignedUrl(false);
+      }
     } catch (error) {
       console.error('Erro ao carregar preview:', error);
       toast.error('Erro ao carregar visualização');
@@ -206,24 +224,11 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
 
     if (previewType === 'application/pdf') {
       return (
-        <object
-          data={previewUrl}
-          type="application/pdf"
-          className="w-full h-[70vh]"
+        <iframe
+          src={previewUrl}
+          className="w-full h-[70vh] border-0"
           title={previewName}
-        >
-          <div className="flex flex-col items-center justify-center h-96 text-muted-foreground">
-            <p className="mb-4">Não foi possível exibir o PDF no navegador.</p>
-            <a 
-              href={previewUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary underline"
-            >
-              Clique aqui para abrir em nova aba
-            </a>
-          </div>
-        </object>
+        />
       );
     }
 
