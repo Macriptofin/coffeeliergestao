@@ -82,7 +82,7 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
     setPreviewOpen(true);
 
     try {
-      // Para PDFs, usar URL assinada diretamente (funciona melhor com visualizadores)
+      // Para PDFs, usar URL assinada pública completa
       if (attachment.file_type === 'application/pdf') {
         const { data, error } = await supabase.storage
           .from('event-attachments')
@@ -90,7 +90,9 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
 
         if (error) throw error;
         
-        setPreviewUrl(data.signedUrl);
+        // Construir URL completa do Supabase
+        const fullUrl = `https://njxxqdcwvehlvqufuyww.supabase.co/storage/v1${data.signedUrl}`;
+        setPreviewUrl(fullUrl);
         setIsSignedUrl(true);
       } else {
         // Para outros tipos, baixar e criar blob URL
@@ -224,11 +226,13 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
 
     if (previewType === 'application/pdf') {
       return (
-        <iframe
-          src={previewUrl}
-          className="w-full h-[70vh] border-0"
-          title={previewName}
-        />
+        <div className="w-full h-[70vh]">
+          <embed
+            src={previewUrl}
+            type="application/pdf"
+            className="w-full h-full"
+          />
+        </div>
       );
     }
 
