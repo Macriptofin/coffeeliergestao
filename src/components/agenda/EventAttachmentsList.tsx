@@ -82,7 +82,7 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
     setPreviewOpen(true);
 
     try {
-      // Para PDFs, usar URL assinada pública completa
+      // Para PDFs, usar URL assinada - signedUrl já vem com o path completo
       if (attachment.file_type === 'application/pdf') {
         const { data, error } = await supabase.storage
           .from('event-attachments')
@@ -90,8 +90,15 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
 
         if (error) throw error;
         
-        // Construir URL completa do Supabase
-        const fullUrl = `https://njxxqdcwvehlvqufuyww.supabase.co/storage/v1${data.signedUrl}`;
+        // signedUrl do Supabase já retorna path relativo como "/object/sign/..."
+        // Precisamos construir a URL completa corretamente
+        const baseUrl = 'https://njxxqdcwvehlvqufuyww.supabase.co/storage/v1';
+        // Se signedUrl já começa com http, usar diretamente; senão, concatenar
+        const fullUrl = data.signedUrl.startsWith('http') 
+          ? data.signedUrl 
+          : `${baseUrl}${data.signedUrl}`;
+        
+        console.log('PDF Preview URL:', fullUrl); // Debug
         setPreviewUrl(fullUrl);
         setIsSignedUrl(true);
       } else {
