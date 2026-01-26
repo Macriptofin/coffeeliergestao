@@ -83,7 +83,9 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
 
       if (error) throw error;
 
-      const url = URL.createObjectURL(data);
+      // Criar blob com o tipo MIME correto
+      const blob = new Blob([data], { type: attachment.file_type });
+      const url = URL.createObjectURL(blob);
       setPreviewUrl(url);
     } catch (error) {
       console.error('Erro ao carregar preview:', error);
@@ -204,11 +206,24 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
 
     if (previewType === 'application/pdf') {
       return (
-        <iframe
-          src={previewUrl}
-          className="w-full h-[70vh] border-0"
+        <object
+          data={previewUrl}
+          type="application/pdf"
+          className="w-full h-[70vh]"
           title={previewName}
-        />
+        >
+          <div className="flex flex-col items-center justify-center h-96 text-muted-foreground">
+            <p className="mb-4">Não foi possível exibir o PDF no navegador.</p>
+            <a 
+              href={previewUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary underline"
+            >
+              Clique aqui para abrir em nova aba
+            </a>
+          </div>
+        </object>
       );
     }
 
