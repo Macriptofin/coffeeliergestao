@@ -1236,6 +1236,7 @@ export type Database = {
         Row: {
           address: string | null
           city: string | null
+          client_code: string | null
           cnpj_cpf: string | null
           contact_person: string | null
           created_at: string
@@ -1252,6 +1253,7 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
+          client_code?: string | null
           cnpj_cpf?: string | null
           contact_person?: string | null
           created_at?: string
@@ -1268,6 +1270,7 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
+          client_code?: string | null
           cnpj_cpf?: string | null
           contact_person?: string | null
           created_at?: string
@@ -4059,6 +4062,7 @@ export type Database = {
           department_id: string | null
           event_category: string | null
           event_date: string | null
+          generated_order_id: string | null
           id: string
           notes: string | null
           number_of_people: number
@@ -4087,6 +4091,7 @@ export type Database = {
           department_id?: string | null
           event_category?: string | null
           event_date?: string | null
+          generated_order_id?: string | null
           id?: string
           notes?: string | null
           number_of_people: number
@@ -4115,6 +4120,7 @@ export type Database = {
           department_id?: string | null
           event_category?: string | null
           event_date?: string | null
+          generated_order_id?: string | null
           id?: string
           notes?: string | null
           number_of_people?: number
@@ -4174,6 +4180,13 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "client_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_generated_order_id_fkey"
+            columns: ["generated_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
             referencedColumns: ["id"]
           },
           {
@@ -5229,6 +5242,273 @@ export type Database = {
             columns: ["cost_center_id"]
             isOneToOne: false
             referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_order_items: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string
+          id: string
+          material_id: string | null
+          order_id: string
+          position: number
+          product_id: string | null
+          quantity: number
+          total_price: number
+          total_weight: number | null
+          unit_price: number
+          unit_weight: number | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          material_id?: string | null
+          order_id: string
+          position?: number
+          product_id?: string | null
+          quantity?: number
+          total_price?: number
+          total_weight?: number | null
+          unit_price?: number
+          unit_weight?: number | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          material_id?: string | null
+          order_id?: string
+          position?: number
+          product_id?: string | null
+          quantity?: number
+          total_price?: number
+          total_weight?: number | null
+          unit_price?: number
+          unit_weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "sales_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "sales_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "sales_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "sales_order_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "sales_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_orders: {
+        Row: {
+          bom_production_order_id: string | null
+          client_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          delivered_at: string | null
+          delivered_by: string | null
+          delivery_date: string | null
+          department_id: string | null
+          discount_amount: number
+          event_category: string | null
+          event_date: string | null
+          event_table_id: string | null
+          id: string
+          internal_notes: string | null
+          notes: string | null
+          number_of_people: number | null
+          order_date: string
+          order_number: string
+          payment_status: string
+          production_order_id: string | null
+          proposal_id: string | null
+          room_id: string | null
+          status: string
+          subtotal: number
+          tax_amount: number
+          total_amount: number
+          total_weight: number | null
+          unit_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          bom_production_order_id?: string | null
+          client_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivered_at?: string | null
+          delivered_by?: string | null
+          delivery_date?: string | null
+          department_id?: string | null
+          discount_amount?: number
+          event_category?: string | null
+          event_date?: string | null
+          event_table_id?: string | null
+          id?: string
+          internal_notes?: string | null
+          notes?: string | null
+          number_of_people?: number | null
+          order_date?: string
+          order_number: string
+          payment_status?: string
+          production_order_id?: string | null
+          proposal_id?: string | null
+          room_id?: string | null
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          total_amount?: number
+          total_weight?: number | null
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bom_production_order_id?: string | null
+          client_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivered_at?: string | null
+          delivered_by?: string | null
+          delivery_date?: string | null
+          department_id?: string | null
+          discount_amount?: number
+          event_category?: string | null
+          event_date?: string | null
+          event_table_id?: string | null
+          id?: string
+          internal_notes?: string | null
+          notes?: string | null
+          number_of_people?: number | null
+          order_date?: string
+          order_number?: string
+          payment_status?: string
+          production_order_id?: string | null
+          proposal_id?: string | null
+          room_id?: string | null
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          total_amount?: number
+          total_weight?: number | null
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_orders_bom_production_order_id_fkey"
+            columns: ["bom_production_order_id"]
+            isOneToOne: false
+            referencedRelation: "bom_production_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "client_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "client_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_event_table_id_fkey"
+            columns: ["event_table_id"]
+            isOneToOne: false
+            referencedRelation: "event_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "client_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "client_units"
             referencedColumns: ["id"]
           },
         ]
@@ -6649,6 +6929,10 @@ export type Database = {
       consume_materials_for_production: {
         Args: { p_production_order_id: string }
         Returns: undefined
+      }
+      convert_proposal_to_order: {
+        Args: { p_proposal_id: string }
+        Returns: string
       }
       create_account_lockout: {
         Args: {

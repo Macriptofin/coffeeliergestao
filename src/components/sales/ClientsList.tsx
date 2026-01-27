@@ -36,6 +36,7 @@ import {
 interface Client {
   id: string;
   name: string;
+  client_code?: string;
   cnpj_cpf?: string;
   email?: string;
   phone?: string;
@@ -50,6 +51,7 @@ interface Client {
   updated_at: string;
   _departments_count?: number;
   _contacts_count?: number;
+  _units_count?: number;
 }
 
 interface Props {
@@ -86,13 +88,14 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
 
       if (clientsError) throw clientsError;
 
-      // Load counts for departments and contacts
+      // Load counts for departments, contacts, and units
       const clientIds = clientsData?.map(c => c.id) || [];
       
       if (clientIds.length > 0) {
-        const [deptsRes, contactsRes] = await Promise.all([
+        const [deptsRes, contactsRes, unitsRes] = await Promise.all([
           supabase.from('client_departments').select('client_id'),
-          supabase.from('client_contacts').select('client_id')
+          supabase.from('client_contacts').select('client_id'),
+          supabase.from('client_units').select('client_id')
         ]);
 
         const deptCounts = (deptsRes.data || []).reduce((acc, d) => {
@@ -105,10 +108,16 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
           return acc;
         }, {} as Record<string, number>);
 
+        const unitCounts = (unitsRes.data || []).reduce((acc, u) => {
+          acc[u.client_id] = (acc[u.client_id] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
         const enrichedClients = clientsData?.map(client => ({
           ...client,
           _departments_count: deptCounts[client.id] || 0,
-          _contacts_count: contactCounts[client.id] || 0
+          _contacts_count: contactCounts[client.id] || 0,
+          _units_count: unitCounts[client.id] || 0
         })) || [];
 
         setClients(enrichedClients);
@@ -153,6 +162,7 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
     const matchesSearch = !searchTerm || 
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.client_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.cnpj_cpf?.includes(searchTerm) ||
       client.phone?.includes(searchTerm);
     
@@ -261,51 +271,56 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
           </div>
 
           {/* Tabela */}
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Contato</TableHead>
+                  <TableHead className="w-[100px]">Código</TableHead>
+                  <TableHead className="min-w-[200px]">Cliente</TableHead>
+                  <TableHead className="min-w-[180px]">Contato</TableHead>
                   <TableHead>Localização</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Cadastro</TableHead>
-                  <TableHead>Estrutura</TableHead>
-                  <TableHead>Ações</TableHead>
+                  <TableHead className="w-[90px]">Status</TableHead>
+                  <TableHead className="w-[120px]">Estrutura</TableHead>
+                  <TableHead className="w-[130px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredClients.length > 0 ? (
                   filteredClients.map((client) => (
-                    <TableRow key={client.id}>
+                    <TableRow key={client.id} className="group">
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {client.client_code || '-'}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{client.name}</div>
+                          <div className="font-medium whitespace-nowrap">{client.name}</div>
                           {client.cnpj_cpf && (
-                            <div className="text-sm text-muted-foreground">
+                            <div className="text-xs text-muted-foreground">
                               {client.cnpj_cpf}
-                            </div>
-                          )}
-                          {client.contact_person && (
-                            <div className="text-sm text-muted-foreground flex items-center gap-1">
-                              <User size={12} />
-                              {client.contact_person}
                             </div>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="space-y-1">
-                          {client.email && (
+                        <div className="space-y-0.5">
+                          {client.contact_person && (
                             <div className="flex items-center gap-1 text-sm">
-                              <Mail size={12} />
-                              {client.email}
+                              <User size={12} className="text-muted-foreground" />
+                              <span className="truncate max-w-[140px]">{client.contact_person}</span>
                             </div>
                           )}
                           {client.phone && (
-                            <div className="flex items-center gap-1 text-sm">
-                              <Phone size={12} />
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Phone size={10} />
                               {client.phone}
+                            </div>
+                          )}
+                          {client.email && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Mail size={10} />
+                              <span className="truncate max-w-[140px]">{client.email}</span>
                             </div>
                           )}
                         </div>
@@ -313,8 +328,10 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
                       <TableCell>
                         {client.city || client.state ? (
                           <div className="flex items-center gap-1 text-sm">
-                            <MapPin size={12} />
-                            {[client.city, client.state].filter(Boolean).join(', ')}
+                            <MapPin size={12} className="text-muted-foreground" />
+                            <span className="truncate max-w-[100px]">
+                              {[client.city, client.state].filter(Boolean).join(', ')}
+                            </span>
                           </div>
                         ) : (
                           <span className="text-muted-foreground text-sm">-</span>
@@ -322,41 +339,40 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
                       </TableCell>
                       <TableCell>{getStatusBadge(client.status)}</TableCell>
                       <TableCell>
-                        <div className="text-sm text-muted-foreground">
-                          {new Date(client.created_at).toLocaleDateString('pt-BR')}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          {(client._departments_count || 0) > 0 && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="flex items-center gap-0.5">
-                                    <Building2 size={12} />
-                                    {client._departments_count}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>Departamentos</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                          {(client._contacts_count || 0) > 0 && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="flex items-center gap-0.5 ml-2">
-                                    <UserCircle size={12} />
-                                    {client._contacts_count}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>Contatos</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                          {(client._departments_count || 0) === 0 && (client._contacts_count || 0) === 0 && (
-                            <span>-</span>
-                          )}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="flex items-center gap-0.5 bg-muted px-1.5 py-0.5 rounded">
+                                  <Building2 size={10} />
+                                  {client._departments_count || 0}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>Departamentos</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="flex items-center gap-0.5 bg-muted px-1.5 py-0.5 rounded">
+                                  <UserCircle size={10} />
+                                  {client._contacts_count || 0}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>Contatos</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="flex items-center gap-0.5 bg-muted px-1.5 py-0.5 rounded">
+                                  <MapPin size={10} />
+                                  {client._units_count || 0}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>Unidades</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -424,7 +440,7 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       {searchTerm || statusFilter !== 'all'
                         ? 'Nenhum cliente encontrado com os filtros aplicados.'
                         : 'Nenhum cliente cadastrado ainda.'}

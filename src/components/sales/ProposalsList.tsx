@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Copy, Trash2, Factory } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Copy, Trash2, Factory, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Table,
@@ -30,6 +30,7 @@ interface Proposal {
   created_at: string;
   auto_generated_event_table_id?: string;
   auto_generated_bom_order_id?: string;
+  generated_order_id?: string;
   clients?: {
     name: string;
   };
@@ -126,6 +127,22 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
     } catch (error: any) {
       console.error('Erro ao gerar produção:', error);
       toast.error(error.message || 'Erro ao gerar produção');
+    }
+  };
+
+  const handleConvertToOrder = async (proposalId: string) => {
+    try {
+      const { data, error } = await supabase.rpc('convert_proposal_to_order', {
+        p_proposal_id: proposalId
+      });
+
+      if (error) throw error;
+
+      toast.success('Proposta convertida em pedido com sucesso!');
+      loadProposals();
+    } catch (error: any) {
+      console.error('Erro ao converter proposta:', error);
+      toast.error(error.message || 'Erro ao converter proposta em pedido');
     }
   };
 
@@ -339,9 +356,20 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                           >
                             <Edit size={14} />
                           </Button>
-                          {proposal.status === 'Enviada' && !proposal.auto_generated_event_table_id && !proposal.auto_generated_bom_order_id && (
+                          {(proposal.status === 'Enviada' || proposal.status === 'Aprovada') && !proposal.generated_order_id && (
                             <Button
                               variant="default"
+                              size="sm"
+                              onClick={() => handleConvertToOrder(proposal.id)}
+                              title="Converter em Pedido"
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              <ShoppingCart size={14} />
+                            </Button>
+                          )}
+                          {proposal.status === 'Enviada' && !proposal.auto_generated_event_table_id && !proposal.auto_generated_bom_order_id && (
+                            <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => handleGenerateProduction(proposal.id)}
                               title="Gerar Produção"
