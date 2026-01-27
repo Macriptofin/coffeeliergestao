@@ -10,6 +10,7 @@ import ProposalForm from '@/components/sales/ProposalForm';
 import ProposalsList from '@/components/sales/ProposalsList';
 import ClientForm from '@/components/sales/ClientForm';
 import ClientsList from '@/components/sales/ClientsList';
+import ClientDetails from '@/components/sales/client/ClientDetails';
 import ProposalCategoryComposer from '@/components/sales/ProposalCategoryComposer';
 
 interface Client {
@@ -56,6 +57,7 @@ const Sales = () => {
   const [createdProposalId, setCreatedProposalId] = useState<string | null>(null);
   const [showProposalComposer, setShowProposalComposer] = useState(false);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [viewingClientId, setViewingClientId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -173,18 +175,38 @@ const Sales = () => {
 
   const handleEditClient = (id: string) => {
     setEditingClientId(id);
+    setViewingClientId(null);
     setShowClientForm(true);
+  };
+
+  const handleViewClient = (id: string) => {
+    setViewingClientId(id);
+    setShowClientForm(false);
+    setEditingClientId(null);
   };
 
   const handleClientSuccess = () => {
     setShowClientForm(false);
     setEditingClientId(null);
+    setViewingClientId(null);
     loadClients();
   };
 
   const handleClientCancel = () => {
     setShowClientForm(false);
     setEditingClientId(null);
+  };
+
+  const handleClientDetailsBack = () => {
+    setViewingClientId(null);
+  };
+
+  const handleClientDetailsEdit = () => {
+    if (viewingClientId) {
+      setEditingClientId(viewingClientId);
+      setViewingClientId(null);
+      setShowClientForm(true);
+    }
   };
 
   if (loading) {
@@ -374,7 +396,13 @@ const Sales = () => {
         </TabsContent>
 
         <TabsContent value="clients" className="mt-6">
-          {showClientForm ? (
+          {viewingClientId ? (
+            <ClientDetails
+              clientId={viewingClientId}
+              onBack={handleClientDetailsBack}
+              onEdit={handleClientDetailsEdit}
+            />
+          ) : showClientForm ? (
             <ClientForm
               clientId={editingClientId || undefined}
               onSuccess={handleClientSuccess}
@@ -384,6 +412,7 @@ const Sales = () => {
             <ClientsList
               onNewClient={handleNewClient}
               onEditClient={handleEditClient}
+              onViewClient={handleViewClient}
             />
           )}
         </TabsContent>
