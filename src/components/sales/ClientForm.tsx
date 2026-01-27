@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 
 interface ClientFormData {
   name: string;
+  client_type: 'PF' | 'PJ';
   cnpj_cpf?: string;
   email?: string;
   phone?: string;
@@ -40,7 +41,8 @@ export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ClientFormData>({
     defaultValues: {
-      status: 'Ativo'
+      status: 'Ativo',
+      client_type: 'PJ'
     }
   });
 
@@ -76,6 +78,7 @@ export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
 
       const clientData = {
         name: data.name,
+        client_type: data.client_type,
         cnpj_cpf: data.cnpj_cpf || null,
         email: data.email || null,
         phone: data.phone || null,
@@ -171,21 +174,37 @@ export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Informações Básicas</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="name">Nome/Razão Social *</Label>
+                <Label htmlFor="client_type">Tipo de Cliente *</Label>
+                <Select
+                  value={watch('client_type')}
+                  onValueChange={(value: 'PF' | 'PJ') => setValue('client_type', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PJ">Pessoa Jurídica (PJ)</SelectItem>
+                    <SelectItem value="PF">Pessoa Física (PF)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="lg:col-span-2">
+                <Label htmlFor="name">{watch('client_type') === 'PJ' ? 'Razão Social *' : 'Nome Completo *'}</Label>
                 <Input
                   {...register('name', { required: 'Nome é obrigatório' })}
-                  placeholder="Nome do cliente ou empresa"
+                  placeholder={watch('client_type') === 'PJ' ? 'Razão social da empresa' : 'Nome completo'}
                 />
                 {errors.name && <span className="text-sm text-destructive">{errors.name.message}</span>}
               </div>
 
               <div>
-                <Label htmlFor="cnpj_cpf">CPF/CNPJ</Label>
+                <Label htmlFor="cnpj_cpf">{watch('client_type') === 'PJ' ? 'CNPJ' : 'CPF'}</Label>
                 <Input
                   {...register('cnpj_cpf')}
-                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                  placeholder={watch('client_type') === 'PJ' ? '00.000.000/0000-00' : '000.000.000-00'}
                   onChange={(e) => {
                     const formatted = formatCnpjCpf(e.target.value);
                     setValue('cnpj_cpf', formatted);
