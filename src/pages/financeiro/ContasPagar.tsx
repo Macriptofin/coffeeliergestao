@@ -644,14 +644,14 @@ const ContasPagar = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[30%]">Fornecedor</TableHead>
-                <TableHead className="w-[10%]">Emissão</TableHead>
-                <TableHead className="w-[10%]">Vencimento</TableHead>
-                <TableHead className="w-[12%]">Valor Original</TableHead>
-                <TableHead className="w-[12%]">Valor Pago</TableHead>
-                <TableHead className="w-[10%]">Saldo</TableHead>
-                <TableHead className="w-[8%]">Status</TableHead>
-                <TableHead className="w-[8%]">Ações</TableHead>
+                <TableHead className="min-w-[200px]">Fornecedor</TableHead>
+                <TableHead className="whitespace-nowrap">Emissão</TableHead>
+                <TableHead className="whitespace-nowrap">Vencimento</TableHead>
+                <TableHead className="whitespace-nowrap">Valor Original</TableHead>
+                <TableHead className="whitespace-nowrap">Valor Pago</TableHead>
+                <TableHead className="whitespace-nowrap">Saldo</TableHead>
+                <TableHead className="whitespace-nowrap">Status</TableHead>
+                <TableHead className="whitespace-nowrap">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -662,7 +662,7 @@ const ContasPagar = () => {
                     className="cursor-pointer hover:bg-muted/50 border-b-0"
                     onClick={() => handleViewDetails(account)}
                   >
-                    <TableCell className="font-medium pb-0">{account.suppliers?.company_name || '-'}</TableCell>
+                    <TableCell className="font-medium pb-0 whitespace-nowrap">{account.suppliers?.company_name || '-'}</TableCell>
                     <TableCell className="pb-0">
                       {format(new Date(account.issue_date), 'dd/MM/yyyy', { locale: ptBR })}
                     </TableCell>
