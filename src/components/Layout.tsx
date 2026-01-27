@@ -146,7 +146,7 @@ if (!session || !user) {
 
         {/* Main Content - with left margin to account for fixed sidebar */}
         <main className="md:ml-64 min-h-[calc(100vh-6rem)] pt-8">
-          <div className="container mx-auto px-6 max-w-7xl">
+          <div className="px-6 lg:px-8 xl:px-12 2xl:px-16">
             <Outlet />
           </div>
         </main>
