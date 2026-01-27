@@ -656,87 +656,93 @@ const ContasPagar = () => {
             </TableHeader>
             <TableBody>
               {filteredAccounts.map((account) => (
-                <TableRow 
-                  key={account.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => handleViewDetails(account)}
-                >
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{account.suppliers?.company_name || '-'}</span>
-                      {account.description && (
-                        <span className="text-xs text-muted-foreground mt-0.5">{account.description}</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {format(new Date(account.issue_date), 'dd/MM/yyyy', { locale: ptBR })}
-                  </TableCell>
-                  <TableCell>
-                    {format(new Date(account.due_date), 'dd/MM/yyyy', { locale: ptBR })}
-                  </TableCell>
-                  <TableCell>
-                    {account.original_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </TableCell>
-                  <TableCell>
-                    {account.paid_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </TableCell>
-                  <TableCell>
-                    {account.remaining_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(account.status)}</TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleViewDetails(account)}
-                        title="Ver detalhes"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleEdit(account)}
-                        title="Editar"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      {account.status !== 'Cancelado' && account.status !== 'Pago' && (
+                <>
+                  <TableRow 
+                    key={account.id}
+                    className="cursor-pointer hover:bg-muted/50 border-b-0"
+                    onClick={() => handleViewDetails(account)}
+                  >
+                    <TableCell className="font-medium pb-0">{account.suppliers?.company_name || '-'}</TableCell>
+                    <TableCell className="pb-0">
+                      {format(new Date(account.issue_date), 'dd/MM/yyyy', { locale: ptBR })}
+                    </TableCell>
+                    <TableCell className="pb-0">
+                      {format(new Date(account.due_date), 'dd/MM/yyyy', { locale: ptBR })}
+                    </TableCell>
+                    <TableCell className="pb-0">
+                      {account.original_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </TableCell>
+                    <TableCell className="pb-0">
+                      {account.paid_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </TableCell>
+                    <TableCell className="pb-0">
+                      {account.remaining_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </TableCell>
+                    <TableCell className="pb-0">{getStatusBadge(account.status)}</TableCell>
+                    <TableCell className="pb-0" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1">
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleCancel(account)}
-                          title="Cancelar"
-                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => handleViewDetails(account)}
+                          title="Ver detalhes"
                         >
-                          <XCircle className="h-4 w-4" />
+                          <Eye className="h-4 w-4" />
                         </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDelete(account)}
-                        title="Excluir"
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      {(account.status === 'Pendente' || account.status === 'Parcial' || account.status === 'Vencido') && account.remaining_amount > 0 && (
                         <Button
                           size="sm"
-                          variant="outline"
-                          onClick={() => handlePayment(account)}
-                          className="flex items-center gap-2 ml-1"
+                          variant="ghost"
+                          onClick={() => handleEdit(account)}
+                          title="Editar"
                         >
-                          <CheckCircle className="h-4 w-4" />
-                          Pagar
+                          <Pencil className="h-4 w-4" />
                         </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
+                        {account.status !== 'Cancelado' && account.status !== 'Pago' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleCancel(account)}
+                            title="Cancelar"
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(account)}
+                          title="Excluir"
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        {(account.status === 'Pendente' || account.status === 'Parcial' || account.status === 'Vencido') && account.remaining_amount > 0 && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePayment(account)}
+                            className="flex items-center gap-2 ml-1"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            Pagar
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {account.description && (
+                    <TableRow 
+                      key={`${account.id}-desc`}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleViewDetails(account)}
+                    >
+                      <TableCell colSpan={8} className="pt-0 pb-3">
+                        <span className="text-xs text-muted-foreground">{account.description}</span>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
               ))}
             </TableBody>
           </Table>
