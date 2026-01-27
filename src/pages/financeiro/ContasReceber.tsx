@@ -399,12 +399,19 @@ const ContasReceber = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const totalPendente = accounts
-    .filter(acc => acc.status === 'Pendente' || acc.status === 'Parcial')
+  // Total a Receber = tudo que ainda não foi recebido (Pendente + Parcial + Vencido)
+  const totalAReceber = accounts
+    .filter(acc => acc.status === 'Pendente' || acc.status === 'Parcial' || acc.status === 'Vencido')
     .reduce((sum, acc) => sum + acc.remaining_amount, 0);
 
+  // Total Vencido = apenas contas vencidas
   const totalVencido = accounts
     .filter(acc => acc.status === 'Vencido')
+    .reduce((sum, acc) => sum + acc.remaining_amount, 0);
+
+  // A Vencer = contas pendentes que ainda não venceram (Pendente + Parcial)
+  const totalAVencer = accounts
+    .filter(acc => acc.status === 'Pendente' || acc.status === 'Parcial')
     .reduce((sum, acc) => sum + acc.remaining_amount, 0);
 
   if (loading) {
@@ -429,7 +436,7 @@ const ContasReceber = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {totalPendente.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              {totalAReceber.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </div>
           </CardContent>
         </Card>
@@ -448,11 +455,13 @@ const ContasReceber = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Contas</CardTitle>
+            <CardTitle className="text-sm font-medium">A Vencer</CardTitle>
             <Receipt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{accounts.length}</div>
+            <div className="text-2xl font-bold text-amber-600">
+              {totalAVencer.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </div>
           </CardContent>
         </Card>
       </div>
