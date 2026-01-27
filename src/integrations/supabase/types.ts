@@ -1237,6 +1237,7 @@ export type Database = {
           address: string | null
           city: string | null
           client_code: string | null
+          client_type: string
           cnpj_cpf: string | null
           contact_person: string | null
           created_at: string
@@ -1254,6 +1255,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           client_code?: string | null
+          client_type?: string
           cnpj_cpf?: string | null
           contact_person?: string | null
           created_at?: string
@@ -1271,6 +1273,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           client_code?: string | null
+          client_type?: string
           cnpj_cpf?: string | null
           contact_person?: string | null
           created_at?: string

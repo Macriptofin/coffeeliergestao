@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Building2, Building, DoorOpen, UserCircle, FileText, Edit } from 'lucide-react';
+import { ArrowLeft, Building2, Building, DoorOpen, UserCircle, Edit, Mail, Phone, MapPin, FileText, User } from 'lucide-react';
 import { toast } from 'sonner';
 import ClientDepartments from './ClientDepartments';
 import ClientUnits from './ClientUnits';
@@ -14,6 +14,8 @@ import ClientContacts from './ClientContacts';
 interface Client {
   id: string;
   name: string;
+  client_code: string | null;
+  client_type: 'PF' | 'PJ';
   cnpj_cpf: string | null;
   email: string | null;
   phone: string | null;
@@ -25,6 +27,7 @@ interface Client {
   status: string;
   notes: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 interface Stats {
@@ -64,7 +67,7 @@ export default function ClientDetails({ clientId, onBack, onEdit }: Props) {
 
       if (clientRes.error) throw clientRes.error;
 
-      setClient(clientRes.data);
+      setClient(clientRes.data as Client);
       setStats({
         departments: deptRes.count || 0,
         units: unitsRes.count || 0,
@@ -106,17 +109,30 @@ export default function ClientDetails({ clientId, onBack, onEdit }: Props) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-1" />
             Voltar
           </Button>
           <div>
-            <h2 className="text-2xl font-bold">{client.name}</h2>
-            {client.cnpj_cpf && (
-              <p className="text-sm text-muted-foreground">{client.cnpj_cpf}</p>
-            )}
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-bold">{client.name}</h2>
+              <Badge variant="outline" className="font-mono text-xs">
+                {client.client_type === 'PJ' ? 'Pessoa Jurídica' : 'Pessoa Física'}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {client.client_code && (
+                <span className="font-mono">{client.client_code}</span>
+              )}
+              {client.cnpj_cpf && (
+                <>
+                  <span>•</span>
+                  <span>{client.client_type === 'PJ' ? 'CNPJ' : 'CPF'}: {client.cnpj_cpf}</span>
+                </>
+              )}
+            </div>
           </div>
           <Badge variant={client.status === 'Ativo' ? 'default' : 'secondary'}>
             {client.status}
@@ -127,6 +143,86 @@ export default function ClientDetails({ clientId, onBack, onEdit }: Props) {
           Editar Dados
         </Button>
       </div>
+
+      {/* Client Info Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Informações do Cliente
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Contato */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Contato</h4>
+              {client.contact_person && (
+                <div className="flex items-center gap-2 text-sm">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span>{client.contact_person}</span>
+                </div>
+              )}
+              {client.email && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <a href={`mailto:${client.email}`} className="text-primary hover:underline">
+                    {client.email}
+                  </a>
+                </div>
+              )}
+              {client.phone && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <a href={`tel:${client.phone}`} className="text-primary hover:underline">
+                    {client.phone}
+                  </a>
+                </div>
+              )}
+              {!client.contact_person && !client.email && !client.phone && (
+                <p className="text-sm text-muted-foreground italic">Nenhum contato cadastrado</p>
+              )}
+            </div>
+
+            {/* Endereço */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Endereço</h4>
+              {(client.address || client.city || client.state || client.zip_code) ? (
+                <div className="flex items-start gap-2 text-sm">
+                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div>
+                    {client.address && <p>{client.address}</p>}
+                    {(client.city || client.state) && (
+                      <p>{[client.city, client.state].filter(Boolean).join(' - ')}</p>
+                    )}
+                    {client.zip_code && <p>CEP: {client.zip_code}</p>}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Nenhum endereço cadastrado</p>
+              )}
+            </div>
+
+            {/* Observações */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Observações</h4>
+              {client.notes ? (
+                <p className="text-sm whitespace-pre-wrap">{client.notes}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Nenhuma observação</p>
+              )}
+            </div>
+          </div>
+
+          {/* Datas */}
+          <div className="mt-6 pt-4 border-t flex gap-6 text-xs text-muted-foreground">
+            <span>Cadastrado em: {new Date(client.created_at).toLocaleDateString('pt-BR')}</span>
+            {client.updated_at && (
+              <span>Atualizado em: {new Date(client.updated_at).toLocaleDateString('pt-BR')}</span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
