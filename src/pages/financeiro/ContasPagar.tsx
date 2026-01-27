@@ -645,7 +645,6 @@ const ContasPagar = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Fornecedor</TableHead>
-                <TableHead>Descrição</TableHead>
                 <TableHead>Emissão</TableHead>
                 <TableHead>Vencimento</TableHead>
                 <TableHead>Valor Original</TableHead>
@@ -662,8 +661,14 @@ const ContasPagar = () => {
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleViewDetails(account)}
                 >
-                  <TableCell>{account.suppliers?.company_name || '-'}</TableCell>
-                  <TableCell>{account.description}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{account.suppliers?.company_name || '-'}</span>
+                      {account.description && (
+                        <span className="text-xs text-muted-foreground mt-0.5">{account.description}</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {format(new Date(account.issue_date), 'dd/MM/yyyy', { locale: ptBR })}
                   </TableCell>
