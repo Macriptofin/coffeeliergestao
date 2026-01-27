@@ -271,7 +271,7 @@ export default function OrdersList({ onViewOrder }: Props) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[120px]">Pedido</TableHead>
+                  <TableHead className="min-w-[140px] whitespace-nowrap">Pedido</TableHead>
                   <TableHead className="min-w-[180px]">Cliente</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Data Evento</TableHead>
@@ -286,11 +286,11 @@ export default function OrdersList({ onViewOrder }: Props) {
                 {filteredOrders.length > 0 ? (
                   filteredOrders.map((order) => (
                     <TableRow key={order.id}>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <div>
-                          <div className="font-medium">{order.order_number}</div>
+                          <div className="font-medium whitespace-nowrap">{order.order_number}</div>
                           {order.proposals?.proposal_number && (
-                            <div className="text-xs text-muted-foreground">
+                            <div className="text-xs text-muted-foreground whitespace-nowrap">
                               Prop: {order.proposals.proposal_number}
                             </div>
                           )}
