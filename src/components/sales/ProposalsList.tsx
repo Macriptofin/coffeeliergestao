@@ -302,7 +302,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Número</TableHead>
+                  <TableHead className="min-w-[130px] whitespace-nowrap">Número</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Categoria</TableHead>
@@ -318,7 +318,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                 {filteredProposals.length > 0 ? (
                   filteredProposals.map((proposal) => (
                     <TableRow key={proposal.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium whitespace-nowrap">
                         {proposal.proposal_number}
                       </TableCell>
                       <TableCell>

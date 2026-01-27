@@ -275,7 +275,7 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">Código</TableHead>
+                  <TableHead className="w-[120px] whitespace-nowrap">Código</TableHead>
                   <TableHead className="min-w-[200px]">Cliente</TableHead>
                   <TableHead className="min-w-[180px]">Contato</TableHead>
                   <TableHead>Localização</TableHead>
@@ -288,8 +288,8 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
                 {filteredClients.length > 0 ? (
                   filteredClients.map((client) => (
                     <TableRow key={client.id} className="group">
-                      <TableCell>
-                        <Badge variant="outline" className="font-mono text-xs">
+                      <TableCell className="whitespace-nowrap">
+                        <Badge variant="outline" className="font-mono text-xs whitespace-nowrap">
                           {client.client_code || '-'}
                         </Badge>
                       </TableCell>
