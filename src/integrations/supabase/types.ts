@@ -1030,6 +1030,208 @@ export type Database = {
           },
         ]
       }
+      client_contacts: {
+        Row: {
+          client_id: string
+          created_at: string
+          department_id: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          is_primary: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          role: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          department_id?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          is_primary?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          role?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          department_id?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          is_primary?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          role?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_contacts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_contacts_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "client_departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_departments: {
+        Row: {
+          client_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_departments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_rooms: {
+        Row: {
+          capacity: number | null
+          client_id: string
+          created_at: string
+          floor: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          unit_id: string
+          updated_at: string
+        }
+        Insert: {
+          capacity?: number | null
+          client_id: string
+          created_at?: string
+          floor?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          unit_id: string
+          updated_at?: string
+        }
+        Update: {
+          capacity?: number | null
+          client_id?: string
+          created_at?: string
+          floor?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          unit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_rooms_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_rooms_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "client_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_units: {
+        Row: {
+          address: string | null
+          city: string | null
+          client_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          state: string | null
+          updated_at: string
+          zip_code: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          client_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          state?: string | null
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          state?: string | null
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_units_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
@@ -2227,45 +2429,57 @@ export type Database = {
           attendees: number
           client_id: string | null
           client_name: string
+          contact_id: string | null
           created_at: string
           date_end: string | null
           date_start: string
+          department_id: string | null
           event_code: string
           id: string
           notes: string | null
           profile_id: string | null
+          room_id: string | null
           status: string
           template_id: string | null
+          unit_id: string | null
           updated_at: string
         }
         Insert: {
           attendees: number
           client_id?: string | null
           client_name: string
+          contact_id?: string | null
           created_at?: string
           date_end?: string | null
           date_start: string
+          department_id?: string | null
           event_code: string
           id?: string
           notes?: string | null
           profile_id?: string | null
+          room_id?: string | null
           status?: string
           template_id?: string | null
+          unit_id?: string | null
           updated_at?: string
         }
         Update: {
           attendees?: number
           client_id?: string | null
           client_name?: string
+          contact_id?: string | null
           created_at?: string
           date_end?: string | null
           date_start?: string
+          department_id?: string | null
           event_code?: string
           id?: string
           notes?: string | null
           profile_id?: string | null
+          room_id?: string | null
           status?: string
           template_id?: string | null
+          unit_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2277,6 +2491,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_tables_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "client_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_tables_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "client_departments"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "event_tables_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
@@ -2284,10 +2512,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_tables_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "client_rooms"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "event_tables_template_id_fkey"
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "event_table_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_tables_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "client_units"
             referencedColumns: ["id"]
           },
         ]
@@ -3812,7 +4054,9 @@ export type Database = {
           auto_generated_event_id: string | null
           auto_generated_event_table_id: string | null
           client_id: string
+          contact_id: string | null
           created_at: string
+          department_id: string | null
           event_category: string | null
           event_date: string | null
           id: string
@@ -3823,11 +4067,13 @@ export type Database = {
           proposal_date: string
           proposal_kind: string | null
           proposal_number: string
+          room_id: string | null
           status: string
           target_weight_per_person: number
           total_amount: number
           total_target_weight: number | null
           total_weight: number
+          unit_id: string | null
           updated_at: string
           version: number
         }
@@ -3836,7 +4082,9 @@ export type Database = {
           auto_generated_event_id?: string | null
           auto_generated_event_table_id?: string | null
           client_id: string
+          contact_id?: string | null
           created_at?: string
+          department_id?: string | null
           event_category?: string | null
           event_date?: string | null
           id?: string
@@ -3847,11 +4095,13 @@ export type Database = {
           proposal_date?: string
           proposal_kind?: string | null
           proposal_number: string
+          room_id?: string | null
           status?: string
           target_weight_per_person?: number
           total_amount?: number
           total_target_weight?: number | null
           total_weight?: number
+          unit_id?: string | null
           updated_at?: string
           version?: number
         }
@@ -3860,7 +4110,9 @@ export type Database = {
           auto_generated_event_id?: string | null
           auto_generated_event_table_id?: string | null
           client_id?: string
+          contact_id?: string | null
           created_at?: string
+          department_id?: string | null
           event_category?: string | null
           event_date?: string | null
           id?: string
@@ -3871,11 +4123,13 @@ export type Database = {
           proposal_date?: string
           proposal_kind?: string | null
           proposal_number?: string
+          room_id?: string | null
           status?: string
           target_weight_per_person?: number
           total_amount?: number
           total_target_weight?: number | null
           total_weight?: number
+          unit_id?: string | null
           updated_at?: string
           version?: number
         }
@@ -3909,10 +4163,38 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "proposals_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "client_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "client_departments"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "proposals_parent_proposal_id_fkey"
             columns: ["parent_proposal_id"]
             isOneToOne: false
             referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "client_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "client_units"
             referencedColumns: ["id"]
           },
         ]

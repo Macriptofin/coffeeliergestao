@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User, Eye, Building2, UserCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Table,
@@ -26,6 +26,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface Client {
   id: string;
@@ -42,11 +48,14 @@ interface Client {
   notes?: string;
   created_at: string;
   updated_at: string;
+  _departments_count?: number;
+  _contacts_count?: number;
 }
 
 interface Props {
   onNewClient: () => void;
   onEditClient: (id: string) => void;
+  onViewClient?: (id: string) => void;
 }
 
 const statusOptions = [
@@ -55,7 +64,7 @@ const statusOptions = [
   { value: 'Suspenso', label: 'Suspenso', variant: 'destructive' }
 ];
 
-export default function ClientsList({ onNewClient, onEditClient }: Props) {
+export default function ClientsList({ onNewClient, onEditClient, onViewClient }: Props) {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -68,13 +77,44 @@ export default function ClientsList({ onNewClient, onEditClient }: Props) {
   const loadClients = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Load clients with counts
+      const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
         .select('*')
         .order('name');
 
-      if (error) throw error;
-      setClients(data || []);
+      if (clientsError) throw clientsError;
+
+      // Load counts for departments and contacts
+      const clientIds = clientsData?.map(c => c.id) || [];
+      
+      if (clientIds.length > 0) {
+        const [deptsRes, contactsRes] = await Promise.all([
+          supabase.from('client_departments').select('client_id'),
+          supabase.from('client_contacts').select('client_id')
+        ]);
+
+        const deptCounts = (deptsRes.data || []).reduce((acc, d) => {
+          acc[d.client_id] = (acc[d.client_id] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        const contactCounts = (contactsRes.data || []).reduce((acc, c) => {
+          acc[c.client_id] = (acc[c.client_id] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        const enrichedClients = clientsData?.map(client => ({
+          ...client,
+          _departments_count: deptCounts[client.id] || 0,
+          _contacts_count: contactCounts[client.id] || 0
+        })) || [];
+
+        setClients(enrichedClients);
+      } else {
+        setClients([]);
+      }
     } catch (error) {
       console.error('Erro ao carregar clientes:', error);
       toast.error('Erro ao carregar clientes');
@@ -230,6 +270,7 @@ export default function ClientsList({ onNewClient, onEditClient }: Props) {
                   <TableHead>Localização</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Cadastro</TableHead>
+                  <TableHead>Estrutura</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -286,14 +327,70 @@ export default function ClientsList({ onNewClient, onEditClient }: Props) {
                         </div>
                       </TableCell>
                       <TableCell>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          {(client._departments_count || 0) > 0 && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="flex items-center gap-0.5">
+                                    <Building2 size={12} />
+                                    {client._departments_count}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>Departamentos</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {(client._contacts_count || 0) > 0 && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="flex items-center gap-0.5 ml-2">
+                                    <UserCircle size={12} />
+                                    {client._contacts_count}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>Contatos</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {(client._departments_count || 0) === 0 && (client._contacts_count || 0) === 0 && (
+                            <span>-</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onEditClient(client.id)}
-                          >
-                            <Edit size={14} />
-                          </Button>
+                          {onViewClient && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => onViewClient(client.id)}
+                                  >
+                                    <Eye size={14} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Ver detalhes</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => onEditClient(client.id)}
+                                >
+                                  <Edit size={14} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Editar dados</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
@@ -327,7 +424,7 @@ export default function ClientsList({ onNewClient, onEditClient }: Props) {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       {searchTerm || statusFilter !== 'all'
                         ? 'Nenhum cliente encontrado com os filtros aplicados.'
                         : 'Nenhum cliente cadastrado ainda.'}
