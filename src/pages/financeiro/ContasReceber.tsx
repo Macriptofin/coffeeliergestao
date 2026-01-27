@@ -689,14 +689,14 @@ const ContasReceber = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Emissão</TableHead>
-                <TableHead>Vencimento</TableHead>
-                <TableHead>Valor Original</TableHead>
-                <TableHead>Valor Recebido</TableHead>
-                <TableHead>Saldo</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Ações</TableHead>
+                <TableHead className="w-[30%]">Cliente</TableHead>
+                <TableHead className="w-[10%]">Emissão</TableHead>
+                <TableHead className="w-[10%]">Vencimento</TableHead>
+                <TableHead className="w-[12%]">Valor Original</TableHead>
+                <TableHead className="w-[12%]">Valor Recebido</TableHead>
+                <TableHead className="w-[10%]">Saldo</TableHead>
+                <TableHead className="w-[8%]">Status</TableHead>
+                <TableHead className="w-[8%]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
