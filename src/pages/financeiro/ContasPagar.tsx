@@ -358,6 +358,29 @@ const ContasPagar = () => {
     }
   };
 
+  // Função para calcular o status efetivo baseado na data de vencimento
+  const getEffectiveStatus = (account: AccountPayable): string => {
+    // Se já está pago ou cancelado, mantém o status
+    if (account.status === 'Pago' || account.status === 'Cancelado') {
+      return account.status;
+    }
+    
+    // Se tem saldo pendente e a data de vencimento já passou, é Vencido
+    if (account.remaining_amount > 0) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dueDate = new Date(account.due_date);
+      dueDate.setHours(0, 0, 0, 0);
+      
+      if (dueDate < today) {
+        return 'Vencido';
+      }
+    }
+    
+    // Caso contrário, mantém o status original (Pendente ou Parcial)
+    return account.status;
+  };
+
   const getStatusBadge = (status: string) => {
     const statusMap = {
       'Pendente': { variant: 'secondary' as const, color: 'bg-yellow-500' },
@@ -370,23 +393,30 @@ const ContasPagar = () => {
     return <Badge variant={config.variant}>{status}</Badge>;
   };
 
-  const filteredAccounts = accounts.filter(account => {
+  // Aplicar status efetivo a todas as contas
+  const accountsWithEffectiveStatus = accounts.map(account => ({
+    ...account,
+    effectiveStatus: getEffectiveStatus(account)
+  }));
+
+  const filteredAccounts = accountsWithEffectiveStatus.filter(account => {
     const matchesSearch = 
       account.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       account.suppliers?.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       account.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || account.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || account.effectiveStatus === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
 
-  const totalPendente = accounts
-    .filter(acc => acc.status === 'Pendente' || acc.status === 'Parcial')
+  // Usar status efetivo para cálculos dos cards
+  const totalPendente = accountsWithEffectiveStatus
+    .filter(acc => acc.effectiveStatus === 'Pendente' || acc.effectiveStatus === 'Parcial')
     .reduce((sum, acc) => sum + acc.remaining_amount, 0);
 
-  const totalVencido = accounts
-    .filter(acc => acc.status === 'Vencido')
+  const totalVencido = accountsWithEffectiveStatus
+    .filter(acc => acc.effectiveStatus === 'Vencido')
     .reduce((sum, acc) => sum + acc.remaining_amount, 0);
 
   if (loading) {
@@ -678,7 +708,7 @@ const ContasPagar = () => {
                     <TableCell className="pb-0">
                       {account.remaining_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </TableCell>
-                    <TableCell className="pb-0">{getStatusBadge(account.status)}</TableCell>
+                    <TableCell className="pb-0">{getStatusBadge(account.effectiveStatus)}</TableCell>
                     <TableCell className="pb-0" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1">
                         <Button
@@ -697,7 +727,7 @@ const ContasPagar = () => {
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        {account.status !== 'Cancelado' && account.status !== 'Pago' && (
+                        {account.effectiveStatus !== 'Cancelado' && account.effectiveStatus !== 'Pago' && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -717,7 +747,7 @@ const ContasPagar = () => {
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                        {(account.status === 'Pendente' || account.status === 'Parcial' || account.status === 'Vencido') && account.remaining_amount > 0 && (
+                        {(account.effectiveStatus === 'Pendente' || account.effectiveStatus === 'Parcial' || account.effectiveStatus === 'Vencido') && account.remaining_amount > 0 && (
                           <Button
                             size="sm"
                             variant="outline"
