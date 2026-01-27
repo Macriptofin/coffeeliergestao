@@ -7,10 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Plus, Search, DollarSign, Calendar, Receipt, CheckCircle, Pencil } from "lucide-react";
+import { Plus, Search, DollarSign, Calendar, Receipt, CheckCircle, Pencil, Eye, Trash2, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -72,7 +74,11 @@ const ContasReceber = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<AccountReceivable | null>(null);
+  const [viewingAccount, setViewingAccount] = useState<AccountReceivable | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState<AccountReceivable | null>(null);
   const [editingAccount, setEditingAccount] = useState<AccountReceivable | null>(null);
   const [receiptData, setReceiptData] = useState({
     receipt_date: format(new Date(), 'yyyy-MM-dd'),
@@ -271,6 +277,54 @@ const ContasReceber = () => {
     } catch (error) {
       console.error('Error updating account receivable:', error);
       toast.error('Erro ao atualizar conta a receber');
+    }
+  };
+
+  const handleViewDetails = (account: AccountReceivable) => {
+    setViewingAccount(account);
+    setDetailsDialogOpen(true);
+  };
+
+  const handleDelete = (account: AccountReceivable) => {
+    setDeletingAccount(account);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingAccount) return;
+
+    try {
+      const { error } = await supabase
+        .from('accounts_receivable')
+        .delete()
+        .eq('id', deletingAccount.id);
+
+      if (error) throw error;
+
+      toast.success('Conta a receber excluída com sucesso!');
+      setDeleteDialogOpen(false);
+      setDeletingAccount(null);
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting account receivable:', error);
+      toast.error('Erro ao excluir conta a receber');
+    }
+  };
+
+  const handleCancel = async (account: AccountReceivable) => {
+    try {
+      const { error } = await supabase
+        .from('accounts_receivable')
+        .update({ status: 'Cancelado' })
+        .eq('id', account.id);
+
+      if (error) throw error;
+
+      toast.success('Conta cancelada com sucesso!');
+      fetchData();
+    } catch (error) {
+      console.error('Error canceling account receivable:', error);
+      toast.error('Erro ao cancelar conta');
     }
   };
 
@@ -648,7 +702,11 @@ const ContasReceber = () => {
             </TableHeader>
             <TableBody>
               {filteredAccounts.map((account) => (
-                <TableRow key={account.id}>
+                <TableRow 
+                  key={account.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleViewDetails(account)}
+                >
                   <TableCell>{account.clients?.name || '-'}</TableCell>
                   <TableCell>{account.description}</TableCell>
                   <TableCell>
@@ -667,8 +725,16 @@ const ContasReceber = () => {
                     {account.remaining_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </TableCell>
                   <TableCell>{getStatusBadge(account.status)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleViewDetails(account)}
+                        title="Ver detalhes"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"
@@ -677,12 +743,32 @@ const ContasReceber = () => {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
+                      {account.status !== 'Cancelado' && account.status !== 'Recebido' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleCancel(account)}
+                          title="Cancelar"
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDelete(account)}
+                        title="Excluir"
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                       {(account.status === 'Pendente' || account.status === 'Parcial' || account.status === 'Vencido') && account.remaining_amount > 0 && (
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleReceipt(account)}
-                          className="flex items-center gap-2"
+                          className="flex items-center gap-2 ml-1"
                         >
                           <CheckCircle className="h-4 w-4" />
                           Receber
@@ -976,6 +1062,164 @@ const ContasReceber = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Detalhes */}
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Detalhes da Conta a Receber
+            </DialogTitle>
+            <DialogDescription>
+              Visualização completa dos dados da conta
+            </DialogDescription>
+          </DialogHeader>
+          
+          {viewingAccount && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Cliente</p>
+                  <p className="font-medium">{viewingAccount.clients?.name || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <div className="mt-1">{getStatusBadge(viewingAccount.status)}</div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <p className="text-sm text-muted-foreground">Descrição</p>
+                <p className="font-medium">{viewingAccount.description}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Número da Nota</p>
+                  <p className="font-medium">{viewingAccount.invoice_number || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Número do Documento</p>
+                  <p className="font-medium">{viewingAccount.document_number || '-'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Proposta</p>
+                  <p className="font-medium">{viewingAccount.proposals?.proposal_number || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Centro de Custo</p>
+                  <p className="font-medium">{viewingAccount.cost_centers?.name || '-'}</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Data de Emissão</p>
+                  <p className="font-medium">{format(new Date(viewingAccount.issue_date), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Data de Vencimento</p>
+                  <p className="font-medium">{format(new Date(viewingAccount.due_date), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Valor Original</p>
+                  <p className="font-medium text-lg">{viewingAccount.original_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Desconto</p>
+                  <p className="font-medium text-green-600">{viewingAccount.discount_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Juros/Multa</p>
+                  <p className="font-medium text-red-600">{viewingAccount.interest_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 bg-muted/50 p-4 rounded-lg">
+                <div>
+                  <p className="text-sm text-muted-foreground">Valor Recebido</p>
+                  <p className="font-medium text-lg text-green-600">{viewingAccount.received_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Saldo Pendente</p>
+                  <p className="font-medium text-lg text-primary">{viewingAccount.remaining_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground">Conta Contábil</p>
+                <p className="font-medium">{viewingAccount.chart_of_accounts?.name || '-'}</p>
+              </div>
+
+              {viewingAccount.notes && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Observações</p>
+                  <p className="font-medium">{viewingAccount.notes}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailsDialogOpen(false)}>
+              Fechar
+            </Button>
+            <Button onClick={() => {
+              setDetailsDialogOpen(false);
+              if (viewingAccount) handleEdit(viewingAccount);
+            }}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Editar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Exclusão */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Conta a Receber?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <p className="mb-2">
+                Esta ação não pode ser desfeita. A conta será permanentemente removida do sistema.
+              </p>
+              <p className="font-medium text-foreground">
+                {deletingAccount?.description}
+              </p>
+              <p className="text-sm mt-1">
+                Valor: {deletingAccount?.original_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </p>
+              <p className="text-sm mt-4 text-amber-600 dark:text-amber-500">
+                💡 <strong>Dica:</strong> Para manter o histórico financeiro, considere <em>cancelar</em> a conta ao invés de excluí-la.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Excluir Permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
