@@ -6201,6 +6201,16 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_diag_orphan_materials: {
+        Row: {
+          category: string | null
+          id: string | null
+          material_type: string | null
+          name: string | null
+          orphan_type: string | null
+        }
+        Relationships: []
+      }
       vw_diag_orphans: {
         Row: {
           category: string | null
