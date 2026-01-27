@@ -690,7 +690,6 @@ const ContasReceber = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Cliente</TableHead>
-                <TableHead>Descrição</TableHead>
                 <TableHead>Emissão</TableHead>
                 <TableHead>Vencimento</TableHead>
                 <TableHead>Valor Original</TableHead>
@@ -707,8 +706,14 @@ const ContasReceber = () => {
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleViewDetails(account)}
                 >
-                  <TableCell>{account.clients?.name || '-'}</TableCell>
-                  <TableCell>{account.description}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{account.clients?.name || '-'}</span>
+                      {account.description && (
+                        <span className="text-xs text-muted-foreground mt-0.5">{account.description}</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {format(new Date(account.issue_date), 'dd/MM/yyyy', { locale: ptBR })}
                   </TableCell>
