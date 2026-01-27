@@ -94,7 +94,7 @@ export function EventCalendar({ events, onEventSelect, onEventCreate }: EventCal
   const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
       {/* Calendário */}
       <Card className="lg:col-span-2">
         <CardHeader>

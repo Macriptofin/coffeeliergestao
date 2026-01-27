@@ -186,7 +186,7 @@ const Dashboard = () => {
       </div>
 
       {/* Métricas Principais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
         <Card className="shadow-soft">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -280,7 +280,7 @@ const Dashboard = () => {
       </div>
 
       {/* Resumos Recentes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         <Card className="shadow-elegant">
           <CardHeader>
             <CardTitle>Ingredientes Recentes</CardTitle>
