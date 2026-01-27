@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Plus, Search, DollarSign, Calendar, Receipt, CheckCircle, Pencil, Eye, Trash2, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatLocalDate, parseLocalDate, isOverdue } from "@/lib/date-utils";
 
 interface AccountReceivable {
   id: string;
@@ -384,15 +385,8 @@ const ContasReceber = () => {
     }
     
     // Se tem saldo pendente e a data de vencimento já passou, é Vencido
-    if (account.remaining_amount > 0) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const dueDate = new Date(account.due_date);
-      dueDate.setHours(0, 0, 0, 0);
-      
-      if (dueDate < today) {
-        return 'Vencido';
-      }
+    if (account.remaining_amount > 0 && isOverdue(account.due_date)) {
+      return 'Vencido';
     }
     
     // Caso contrário, mantém o status original (Pendente ou Parcial)
@@ -748,10 +742,10 @@ const ContasReceber = () => {
                   >
                     <TableCell className="font-medium pb-0 whitespace-nowrap">{account.clients?.name || '-'}</TableCell>
                     <TableCell className="pb-0">
-                      {format(new Date(account.issue_date), 'dd/MM/yyyy', { locale: ptBR })}
+                      {formatLocalDate(account.issue_date)}
                     </TableCell>
                     <TableCell className="pb-0">
-                      {format(new Date(account.due_date), 'dd/MM/yyyy', { locale: ptBR })}
+                      {formatLocalDate(account.due_date)}
                     </TableCell>
                     <TableCell className="pb-0">
                       {account.original_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -1173,11 +1167,11 @@ const ContasReceber = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Data de Emissão</p>
-                  <p className="font-medium">{format(new Date(viewingAccount.issue_date), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                  <p className="font-medium">{formatLocalDate(viewingAccount.issue_date)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Data de Vencimento</p>
-                  <p className="font-medium">{format(new Date(viewingAccount.due_date), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                  <p className="font-medium">{formatLocalDate(viewingAccount.due_date)}</p>
                 </div>
               </div>
 
