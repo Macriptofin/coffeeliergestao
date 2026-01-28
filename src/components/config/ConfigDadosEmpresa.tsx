@@ -66,9 +66,17 @@ const initialData: CompanyData = {
 export const ConfigDadosEmpresa = () => {
   const { getConfigValue, setConfigValue, loading } = useConfig();
   const [formData, setFormData] = useState<CompanyData>(initialData);
+  const [savedData, setSavedData] = useState<CompanyData>(initialData);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const { toast } = useToast();
+
+  // Check if there are unsaved changes
+  const isDirty = useMemo(() => {
+    return Object.keys(formData).some(
+      key => formData[key as keyof CompanyData] !== savedData[key as keyof CompanyData]
+    );
+  }, [formData, savedData]);
 
   // Load initial values only once when not loading and not yet initialized
   useEffect(() => {
@@ -81,6 +89,7 @@ export const ConfigDadosEmpresa = () => {
         }
       });
       setFormData(loadedData);
+      setSavedData(loadedData);
       setInitialized(true);
     }
   }, [loading, initialized, getConfigValue]);
@@ -92,14 +101,22 @@ export const ConfigDadosEmpresa = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Use silent mode for batch save - no individual toasts
       const promises = Object.entries(formData).map(([key, value]) => 
-        setConfigValue('gerais', key, value || '')
+        setConfigValue('gerais', key, value || '', true)
       );
-      await Promise.all(promises);
-      toast({
-        title: "Dados salvos",
-        description: "Os dados da empresa foram salvos com sucesso.",
-      });
+      const results = await Promise.all(promises);
+      
+      // Check if all saves succeeded
+      if (results.every(r => r === true)) {
+        setSavedData({ ...formData });
+        toast({
+          title: "Dados salvos",
+          description: "Os dados da empresa foram salvos com sucesso.",
+        });
+      } else {
+        throw new Error('Alguns campos não foram salvos');
+      }
     } catch (error) {
       console.error('Error saving company data:', error);
       toast({
@@ -449,17 +466,19 @@ export const ConfigDadosEmpresa = () => {
         </CardContent>
       </Card>
 
-      {/* Save Button */}
-      <div className="flex justify-end sticky bottom-4">
-        <Button onClick={handleSave} disabled={saving} size="lg" className="shadow-lg">
-          {saving ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4 mr-2" />
-          )}
-          {saving ? 'Salvando...' : 'Salvar Dados da Empresa'}
-        </Button>
-      </div>
+      {/* Save Button - only show when there are unsaved changes */}
+      {isDirty && (
+        <div className="flex justify-end sticky bottom-4">
+          <Button onClick={handleSave} disabled={saving} size="lg" className="shadow-lg">
+            {saving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            {saving ? 'Salvando...' : 'Salvar Dados da Empresa'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

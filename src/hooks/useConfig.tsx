@@ -96,19 +96,22 @@ export function useConfig() {
     return option?.default_value || null;
   };
 
-  // Set config value
-  const setConfigValue = async (namespaceKey: string, optionKey: string, value: any) => {
+  // Set config value (silent mode for batch operations)
+  const setConfigValue = async (namespaceKey: string, optionKey: string, value: any, silent: boolean = false) => {
     try {
       const namespace = namespaces.find(n => n.key === namespaceKey);
       if (!namespace) throw new Error('Namespace não encontrado');
 
       const { error } = await supabase
         .from('config_values')
-        .upsert({
-          namespace_id: namespace.id,
-          key: optionKey,
-          value_jsonb: value,
-        });
+        .upsert(
+          {
+            namespace_id: namespace.id,
+            key: optionKey,
+            value_jsonb: value,
+          },
+          { onConflict: 'namespace_id,key' }
+        );
 
       if (error) throw error;
 
@@ -132,19 +135,23 @@ export function useConfig() {
         }
       });
 
-      toast({
-        title: "Configuração salva",
-        description: "A configuração foi salva com sucesso.",
-      });
+      if (!silent) {
+        toast({
+          title: "Configuração salva",
+          description: "A configuração foi salva com sucesso.",
+        });
+      }
 
       return true;
     } catch (error) {
       console.error('Error setting config value:', error);
-      toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar a configuração.",
-        variant: "destructive",
-      });
+      if (!silent) {
+        toast({
+          title: "Erro ao salvar",
+          description: "Não foi possível salvar a configuração.",
+          variant: "destructive",
+        });
+      }
       return false;
     }
   };
