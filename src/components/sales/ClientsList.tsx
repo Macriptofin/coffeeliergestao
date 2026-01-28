@@ -36,6 +36,8 @@ import {
 interface Client {
   id: string;
   name: string;
+  fantasy_name?: string;
+  client_type?: 'PF' | 'PJ';
   client_code?: string;
   cnpj_cpf?: string;
   email?: string;
@@ -115,6 +117,7 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
 
         const enrichedClients = clientsData?.map(client => ({
           ...client,
+          client_type: client.client_type as 'PF' | 'PJ' | undefined,
           _departments_count: deptCounts[client.id] || 0,
           _contacts_count: contactCounts[client.id] || 0,
           _units_count: unitCounts[client.id] || 0
@@ -161,6 +164,7 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
   const filteredClients = clients.filter(client => {
     const matchesSearch = !searchTerm || 
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.fantasy_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.client_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.cnpj_cpf?.includes(searchTerm) ||
@@ -170,6 +174,9 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
 
     return matchesSearch && matchesStatus;
   });
+
+  // Helper to get display name (fantasy_name if available, otherwise name)
+  const getDisplayName = (client: Client) => client.fantasy_name || client.name;
 
   if (loading) {
     return (
@@ -295,7 +302,19 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
                       </TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium whitespace-nowrap">{client.name}</div>
+                          <div className="font-medium whitespace-nowrap flex items-center gap-2">
+                            {getDisplayName(client)}
+                            {client.client_type && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                {client.client_type}
+                              </Badge>
+                            )}
+                          </div>
+                          {client.fantasy_name && (
+                            <div className="text-xs text-muted-foreground truncate max-w-[200px]" title={client.name}>
+                              {client.name}
+                            </div>
+                          )}
                           {client.cnpj_cpf && (
                             <div className="text-xs text-muted-foreground">
                               {client.cnpj_cpf}

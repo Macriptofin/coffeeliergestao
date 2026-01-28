@@ -1242,6 +1242,7 @@ export type Database = {
           contact_person: string | null
           created_at: string
           email: string | null
+          fantasy_name: string | null
           id: string
           name: string
           notes: string | null
@@ -1260,6 +1261,7 @@ export type Database = {
           contact_person?: string | null
           created_at?: string
           email?: string | null
+          fantasy_name?: string | null
           id?: string
           name: string
           notes?: string | null
@@ -1278,6 +1280,7 @@ export type Database = {
           contact_person?: string | null
           created_at?: string
           email?: string | null
+          fantasy_name?: string | null
           id?: string
           name?: string
           notes?: string | null

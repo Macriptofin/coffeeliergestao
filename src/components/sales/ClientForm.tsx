@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 
 interface ClientFormData {
   name: string;
+  fantasy_name?: string;
   client_type: 'PF' | 'PJ';
   cnpj_cpf?: string;
   email?: string;
@@ -78,6 +79,7 @@ export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
 
       const clientData = {
         name: data.name,
+        fantasy_name: data.fantasy_name || null,
         client_type: data.client_type,
         cnpj_cpf: data.cnpj_cpf || null,
         email: data.email || null,
@@ -199,6 +201,19 @@ export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
                 />
                 {errors.name && <span className="text-sm text-destructive">{errors.name.message}</span>}
               </div>
+
+              {watch('client_type') === 'PJ' && (
+                <div className="lg:col-span-2">
+                  <Label htmlFor="fantasy_name">Nome Fantasia</Label>
+                  <Input
+                    {...register('fantasy_name')}
+                    placeholder="Nome fantasia para exibição em listas"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Nome curto para exibição em listas e relatórios
+                  </span>
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="cnpj_cpf">{watch('client_type') === 'PJ' ? 'CNPJ' : 'CPF'}</Label>
