@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Settings, Palette, Building2, Package, Wrench, DollarSign, Calendar, Users } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ConfigGeneral } from "@/components/config/ConfigGeneral";
+import { ConfigDadosEmpresa } from "@/components/config/ConfigDadosEmpresa";
 import { ConfigEstoque } from "@/components/config/ConfigEstoque";
 import { ConfigProducao } from "@/components/config/ConfigProducao";
 import { ConfigVendas } from "@/components/config/ConfigVendas";
@@ -13,13 +13,13 @@ import { ConfigRH } from "@/components/config/ConfigRH";
 import { useConfig } from "@/hooks/useConfig";
 
 const Config = () => {
-  const [activeTab, setActiveTab] = useState("gerais");
+  const [activeTab, setActiveTab] = useState("empresa");
   const { loading } = useConfig();
 
   // Parse URL hash for deep linking
   React.useEffect(() => {
     const hash = window.location.hash.replace('#', '');
-    if (hash && ['gerais', 'estoque', 'producao', 'vendas', 'financeiro', 'eventos', 'rh'].includes(hash)) {
+    if (hash && ['empresa', 'gerais', 'estoque', 'producao', 'vendas', 'financeiro', 'eventos', 'rh'].includes(hash)) {
       setActiveTab(hash);
     }
   }, []);
@@ -46,12 +46,16 @@ const Config = () => {
           </div>
           <div>
             <h1 className="text-3xl font-bold text-foreground">Centro de Configurações</h1>
-            <p className="text-muted-foreground">Gerencie parâmetros do sistema e taxonomias</p>
+            <p className="text-muted-foreground">Gerencie dados da empresa e parâmetros do sistema</p>
           </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-7 mb-6">
+          <TabsList className="grid w-full grid-cols-8 mb-6">
+            <TabsTrigger value="empresa" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Empresa</span>
+            </TabsTrigger>
             <TabsTrigger value="gerais" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Gerais</span>
@@ -83,6 +87,10 @@ const Config = () => {
           </TabsList>
 
           <div className="space-y-6">
+            <TabsContent value="empresa" className="space-y-6 mt-0">
+              <ConfigDadosEmpresa />
+            </TabsContent>
+
             <TabsContent value="gerais" className="space-y-6 mt-0">
               <ConfigGeneral />
             </TabsContent>
