@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Trash2, Plus, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MaterialSelect } from '@/components/MaterialSelect';
+import { useTaxonomy } from '@/hooks/useConfig';
 
 interface Material {
   id: string;
@@ -32,11 +32,20 @@ interface TechnicalSheetFormProps {
 const TechnicalSheetForm: React.FC<TechnicalSheetFormProps> = ({ onSuccess, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const { terms, loading: taxonomyLoading, getTermsByTaxonomy } = useTaxonomy();
   
   // Product basic info
   const [productName, setProductName] = useState('');
   const [productDescription, setProductDescription] = useState('');
+  
+  // 3-level hierarchy state
+  const [typeTermId, setTypeTermId] = useState('');
+  const [category, setCategory] = useState('');
+  const [subcategory, setSubcategory] = useState('');
+  
+  // Legacy product type for database
   const [productType, setProductType] = useState<'finished_product' | 'intermediate_product' | 'composite_product'>('finished_product');
+  
   const [purchaseUnit, setPurchaseUnit] = useState('un');
   const [usageUnit, setUsageUnit] = useState('un');
   const [conversionFactor, setConversionFactor] = useState(1);
@@ -48,6 +57,49 @@ const TechnicalSheetForm: React.FC<TechnicalSheetFormProps> = ({ onSuccess, onCa
   const [generalWaste, setGeneralWaste] = useState(0);
   const [notes, setNotes] = useState('');
   const [bomItems, setBomItems] = useState<BOMItem[]>([]);
+
+  // Get taxonomy data for 3-level hierarchy
+  const materialTypesFromTaxonomy = getTermsByTaxonomy('material_type').filter(term => term.is_active);
+  const allCategories = getTermsByTaxonomy('material_category').filter(term => term.is_active);
+  const allSubcategories = getTermsByTaxonomy('material_subcategory').filter(term => term.is_active);
+  
+  // Filter categories based on selected type
+  const availableCategories = typeTermId 
+    ? allCategories.filter(cat => cat.parent_id === typeTermId)
+    : [];
+  
+  // Filter subcategories based on selected category
+  const selectedCategoryTerm = allCategories.find(cat => cat.name === category);
+  const availableSubcategories = selectedCategoryTerm 
+    ? allSubcategories.filter(sub => sub.parent_id === selectedCategoryTerm.id)
+    : [];
+
+  // Map type term to product type
+  const getProductTypeFromTypeTerm = (termId: string): 'finished_product' | 'intermediate_product' | 'composite_product' => {
+    const typeTerm = materialTypesFromTaxonomy.find(t => t.id === termId);
+    if (!typeTerm) return 'finished_product';
+    
+    const nameToType: Record<string, 'finished_product' | 'intermediate_product' | 'composite_product'> = {
+      'Produto Acabado': 'finished_product',
+      'Produto Intermediário': 'intermediate_product',
+      'Produto Composto': 'composite_product'
+    };
+    return nameToType[typeTerm.name] || 'finished_product';
+  };
+
+  // Handle type change - cascading reset
+  const handleTypeChange = (newTypeTermId: string) => {
+    setTypeTermId(newTypeTermId);
+    setCategory('');
+    setSubcategory('');
+    setProductType(getProductTypeFromTypeTerm(newTypeTermId));
+  };
+
+  // Handle category change - reset subcategory
+  const handleCategoryChange = (newCategory: string) => {
+    setCategory(newCategory);
+    setSubcategory('');
+  };
 
   useEffect(() => {
     loadMaterials();
@@ -87,22 +139,21 @@ const TechnicalSheetForm: React.FC<TechnicalSheetFormProps> = ({ onSuccess, onCa
     setBomItems(bomItems.filter((_, i) => i !== index));
   };
 
-  const getCategory = () => {
-    switch (productType) {
-      case 'finished_product':
-        return 'Produto Acabado';
-      case 'intermediate_product':
-        return 'Produto Intermediário';
-      case 'composite_product':
-        return 'Produto Composto';
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!productName.trim()) {
       toast.error('Nome do produto é obrigatório');
+      return;
+    }
+
+    if (!typeTermId) {
+      toast.error('Tipo de Material é obrigatório');
+      return;
+    }
+
+    if (!category) {
+      toast.error('Categoria é obrigatória');
       return;
     }
 
@@ -124,6 +175,12 @@ const TechnicalSheetForm: React.FC<TechnicalSheetFormProps> = ({ onSuccess, onCa
       const isProducedProduct = productType === 'intermediate_product' || productType === 'finished_product';
       const finalPurchaseUnit = isProducedProduct ? usageUnit : purchaseUnit;
       const finalConversionFactor = isProducedProduct ? 1 : conversionFactor;
+
+      // Get category term ID
+      const categoryTerm = allCategories.find(cat => cat.name === category);
+      const subcategoryTerm = subcategory 
+        ? availableSubcategories.find(sub => sub.name === subcategory)
+        : null;
       
       // 1. Create the product (material)
       const { data: materialData, error: materialError } = await supabase
@@ -136,7 +193,11 @@ const TechnicalSheetForm: React.FC<TechnicalSheetFormProps> = ({ onSuccess, onCa
           conversion_factor: finalConversionFactor,
           price_per_purchase_unit: pricePerUnit,
           supplier: supplier || null,
-          category: getCategory(),
+          category: category, // Use selected category
+          subcategory: subcategory || null,
+          category_term_id: categoryTerm?.id,
+          subcategory_term_id: subcategoryTerm?.id,
+          type_term_id: typeTermId,
           material_type: productType
         })
         .select()
@@ -227,17 +288,47 @@ const TechnicalSheetForm: React.FC<TechnicalSheetFormProps> = ({ onSuccess, onCa
           </Button>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Product Type Selection */}
+          {/* Tipo de Material - Primeiro nível da hierarquia */}
           <div className="space-y-2">
-            <Label htmlFor="product-type">Tipo de Produto</Label>
-            <Select value={productType} onValueChange={(value: any) => setProductType(value)}>
+            <Label htmlFor="type-term">Tipo de Material *</Label>
+            <Select value={typeTermId} onValueChange={handleTypeChange} disabled={taxonomyLoading}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder={taxonomyLoading ? "Carregando..." : "Selecione o tipo de material"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="finished_product">Produto Acabado</SelectItem>
-                <SelectItem value="intermediate_product">Produto Intermediário</SelectItem>
-                <SelectItem value="composite_product">Produto Composto</SelectItem>
+                {materialTypesFromTaxonomy.map(type => (
+                  <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Categoria - Segundo nível */}
+          <div className="space-y-2">
+            <Label htmlFor="category">Categoria *</Label>
+            <Select value={category} onValueChange={handleCategoryChange} disabled={!typeTermId || availableCategories.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder={!typeTermId ? "Selecione um tipo primeiro" : "Selecione a categoria"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableCategories.map(cat => (
+                  <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Subcategoria - Terceiro nível */}
+          <div className="space-y-2">
+            <Label htmlFor="subcategory">Subcategoria (Opcional)</Label>
+            <Select value={subcategory} onValueChange={setSubcategory} disabled={!category || availableSubcategories.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder={!category ? "Selecione uma categoria primeiro" : "Selecione a subcategoria"} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableSubcategories.map(sub => (
+                  <SelectItem key={sub.id} value={sub.name}>{sub.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

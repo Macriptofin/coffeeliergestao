@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+// RadioGroup removed - using Select for type selection now
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -48,6 +48,7 @@ interface TechnicalSheet {
   result_material_id?: string;
   result_material?: Material;
   product_type: 'finished_product' | 'intermediate_product' | 'composite_product';
+  typeTermId?: string; // New: ID from material_type taxonomy
   category: string;
   subcategory?: string;
   yield_quantity: number;
@@ -78,7 +79,9 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
   const [formData, setFormData] = useState<TechnicalSheet>({
     name: '',
     product_type: 'finished_product',
+    typeTermId: '', // New: ID from material_type taxonomy
     category: '',
+    subcategory: '',
     yield_quantity: 1,
     yield_unit: 'un',
     items: []
@@ -441,6 +444,11 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
       return false;
     }
 
+    if (!formData.typeTermId) {
+      toast.error('Tipo de Material é obrigatório');
+      return false;
+    }
+
     if (!formData.category) {
       toast.error('Categoria é obrigatória');
       return false;
@@ -488,20 +496,14 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
 
       // Create or update result material if needed
       if (!resultMaterialId) {
-        const categoryMapping: Record<string, string> = {
-          'finished_product': 'Produto Acabado',
-          'intermediate_product': 'Produto Intermediário', 
-          'composite_product': 'Produto Composto'
-        };
-
         // Get category and subcategory term IDs for proper taxonomy reference
         const categoryTerm = taxonomyTerms.find(term => 
-          term.taxonomy_definitions.key === 'material_category' && 
-          term.name === categoryMapping[formData.product_type]
+          term.taxonomy_definitions?.key === 'material_category' && 
+          term.name === formData.category
         );
         
         const subcategoryTerm = formData.subcategory ? taxonomyTerms.find(term =>
-          term.taxonomy_definitions.key === 'material_subcategory' &&
+          term.taxonomy_definitions?.key === 'material_subcategory' &&
           term.name === formData.subcategory
         ) : null;
 
@@ -514,10 +516,11 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
 
         const materialData = {
           name: formData.name,
-          category: categoryMapping[formData.product_type],
+          category: formData.category, // Use user-selected category
           subcategory: formData.subcategory,
           category_term_id: categoryTerm?.id,
           subcategory_term_id: subcategoryTerm?.id,
+          type_term_id: formData.typeTermId, // Store the type term reference
           material_type: materialTypeMapping[formData.product_type] || 'finished_product',
           purchase_unit: formData.yield_unit,
           usage_unit: formData.yield_unit,
@@ -718,61 +721,83 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
     searchText: `${material.code || ''} ${material.name}`.toLowerCase()
   }));
 
-  const categoryOptions = taxonomyTerms
-    .filter(term => term.taxonomy_definitions.key === 'material_category')
+  // Get material types from taxonomy for the 3-level hierarchy
+  const materialTypesFromTaxonomy = taxonomyTerms
+    .filter(term => term.taxonomy_definitions?.key === 'material_type' && term.is_active !== false)
     .map(term => ({
-      value: term.name,
-      label: term.name
+      id: term.id,
+      name: term.name,
+      code: term.code
     }));
 
-  // Map product type to category automatically
-  const getProductTypeCategory = (productType: string) => {
-    switch (productType) {
-      case 'finished_product':
-        return 'Produto Acabado';
-      case 'intermediate_product':
-        return 'Produto Intermediário';
-      case 'composite_product':
-        return 'Produto Composto';
-      default:
-        return 'Produto Acabado';
-    }
-  };
+  // Get categories filtered by selected type term (categories have parent_id pointing to type)
+  const availableCategoriesForType = formData.typeTermId 
+    ? taxonomyTerms
+        .filter(term => 
+          term.taxonomy_definitions?.key === 'material_category' && 
+          term.parent_id === formData.typeTermId &&
+          term.is_active !== false
+        )
+        .map(term => ({
+          value: term.name,
+          label: term.name,
+          id: term.id
+        }))
+    : [];
 
-  // Filter subcategories based on product type
-  const getFilteredSubcategories = (productType: string) => {
-    const categoryMap: { [key: string]: string[] } = {
-      'finished_product': ['FIN_SAL', 'FIN_DOC', 'FIN_BEB', 'FIN_PAO', 'FIN_OUT'],
-      'intermediate_product': ['INT_MAS', 'INT_REC', 'INT_CAL', 'INT_BEB'],
-      'composite_product': ['COM_KIT', 'COM_MES_CB', 'COM_MES_CQ', 'COM_COMBO']
-    };
+  // Get subcategories filtered by selected category
+  const selectedCategoryTerm = taxonomyTerms.find(term => 
+    term.taxonomy_definitions?.key === 'material_category' && 
+    term.name === formData.category
+  );
+  
+  const availableSubcategoriesForCategory = selectedCategoryTerm
+    ? taxonomyTerms
+        .filter(term => 
+          term.taxonomy_definitions?.key === 'material_subcategory' && 
+          term.parent_id === selectedCategoryTerm.id &&
+          term.is_active !== false
+        )
+        .map(term => ({
+          value: term.name,
+          label: term.name
+        }))
+    : [];
 
-    const allowedCodes = categoryMap[productType] || [];
+  // Map type term to product_type and legacy category
+  const getProductTypeFromTypeTerm = (typeTermId: string): 'finished_product' | 'intermediate_product' | 'composite_product' => {
+    const typeTerm = materialTypesFromTaxonomy.find(t => t.id === typeTermId);
+    if (!typeTerm) return 'finished_product';
     
-    return taxonomyTerms
-      .filter(term => 
-        term.taxonomy_definitions?.key === 'material_subcategory' && 
-        allowedCodes.includes(term.code)
-      )
-      .map(term => ({
-        value: term.name,
-        label: term.name
-      }));
+    const nameToType: Record<string, 'finished_product' | 'intermediate_product' | 'composite_product'> = {
+      'Produto Acabado': 'finished_product',
+      'Produto Intermediário': 'intermediate_product',
+      'Produto Composto': 'composite_product'
+    };
+    return nameToType[typeTerm.name] || 'finished_product';
   };
 
-  const subcategoryOptions = getFilteredSubcategories(formData.product_type);
+  // Handle type term change - cascading reset
+  const handleTypeTermChange = (typeTermId: string) => {
+    const newProductType = getProductTypeFromTypeTerm(typeTermId);
+    setFormData(prev => ({
+      ...prev,
+      typeTermId,
+      product_type: newProductType,
+      category: '', // Reset category
+      subcategory: '', // Reset subcategory
+      items: [] // Clear items when switching product types
+    }));
+  };
 
-  // Update category automatically when product type changes
-  useEffect(() => {
-    const newCategory = getProductTypeCategory(formData.product_type);
-    if (formData.category !== newCategory) {
-      setFormData(prev => ({ 
-        ...prev, 
-        category: newCategory,
-        subcategory: '' // Clear subcategory when category changes
-      }));
-    }
-  }, [formData.product_type]);
+  // Handle category change - reset subcategory
+  const handleCategoryChange = (category: string) => {
+    setFormData(prev => ({
+      ...prev,
+      category,
+      subcategory: '' // Reset subcategory
+    }));
+  };
 
   if (loading) {
     return (
@@ -821,44 +846,75 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                 />
               </div>
 
+              {/* Tipo de Material - Primeiro nível da hierarquia (3 níveis) */}
               <div>
-                <Label>Tipo do Produto *</Label>
-                <RadioGroup
-                  value={formData.product_type}
-                  onValueChange={(value: any) => setFormData(prev => ({ 
-                    ...prev, 
-                    product_type: value,
-                    // Clear items when switching types due to different rules
-                    items: []
-                  }))}
-                  className="flex gap-6 mt-2"
+                <Label>Tipo de Material *</Label>
+                <Select
+                  value={formData.typeTermId || ''}
+                  onValueChange={handleTypeTermChange}
                 >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="finished_product" id="finished" />
-                    <Label htmlFor="finished">Produto Acabado</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="intermediate_product" id="intermediate" />
-                    <Label htmlFor="intermediate">Produto Intermediário</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="composite_product" id="composite" />
-                    <Label htmlFor="composite">Produto Composto</Label>
-                  </div>
-                </RadioGroup>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tipo de material" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {materialTypesFromTaxonomy.map(type => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Selecione o tipo principal (Produto Acabado, Intermediário ou Composto)
+                </p>
               </div>
 
+              {/* Categoria - Segundo nível da hierarquia */}
               <div>
-                <Label>Subcategoria</Label>
+                <Label>Categoria *</Label>
+                <Select
+                  value={formData.category || ''}
+                  onValueChange={handleCategoryChange}
+                  disabled={!formData.typeTermId || availableCategoriesForType.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={
+                      !formData.typeTermId 
+                        ? "Selecione um tipo primeiro" 
+                        : availableCategoriesForType.length === 0 
+                          ? "Nenhuma categoria disponível" 
+                          : "Selecione a categoria"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableCategoriesForType.map(option => (
+                      <SelectItem key={option.id} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Subcategoria - Terceiro nível da hierarquia */}
+              <div>
+                <Label>Subcategoria (Opcional)</Label>
                 <Select
                   value={formData.subcategory || ''}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, subcategory: value }))}
+                  disabled={!formData.category || availableSubcategoriesForCategory.length === 0}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione a subcategoria" />
+                    <SelectValue placeholder={
+                      !formData.category 
+                        ? "Selecione uma categoria primeiro" 
+                        : availableSubcategoriesForCategory.length === 0 
+                          ? "Nenhuma subcategoria disponível" 
+                          : "Selecione a subcategoria"
+                    } />
                   </SelectTrigger>
                   <SelectContent>
-                    {subcategoryOptions.map(option => (
+                    {availableSubcategoriesForCategory.map(option => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
