@@ -28,8 +28,9 @@ export interface Material {
   allowedBrands?: string[];
   category: string;
   subcategory?: string; // New hierarchical subcategory
-  categoryTermId?: string; // Reference to taxonomy term
-  subcategoryTermId?: string; // Reference to taxonomy term
+  typeTermId?: string; // Reference to material_type taxonomy term
+  categoryTermId?: string; // Reference to material_category taxonomy term
+  subcategoryTermId?: string; // Reference to material_subcategory taxonomy term
   code: string;
   materialType: 'ingredient' | 'packaging' | 'intermediate_product' | 'finished_product' | 'composite_product';
   unitWeight?: number;

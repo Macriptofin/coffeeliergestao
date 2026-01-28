@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -88,10 +89,11 @@ const materialTypesFromTaxonomy = getTermsByTaxonomy('material_type').filter(ter
 const allCategories = getTermsByTaxonomy('material_category').filter(t => t.is_active);
 const allSubcategories = getTermsByTaxonomy('material_subcategory').filter(t => t.is_active);
 
-// Filter categories based on selected type (categories have parent_id pointing to type)
+// Filter categories based on selected type
+// Categories have parent_id pointing to the material_type term
 const availableCategories = formData.typeTermId 
   ? allCategories.filter(cat => cat.parent_id === formData.typeTermId)
-  : [];
+  : allCategories; // Show all categories if no type selected (for backward compatibility)
 
 // Get available subcategories for selected category
 const selectedCategoryTerm = allCategories.find(cat => cat.name === formData.category);
@@ -117,33 +119,32 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
   return nameToType[typeTerm.name] || 'ingredient';
 };
 
-
-  const materialTypes = [
-    { value: 'ingredient' as const, label: 'Ingrediente' },
-    { value: 'packaging' as const, label: 'Embalagem' },
-    { value: 'intermediate_product' as const, label: 'Produto Intermediário (Receita-base)' },
-    { value: 'finished_product' as const, label: 'Produto Acabado' },
-    { value: 'composite_product' as const, label: 'Produto Composto' }
-  ];
-
-  // Find initial type term based on material's category or materialType
-  const getInitialTypeTerm = (mat: Material) => {
-    // Try to find by category name first (most reliable)
-    const typeTerm = materialTypesFromTaxonomy.find(t => 
-      t.name === mat.category || 
-      (mat.materialType === 'ingredient' && t.name === 'Insumo') ||
-      (mat.materialType === 'packaging' && t.name === 'Embalagem') ||
-      (mat.materialType === 'finished_product' && t.name === 'Produto Acabado') ||
-      (mat.materialType === 'intermediate_product' && t.name === 'Produto Intermediário') ||
-      (mat.materialType === 'composite_product' && t.name === 'Produto Composto')
-    );
+  // Helper function to get type term ID from material
+  // Uses the stored typeTermId if available, otherwise falls back to materialType mapping
+  const getTypeTermIdFromMaterial = (mat: Material): string => {
+    // First check if material has typeTermId directly (from database)
+    if (mat.typeTermId) {
+      return mat.typeTermId;
+    }
+    
+    // Fallback: try to find type term based on materialType
+    const typeMapping: Record<Material['materialType'], string> = {
+      'ingredient': 'Insumo',
+      'packaging': 'Embalagem',
+      'finished_product': 'Produto Acabado',
+      'intermediate_product': 'Produto Intermediário',
+      'composite_product': 'Produto Composto',
+    };
+    
+    const typeName = typeMapping[mat.materialType];
+    const typeTerm = materialTypesFromTaxonomy.find(t => t.name === typeName);
     return typeTerm?.id || '';
   };
 
   // Update form data when material changes
   useEffect(() => {
     if (material && materialTypesFromTaxonomy.length > 0) {
-      const typeTermId = getInitialTypeTerm(material);
+      const typeTermId = getTypeTermIdFromMaterial(material);
       setFormData({
         name: material.name,
         description: material.description || '',
@@ -164,7 +165,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
   // Track changes
   useEffect(() => {
     if (material && materialTypesFromTaxonomy.length > 0) {
-      const initialTypeTermId = getInitialTypeTerm(material);
+      const initialTypeTermId = getTypeTermIdFromMaterial(material);
       const hasChanges = 
         formData.name !== material.name ||
         formData.description !== (material.description || '') ||
@@ -257,6 +258,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
       allowedBrands: formData.allowedBrands ? formData.allowedBrands.split(',').map(b => b.trim()).filter(b => b) : undefined,
       category: formData.category,
       subcategory: formData.subcategory || undefined,
+      typeTermId: formData.typeTermId || undefined,
       categoryTermId: categoryTerm?.id,
       subcategoryTermId: subcategoryTerm?.id,
       materialType: legacyMaterialType,
@@ -664,7 +666,10 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="max-w-4xl h-[90vh] p-0 overflow-hidden">
+      <DialogContent className="max-w-4xl h-[90vh] p-0 overflow-hidden" aria-describedby={undefined}>
+        <VisuallyHidden>
+          <DialogTitle>Editor de Material</DialogTitle>
+        </VisuallyHidden>
         <EditorContent />
       </DialogContent>
     </Dialog>
