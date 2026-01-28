@@ -2,10 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Save, Building2, MapPin, Phone, Landmark, UserCircle, Loader2 } from "lucide-react";
+import { Save, Building2, MapPin, Phone, Landmark, UserCircle, Loader2, Pencil, X } from "lucide-react";
 import { useConfig } from "@/hooks/useConfig";
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface CompanyData {
   empresa_nome: string;
@@ -63,12 +64,51 @@ const initialData: CompanyData = {
   empresa_responsavel_cargo: '',
 };
 
+// Field component that shows text in view mode, input in edit mode
+interface FieldProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  isEditing: boolean;
+  placeholder?: string;
+  type?: string;
+  maxLength?: number;
+  className?: string;
+}
+
+const Field = ({ id, label, value, onChange, isEditing, placeholder, type = "text", maxLength, className }: FieldProps) => {
+  return (
+    <div className={cn("space-y-1.5", className)}>
+      <Label htmlFor={id} className="text-sm font-medium text-muted-foreground">
+        {label}
+      </Label>
+      {isEditing ? (
+        <Input
+          id={id}
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          maxLength={maxLength}
+          className="h-9"
+        />
+      ) : (
+        <p className="text-sm py-2 min-h-[36px] border-b border-transparent">
+          {value || <span className="text-muted-foreground/50 italic">Não informado</span>}
+        </p>
+      )}
+    </div>
+  );
+};
+
 export const ConfigDadosEmpresa = () => {
   const { getConfigValue, setConfigValue, loading } = useConfig();
   const [formData, setFormData] = useState<CompanyData>(initialData);
   const [savedData, setSavedData] = useState<CompanyData>(initialData);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const { toast } = useToast();
 
   // Check if there are unsaved changes
@@ -98,6 +138,11 @@ export const ConfigDadosEmpresa = () => {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
+  const handleCancel = () => {
+    setFormData({ ...savedData });
+    setIsEditing(false);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -110,6 +155,7 @@ export const ConfigDadosEmpresa = () => {
       // Check if all saves succeeded
       if (results.every(r => r === true)) {
         setSavedData({ ...formData });
+        setIsEditing(false);
         toast({
           title: "Dados salvos",
           description: "Os dados da empresa foram salvos com sucesso.",
@@ -139,6 +185,37 @@ export const ConfigDadosEmpresa = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header with Edit Button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">Dados da Empresa</h2>
+          <p className="text-sm text-muted-foreground">
+            {isEditing ? "Editando informações da empresa" : "Visualizando informações da empresa"}
+          </p>
+        </div>
+        {!isEditing ? (
+          <Button variant="outline" onClick={() => setIsEditing(true)}>
+            <Pencil className="h-4 w-4 mr-2" />
+            Editar
+          </Button>
+        ) : (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleCancel} disabled={saving}>
+              <X className="h-4 w-4 mr-2" />
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={saving || !isDirty}>
+              {saving ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {saving ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </div>
+        )}
+      </div>
+
       {/* Identificação */}
       <Card>
         <CardHeader className="pb-4">
@@ -150,56 +227,47 @@ export const ConfigDadosEmpresa = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-1.5 lg:col-span-2">
-              <Label htmlFor="empresa_nome">Razão Social</Label>
-              <Input
-                id="empresa_nome"
-                value={formData.empresa_nome}
-                onChange={(e) => handleChange('empresa_nome', e.target.value)}
-                placeholder="Nome completo da empresa"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_nome_fantasia">Nome Fantasia</Label>
-              <Input
-                id="empresa_nome_fantasia"
-                value={formData.empresa_nome_fantasia}
-                onChange={(e) => handleChange('empresa_nome_fantasia', e.target.value)}
-                placeholder="Nome fantasia"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_cnpj">CNPJ</Label>
-              <Input
-                id="empresa_cnpj"
-                value={formData.empresa_cnpj}
-                onChange={(e) => handleChange('empresa_cnpj', e.target.value)}
-                placeholder="00.000.000/0000-00"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_inscricao_estadual">Inscrição Estadual</Label>
-              <Input
-                id="empresa_inscricao_estadual"
-                value={formData.empresa_inscricao_estadual}
-                onChange={(e) => handleChange('empresa_inscricao_estadual', e.target.value)}
-                placeholder="Inscrição estadual"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_inscricao_municipal">Inscrição Municipal</Label>
-              <Input
-                id="empresa_inscricao_municipal"
-                value={formData.empresa_inscricao_municipal}
-                onChange={(e) => handleChange('empresa_inscricao_municipal', e.target.value)}
-                placeholder="Inscrição municipal"
-                className="h-9"
-              />
-            </div>
+            <Field
+              id="empresa_nome"
+              label="Razão Social"
+              value={formData.empresa_nome}
+              onChange={(v) => handleChange('empresa_nome', v)}
+              isEditing={isEditing}
+              placeholder="Nome completo da empresa"
+              className="lg:col-span-2"
+            />
+            <Field
+              id="empresa_nome_fantasia"
+              label="Nome Fantasia"
+              value={formData.empresa_nome_fantasia}
+              onChange={(v) => handleChange('empresa_nome_fantasia', v)}
+              isEditing={isEditing}
+              placeholder="Nome fantasia"
+            />
+            <Field
+              id="empresa_cnpj"
+              label="CNPJ"
+              value={formData.empresa_cnpj}
+              onChange={(v) => handleChange('empresa_cnpj', v)}
+              isEditing={isEditing}
+              placeholder="00.000.000/0000-00"
+            />
+            <Field
+              id="empresa_inscricao_estadual"
+              label="Inscrição Estadual"
+              value={formData.empresa_inscricao_estadual}
+              onChange={(v) => handleChange('empresa_inscricao_estadual', v)}
+              isEditing={isEditing}
+              placeholder="Inscrição estadual"
+            />
+            <Field
+              id="empresa_inscricao_municipal"
+              label="Inscrição Municipal"
+              value={formData.empresa_inscricao_municipal}
+              onChange={(v) => handleChange('empresa_inscricao_municipal', v)}
+              isEditing={isEditing}
+              placeholder="Inscrição municipal"
+            />
           </div>
         </CardContent>
       </Card>
@@ -215,77 +283,64 @@ export const ConfigDadosEmpresa = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-1.5 lg:col-span-2">
-              <Label htmlFor="empresa_endereco">Logradouro</Label>
-              <Input
-                id="empresa_endereco"
-                value={formData.empresa_endereco}
-                onChange={(e) => handleChange('empresa_endereco', e.target.value)}
-                placeholder="Rua, Avenida, etc."
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_numero">Número</Label>
-              <Input
-                id="empresa_numero"
-                value={formData.empresa_numero}
-                onChange={(e) => handleChange('empresa_numero', e.target.value)}
-                placeholder="Número"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_complemento">Complemento</Label>
-              <Input
-                id="empresa_complemento"
-                value={formData.empresa_complemento}
-                onChange={(e) => handleChange('empresa_complemento', e.target.value)}
-                placeholder="Apto, Sala, etc."
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_bairro">Bairro</Label>
-              <Input
-                id="empresa_bairro"
-                value={formData.empresa_bairro}
-                onChange={(e) => handleChange('empresa_bairro', e.target.value)}
-                placeholder="Bairro"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_cidade">Cidade</Label>
-              <Input
-                id="empresa_cidade"
-                value={formData.empresa_cidade}
-                onChange={(e) => handleChange('empresa_cidade', e.target.value)}
-                placeholder="Cidade"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_estado">Estado (UF)</Label>
-              <Input
-                id="empresa_estado"
-                value={formData.empresa_estado}
-                onChange={(e) => handleChange('empresa_estado', e.target.value)}
-                placeholder="UF"
-                className="h-9"
-                maxLength={2}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_cep">CEP</Label>
-              <Input
-                id="empresa_cep"
-                value={formData.empresa_cep}
-                onChange={(e) => handleChange('empresa_cep', e.target.value)}
-                placeholder="00000-000"
-                className="h-9"
-              />
-            </div>
+            <Field
+              id="empresa_endereco"
+              label="Logradouro"
+              value={formData.empresa_endereco}
+              onChange={(v) => handleChange('empresa_endereco', v)}
+              isEditing={isEditing}
+              placeholder="Rua, Avenida, etc."
+              className="lg:col-span-2"
+            />
+            <Field
+              id="empresa_numero"
+              label="Número"
+              value={formData.empresa_numero}
+              onChange={(v) => handleChange('empresa_numero', v)}
+              isEditing={isEditing}
+              placeholder="Número"
+            />
+            <Field
+              id="empresa_complemento"
+              label="Complemento"
+              value={formData.empresa_complemento}
+              onChange={(v) => handleChange('empresa_complemento', v)}
+              isEditing={isEditing}
+              placeholder="Apto, Sala, etc."
+            />
+            <Field
+              id="empresa_bairro"
+              label="Bairro"
+              value={formData.empresa_bairro}
+              onChange={(v) => handleChange('empresa_bairro', v)}
+              isEditing={isEditing}
+              placeholder="Bairro"
+            />
+            <Field
+              id="empresa_cidade"
+              label="Cidade"
+              value={formData.empresa_cidade}
+              onChange={(v) => handleChange('empresa_cidade', v)}
+              isEditing={isEditing}
+              placeholder="Cidade"
+            />
+            <Field
+              id="empresa_estado"
+              label="Estado (UF)"
+              value={formData.empresa_estado}
+              onChange={(v) => handleChange('empresa_estado', v)}
+              isEditing={isEditing}
+              placeholder="UF"
+              maxLength={2}
+            />
+            <Field
+              id="empresa_cep"
+              label="CEP"
+              value={formData.empresa_cep}
+              onChange={(v) => handleChange('empresa_cep', v)}
+              isEditing={isEditing}
+              placeholder="00000-000"
+            />
           </div>
         </CardContent>
       </Card>
@@ -301,57 +356,47 @@ export const ConfigDadosEmpresa = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_telefone">Telefone Fixo</Label>
-              <Input
-                id="empresa_telefone"
-                value={formData.empresa_telefone}
-                onChange={(e) => handleChange('empresa_telefone', e.target.value)}
-                placeholder="(00) 0000-0000"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_celular">Celular / WhatsApp</Label>
-              <Input
-                id="empresa_celular"
-                value={formData.empresa_celular}
-                onChange={(e) => handleChange('empresa_celular', e.target.value)}
-                placeholder="(00) 00000-0000"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_email">E-mail</Label>
-              <Input
-                id="empresa_email"
-                type="email"
-                value={formData.empresa_email}
-                onChange={(e) => handleChange('empresa_email', e.target.value)}
-                placeholder="contato@empresa.com.br"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_website">Website</Label>
-              <Input
-                id="empresa_website"
-                value={formData.empresa_website}
-                onChange={(e) => handleChange('empresa_website', e.target.value)}
-                placeholder="www.empresa.com.br"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_instagram">Instagram</Label>
-              <Input
-                id="empresa_instagram"
-                value={formData.empresa_instagram}
-                onChange={(e) => handleChange('empresa_instagram', e.target.value)}
-                placeholder="@empresa"
-                className="h-9"
-              />
-            </div>
+            <Field
+              id="empresa_telefone"
+              label="Telefone Fixo"
+              value={formData.empresa_telefone}
+              onChange={(v) => handleChange('empresa_telefone', v)}
+              isEditing={isEditing}
+              placeholder="(00) 0000-0000"
+            />
+            <Field
+              id="empresa_celular"
+              label="Celular / WhatsApp"
+              value={formData.empresa_celular}
+              onChange={(v) => handleChange('empresa_celular', v)}
+              isEditing={isEditing}
+              placeholder="(00) 00000-0000"
+            />
+            <Field
+              id="empresa_email"
+              label="E-mail"
+              value={formData.empresa_email}
+              onChange={(v) => handleChange('empresa_email', v)}
+              isEditing={isEditing}
+              placeholder="contato@empresa.com.br"
+              type="email"
+            />
+            <Field
+              id="empresa_website"
+              label="Website"
+              value={formData.empresa_website}
+              onChange={(v) => handleChange('empresa_website', v)}
+              isEditing={isEditing}
+              placeholder="www.empresa.com.br"
+            />
+            <Field
+              id="empresa_instagram"
+              label="Instagram"
+              value={formData.empresa_instagram}
+              onChange={(v) => handleChange('empresa_instagram', v)}
+              isEditing={isEditing}
+              placeholder="@empresa"
+            />
           </div>
         </CardContent>
       </Card>
@@ -367,56 +412,47 @@ export const ConfigDadosEmpresa = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_banco_nome">Nome do Banco</Label>
-              <Input
-                id="empresa_banco_nome"
-                value={formData.empresa_banco_nome}
-                onChange={(e) => handleChange('empresa_banco_nome', e.target.value)}
-                placeholder="Banco do Brasil, Itaú, etc."
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_banco_agencia">Agência</Label>
-              <Input
-                id="empresa_banco_agencia"
-                value={formData.empresa_banco_agencia}
-                onChange={(e) => handleChange('empresa_banco_agencia', e.target.value)}
-                placeholder="0000"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_banco_conta">Conta</Label>
-              <Input
-                id="empresa_banco_conta"
-                value={formData.empresa_banco_conta}
-                onChange={(e) => handleChange('empresa_banco_conta', e.target.value)}
-                placeholder="00000-0"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_banco_tipo">Tipo de Conta</Label>
-              <Input
-                id="empresa_banco_tipo"
-                value={formData.empresa_banco_tipo}
-                onChange={(e) => handleChange('empresa_banco_tipo', e.target.value)}
-                placeholder="Corrente ou Poupança"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5 lg:col-span-2">
-              <Label htmlFor="empresa_pix">Chave PIX</Label>
-              <Input
-                id="empresa_pix"
-                value={formData.empresa_pix}
-                onChange={(e) => handleChange('empresa_pix', e.target.value)}
-                placeholder="CNPJ, e-mail, telefone ou chave aleatória"
-                className="h-9"
-              />
-            </div>
+            <Field
+              id="empresa_banco_nome"
+              label="Nome do Banco"
+              value={formData.empresa_banco_nome}
+              onChange={(v) => handleChange('empresa_banco_nome', v)}
+              isEditing={isEditing}
+              placeholder="Banco do Brasil, Itaú, etc."
+            />
+            <Field
+              id="empresa_banco_agencia"
+              label="Agência"
+              value={formData.empresa_banco_agencia}
+              onChange={(v) => handleChange('empresa_banco_agencia', v)}
+              isEditing={isEditing}
+              placeholder="0000"
+            />
+            <Field
+              id="empresa_banco_conta"
+              label="Conta"
+              value={formData.empresa_banco_conta}
+              onChange={(v) => handleChange('empresa_banco_conta', v)}
+              isEditing={isEditing}
+              placeholder="00000-0"
+            />
+            <Field
+              id="empresa_banco_tipo"
+              label="Tipo de Conta"
+              value={formData.empresa_banco_tipo}
+              onChange={(v) => handleChange('empresa_banco_tipo', v)}
+              isEditing={isEditing}
+              placeholder="Corrente ou Poupança"
+            />
+            <Field
+              id="empresa_pix"
+              label="Chave PIX"
+              value={formData.empresa_pix}
+              onChange={(v) => handleChange('empresa_pix', v)}
+              isEditing={isEditing}
+              placeholder="CNPJ, e-mail, telefone ou chave aleatória"
+              className="lg:col-span-2"
+            />
           </div>
         </CardContent>
       </Card>
@@ -432,53 +468,33 @@ export const ConfigDadosEmpresa = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_responsavel_nome">Nome Completo</Label>
-              <Input
-                id="empresa_responsavel_nome"
-                value={formData.empresa_responsavel_nome}
-                onChange={(e) => handleChange('empresa_responsavel_nome', e.target.value)}
-                placeholder="Nome do responsável"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_responsavel_cpf">CPF</Label>
-              <Input
-                id="empresa_responsavel_cpf"
-                value={formData.empresa_responsavel_cpf}
-                onChange={(e) => handleChange('empresa_responsavel_cpf', e.target.value)}
-                placeholder="000.000.000-00"
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="empresa_responsavel_cargo">Cargo</Label>
-              <Input
-                id="empresa_responsavel_cargo"
-                value={formData.empresa_responsavel_cargo}
-                onChange={(e) => handleChange('empresa_responsavel_cargo', e.target.value)}
-                placeholder="Sócio-Administrador, Diretor, etc."
-                className="h-9"
-              />
-            </div>
+            <Field
+              id="empresa_responsavel_nome"
+              label="Nome Completo"
+              value={formData.empresa_responsavel_nome}
+              onChange={(v) => handleChange('empresa_responsavel_nome', v)}
+              isEditing={isEditing}
+              placeholder="Nome do responsável"
+            />
+            <Field
+              id="empresa_responsavel_cpf"
+              label="CPF"
+              value={formData.empresa_responsavel_cpf}
+              onChange={(v) => handleChange('empresa_responsavel_cpf', v)}
+              isEditing={isEditing}
+              placeholder="000.000.000-00"
+            />
+            <Field
+              id="empresa_responsavel_cargo"
+              label="Cargo"
+              value={formData.empresa_responsavel_cargo}
+              onChange={(v) => handleChange('empresa_responsavel_cargo', v)}
+              isEditing={isEditing}
+              placeholder="Sócio-Administrador, Diretor, etc."
+            />
           </div>
         </CardContent>
       </Card>
-
-      {/* Save Button - only show when there are unsaved changes */}
-      {isDirty && (
-        <div className="flex justify-end sticky bottom-4">
-          <Button onClick={handleSave} disabled={saving} size="lg" className="shadow-lg">
-            {saving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            {saving ? 'Salvando...' : 'Salvar Dados da Empresa'}
-          </Button>
-        </div>
-      )}
     </div>
   );
 };
