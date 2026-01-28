@@ -64,7 +64,8 @@ export const MaterialEditor = ({
     conversionFactor: material?.conversionFactor?.toString() || '',
     supplier: material?.supplier || '',
     allowedBrands: material?.allowedBrands?.join(', ') || '',
-    category: material?.category || 'Insumo',
+    typeTermId: '', // Will be set in useEffect based on material data
+    category: material?.category || '',
     subcategory: material?.subcategory || '',
     materialType: material?.materialType || 'ingredient' as Material['materialType'],
     unitWeight: material?.unitWeight?.toString() || '',
@@ -80,13 +81,41 @@ export const MaterialEditor = ({
 
 const { loading: taxonomyLoading, getTermsByTaxonomy } = useTaxonomy();
 
-const materialCategories = getTermsByTaxonomy('material_category').filter(t => t.is_active && !t.parent_id);
+// Get material types from taxonomy (first level)
+const materialTypesFromTaxonomy = getTermsByTaxonomy('material_type').filter(term => term.is_active);
+
+// Get all categories and subcategories
+const allCategories = getTermsByTaxonomy('material_category').filter(t => t.is_active);
 const allSubcategories = getTermsByTaxonomy('material_subcategory').filter(t => t.is_active);
 
-const selectedCategoryTerm = materialCategories.find(cat => cat.name === formData.category);
+// Filter categories based on selected type (categories have parent_id pointing to type)
+const availableCategories = formData.typeTermId 
+  ? allCategories.filter(cat => cat.parent_id === formData.typeTermId)
+  : [];
+
+// Get available subcategories for selected category
+const selectedCategoryTerm = allCategories.find(cat => cat.name === formData.category);
 const availableSubcategories = selectedCategoryTerm
   ? allSubcategories.filter(sub => sub.parent_id === selectedCategoryTerm.id)
   : [];
+
+// Map type term to legacy materialType for database
+const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => {
+  const typeTerm = materialTypesFromTaxonomy.find(t => t.id === typeTermId);
+  if (!typeTerm) return 'ingredient';
+  
+  const nameToType: Record<string, Material['materialType']> = {
+    'Insumo': 'ingredient',
+    'Embalagem': 'packaging',
+    'Produto Acabado': 'finished_product',
+    'Produto Intermediário': 'intermediate_product',
+    'Produto Composto': 'composite_product',
+    'Produto de Revenda': 'ingredient', // fallback
+    'Material de Limpeza': 'ingredient', // fallback
+    'Material de Consumo': 'ingredient', // fallback
+  };
+  return nameToType[typeTerm.name] || 'ingredient';
+};
 
 
   const materialTypes = [
@@ -97,9 +126,24 @@ const availableSubcategories = selectedCategoryTerm
     { value: 'composite_product' as const, label: 'Produto Composto' }
   ];
 
+  // Find initial type term based on material's category or materialType
+  const getInitialTypeTerm = (mat: Material) => {
+    // Try to find by category name first (most reliable)
+    const typeTerm = materialTypesFromTaxonomy.find(t => 
+      t.name === mat.category || 
+      (mat.materialType === 'ingredient' && t.name === 'Insumo') ||
+      (mat.materialType === 'packaging' && t.name === 'Embalagem') ||
+      (mat.materialType === 'finished_product' && t.name === 'Produto Acabado') ||
+      (mat.materialType === 'intermediate_product' && t.name === 'Produto Intermediário') ||
+      (mat.materialType === 'composite_product' && t.name === 'Produto Composto')
+    );
+    return typeTerm?.id || '';
+  };
+
   // Update form data when material changes
   useEffect(() => {
-    if (material) {
+    if (material && materialTypesFromTaxonomy.length > 0) {
+      const typeTermId = getInitialTypeTerm(material);
       setFormData({
         name: material.name,
         description: material.description || '',
@@ -108,17 +152,19 @@ const availableSubcategories = selectedCategoryTerm
         conversionFactor: material.conversionFactor.toString(),
         supplier: material.supplier || '',
         allowedBrands: material.allowedBrands?.join(', ') || '',
+        typeTermId: typeTermId,
         category: material.category,
         subcategory: material.subcategory || '',
         materialType: material.materialType,
         unitWeight: material.unitWeight?.toString() || '',
       });
     }
-  }, [material]);
+  }, [material, materialTypesFromTaxonomy]);
 
   // Track changes
   useEffect(() => {
-    if (material) {
+    if (material && materialTypesFromTaxonomy.length > 0) {
+      const initialTypeTermId = getInitialTypeTerm(material);
       const hasChanges = 
         formData.name !== material.name ||
         formData.description !== (material.description || '') ||
@@ -127,6 +173,7 @@ const availableSubcategories = selectedCategoryTerm
         formData.conversionFactor !== material.conversionFactor.toString() ||
         formData.supplier !== (material.supplier || '') ||
         formData.allowedBrands !== (material.allowedBrands?.join(', ') || '') ||
+        formData.typeTermId !== initialTypeTermId ||
         formData.category !== material.category ||
         formData.subcategory !== (material.subcategory || '') ||
         formData.materialType !== material.materialType ||
@@ -134,7 +181,7 @@ const availableSubcategories = selectedCategoryTerm
       
       setHasUnsavedChanges(hasChanges);
     }
-  }, [formData, material]);
+  }, [formData, material, materialTypesFromTaxonomy]);
 
   // Handle Escape key
   useEffect(() => {
@@ -190,6 +237,15 @@ const availableSubcategories = selectedCategoryTerm
 
     setDuplicateError('');
 
+    // Get legacy materialType from type term
+    const legacyMaterialType = getLegacyMaterialType(formData.typeTermId);
+    
+    // Find taxonomy term IDs for the selected category and subcategory
+    const categoryTerm = allCategories.find(cat => cat.name === formData.category);
+    const subcategoryTerm = formData.subcategory 
+      ? availableSubcategories.find(sub => sub.name === formData.subcategory)
+      : undefined;
+
     const updatedMaterial: Material = {
       ...material,
       name: formData.name,
@@ -201,12 +257,24 @@ const availableSubcategories = selectedCategoryTerm
       allowedBrands: formData.allowedBrands ? formData.allowedBrands.split(',').map(b => b.trim()).filter(b => b) : undefined,
       category: formData.category,
       subcategory: formData.subcategory || undefined,
-      materialType: formData.materialType,
+      categoryTermId: categoryTerm?.id,
+      subcategoryTermId: subcategoryTerm?.id,
+      materialType: legacyMaterialType,
       unitWeight: formData.unitWeight ? parseFloat(formData.unitWeight) : undefined,
     };
 
     onSave(updatedMaterial);
     setHasUnsavedChanges(false);
+  };
+
+  // Reset category and subcategory when type changes
+  const handleTypeChange = (newTypeTermId: string) => {
+    setFormData({ 
+      ...formData, 
+      typeTermId: newTypeTermId,
+      category: '', // Reset category when type changes
+      subcategory: '' // Reset subcategory when type changes
+    });
   };
 
   const handleCategoryChange = (newCategory: string) => {
@@ -314,26 +382,24 @@ const availableSubcategories = selectedCategoryTerm
                 </Alert>
               )}
 
-              {/* Categoria */}
+              {/* Tipo de Material - Primeiro nível da hierarquia */}
               <div className="space-y-3">
                 <Label className="flex items-center">
-                  Categoria do Material *
-                  <HelpTooltip content='Classifique corretamente o material. Exemplo: Categoria "Insumos" → Subcategoria "Condimentos e Temperos".' />
+                  Tipo de Material *
+                  <HelpTooltip content='Selecione o tipo principal do material. Isso determina as categorias e subcategorias disponíveis.' />
                 </Label>
-                <Select value={formData.category} onValueChange={handleCategoryChange} disabled={taxonomyLoading}>
+                <Select value={formData.typeTermId} onValueChange={handleTypeChange} disabled={taxonomyLoading}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder={taxonomyLoading ? "Carregando..." : "Selecione o tipo de material"} />
                   </SelectTrigger>
-                  <SelectContent className="z-50">
-                    {materialCategories.map((category) => (
-                      <SelectItem key={category.id} value={category.name}>
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <div className="font-medium">{category.name}</div>
-                            {category.code && (
-                              <div className="text-xs text-muted-foreground">Código: {category.code}</div>
-                            )}
-                          </div>
+                  <SelectContent className="bg-card border-border shadow-lg z-50">
+                    {materialTypesFromTaxonomy.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        <div>
+                          <div className="font-medium">{type.name}</div>
+                          {type.code && (
+                            <div className="text-xs text-muted-foreground">Código: {type.code}</div>
+                          )}
                         </div>
                       </SelectItem>
                     ))}
@@ -341,30 +407,71 @@ const availableSubcategories = selectedCategoryTerm
                 </Select>
               </div>
 
-              {/* Subcategoria */}
-              {availableSubcategories.length > 0 && (
-                <div className="space-y-3">
-                  <Label>Subcategoria (Opcional)</Label>
-                  <Select value={formData.subcategory || 'none'} onValueChange={(value) => setFormData({ ...formData, subcategory: value === 'none' ? '' : value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma subcategoria" />
-                    </SelectTrigger>
-                    <SelectContent className="z-50">
-                      <SelectItem value="none">Nenhuma subcategoria</SelectItem>
-                      {availableSubcategories.map((subcategory) => (
-                        <SelectItem key={subcategory.id} value={subcategory.name}>
-                          <div>
-                            <div className="font-medium">{subcategory.name}</div>
-                            {subcategory.code && (
-                              <div className="text-xs text-muted-foreground">Código: {subcategory.code}</div>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              {/* Categoria - Segundo nível da hierarquia */}
+              <div className="space-y-3">
+                <Label className="flex items-center">
+                  Categoria *
+                  <HelpTooltip content='Classifique corretamente o material. As categorias disponíveis dependem do Tipo selecionado.' />
+                </Label>
+                <Select 
+                  value={formData.category} 
+                  onValueChange={handleCategoryChange} 
+                  disabled={taxonomyLoading || !formData.typeTermId || availableCategories.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={
+                      taxonomyLoading ? "Carregando..." : 
+                      !formData.typeTermId ? "Selecione um tipo primeiro" :
+                      availableCategories.length === 0 ? "Nenhuma categoria disponível" :
+                      "Selecione uma categoria"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border shadow-lg z-50">
+                    {availableCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.name}>
+                        <div>
+                          <div className="font-medium">{category.name}</div>
+                          {category.code && (
+                            <div className="text-xs text-muted-foreground">Código: {category.code}</div>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Subcategoria - Terceiro nível da hierarquia */}
+              <div className="space-y-3">
+                <Label>Subcategoria (Opcional)</Label>
+                <Select 
+                  value={formData.subcategory || 'none'} 
+                  onValueChange={(value) => setFormData({ ...formData, subcategory: value === 'none' ? '' : value })}
+                  disabled={taxonomyLoading || !formData.category || availableSubcategories.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={
+                      taxonomyLoading ? "Carregando..." : 
+                      !formData.category ? "Selecione uma categoria primeiro" :
+                      availableSubcategories.length === 0 ? "Nenhuma subcategoria disponível" : 
+                      "Selecione uma subcategoria"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border shadow-lg z-50">
+                    <SelectItem value="none">Nenhuma subcategoria</SelectItem>
+                    {availableSubcategories.map((subcategory) => (
+                      <SelectItem key={subcategory.id} value={subcategory.name}>
+                        <div>
+                          <div className="font-medium">{subcategory.name}</div>
+                          {subcategory.code && (
+                            <div className="text-xs text-muted-foreground">Código: {subcategory.code}</div>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* Nome */}
               <div className="space-y-2">
