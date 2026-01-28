@@ -41,7 +41,10 @@ export const MaterialEdit = () => {
           code,
           material_type,
           unit_weight,
-          is_sellable
+          is_sellable,
+          type_term_id,
+          category_term_id,
+          subcategory_term_id
         `)
         .order('name');
 
@@ -62,7 +65,10 @@ export const MaterialEdit = () => {
         code: item.code,
         materialType: (item.material_type || 'ingredient') as Material['materialType'],
         unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
-        isSellable: Boolean(item.is_sellable)
+        isSellable: Boolean(item.is_sellable),
+        typeTermId: item.type_term_id || undefined,
+        categoryTermId: item.category_term_id || undefined,
+        subcategoryTermId: item.subcategory_term_id || undefined
       }));
 
       setMaterials(formattedMaterials);
@@ -102,7 +108,10 @@ export const MaterialEdit = () => {
           subcategory: updatedMaterial.subcategory,
           material_type: updatedMaterial.materialType,
           unit_weight: updatedMaterial.unitWeight,
-          is_sellable: updatedMaterial.isSellable || false
+          is_sellable: updatedMaterial.isSellable || false,
+          type_term_id: updatedMaterial.typeTermId,
+          category_term_id: updatedMaterial.categoryTermId,
+          subcategory_term_id: updatedMaterial.subcategoryTermId
         })
         .eq('id', updatedMaterial.id);
 
