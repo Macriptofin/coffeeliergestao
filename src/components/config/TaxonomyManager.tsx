@@ -55,11 +55,12 @@ export const TaxonomyManager = ({
   });
 
   const taxonomyTerms = getTermsByTaxonomy(taxonomyKey);
-  const allTerms = terms.filter(t => 
-    taxonomyKey === 'material_subcategory' ? 
-      t.parent_id : // Subcategorias (têm parent)
-      !t.parent_id   // Categorias principais (sem parent)
-  );
+  // Filtrar termos: categorias principais (sem parent) ou subcategorias (com parent)
+  // E filtrar apenas termos ativos para exibição
+  const allTerms = terms.filter(t => {
+    const isCorrectType = taxonomyKey === 'material_subcategory' ? t.parent_id : !t.parent_id;
+    return isCorrectType && t.is_active !== false;
+  });
 
   const handleCreate = () => {
     setEditingTerm(null);
@@ -146,9 +147,9 @@ export const TaxonomyManager = ({
     URL.revokeObjectURL(url);
   };
 
-  // Get parent options for subcategories
+  // Get parent options for subcategories (only active categories)
   const parentOptions = showParent ? 
-    terms.filter(t => !t.parent_id && taxonomyKey === 'material_subcategory') : 
+    terms.filter(t => !t.parent_id && t.is_active !== false && taxonomyKey === 'material_subcategory') : 
     [];
 
   if (loading) {
