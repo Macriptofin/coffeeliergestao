@@ -26,13 +26,15 @@ interface TaxonomyManagerProps {
   title: string;
   description: string;
   showParent?: boolean;
+  parentTaxonomyKey?: string; // Key da taxonomia pai para filtrar opções de parent
 }
 
 export const TaxonomyManager = ({ 
   taxonomyKey, 
   title, 
   description, 
-  showParent = false 
+  showParent = false,
+  parentTaxonomyKey
 }: TaxonomyManagerProps) => {
   const { 
     terms, 
@@ -55,12 +57,8 @@ export const TaxonomyManager = ({
   });
 
   const taxonomyTerms = getTermsByTaxonomy(taxonomyKey);
-  // Filtrar termos: categorias principais (sem parent) ou subcategorias (com parent)
-  // E filtrar apenas termos ativos para exibição
-  const allTerms = terms.filter(t => {
-    const isCorrectType = taxonomyKey === 'material_subcategory' ? t.parent_id : !t.parent_id;
-    return isCorrectType && t.is_active !== false;
-  });
+  // Filtrar termos: baseado na taxonomyKey específica e apenas ativos
+  const allTerms = taxonomyTerms.filter(t => t.is_active !== false);
 
   const handleCreate = () => {
     setEditingTerm(null);
@@ -147,10 +145,10 @@ export const TaxonomyManager = ({
     URL.revokeObjectURL(url);
   };
 
-  // Get parent options for subcategories (only active categories)
-  const parentOptions = showParent ? 
-    terms.filter(t => !t.parent_id && t.is_active !== false && taxonomyKey === 'material_subcategory') : 
-    [];
+  // Get parent options based on parentTaxonomyKey
+  const parentOptions = showParent && parentTaxonomyKey
+    ? getTermsByTaxonomy(parentTaxonomyKey).filter(t => t.is_active !== false)
+    : [];
 
   if (loading) {
     return <div className="animate-pulse">Carregando taxonomias...</div>;
@@ -209,13 +207,19 @@ export const TaxonomyManager = ({
 
                   {showParent && parentOptions.length > 0 && (
                     <div className="space-y-2">
-                      <Label>Categoria Pai</Label>
+                      <Label>
+                        {parentTaxonomyKey === 'material_type' ? 'Tipo de Material' : 
+                         parentTaxonomyKey === 'material_category' ? 'Categoria' : 'Termo Pai'}
+                      </Label>
                       <Select 
                         value={formData.parent_id} 
                         onValueChange={(value) => setFormData(prev => ({ ...prev, parent_id: value }))}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecione a categoria pai" />
+                          <SelectValue placeholder={
+                            parentTaxonomyKey === 'material_type' ? 'Selecione o tipo de material' : 
+                            parentTaxonomyKey === 'material_category' ? 'Selecione a categoria' : 'Selecione o termo pai'
+                          } />
                         </SelectTrigger>
                         <SelectContent>
                           {parentOptions.map(parent => (

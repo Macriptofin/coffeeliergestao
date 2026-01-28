@@ -3347,6 +3347,7 @@ export type Database = {
           subcategory_term_id: string | null
           supplier: string | null
           supplier_id: string | null
+          type_term_id: string | null
           unit_weight: number | null
           updated_at: string | null
           usage_unit: string
@@ -3377,6 +3378,7 @@ export type Database = {
           subcategory_term_id?: string | null
           supplier?: string | null
           supplier_id?: string | null
+          type_term_id?: string | null
           unit_weight?: number | null
           updated_at?: string | null
           usage_unit: string
@@ -3407,6 +3409,7 @@ export type Database = {
           subcategory_term_id?: string | null
           supplier?: string | null
           supplier_id?: string | null
+          type_term_id?: string | null
           unit_weight?: number | null
           updated_at?: string | null
           usage_unit?: string
@@ -3429,6 +3432,13 @@ export type Database = {
           {
             foreignKeyName: "materials_subcategory_term_id_fkey"
             columns: ["subcategory_term_id"]
+            isOneToOne: false
+            referencedRelation: "taxonomy_terms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_type_term_id_fkey"
+            columns: ["type_term_id"]
             isOneToOne: false
             referencedRelation: "taxonomy_terms"
             referencedColumns: ["id"]
