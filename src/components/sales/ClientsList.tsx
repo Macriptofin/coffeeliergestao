@@ -283,8 +283,7 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[120px] whitespace-nowrap">Código</TableHead>
-                  <TableHead className="min-w-[200px]">Cliente</TableHead>
-                  <TableHead className="min-w-[180px]">Contato</TableHead>
+                  <TableHead className="min-w-[250px]">Cliente</TableHead>
                   <TableHead>Localização</TableHead>
                   <TableHead className="w-[90px]">Status</TableHead>
                   <TableHead className="w-[120px]">Estrutura</TableHead>
@@ -318,28 +317,6 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
                           {client.cnpj_cpf && (
                             <div className="text-xs text-muted-foreground">
                               {client.cnpj_cpf}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-0.5">
-                          {client.contact_person && (
-                            <div className="flex items-center gap-1 text-sm">
-                              <User size={12} className="text-muted-foreground" />
-                              <span className="truncate max-w-[140px]">{client.contact_person}</span>
-                            </div>
-                          )}
-                          {client.phone && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Phone size={10} />
-                              {client.phone}
-                            </div>
-                          )}
-                          {client.email && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Mail size={10} />
-                              <span className="truncate max-w-[140px]">{client.email}</span>
                             </div>
                           )}
                         </div>
