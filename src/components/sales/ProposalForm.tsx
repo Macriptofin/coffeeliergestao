@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,10 +12,37 @@ import { toast } from 'sonner';
 interface Client {
   id: string;
   name: string;
+  fantasy_name?: string | null;
+}
+
+interface Department {
+  id: string;
+  name: string;
+}
+
+interface Unit {
+  id: string;
+  name: string;
+}
+
+interface Room {
+  id: string;
+  name: string;
+  unit_id: string;
+}
+
+interface Contact {
+  id: string;
+  name: string;
+  department_id?: string | null;
 }
 
 interface ProposalFormData {
   client_id: string;
+  department_id?: string;
+  unit_id?: string;
+  room_id?: string;
+  contact_id?: string;
   event_category: string;
   event_date: string;
   proposal_date: string;
@@ -44,6 +71,13 @@ const eventCategories = [
 export default function ProposalForm({ onSuccess, onCancel }: Props) {
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
+  
+  // Client structure state
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loadingStructure, setLoadingStructure] = useState(false);
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<ProposalFormData>({
     defaultValues: {
@@ -54,17 +88,69 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
   });
 
   const watchedValues = watch();
+  const selectedClientId = watchedValues.client_id;
+  const selectedDepartmentId = watchedValues.department_id;
+  const selectedUnitId = watchedValues.unit_id;
+  
   const totalTargetWeight = (watchedValues.number_of_people || 0) * (watchedValues.target_weight_per_person || 200);
+
+  // Filtered rooms based on selected unit
+  const filteredRooms = useMemo(() => {
+    if (!selectedUnitId) return rooms;
+    return rooms.filter(room => room.unit_id === selectedUnitId);
+  }, [rooms, selectedUnitId]);
+
+  // Filtered contacts based on selected department
+  const filteredContacts = useMemo(() => {
+    if (!selectedDepartmentId) return contacts;
+    return contacts.filter(contact => 
+      !contact.department_id || contact.department_id === selectedDepartmentId
+    );
+  }, [contacts, selectedDepartmentId]);
 
   useEffect(() => {
     loadClients();
   }, []);
 
+  // Load client structure when client is selected
+  useEffect(() => {
+    if (selectedClientId) {
+      loadClientStructure(selectedClientId);
+    } else {
+      // Reset structure when no client selected
+      setDepartments([]);
+      setUnits([]);
+      setRooms([]);
+      setContacts([]);
+    }
+  }, [selectedClientId]);
+
+  // Reset dependent fields when parent selection changes
+  useEffect(() => {
+    if (selectedUnitId) {
+      const currentRoomId = watchedValues.room_id;
+      const roomStillValid = filteredRooms.some(r => r.id === currentRoomId);
+      if (!roomStillValid && currentRoomId) {
+        setValue('room_id', undefined);
+      }
+    }
+  }, [selectedUnitId, filteredRooms, watchedValues.room_id, setValue]);
+
+  useEffect(() => {
+    if (selectedDepartmentId) {
+      const currentContactId = watchedValues.contact_id;
+      const contactStillValid = filteredContacts.some(c => c.id === currentContactId);
+      if (!contactStillValid && currentContactId) {
+        setValue('contact_id', undefined);
+      }
+    }
+  }, [selectedDepartmentId, filteredContacts, watchedValues.contact_id, setValue]);
+
   const loadClients = async () => {
     try {
       const { data, error } = await supabase
         .from('clients')
-        .select('id, name')
+        .select('id, name, fantasy_name')
         .eq('status', 'Ativo')
         .order('name');
 
@@ -76,12 +162,70 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
     }
   };
 
+  const loadClientStructure = async (clientId: string) => {
+    setLoadingStructure(true);
+    try {
+      // Load all client structure data in parallel
+      const [deptResult, unitResult, roomResult, contactResult] = await Promise.all([
+        supabase
+          .from('client_departments')
+          .select('id, name')
+          .eq('client_id', clientId)
+          .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('client_units')
+          .select('id, name')
+          .eq('client_id', clientId)
+          .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('client_rooms')
+          .select('id, name, unit_id')
+          .eq('client_id', clientId)
+          .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('client_contacts')
+          .select('id, name, department_id')
+          .eq('client_id', clientId)
+          .eq('is_active', true)
+          .order('name')
+      ]);
+
+      if (deptResult.error) throw deptResult.error;
+      if (unitResult.error) throw unitResult.error;
+      if (roomResult.error) throw roomResult.error;
+      if (contactResult.error) throw contactResult.error;
+
+      setDepartments(deptResult.data || []);
+      setUnits(unitResult.data || []);
+      setRooms(roomResult.data || []);
+      setContacts(contactResult.data || []);
+
+      // Reset structure selections when client changes
+      setValue('department_id', undefined);
+      setValue('unit_id', undefined);
+      setValue('room_id', undefined);
+      setValue('contact_id', undefined);
+    } catch (error) {
+      console.error('Erro ao carregar estrutura do cliente:', error);
+      toast.error('Erro ao carregar estrutura do cliente');
+    } finally {
+      setLoadingStructure(false);
+    }
+  };
+
   const onSubmit = async (data: ProposalFormData) => {
     try {
       setLoading(true);
 
       const proposalData = {
         client_id: data.client_id,
+        department_id: data.department_id || null,
+        unit_id: data.unit_id || null,
+        room_id: data.room_id || null,
+        contact_id: data.contact_id || null,
         event_category: data.event_category,
         event_date: data.event_date || null,
         proposal_date: data.proposal_date,
@@ -110,6 +254,10 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getClientDisplayName = (client: Client) => {
+    return client.fantasy_name || client.name;
   };
 
   return (
@@ -155,7 +303,7 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
                 <SelectContent>
                   {clients.filter(client => client.id && client.id.trim() !== '').map(client => (
                     <SelectItem key={client.id} value={client.id}>
-                      {client.name}
+                      {getClientDisplayName(client)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -179,7 +327,99 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
               </Select>
               {errors.event_category && <span className="text-sm text-destructive">Campo obrigatório</span>}
             </div>
+          </div>
 
+          {/* Client Structure Fields - Only show if client is selected and has structure data */}
+          {selectedClientId && (
+            <div className="border rounded-lg p-4 bg-muted/30">
+              <h4 className="font-medium mb-3 text-sm text-muted-foreground">
+                Estrutura do Cliente {loadingStructure && '(Carregando...)'}
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <Label htmlFor="department_id">Departamento</Label>
+                  <Select 
+                    value={watchedValues.department_id || ''} 
+                    onValueChange={(value) => setValue('department_id', value || undefined)}
+                    disabled={loadingStructure || departments.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={departments.length === 0 ? 'Nenhum cadastrado' : 'Selecione'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map(dept => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="unit_id">Unidade</Label>
+                  <Select 
+                    value={watchedValues.unit_id || ''} 
+                    onValueChange={(value) => setValue('unit_id', value || undefined)}
+                    disabled={loadingStructure || units.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={units.length === 0 ? 'Nenhuma cadastrada' : 'Selecione'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {units.map(unit => (
+                        <SelectItem key={unit.id} value={unit.id}>
+                          {unit.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="room_id">Sala</Label>
+                  <Select 
+                    value={watchedValues.room_id || ''} 
+                    onValueChange={(value) => setValue('room_id', value || undefined)}
+                    disabled={loadingStructure || filteredRooms.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={filteredRooms.length === 0 ? 'Nenhuma cadastrada' : 'Selecione'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredRooms.map(room => (
+                        <SelectItem key={room.id} value={room.id}>
+                          {room.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="contact_id">Contato/Solicitante</Label>
+                  <Select 
+                    value={watchedValues.contact_id || ''} 
+                    onValueChange={(value) => setValue('contact_id', value || undefined)}
+                    disabled={loadingStructure || filteredContacts.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={filteredContacts.length === 0 ? 'Nenhum cadastrado' : 'Selecione'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredContacts.map(contact => (
+                        <SelectItem key={contact.id} value={contact.id}>
+                          {contact.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="event_date">Data do Evento</Label>
               <Input
