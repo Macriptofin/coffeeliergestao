@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Check, AlertTriangle, Banknote, Smartphone, CreditCard, FileText, Calendar, Save, Percent, DollarSign, Lock, Unlock, Truck } from 'lucide-react';
+import { Loader2, Check, AlertTriangle, Banknote, Smartphone, CreditCard, FileText, Calendar, Save, Percent, DollarSign, Lock, Unlock, Truck, Plus, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { SupplierMatcher } from './SupplierMatcher';
 import { InvoiceItemMatcher } from './InvoiceItemMatcher';
@@ -263,6 +263,39 @@ export const InvoiceEditDialog = ({
 
     const newItems = [...editedData.itens];
     newItems[itemIndex] = newItem;
+    setEditedData({ ...editedData, itens: newItems });
+  };
+
+  const handleAddNewItem = () => {
+    if (!editedData) return;
+    
+    const newItem: InvoiceItem = {
+      nome: '',
+      quantidade: 1,
+      unidade: 'UN',
+      preco_unitario: 0,
+      preco_total: 0,
+      status: 'pending'
+    };
+    
+    setEditedData({
+      ...editedData,
+      itens: [...editedData.itens, newItem]
+    });
+  };
+
+  const handleRemoveItem = (itemIndex: number) => {
+    if (!editedData) return;
+    
+    const newItems = editedData.itens.filter((_, idx) => idx !== itemIndex);
+    setEditedData({ ...editedData, itens: newItems });
+  };
+
+  const handleItemNameChange = (itemIndex: number, newName: string) => {
+    if (!editedData) return;
+    
+    const newItems = [...editedData.itens];
+    newItems[itemIndex] = { ...newItems[itemIndex], nome: newName };
     setEditedData({ ...editedData, itens: newItems });
   };
 
@@ -901,17 +934,46 @@ export const InvoiceEditDialog = ({
 
             {/* Itens */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Itens da Nota ({editedData.itens.length})</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Itens da Nota ({editedData.itens.length})</h3>
+                {canEditItems && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddNewItem}
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Adicionar Item
+                  </Button>
+                )}
+              </div>
               {editedData.itens.map((item, idx) => (
-                <InvoiceItemMatcher
-                  key={idx}
-                  item={item}
-                  index={idx}
-                  onMaterialSelect={handleMaterialSelect}
-                  onCreateNew={handleCreateNew}
-                  onConversionFactorAdjust={handleConversionFactorAdjust}
-                  onItemValueChange={handleItemValueChange}
-                />
+                <div key={idx} className="relative">
+                  <InvoiceItemMatcher
+                    item={item}
+                    index={idx}
+                    onMaterialSelect={handleMaterialSelect}
+                    onCreateNew={handleCreateNew}
+                    onConversionFactorAdjust={handleConversionFactorAdjust}
+                    onItemValueChange={handleItemValueChange}
+                    onItemNameChange={handleItemNameChange}
+                    canEditName={canEditItems}
+                  />
+                  {canEditItems && editedData.itens.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveItem(idx)}
+                      className="absolute top-2 right-2 h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      title="Remover item"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               ))}
             </div>
 
