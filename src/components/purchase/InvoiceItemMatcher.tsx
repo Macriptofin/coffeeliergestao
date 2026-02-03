@@ -50,6 +50,8 @@ interface InvoiceItemMatcherProps {
   onCreateNew: (index: number) => void;
   onConversionFactorAdjust: (index: number, newFactor: number) => void;
   onItemValueChange: (index: number, field: keyof InvoiceItem, value: any) => void;
+  onItemNameChange?: (index: number, newName: string) => void;
+  canEditName?: boolean;
 }
 
 export const InvoiceItemMatcher = ({
@@ -58,7 +60,9 @@ export const InvoiceItemMatcher = ({
   onMaterialSelect,
   onCreateNew,
   onConversionFactorAdjust,
-  onItemValueChange
+  onItemValueChange,
+  onItemNameChange,
+  canEditName = false
 }: InvoiceItemMatcherProps) => {
   const [suggestions, setSuggestions] = useState<MaterialSuggestion[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -217,7 +221,16 @@ export const InvoiceItemMatcher = ({
               Item da Nota Fiscal
             </Label>
             <div className="space-y-3">
-              <p className="font-medium">{item.nome}</p>
+              {canEditName && onItemNameChange ? (
+                <Input
+                  value={item.nome}
+                  onChange={(e) => onItemNameChange(index, e.target.value)}
+                  placeholder="Nome do item"
+                  className="font-medium"
+                />
+              ) : (
+                <p className="font-medium">{item.nome}</p>
+              )}
               
               <div className="grid grid-cols-2 gap-2">
                 <div>
