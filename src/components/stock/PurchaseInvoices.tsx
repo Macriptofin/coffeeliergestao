@@ -427,10 +427,22 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           continue;
         }
         
-        // Calcular quantidade em unidade de uso
-        const conversionFactor = parseFloat(material.conversion_factor?.toString() || '1');
-        const usageQuantity = parseFloat(item.quantity?.toString() || '0') * conversionFactor;
-        const usageUnitPrice = parseFloat(item.unit_price?.toString() || '0') / conversionFactor;
+        // IMPORTANTE: Usar fator de conversão salvo no item da nota (ajustado pelo usuário)
+        // Se não existir, usar o fator do cadastro do material como fallback
+        const conversionFactor = item.conversion_factor 
+          ? parseFloat(item.conversion_factor.toString()) 
+          : parseFloat(material.conversion_factor?.toString() || '1');
+        
+        // Usar valores convertidos salvos no item, ou calcular se não existirem
+        const usageQuantity = item.converted_quantity 
+          ? parseFloat(item.converted_quantity.toString())
+          : parseFloat(item.quantity?.toString() || '0') * conversionFactor;
+        
+        const usageUnitPrice = item.converted_unit_price 
+          ? parseFloat(item.converted_unit_price.toString())
+          : parseFloat(item.unit_price?.toString() || '0') / conversionFactor;
+        
+        const purchaseUnit = item.unit || material.purchase_unit || 'un';
         
         // Criar movimentação de estoque
         const { error: stockError } = await supabase
@@ -443,7 +455,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             total_cost: usageQuantity * usageUnitPrice,
             reference_type: 'Compra',
             reference_id: invoiceId,
-            notes: `Nota fiscal ${invoice.invoice_number} - Compra: ${item.quantity} ${material.purchase_unit} = ${usageQuantity} ${material.usage_unit}`
+            notes: `Nota fiscal ${invoice.invoice_number} - Compra: ${item.quantity} ${purchaseUnit} = ${usageQuantity.toFixed(2)} ${material.usage_unit}`
           });
 
         if (stockError) {
