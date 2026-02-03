@@ -2817,7 +2817,11 @@ export type Database = {
       }
       invoice_items: {
         Row: {
+          conversion_factor: number | null
+          converted_quantity: number | null
+          converted_unit_price: number | null
           created_at: string
+          description: string | null
           discount_amount: number | null
           discount_percent: number | null
           final_price: number | null
@@ -2826,10 +2830,15 @@ export type Database = {
           material_id: string
           quantity: number
           total_price: number
+          unit: string | null
           unit_price: number
         }
         Insert: {
+          conversion_factor?: number | null
+          converted_quantity?: number | null
+          converted_unit_price?: number | null
           created_at?: string
+          description?: string | null
           discount_amount?: number | null
           discount_percent?: number | null
           final_price?: number | null
@@ -2838,10 +2847,15 @@ export type Database = {
           material_id: string
           quantity: number
           total_price: number
+          unit?: string | null
           unit_price: number
         }
         Update: {
+          conversion_factor?: number | null
+          converted_quantity?: number | null
+          converted_unit_price?: number | null
           created_at?: string
+          description?: string | null
           discount_amount?: number | null
           discount_percent?: number | null
           final_price?: number | null
@@ -2850,6 +2864,7 @@ export type Database = {
           material_id?: string
           quantity?: number
           total_price?: number
+          unit?: string | null
           unit_price?: number
         }
         Relationships: [

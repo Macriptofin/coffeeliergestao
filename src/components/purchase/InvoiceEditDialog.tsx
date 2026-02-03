@@ -554,7 +554,7 @@ export const InvoiceEditDialog = ({
         invoiceRecord = newInvoice;
       }
 
-      // Criar itens da nota fiscal com desconto rateado
+      // Criar itens da nota fiscal com desconto rateado e fator de conversão
       const invoiceItemsData = editedData.itens.map(item => {
         const itemDiscount = discountValue > 0 && subtotal > 0
           ? (item.preco_total / subtotal) * discountValue
@@ -568,7 +568,13 @@ export const InvoiceEditDialog = ({
           total_price: item.preco_total,
           discount_amount: itemDiscount,
           discount_percent: item.preco_total > 0 ? (itemDiscount / item.preco_total) * 100 : 0,
-          final_price: item.preco_total - itemDiscount
+          final_price: item.preco_total - itemDiscount,
+          // Salvar fator de conversão e valores convertidos
+          conversion_factor: item.conversion_factor || 1,
+          converted_quantity: item.converted_quantity || item.quantidade,
+          converted_unit_price: item.converted_unit_price || item.preco_unitario,
+          unit: item.unidade || 'un',
+          description: item.nome
         };
       });
 
