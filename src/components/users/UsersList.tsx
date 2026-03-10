@@ -112,7 +112,8 @@ export function UsersList({ onEditUser }: UsersListProps) {
     try {
       setLoading(true);
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (user?.id === userId) {
         toast.error('Você não pode deletar seu próprio usuário.');
         return;
