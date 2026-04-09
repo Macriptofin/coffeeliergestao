@@ -112,7 +112,10 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       'Embalagem': 'packaging',
       'Produto Acabado': 'finished_product',
       'Produto Intermediário': 'intermediate_product',
-      'Produto Composto': 'composite_product'
+      'Produto Composto': 'composite_product',
+      'Produto de Revenda': 'finished_product',
+      'Material de Limpeza': 'ingredient',
+      'Material de Consumo': 'ingredient',
     };
     return nameToType[typeTerm.name] || 'ingredient';
   };
