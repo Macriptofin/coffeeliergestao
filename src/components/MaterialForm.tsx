@@ -29,9 +29,13 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   // Find initial type term based on material's category or type
   const getInitialTypeTerm = () => {
     if (!material) return '';
-    // Try to find by existing type_term_id or match by category name
+    // First try by typeTermId if available
+    if (material.typeTermId) {
+      const directMatch = materialTypesFromTaxonomy.find(t => t.id === material.typeTermId);
+      if (directMatch) return directMatch.id;
+    }
+    // Fallback: match by materialType enum
     const typeTerm = materialTypesFromTaxonomy.find(t => 
-      t.name === material.category || 
       (material.materialType === 'ingredient' && t.name === 'Insumo') ||
       (material.materialType === 'packaging' && t.name === 'Embalagem') ||
       (material.materialType === 'finished_product' && t.name === 'Produto Acabado') ||
@@ -112,7 +116,10 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       'Embalagem': 'packaging',
       'Produto Acabado': 'finished_product',
       'Produto Intermediário': 'intermediate_product',
-      'Produto Composto': 'composite_product'
+      'Produto Composto': 'composite_product',
+      'Produto de Revenda': 'finished_product',
+      'Material de Limpeza': 'ingredient',
+      'Material de Consumo': 'ingredient',
     };
     return nameToType[typeTerm.name] || 'ingredient';
   };
@@ -179,6 +186,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       allowedBrands: formData.allowedBrands ? formData.allowedBrands.split(',').map(b => b.trim()).filter(b => b) : undefined,
       category: formData.category,
       subcategory: formData.subcategory || undefined,
+      typeTermId: formData.typeTermId || undefined,
       categoryTermId: categoryTerm?.id,
       subcategoryTermId: subcategoryTerm?.id,
       materialType: legacyMaterialType,
