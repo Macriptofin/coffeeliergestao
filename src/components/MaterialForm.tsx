@@ -186,6 +186,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       allowedBrands: formData.allowedBrands ? formData.allowedBrands.split(',').map(b => b.trim()).filter(b => b) : undefined,
       category: formData.category,
       subcategory: formData.subcategory || undefined,
+      typeTermId: formData.typeTermId || undefined,
       categoryTermId: categoryTerm?.id,
       subcategoryTermId: subcategoryTerm?.id,
       materialType: legacyMaterialType,
