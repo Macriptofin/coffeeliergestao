@@ -465,7 +465,7 @@ const Materials = () => {
           purchase_unit, usage_unit, conversion_factor, price_per_purchase_unit,
           supplier, allowed_brands, unit_weight, is_sellable, is_archived,
           created_at, updated_at,
-          stock_items(current_quantity, min_quantity, max_quantity, avg_price, last_price, cost_source, manual_price, abc_classification)
+          stock_items(current_quantity, minimum_quantity, average_price, total_value, cost_source, manual_price)
         `)
         .eq('is_archived', false)
         .order('name');
