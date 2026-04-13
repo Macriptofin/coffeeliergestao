@@ -39,23 +39,19 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
   const [previewType, setPreviewType] = useState<string>('');
   const [previewName, setPreviewName] = useState<string>('');
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [isSignedUrl, setIsSignedUrl] = useState(false);
 
   useEffect(() => {
     loadAttachments();
   }, [eventId]);
 
-  // Limpar URL do preview ao fechar (apenas blob URLs)
   useEffect(() => {
-    if (!previewOpen && previewUrl && !isSignedUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
     if (!previewOpen) {
+      if (previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
       setPreviewUrl(null);
-      setIsSignedUrl(false);
     }
-  }, [previewOpen]);
+  }, [previewOpen, previewUrl]);
 
   const loadAttachments = async () => {
     try {
@@ -75,6 +71,49 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
     }
   };
 
+  const getSignedFileUrl = async (attachment: Attachment, download?: string | boolean) => {
+    const { data, error } = await supabase.storage
+      .from('event-attachments')
+      .createSignedUrl(attachment.file_path, 3600, download ? { download } : undefined);
+
+    if (error || !data?.signedUrl) {
+      throw error ?? new Error('Não foi possível gerar o link do arquivo');
+    }
+
+    return data.signedUrl.startsWith('http')
+      ? data.signedUrl
+      : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1${data.signedUrl}`;
+  };
+
+  const getAttachmentBlob = async (attachment: Attachment) => {
+    const { data, error } = await supabase.storage
+      .from('event-attachments')
+      .download(attachment.file_path);
+
+    if (!error && data) {
+      return data.type
+        ? data
+        : new Blob([data], { type: attachment.file_type || 'application/octet-stream' });
+    }
+
+    const signedUrl = await getSignedFileUrl(attachment);
+    const response = await fetch(signedUrl);
+
+    if (!response.ok) {
+      throw error ?? new Error(`Falha ao acessar arquivo (${response.status})`);
+    }
+
+    const blob = await response.blob();
+    return blob.type
+      ? blob
+      : new Blob([blob], { type: attachment.file_type || 'application/octet-stream' });
+  };
+
+  const createLocalFileUrl = async (attachment: Attachment) => {
+    const blob = await getAttachmentBlob(attachment);
+    return URL.createObjectURL(blob);
+  };
+
   const handlePreview = async (attachment: Attachment) => {
     setPreviewLoading(true);
     setPreviewName(attachment.file_name);
@@ -82,44 +121,51 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
     setPreviewOpen(true);
 
     try {
-      // Para PDFs, usar URL assinada - signedUrl já vem com o path completo
-      if (attachment.file_type === 'application/pdf') {
-        const { data, error } = await supabase.storage
-          .from('event-attachments')
-          .createSignedUrl(attachment.file_path, 3600); // 1 hora de validade
-
-        if (error) throw error;
-        
-        // signedUrl do Supabase já retorna path relativo como "/object/sign/..."
-        // Precisamos construir a URL completa corretamente
-        const baseUrl = 'https://njxxqdcwvehlvqufuyww.supabase.co/storage/v1';
-        // Se signedUrl já começa com http, usar diretamente; senão, concatenar
-        const fullUrl = data.signedUrl.startsWith('http') 
-          ? data.signedUrl 
-          : `${baseUrl}${data.signedUrl}`;
-        
-        console.log('PDF Preview URL:', fullUrl); // Debug
-        setPreviewUrl(fullUrl);
-        setIsSignedUrl(true);
-      } else {
-        // Para outros tipos, baixar e criar blob URL
-        const { data, error } = await supabase.storage
-          .from('event-attachments')
-          .download(attachment.file_path);
-
-        if (error) throw error;
-
-        const blob = new Blob([data], { type: attachment.file_type });
-        const url = URL.createObjectURL(blob);
-        setPreviewUrl(url);
-        setIsSignedUrl(false);
+      if (previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
       }
+
+      const localUrl = await createLocalFileUrl(attachment);
+      setPreviewUrl(localUrl);
     } catch (error) {
       console.error('Erro ao carregar preview:', error);
       toast.error('Erro ao carregar visualização');
       setPreviewOpen(false);
     } finally {
       setPreviewLoading(false);
+    }
+  };
+
+  const handleDownload = async (attachment: Attachment) => {
+    let downloadWindow: Window | null = null;
+
+    try {
+      downloadWindow = window.open('', '_blank');
+      if (downloadWindow) {
+        downloadWindow.opener = null;
+      }
+
+      const signedUrl = await getSignedFileUrl(attachment, attachment.file_name);
+
+      if (downloadWindow && !downloadWindow.closed) {
+        downloadWindow.location.href = signedUrl;
+      } else {
+        const localUrl = await createLocalFileUrl(attachment);
+        const a = document.createElement('a');
+        a.href = localUrl;
+        a.download = attachment.file_name;
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.setTimeout(() => URL.revokeObjectURL(localUrl), 1500);
+      }
+
+      toast.success('Download iniciado!');
+    } catch (error) {
+      downloadWindow?.close();
+      console.error('Erro ao fazer download:', error);
+      toast.error('Erro ao baixar arquivo');
     }
   };
 
@@ -135,30 +181,6 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
       'text/csv',
     ];
     return previewableTypes.includes(fileType);
-  };
-
-  const handleDownload = async (attachment: Attachment) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('event-attachments')
-        .download(attachment.file_path);
-
-      if (error) throw error;
-
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = attachment.file_name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast.success('Download iniciado!');
-    } catch (error) {
-      console.error('Erro ao fazer download:', error);
-      toast.error('Erro ao baixar arquivo');
-    }
   };
 
   const handleDelete = async (attachment: Attachment) => {
