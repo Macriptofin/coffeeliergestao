@@ -465,7 +465,7 @@ const Materials = () => {
           purchase_unit, usage_unit, conversion_factor, price_per_purchase_unit,
           supplier, allowed_brands, unit_weight, is_sellable, is_archived,
           created_at, updated_at,
-          stock_items(current_quantity, min_quantity, max_quantity, avg_price, last_price, cost_source, manual_price, abc_classification)
+          stock_items(current_quantity, minimum_quantity, average_price, total_value, cost_source, manual_price)
         `)
         .eq('is_archived', false)
         .order('name');
@@ -478,9 +478,8 @@ const Materials = () => {
         'Código', 'Nome', 'Descrição', 'Tipo Material', 'Categoria', 'Subcategoria',
         'Un. Compra', 'Un. Uso', 'Fator Conversão', 'Preço Un. Compra',
         'Fornecedor', 'Marcas Permitidas', 'Peso Unitário', 'Vendível',
-        'Qtd Estoque', 'Estoque Mínimo', 'Estoque Máximo',
-        'Preço Médio', 'Último Preço', 'Fonte Custo', 'Classificação ABC',
-        'Criado em', 'Atualizado em'
+        'Qtd Estoque', 'Estoque Mínimo', 'Preço Médio', 'Valor Total',
+        'Fonte Custo', 'Criado em', 'Atualizado em'
       ];
 
       const csvRows = rows.map(m => {
@@ -501,12 +500,10 @@ const Materials = () => {
           m.unit_weight ?? '',
           m.is_sellable ? 'Sim' : 'Não',
           stock?.current_quantity ?? '',
-          stock?.min_quantity ?? '',
-          stock?.max_quantity ?? '',
-          stock?.avg_price ?? '',
-          stock?.last_price ?? '',
+          stock?.minimum_quantity ?? '',
+          stock?.average_price ?? '',
+          stock?.total_value ?? '',
           stock?.cost_source || '',
-          stock?.abc_classification || '',
           m.created_at ? new Date(m.created_at).toLocaleDateString('pt-BR') : '',
           m.updated_at ? new Date(m.updated_at).toLocaleDateString('pt-BR') : '',
         ];
