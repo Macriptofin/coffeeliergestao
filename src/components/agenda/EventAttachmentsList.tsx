@@ -233,12 +233,22 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
 
     if (previewType === 'application/pdf') {
       return (
-        <div className="w-full h-[70vh]">
-          <embed
-            src={previewUrl}
-            type="application/pdf"
-            className="w-full h-full"
+        <div className="w-full h-[70vh] flex flex-col gap-2">
+          <iframe
+            src={`${previewUrl}#toolbar=1&navpanes=0`}
+            className="w-full flex-1 border rounded"
+            title={previewName}
           />
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(previewUrl, '_blank')}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Abrir em nova aba
+            </Button>
+          </div>
         </div>
       );
     }
