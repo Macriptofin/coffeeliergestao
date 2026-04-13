@@ -169,6 +169,20 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
     }
   };
 
+  const canPreview = (fileType: string) => {
+    const previewableTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/svg+xml',
+      'application/pdf',
+      'text/plain',
+      'text/csv',
+    ];
+    return previewableTypes.includes(fileType);
+  };
+
   const handleDelete = async (attachment: Attachment) => {
     if (!confirm('Tem certeza que deseja excluir este anexo?')) return;
 
