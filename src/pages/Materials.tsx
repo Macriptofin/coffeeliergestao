@@ -20,7 +20,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 type GeneratedMaterialsExport = {
   filename: string;
-  url: string;
+  blob: Blob;
   totalRows: number;
   generatedAt: string;
 };
@@ -82,14 +82,6 @@ const Materials = () => {
     filterMaterials();
   }, [materials, selectedCategory, selectedSubcategory, searchTerm, supplierFilter]);
 
-  useEffect(() => {
-    return () => {
-      if (generatedExport?.url) {
-        URL.revokeObjectURL(generatedExport.url);
-      }
-    };
-  }, [generatedExport]);
-
   const filterMaterials = () => {
     let filtered = materials;
     
@@ -129,7 +121,8 @@ const Materials = () => {
     setSelectedSubcategory("all");
   };
 
-  const triggerCsvDownload = (fileUrl: string, filename: string) => {
+  const triggerCsvDownload = (blob: Blob, filename: string) => {
+    const fileUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = fileUrl;
     link.download = filename;
@@ -142,15 +135,70 @@ const Materials = () => {
       if (document.body.contains(link)) {
         document.body.removeChild(link);
       }
+
+      URL.revokeObjectURL(fileUrl);
     }, 0);
   };
 
-  const openGeneratedCsv = (fileUrl: string) => {
+  const openGeneratedCsv = (blob: Blob) => {
+    const fileUrl = URL.createObjectURL(blob);
     const openedWindow = window.open(fileUrl, '_blank', 'noopener,noreferrer');
 
     if (!openedWindow) {
       toast.error('O navegador bloqueou a nova aba. Use o botão "Baixar arquivo" para salvar o CSV.');
+      window.setTimeout(() => URL.revokeObjectURL(fileUrl), 2000);
+      return;
     }
+
+    window.setTimeout(() => URL.revokeObjectURL(fileUrl), 60000);
+  };
+
+  const saveGeneratedCsv = async (blob: Blob, filename: string) => {
+    const pickerWindow = window as Window & {
+      showSaveFilePicker?: (options?: {
+        suggestedName?: string;
+        types?: Array<{
+          description: string;
+          accept: Record<string, string[]>;
+        }>;
+      }) => Promise<{
+        createWritable: () => Promise<{
+          write: (data: Blob) => Promise<void>;
+          close: () => Promise<void>;
+        }>;
+      }>;
+    };
+
+    if (pickerWindow.showSaveFilePicker) {
+      try {
+        const handle = await pickerWindow.showSaveFilePicker({
+          suggestedName: filename,
+          types: [
+            {
+              description: 'Arquivo CSV',
+              accept: {
+                'text/csv': ['.csv'],
+              },
+            },
+          ],
+        });
+
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+
+        toast.success('CSV salvo com sucesso!');
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+
+        console.warn('Falha ao salvar com seletor nativo, usando download padrão:', error);
+      }
+    }
+
+    triggerCsvDownload(blob, filename);
   };
 
   const clearGeneratedExport = () => {
@@ -559,21 +607,19 @@ const Materials = () => {
       // BOM + Blob for proper UTF-8 with accents
       const BOM = '\uFEFF';
       const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-
       const filename = `materiais_completo_${new Date().toISOString().split('T')[0]}.csv`;
 
       setGeneratedExport({
         filename,
-        url,
+        blob,
         totalRows: rows.length,
         generatedAt: new Date().toLocaleString('pt-BR'),
       });
 
-      triggerCsvDownload(url, filename);
+      triggerCsvDownload(blob, filename);
 
       toast.success(`CSV com ${rows.length} materiais pronto para download!`, {
-        description: 'O arquivo é gerado no seu navegador e normalmente vai para a pasta Downloads. Se não baixar sozinho, use o botão “Baixar arquivo” exibido na tela.',
+        description: 'Se o download automático não iniciar, use o botão “Baixar arquivo” exibido na tela para escolher onde salvar o CSV.',
         duration: 8000,
       });
     } catch (error) {
@@ -663,14 +709,14 @@ const Materials = () => {
                     Arquivo pronto: {generatedExport.filename}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {generatedExport.totalRows} materiais preparados em {generatedExport.generatedAt}. O CSV é gerado localmente no navegador e normalmente fica na sua pasta Downloads.
+                    {generatedExport.totalRows} materiais preparados em {generatedExport.generatedAt}. Se o download automático não iniciar, clique em Baixar arquivo para escolher a pasta onde deseja salvar o CSV.
                   </p>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => triggerCsvDownload(generatedExport.url, generatedExport.filename)}
+                    onClick={() => saveGeneratedCsv(generatedExport.blob, generatedExport.filename)}
                     className="border-border hover:bg-accent"
                   >
                     <Download className="mr-2 h-4 w-4" />
@@ -679,7 +725,7 @@ const Materials = () => {
 
                   <Button
                     variant="ghost"
-                    onClick={() => openGeneratedCsv(generatedExport.url)}
+                    onClick={() => openGeneratedCsv(generatedExport.blob)}
                   >
                     Abrir CSV
                   </Button>
