@@ -18,6 +18,13 @@ import { materialCategories, getSubcategoriesByCategory } from "@/lib/material-c
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+type GeneratedMaterialsExport = {
+  filename: string;
+  url: string;
+  totalRows: number;
+  generatedAt: string;
+};
+
 const Materials = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -33,6 +40,7 @@ const Materials = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
+  const [generatedExport, setGeneratedExport] = useState<GeneratedMaterialsExport | null>(null);
 
   // Get dynamic categories from taxonomy
   const materialCategories = getTermsByTaxonomy('material_category').filter(term => term.is_active && !term.parent_id);
@@ -74,6 +82,14 @@ const Materials = () => {
     filterMaterials();
   }, [materials, selectedCategory, selectedSubcategory, searchTerm, supplierFilter]);
 
+  useEffect(() => {
+    return () => {
+      if (generatedExport?.url) {
+        URL.revokeObjectURL(generatedExport.url);
+      }
+    };
+  }, [generatedExport]);
+
   const filterMaterials = () => {
     let filtered = materials;
     
@@ -111,6 +127,34 @@ const Materials = () => {
   const handleCategoryChange = (newCategory: string) => {
     setSelectedCategory(newCategory);
     setSelectedSubcategory("all");
+  };
+
+  const triggerCsvDownload = (fileUrl: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = filename;
+    link.rel = 'noopener noreferrer';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+
+    window.setTimeout(() => {
+      if (document.body.contains(link)) {
+        document.body.removeChild(link);
+      }
+    }, 0);
+  };
+
+  const openGeneratedCsv = (fileUrl: string) => {
+    const openedWindow = window.open(fileUrl, '_blank', 'noopener,noreferrer');
+
+    if (!openedWindow) {
+      toast.error('O navegador bloqueou a nova aba. Use o botão "Baixar arquivo" para salvar o CSV.');
+    }
+  };
+
+  const clearGeneratedExport = () => {
+    setGeneratedExport(null);
   };
 
   const loadMaterials = async () => {
@@ -517,21 +561,21 @@ const Materials = () => {
       const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
 
-      // Use window.open as fallback for sandboxed iframes
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `materiais_completo_${new Date().toISOString().split('T')[0]}.csv`;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
+      const filename = `materiais_completo_${new Date().toISOString().split('T')[0]}.csv`;
 
-      // Fallback: if click didn't trigger download, open in new tab
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 1000);
+      setGeneratedExport({
+        filename,
+        url,
+        totalRows: rows.length,
+        generatedAt: new Date().toLocaleString('pt-BR'),
+      });
 
-      toast.success(`CSV com ${rows.length} materiais exportado com sucesso!`);
+      triggerCsvDownload(url, filename);
+
+      toast.success(`CSV com ${rows.length} materiais pronto para download!`, {
+        description: 'O arquivo é gerado no seu navegador e normalmente vai para a pasta Downloads. Se não baixar sozinho, use o botão “Baixar arquivo” exibido na tela.',
+        duration: 8000,
+      });
     } catch (error) {
       console.error('Erro ao exportar CSV:', error);
       toast.error('Erro ao exportar CSV dos materiais');
@@ -610,6 +654,46 @@ const Materials = () => {
               Configurações
             </Button>
           </div>
+
+          {generatedExport && (
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">
+                    Arquivo pronto: {generatedExport.filename}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {generatedExport.totalRows} materiais preparados em {generatedExport.generatedAt}. O CSV é gerado localmente no navegador e normalmente fica na sua pasta Downloads.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => triggerCsvDownload(generatedExport.url, generatedExport.filename)}
+                    className="border-border hover:bg-accent"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Baixar arquivo
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    onClick={() => openGeneratedCsv(generatedExport.url)}
+                  >
+                    Abrir CSV
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    onClick={clearGeneratedExport}
+                  >
+                    Fechar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Filters */}
           <div className="bg-card rounded-lg border shadow-sm p-4">
