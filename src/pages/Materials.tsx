@@ -455,64 +455,86 @@ const Materials = () => {
     }
   };
 
-  const exportMaterialsToCSV = () => {
+  const exportMaterialsToCSV = async () => {
     try {
-      // Prepare CSV data
-      const csvData = [];
-      csvData.push([
-        'Código',
-        'Nome',
-        'Descrição',
-        'Categoria',
-        'Subcategoria',
-        'Tipo',
-        'Unidade de Compra',
-        'Unidade de Uso',
-        'Fator de Conversão',
-        'Preço por Unidade de Compra',
-        'Fornecedor',
-        'Marcas Permitidas',
-        'Peso Unitário',
-        'Vendível'
-      ]);
-      
-      // Add material data
-      filteredMaterials.forEach(material => {
-        csvData.push([
-          material.code || '',
-          material.name,
-          material.description || '',
-          material.category,
-          material.subcategory || '',
-          material.materialType,
-          material.purchaseUnit,
-          material.usageUnit,
-          material.conversionFactor.toString(),
-          material.pricePerPurchaseUnit.toString(),
-          material.supplier || '',
-          material.allowedBrands?.join('; ') || '',
-          material.unitWeight?.toString() || '',
-          material.isSellable ? 'Sim' : 'Não'
-        ]);
+      // Fetch full data from DB including stock info
+      const { data: dbMaterials, error } = await supabase
+        .from('materials')
+        .select(`
+          id, name, description, code, material_type, category, subcategory,
+          purchase_unit, usage_unit, conversion_factor, price_per_purchase_unit,
+          supplier, allowed_brands, unit_weight, is_sellable, is_archived,
+          created_at, updated_at,
+          stock_items(current_quantity, min_quantity, max_quantity, avg_price, last_price, cost_source, manual_price, abc_classification)
+        `)
+        .eq('is_archived', false)
+        .order('name');
+
+      if (error) throw error;
+
+      const rows = dbMaterials || [];
+
+      const headers = [
+        'Código', 'Nome', 'Descrição', 'Tipo Material', 'Categoria', 'Subcategoria',
+        'Un. Compra', 'Un. Uso', 'Fator Conversão', 'Preço Un. Compra',
+        'Fornecedor', 'Marcas Permitidas', 'Peso Unitário', 'Vendível',
+        'Qtd Estoque', 'Estoque Mínimo', 'Estoque Máximo',
+        'Preço Médio', 'Último Preço', 'Fonte Custo', 'Classificação ABC',
+        'Criado em', 'Atualizado em'
+      ];
+
+      const csvRows = rows.map(m => {
+        const stock = (m.stock_items as any)?.[0];
+        return [
+          m.code || '',
+          m.name || '',
+          m.description || '',
+          m.material_type || '',
+          m.category || '',
+          m.subcategory || '',
+          m.purchase_unit || '',
+          m.usage_unit || '',
+          m.conversion_factor ?? '',
+          m.price_per_purchase_unit ?? '',
+          m.supplier || '',
+          (m.allowed_brands || []).join('; '),
+          m.unit_weight ?? '',
+          m.is_sellable ? 'Sim' : 'Não',
+          stock?.current_quantity ?? '',
+          stock?.min_quantity ?? '',
+          stock?.max_quantity ?? '',
+          stock?.avg_price ?? '',
+          stock?.last_price ?? '',
+          stock?.cost_source || '',
+          stock?.abc_classification || '',
+          m.created_at ? new Date(m.created_at).toLocaleDateString('pt-BR') : '',
+          m.updated_at ? new Date(m.updated_at).toLocaleDateString('pt-BR') : '',
+        ];
       });
-      
-      // Convert to CSV string
-      const csvContent = csvData.map(row => 
-        row.map(field => `"${field}"`).join(',')
-      ).join('\n');
-      
-      // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
+
+      const escape = (v: any) => `"${String(v).replace(/"/g, '""')}"`;
+      const csvContent = [headers, ...csvRows].map(row => row.map(escape).join(',')).join('\n');
+
+      // BOM + Blob for proper UTF-8 with accents
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `materiais_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.success(`CSV com ${filteredMaterials.length} materiais exportado com sucesso!`);
+
+      // Use window.open as fallback for sandboxed iframes
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `materiais_completo_${new Date().toISOString().split('T')[0]}.csv`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+
+      // Fallback: if click didn't trigger download, open in new tab
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 1000);
+
+      toast.success(`CSV com ${rows.length} materiais exportado com sucesso!`);
     } catch (error) {
       console.error('Erro ao exportar CSV:', error);
       toast.error('Erro ao exportar CSV dos materiais');
