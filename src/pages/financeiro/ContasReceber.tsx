@@ -136,7 +136,7 @@ const ContasReceber = () => {
 
   const fetchData = async () => {
     try {
-      const [accountsRes, clientsRes, proposalsRes, costCentersRes, chartAccountsRes] = await Promise.all([
+      const [accountsRes, clientsRes, proposalsRes, costCentersRes, chartAccountsRes, bankAccountsRes] = await Promise.all([
         supabase
           .from('accounts_receivable')
           .select(`
@@ -150,7 +150,8 @@ const ContasReceber = () => {
         supabase.from('clients').select('id, name').eq('status', 'Ativo'),
         supabase.from('proposals').select('id, proposal_number').order('proposal_number', { ascending: false }),
         supabase.from('cost_centers').select('id, name, code').eq('is_active', true).order('code'),
-        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Receitas').order('code')
+        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Receitas').order('code'),
+        supabase.from('bank_accounts').select('id, name, bank_name').eq('is_active', true).order('name')
       ]);
 
       if (accountsRes.error) throw accountsRes.error;
@@ -158,12 +159,14 @@ const ContasReceber = () => {
       if (proposalsRes.error) throw proposalsRes.error;
       if (costCentersRes.error) throw costCentersRes.error;
       if (chartAccountsRes.error) throw chartAccountsRes.error;
+      if (bankAccountsRes.error) throw bankAccountsRes.error;
 
       setAccounts(accountsRes.data || []);
       setClients(clientsRes.data || []);
       setProposals(proposalsRes.data || []);
       setCostCenters(costCentersRes.data || []);
       setChartAccounts(chartAccountsRes.data || []);
+      setBankAccounts(bankAccountsRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Erro ao carregar dados');
