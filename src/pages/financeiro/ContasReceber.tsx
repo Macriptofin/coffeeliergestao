@@ -424,15 +424,15 @@ const ContasReceber = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusMap = {
-      'Pendente': { variant: 'secondary' as const, color: 'bg-yellow-500' },
-      'Recebido': { variant: 'secondary' as const, color: 'bg-green-500' },
-      'Parcial': { variant: 'secondary' as const, color: 'bg-blue-500' },
-      'Vencido': { variant: 'destructive' as const, color: 'bg-red-500' },
-      'Cancelado': { variant: 'outline' as const, color: 'bg-gray-500' }
+    const styleMap: Record<string, string> = {
+      'Pendente': 'bg-blue-100 text-blue-700 border-blue-200',
+      'Recebido': 'bg-green-100 text-green-700 border-green-200',
+      'Parcial': 'bg-amber-100 text-amber-700 border-amber-200',
+      'Vencido': 'bg-red-100 text-red-700 border-red-200',
+      'Cancelado': 'bg-gray-100 text-gray-500 border-gray-200'
     };
-    const config = statusMap[status as keyof typeof statusMap] || statusMap.Pendente;
-    return <Badge variant={config.variant}>{status}</Badge>;
+    const classes = styleMap[status] || styleMap['Pendente'];
+    return <Badge variant="outline" className={classes}>{status}</Badge>;
   };
 
   // Aplicar status efetivo a todas as contas
