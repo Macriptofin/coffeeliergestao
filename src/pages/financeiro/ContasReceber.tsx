@@ -387,6 +387,45 @@ const ContasReceber = () => {
 
       if (receiptError) throw receiptError;
 
+      // Atualizar saldo da conta bancária se informada
+      if (receiptData.bank_account_id) {
+        // Buscar saldo atual
+        const { data: bankData, error: bankFetchError } = await supabase
+          .from('bank_accounts')
+          .select('current_balance')
+          .eq('id', receiptData.bank_account_id)
+          .single();
+
+        if (bankFetchError) throw bankFetchError;
+
+        const newBalance = (bankData?.current_balance || 0) + receiptAmount;
+
+        const { error: bankUpdateError } = await supabase
+          .from('bank_accounts')
+          .update({ current_balance: newBalance })
+          .eq('id', receiptData.bank_account_id);
+
+        if (bankUpdateError) throw bankUpdateError;
+
+        // Registrar no fluxo de caixa
+        const { error: cashError } = await supabase
+          .from('cash_transactions')
+          .insert({
+            transaction_date: receiptData.receipt_date,
+            transaction_type: 'Receita',
+            category: 'Recebimento de Cliente',
+            description: `Recebimento: ${selectedAccount.description}`,
+            amount: receiptAmount,
+            payment_method: receiptData.receipt_method,
+            bank_account_id: receiptData.bank_account_id,
+            reference_type: 'accounts_receivable',
+            reference_id: selectedAccount.id,
+            notes: receiptData.notes || null
+          });
+
+        if (cashError) throw cashError;
+      }
+
       toast.success('Recebimento registrado com sucesso!');
       setReceiptDialogOpen(false);
       setSelectedAccount(null);
