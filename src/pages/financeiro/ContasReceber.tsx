@@ -349,6 +349,10 @@ const ContasReceber = () => {
       receipt_date: format(new Date(), 'yyyy-MM-dd'),
       receipt_method: 'Dinheiro',
       amount: account.remaining_amount.toString(),
+      discount_amount: '0',
+      interest_amount: '0',
+      adjustment_type: '',
+      bank_account_id: '',
       notes: ''
     });
     setReceiptDialogOpen(true);
@@ -359,6 +363,9 @@ const ContasReceber = () => {
 
     try {
       const receiptAmount = parseFloat(receiptData.amount);
+      const discountAmount = parseFloat(receiptData.discount_amount) || 0;
+      const interestAmount = parseFloat(receiptData.interest_amount) || 0;
+      const grossAmount = receiptAmount + discountAmount - interestAmount;
       
       // Criar transação de recebimento
       const { data: receiptTransaction, error: receiptError } = await supabase
@@ -367,6 +374,11 @@ const ContasReceber = () => {
           account_receivable_id: selectedAccount.id,
           receipt_date: receiptData.receipt_date,
           amount: receiptAmount,
+          gross_amount: grossAmount,
+          discount_amount: discountAmount,
+          interest_amount: interestAmount,
+          adjustment_type: receiptData.adjustment_type || null,
+          bank_account_id: receiptData.bank_account_id || null,
           receipt_method: receiptData.receipt_method,
           notes: receiptData.notes
         })
@@ -382,6 +394,10 @@ const ContasReceber = () => {
         receipt_date: format(new Date(), 'yyyy-MM-dd'),
         receipt_method: 'Dinheiro',
         amount: '',
+        discount_amount: '0',
+        interest_amount: '0',
+        adjustment_type: '',
+        bank_account_id: '',
         notes: ''
       });
       fetchData();
