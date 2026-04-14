@@ -63,12 +63,19 @@ interface Account {
   code: string;
 }
 
+interface BankAccount {
+  id: string;
+  name: string;
+  bank_name: string;
+}
+
 const ContasReceber = () => {
   const [accounts, setAccounts] = useState<AccountReceivable[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [chartAccounts, setChartAccounts] = useState<Account[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -85,6 +92,10 @@ const ContasReceber = () => {
     receipt_date: format(new Date(), 'yyyy-MM-dd'),
     receipt_method: 'Dinheiro',
     amount: '',
+    discount_amount: '0',
+    interest_amount: '0',
+    adjustment_type: '',
+    bank_account_id: '',
     notes: ''
   });
   const [formData, setFormData] = useState({
@@ -125,7 +136,7 @@ const ContasReceber = () => {
 
   const fetchData = async () => {
     try {
-      const [accountsRes, clientsRes, proposalsRes, costCentersRes, chartAccountsRes] = await Promise.all([
+      const [accountsRes, clientsRes, proposalsRes, costCentersRes, chartAccountsRes, bankAccountsRes] = await Promise.all([
         supabase
           .from('accounts_receivable')
           .select(`
@@ -139,7 +150,8 @@ const ContasReceber = () => {
         supabase.from('clients').select('id, name').eq('status', 'Ativo'),
         supabase.from('proposals').select('id, proposal_number').order('proposal_number', { ascending: false }),
         supabase.from('cost_centers').select('id, name, code').eq('is_active', true).order('code'),
-        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Receitas').order('code')
+        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Receitas').order('code'),
+        supabase.from('bank_accounts').select('id, name, bank_name').eq('is_active', true).order('name')
       ]);
 
       if (accountsRes.error) throw accountsRes.error;
@@ -147,12 +159,14 @@ const ContasReceber = () => {
       if (proposalsRes.error) throw proposalsRes.error;
       if (costCentersRes.error) throw costCentersRes.error;
       if (chartAccountsRes.error) throw chartAccountsRes.error;
+      if (bankAccountsRes.error) throw bankAccountsRes.error;
 
       setAccounts(accountsRes.data || []);
       setClients(clientsRes.data || []);
       setProposals(proposalsRes.data || []);
       setCostCenters(costCentersRes.data || []);
       setChartAccounts(chartAccountsRes.data || []);
+      setBankAccounts(bankAccountsRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Erro ao carregar dados');
@@ -335,6 +349,10 @@ const ContasReceber = () => {
       receipt_date: format(new Date(), 'yyyy-MM-dd'),
       receipt_method: 'Dinheiro',
       amount: account.remaining_amount.toString(),
+      discount_amount: '0',
+      interest_amount: '0',
+      adjustment_type: '',
+      bank_account_id: '',
       notes: ''
     });
     setReceiptDialogOpen(true);
@@ -345,6 +363,9 @@ const ContasReceber = () => {
 
     try {
       const receiptAmount = parseFloat(receiptData.amount);
+      const discountAmount = parseFloat(receiptData.discount_amount) || 0;
+      const interestAmount = parseFloat(receiptData.interest_amount) || 0;
+      const grossAmount = receiptAmount + discountAmount - interestAmount;
       
       // Criar transação de recebimento
       const { data: receiptTransaction, error: receiptError } = await supabase
@@ -353,6 +374,11 @@ const ContasReceber = () => {
           account_receivable_id: selectedAccount.id,
           receipt_date: receiptData.receipt_date,
           amount: receiptAmount,
+          gross_amount: grossAmount,
+          discount_amount: discountAmount,
+          interest_amount: interestAmount,
+          adjustment_type: receiptData.adjustment_type || null,
+          bank_account_id: receiptData.bank_account_id || null,
           receipt_method: receiptData.receipt_method,
           notes: receiptData.notes
         })
@@ -368,6 +394,10 @@ const ContasReceber = () => {
         receipt_date: format(new Date(), 'yyyy-MM-dd'),
         receipt_method: 'Dinheiro',
         amount: '',
+        discount_amount: '0',
+        interest_amount: '0',
+        adjustment_type: '',
+        bank_account_id: '',
         notes: ''
       });
       fetchData();
@@ -829,7 +859,7 @@ const ContasReceber = () => {
 
       {/* Dialog de Recebimento */}
       <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Efetuar Recebimento</DialogTitle>
             <DialogDescription>
@@ -838,39 +868,62 @@ const ContasReceber = () => {
           </DialogHeader>
           
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="receipt_date">Data do Recebimento *</Label>
-              <Input
-                id="receipt_date"
-                type="date"
-                value={receiptData.receipt_date}
-                onChange={(e) => setReceiptData(prev => ({ ...prev, receipt_date: e.target.value }))}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="receipt_date">Data do Recebimento *</Label>
+                <Input
+                  id="receipt_date"
+                  type="date"
+                  value={receiptData.receipt_date}
+                  onChange={(e) => setReceiptData(prev => ({ ...prev, receipt_date: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="receipt_method">Forma de Recebimento *</Label>
+                <Select
+                  value={receiptData.receipt_method}
+                  onValueChange={(value) => setReceiptData(prev => ({ ...prev, receipt_method: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                    <SelectItem value="PIX">PIX</SelectItem>
+                    <SelectItem value="Cartão Débito">Cartão de Débito</SelectItem>
+                    <SelectItem value="Cartão Crédito">Cartão de Crédito</SelectItem>
+                    <SelectItem value="Transferência">Transferência Bancária</SelectItem>
+                    <SelectItem value="Boleto">Boleto</SelectItem>
+                    <SelectItem value="Cheque">Cheque</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div>
-              <Label htmlFor="receipt_method">Forma de Recebimento *</Label>
+              <Label htmlFor="receipt_bank_account">Conta Bancária de Destino</Label>
               <Select
-                value={receiptData.receipt_method}
-                onValueChange={(value) => setReceiptData(prev => ({ ...prev, receipt_method: value }))}
+                value={receiptData.bank_account_id}
+                onValueChange={(value) => setReceiptData(prev => ({ ...prev, bank_account_id: value }))}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione a conta bancária" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Dinheiro">Dinheiro</SelectItem>
-                  <SelectItem value="PIX">PIX</SelectItem>
-                  <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
-                  <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
-                  <SelectItem value="Transferência Bancária">Transferência Bancária</SelectItem>
-                  <SelectItem value="Boleto">Boleto</SelectItem>
-                  <SelectItem value="Cheque">Cheque</SelectItem>
+                  {bankAccounts.map((ba) => (
+                    <SelectItem key={ba.id} value={ba.id}>
+                      {ba.name} ({ba.bank_name})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
+            <Separator />
+
             <div>
-              <Label htmlFor="receipt_amount">Valor do Recebimento *</Label>
+              <Label htmlFor="receipt_amount">Valor Líquido Recebido *</Label>
               <Input
                 id="receipt_amount"
                 type="number"
@@ -884,6 +937,60 @@ const ContasReceber = () => {
               </p>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="receipt_discount">Desconto / Deságio</Label>
+                <Input
+                  id="receipt_discount"
+                  type="number"
+                  step="0.01"
+                  value={receiptData.discount_amount}
+                  onChange={(e) => setReceiptData(prev => ({ ...prev, discount_amount: e.target.value }))}
+                  placeholder="0,00"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Valor descontado (antecipação, comercial, etc.)
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="receipt_interest">Juros / Multa Recebidos</Label>
+                <Input
+                  id="receipt_interest"
+                  type="number"
+                  step="0.01"
+                  value={receiptData.interest_amount}
+                  onChange={(e) => setReceiptData(prev => ({ ...prev, interest_amount: e.target.value }))}
+                  placeholder="0,00"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Valor recebido a mais (multa, juros por atraso)
+                </p>
+              </div>
+            </div>
+
+            {(parseFloat(receiptData.discount_amount) > 0 || parseFloat(receiptData.interest_amount) > 0) && (
+              <div>
+                <Label htmlFor="adjustment_type">Classificação da Diferença *</Label>
+                <Select
+                  value={receiptData.adjustment_type}
+                  onValueChange={(value) => setReceiptData(prev => ({ ...prev, adjustment_type: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o motivo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Desconto de Antecipação">Desconto de Antecipação</SelectItem>
+                    <SelectItem value="Multa por Atraso">Multa por Atraso</SelectItem>
+                    <SelectItem value="Juros por Atraso">Juros por Atraso</SelectItem>
+                    <SelectItem value="Desconto Comercial">Desconto Comercial</SelectItem>
+                    <SelectItem value="Taxa Bancária">Taxa Bancária</SelectItem>
+                    <SelectItem value="Outros">Outros</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div>
               <Label htmlFor="receipt_notes">Observações</Label>
               <Textarea
@@ -891,7 +998,7 @@ const ContasReceber = () => {
                 value={receiptData.notes}
                 onChange={(e) => setReceiptData(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder="Observações sobre o recebimento"
-                rows={3}
+                rows={2}
               />
             </div>
           </div>
