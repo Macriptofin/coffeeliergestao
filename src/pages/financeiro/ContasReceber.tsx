@@ -63,12 +63,19 @@ interface Account {
   code: string;
 }
 
+interface BankAccount {
+  id: string;
+  name: string;
+  bank_name: string;
+}
+
 const ContasReceber = () => {
   const [accounts, setAccounts] = useState<AccountReceivable[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [chartAccounts, setChartAccounts] = useState<Account[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -85,6 +92,10 @@ const ContasReceber = () => {
     receipt_date: format(new Date(), 'yyyy-MM-dd'),
     receipt_method: 'Dinheiro',
     amount: '',
+    discount_amount: '0',
+    interest_amount: '0',
+    adjustment_type: '',
+    bank_account_id: '',
     notes: ''
   });
   const [formData, setFormData] = useState({
