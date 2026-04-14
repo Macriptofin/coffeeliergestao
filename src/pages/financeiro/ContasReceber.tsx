@@ -412,8 +412,8 @@ const ContasReceber = () => {
           .from('cash_transactions')
           .insert({
             transaction_date: receiptData.receipt_date,
-            transaction_type: 'Receita',
-            category: 'Recebimento de Cliente',
+            transaction_type: 'Entrada',
+            category: 'Recebimento de Clientes',
             description: `Recebimento: ${selectedAccount.description}`,
             amount: receiptAmount,
             payment_method: receiptData.receipt_method,
