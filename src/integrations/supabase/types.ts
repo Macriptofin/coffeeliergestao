@@ -4836,33 +4836,48 @@ export type Database = {
       receipt_transactions: {
         Row: {
           account_receivable_id: string
+          adjustment_type: string | null
           amount: number
           bank_account: string | null
+          bank_account_id: string | null
           created_at: string
+          discount_amount: number
           document_number: string | null
+          gross_amount: number | null
           id: string
+          interest_amount: number
           notes: string | null
           receipt_date: string
           receipt_method: string
         }
         Insert: {
           account_receivable_id: string
+          adjustment_type?: string | null
           amount: number
           bank_account?: string | null
+          bank_account_id?: string | null
           created_at?: string
+          discount_amount?: number
           document_number?: string | null
+          gross_amount?: number | null
           id?: string
+          interest_amount?: number
           notes?: string | null
           receipt_date: string
           receipt_method: string
         }
         Update: {
           account_receivable_id?: string
+          adjustment_type?: string | null
           amount?: number
           bank_account?: string | null
+          bank_account_id?: string | null
           created_at?: string
+          discount_amount?: number
           document_number?: string | null
+          gross_amount?: number | null
           id?: string
+          interest_amount?: number
           notes?: string | null
           receipt_date?: string
           receipt_method?: string
@@ -4873,6 +4888,13 @@ export type Database = {
             columns: ["account_receivable_id"]
             isOneToOne: false
             referencedRelation: "accounts_receivable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
             referencedColumns: ["id"]
           },
         ]
