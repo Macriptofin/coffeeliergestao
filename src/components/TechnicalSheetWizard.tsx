@@ -114,9 +114,9 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
       const [materialsRes, taxonomyRes] = await Promise.all([
         supabase.from('materials').select('*').order('name'),
         supabase.from('taxonomy_terms').select(`
-          id, code, name, parent_id,
+          id, code, name, parent_id, is_active,
           taxonomy_definitions!inner(key)
-        `).in('taxonomy_definitions.key', ['material_category', 'material_subcategory'])
+        `).in('taxonomy_definitions.key', ['material_type', 'material_category', 'material_subcategory'])
       ]);
 
       if (materialsRes.error) throw materialsRes.error;
