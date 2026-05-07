@@ -255,22 +255,14 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
 
     if (previewType === 'application/pdf') {
       return (
-        <div className="w-full h-[70vh] flex flex-col gap-2">
-          <object
-            data={previewUrl}
-            type="application/pdf"
+        <div className="w-full h-[75vh] flex flex-col gap-2">
+          <iframe
+            src={previewUrl}
             className="w-full flex-1 border rounded"
-            aria-label={previewName}
-          >
-            <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
-              <FileText className="h-10 w-10 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Seu navegador não conseguiu renderizar o PDF aqui dentro.
-                Abra em uma nova aba para visualizar.
-              </p>
-            </div>
-          </object>
-          <div className="flex justify-center gap-2">
+            title={previewName}
+            style={{ minHeight: '60vh' }}
+          />
+          <div className="flex justify-center">
             <Button
               variant="outline"
               size="sm"
