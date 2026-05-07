@@ -256,16 +256,25 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
     if (previewType === 'application/pdf') {
       return (
         <div className="w-full h-[70vh] flex flex-col gap-2">
-          <iframe
-            src={`${previewUrl}#toolbar=1&navpanes=0`}
+          <object
+            data={previewUrl}
+            type="application/pdf"
             className="w-full flex-1 border rounded"
-            title={previewName}
-          />
-          <div className="flex justify-center">
+            aria-label={previewName}
+          >
+            <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
+              <FileText className="h-10 w-10 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Seu navegador não conseguiu renderizar o PDF aqui dentro.
+                Abra em uma nova aba para visualizar.
+              </p>
+            </div>
+          </object>
+          <div className="flex justify-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.open(previewUrl, '_blank')}
+              onClick={() => window.open(previewUrl, '_blank', 'noopener,noreferrer')}
             >
               <Eye className="h-4 w-4 mr-2" />
               Abrir em nova aba
