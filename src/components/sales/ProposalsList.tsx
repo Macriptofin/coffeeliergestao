@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Copy, Trash2, Factory, ShoppingCart } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Copy, Trash2, Factory, ShoppingCart, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Table,
@@ -43,11 +43,15 @@ interface Props {
 }
 
 const statusOptions = [
+  { value: 'rascunho', label: 'Rascunho', variant: 'secondary' },
+  { value: 'enviada',  label: 'Enviada',  variant: 'default' },
+  { value: 'aprovada', label: 'Aprovada', variant: 'success' },
+  { value: 'recusada', label: 'Recusada', variant: 'destructive' },
+  { value: 'cancelada',label: 'Cancelada',variant: 'outline' },
+  // compatibilidade com valores capitalizados legado
   { value: 'Rascunho', label: 'Rascunho', variant: 'secondary' },
-  { value: 'Enviada', label: 'Enviada', variant: 'default' },
+  { value: 'Enviada',  label: 'Enviada',  variant: 'default' },
   { value: 'Aprovada', label: 'Aprovada', variant: 'success' },
-  { value: 'Rejeitada', label: 'Rejeitada', variant: 'destructive' },
-  { value: 'Cancelada', label: 'Cancelada', variant: 'outline' }
 ];
 
 export default function ProposalsList({ onNewProposal, onEditProposal, onViewProposal }: Props) {
@@ -146,59 +150,68 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
     }
   };
 
+  const handleApprove = async (proposalId: string) => {
+    try {
+      await supabase.from('proposals').update({ status: 'aprovada' }).eq('id', proposalId);
+      const { error: evtErr }  = await supabase.rpc('create_event_from_proposal',      { p_proposal_id: proposalId });
+      const { error: prodErr } = await supabase.rpc('generate_production_from_proposal', { p_proposal_id: proposalId });
+      if (evtErr)  console.warn('create_event_from_proposal:',      evtErr.message);
+      if (prodErr) console.warn('generate_production_from_proposal:', prodErr.message);
+      toast.success('Proposta aprovada! Evento e OP criados automaticamente.');
+      loadProposals();
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao aprovar proposta');
+    }
+  };
+
   const handleDuplicate = async (originalId: string) => {
     try {
-      // Buscar proposta original com itens
-      const { data: originalProposal, error: fetchError } = await supabase
+      const { data: orig, error: fetchErr } = await supabase
         .from('proposals')
-        .select(`
-          *,
-          proposal_items (*)
-        `)
+        .select('*')
         .eq('id', originalId)
         .single();
+      if (fetchErr) throw fetchErr;
 
-      if (fetchError) throw fetchError;
-
-      // Criar nova proposta
-      const newProposalData = {
-        client_id: originalProposal.client_id,
-        event_category: (originalProposal as any).event_category,
-        event_date: null, // Limpar data do evento
-        number_of_people: originalProposal.number_of_people,
-        target_weight_per_person: originalProposal.target_weight_per_person,
-        total_target_weight: originalProposal.total_target_weight,
-        total_weight: originalProposal.total_weight,
-        total_amount: originalProposal.total_amount,
-        notes: originalProposal.notes,
-        status: 'Rascunho'
-      };
-
-      const { data: newProposal, error: createError } = await supabase
+      const { data: newProp, error: createErr } = await supabase
         .from('proposals')
-        .insert(newProposalData as any)
+        .insert({
+          client_id:               orig.client_id,
+          event_category:          (orig as any).event_category,
+          event_date:              null,
+          number_of_people:        orig.number_of_people,
+          target_weight_per_person: orig.target_weight_per_person,
+          total_weight:            orig.total_weight,
+          total_amount:            orig.total_amount,
+          status:                  'rascunho',
+          proposal_kind:           (orig as any).proposal_kind,
+          department_id:           orig.department_id,
+          contact_id:              orig.contact_id,
+          unit_id:                 orig.unit_id,
+        } as any)
         .select()
         .single();
+      if (createErr) throw createErr;
 
-      if (createError) throw createError;
+      // Duplicar proposal_category_items
+      const { data: cats } = await supabase
+        .from('proposal_categories')
+        .select('id, category_label, sort_order, proposal_category_items(*)')
+        .eq('proposal_id', originalId);
 
-      // Duplicar itens
-      if (originalProposal.proposal_items && originalProposal.proposal_items.length > 0) {
-        const itemsToInsert = originalProposal.proposal_items.map((item: any) => ({
-          proposal_id: newProposal.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_weight: item.unit_weight,
-          unit_price: item.unit_price,
-          total_weight: item.total_weight,
-          total_price: item.total_price
-        }));
-
-        const { error: itemsError } = await supabase
-          .from('proposal_items')
-          .insert(itemsToInsert);
-
-        if (itemsError) throw itemsError;
+      for (const cat of (cats || [])) {
+        const { data: newCat } = await supabase
+          .from('proposal_categories')
+          .insert({ proposal_id: newProp.id, category_label: cat.category_label, sort_order: cat.sort_order })
+          .select().single();
+        if (newCat && cat.proposal_category_items?.length) {
+          await supabase.from('proposal_category_items').insert(
+            cat.proposal_category_items.map((it: any) => ({
+              category_id: newCat.id, material_id: it.material_id,
+              qty_per_person: it.qty_per_person, fixed_qty: it.fixed_qty, item_kind: it.item_kind,
+            }))
+          );
+        }
       }
 
       toast.success('Proposta duplicada com sucesso!');
@@ -341,55 +354,32 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                       <TableCell>R$ {proposal.total_amount.toFixed(2)}</TableCell>
                       <TableCell>{getStatusBadge(proposal.status)}</TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onViewProposal(proposal.id)}
-                          >
-                            <Eye size={14} />
+                        <div className="flex gap-1 flex-wrap">
+                          <Button variant="ghost" size="icon" className="h-7 w-7"
+                            onClick={() => onViewProposal(proposal.id)} title="Visualizar">
+                            <Eye size={13} />
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onEditProposal(proposal.id)}
-                          >
-                            <Edit size={14} />
+                          <Button variant="ghost" size="icon" className="h-7 w-7"
+                            onClick={() => onEditProposal(proposal.id)} title="Editar">
+                            <Edit size={13} />
                           </Button>
-                          {(proposal.status === 'Enviada' || proposal.status === 'Aprovada') && !proposal.generated_order_id && (
+                          {/* Botão Aprovar */}
+                          {!['aprovada', 'Aprovada', 'cancelada'].includes(proposal.status) && (
                             <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleConvertToOrder(proposal.id)}
-                              title="Converter em Pedido"
-                              className="bg-green-600 hover:bg-green-700"
+                              size="icon" className="h-7 w-7 bg-green-600 hover:bg-green-700 text-white"
+                              onClick={() => handleApprove(proposal.id)}
+                              title="Aprovar proposta (cria evento + OP automaticamente)"
                             >
-                              <ShoppingCart size={14} />
+                              <CheckCircle2 size={13} />
                             </Button>
                           )}
-                          {proposal.status === 'Enviada' && !proposal.auto_generated_event_table_id && !proposal.auto_generated_bom_order_id && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleGenerateProduction(proposal.id)}
-                              title="Gerar Produção"
-                            >
-                              <Factory size={14} />
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDuplicate(proposal.id)}
-                          >
-                            <Copy size={14} />
+                          <Button variant="ghost" size="icon" className="h-7 w-7"
+                            onClick={() => handleDuplicate(proposal.id)} title="Duplicar">
+                            <Copy size={13} />
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDelete(proposal.id)}
-                          >
-                            <Trash2 size={14} />
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDelete(proposal.id)} title="Excluir">
+                            <Trash2 size={13} />
                           </Button>
                         </div>
                       </TableCell>
