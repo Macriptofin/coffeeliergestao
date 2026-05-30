@@ -1,321 +1,376 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, BookOpen, Building2, Calculator } from "lucide-react";
-import type { Supplier } from "@/components/SupplierForm";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Calendar, ClipboardList, AlertTriangle, TrendingUp,
+  DollarSign, Clock, Package, ChevronRight, Users,
+  CheckCircle2, XCircle, Loader2
+} from "lucide-react";
 import { EventCalendar } from "@/components/agenda/EventCalendar";
 
-interface DashboardIngredient {
-  id: string;
-  name: string;
-  usage_unit: string;
-  cost_price: number;
-}
-
-interface DashboardBOM {
-  id: string;
-  cached_total_cost: number | null;
-  materials: {
-    name: string;
-    category: string | null;
-  } | null;
-}
+// ─── Tipos ──────────────────────────────────────────────────────────────────
 
 interface DashboardEvent {
-  id: string;
-  event_name: string;
-  event_date: string;
-  status: string;
-  venue?: string;
-  total_people: number;
-  total_weight: number;
-  total_amount: number;
-  clients?: {
-    name: string;
-  };
+  id: string; event_name: string; event_date: string;
+  status: string; venue?: string;
+  total_people: number; total_weight: number; total_amount: number;
+  clients?: { name: string };
 }
 
+interface KpiData {
+  // Comercial
+  eventosProximos7: number;
+  eventosProximos30: number;
+  proximoEvento: { nome: string; data: string; pessoas: number; cliente: string } | null;
+  propostasPendentes: number;
+  // Operacional
+  ordensPendentes: number;
+  ordensEmAndamento: number;
+  materiaisAbaixoMinimo: number;
+  materiaisZerados: number;
+  // Financeiro
+  contasReceberVencidas: number;
+  contasPagarProximas7: number;
+  totalReceberVencido: number;
+  totalPagarProximas7: number;
+}
+
+const EMPTY_KPI: KpiData = {
+  eventosProximos7: 0, eventosProximos30: 0, proximoEvento: null,
+  propostasPendentes: 0, ordensPendentes: 0, ordensEmAndamento: 0,
+  materiaisAbaixoMinimo: 0, materiaisZerados: 0,
+  contasReceberVencidas: 0, contasPagarProximas7: 0,
+  totalReceberVencido: 0, totalPagarProximas7: 0,
+};
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const fmt = (v: number) =>
+  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+const today = () => new Date().toISOString().split("T")[0];
+const inDays = (d: number) => {
+  const dt = new Date();
+  dt.setDate(dt.getDate() + d);
+  return dt.toISOString().split("T")[0];
+};
+
+// ─── Componente ─────────────────────────────────────────────────────────────
+
 const Dashboard = () => {
-  const [ingredients, setIngredients] = useState<DashboardIngredient[]>([]);
-  const [boms, setBoms] = useState<DashboardBOM[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const navigate = useNavigate();
+  const [kpi, setKpi] = useState<KpiData>(EMPTY_KPI);
   const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadAll(); }, []);
 
-  const loadData = async () => {
-    const withTimeout = async <T,>(p: Promise<T>, ms: number, name: string) => {
-      return await Promise.race<PromiseSettledResult<T>>([
-        p.then((res) => ({ status: 'fulfilled', value: res } as PromiseSettledResult<T>))
-         .catch((err) => ({ status: 'rejected', reason: err } as PromiseSettledResult<T>)),
-        new Promise<PromiseSettledResult<T>>((resolve) =>
-          setTimeout(() => resolve({ status: 'rejected', reason: new Error(`${name} timeout`) }), ms)
-        )
-      ]);
-    };
-
+  const loadAll = async () => {
     try {
       setLoading(true);
-      const results = await Promise.all([
-        withTimeout(loadIngredients(), 10_000, 'ingredientes'),
-        withTimeout(loadBOMs(), 10_000, 'fichas técnicas'),
-        withTimeout(loadSuppliers(), 10_000, 'fornecedores'),
-        withTimeout(loadEvents(), 10_000, 'eventos')
-      ]);
-
-      const failed = results
-        .map((r, i) => ({ r, i }))
-        .filter(({ r }) => r.status === 'rejected')
-        .map(({ i }) => ['ingredientes', 'fichas técnicas', 'fornecedores', 'eventos'][i]);
-
-      if (failed.length) {
-        console.warn('Falhas ao carregar:', failed);
-        toast.warning(`Alguns dados não carregaram: ${failed.join(', ')}`);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar dados do dashboard');
+      await Promise.all([loadKpis(), loadCalendarEvents()]);
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao carregar dashboard");
     } finally {
       setLoading(false);
     }
   };
 
-  const loadIngredients = async () => {
-    const { data, error } = await supabase
-      .from('materials')
-      .select('id, name, usage_unit, cost_price')
-      .eq('is_archived', false)
-      .order('name');
-    if (error) throw error;
-    setIngredients(data || []);
-  };
-
-  const loadBOMs = async () => {
-    const { data, error } = await supabase
-      .from('recipes_bom')
-      .select(`
-        id,
-        cached_total_cost,
-        materials!finished_material_id (
-          name,
-          category
-        )
-      `)
-      .eq('is_archived', false)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    setBoms((data as unknown as DashboardBOM[]) || []);
-  };
-
-  const loadSuppliers = async () => {
-    const { data, error } = await supabase
-      .from('suppliers')
-      .select('*')
-      .order('company_name');
-    if (error) throw error;
-    const formattedSuppliers = (data || []).map(item => ({
-      id: item.id,
-      code: item.code,
-      status: item.status as 'Ativo' | 'Inativo',
-      companyName: item.company_name,
-      tradeName: item.trade_name || undefined,
-      cnpjCpf: item.cnpj_cpf || undefined,
-      contactName: item.contact_name || undefined,
-      phone: item.phone || undefined,
-      email: item.email || undefined,
-      address: item.address || undefined,
-      city: item.city || undefined,
-      state: item.state || undefined,
-      zipCode: item.zip_code || undefined,
-      mainCategory: item.main_category || undefined,
-      paymentTerms: item.payment_terms || 30,
-      minimumOrderValue: parseFloat(item.minimum_order_value?.toString() || '0'),
-      notes: item.notes || undefined
-    }));
-    setSuppliers(formattedSuppliers);
-  };
-
-  const loadEvents = async () => {
-    const { data, error } = await supabase
-      .from('events')
-      .select('*, clients(name)')
-      .order('event_date', { ascending: true });
-    if (error) throw error;
+  const loadCalendarEvents = async () => {
+    const { data } = await supabase
+      .from("events")
+      .select("*, clients(name)")
+      .order("event_date", { ascending: true });
     setEvents(data || []);
   };
 
-  const avgBomCost = boms.length > 0
-    ? boms.reduce((sum, b) => sum + (b.cached_total_cost || 0), 0) / boms.length
-    : 0;
+  const loadKpis = async () => {
+    const td = today();
+    const in7 = inDays(7);
+    const in30 = inDays(30);
+
+    const [
+      evts7, evts30, nextEvt,
+      proposals,
+      ordPending, ordActive,
+      stockLow, stockZero,
+      apVencido, apProximo,
+    ] = await Promise.all([
+      // Eventos próximos 7 dias
+      supabase.from("events").select("id", { count: "exact", head: true })
+        .gte("event_date", td).lte("event_date", in7).neq("status", "cancelado"),
+
+      // Eventos próximos 30 dias
+      supabase.from("events").select("id", { count: "exact", head: true })
+        .gte("event_date", td).lte("event_date", in30).neq("status", "cancelado"),
+
+      // Próximo evento
+      supabase.from("events").select("event_name, event_date, total_people, clients(name)")
+        .gte("event_date", td).neq("status", "cancelado")
+        .order("event_date", { ascending: true }).limit(1),
+
+      // Propostas pendentes (rascunho ou enviada)
+      supabase.from("proposals").select("id", { count: "exact", head: true })
+        .in("status", ["rascunho", "enviada"]),
+
+      // OPs pendentes
+      supabase.from("bom_production_orders").select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+
+      // OPs em andamento
+      supabase.from("bom_production_orders").select("id", { count: "exact", head: true })
+        .eq("status", "in_progress"),
+
+      // Materiais abaixo do mínimo
+      supabase.from("vw_stock_available").select("material_id", { count: "exact", head: true })
+        .in("status_estoque", ["critico", "baixo"]),
+
+      // Materiais zerados
+      supabase.from("vw_stock_available").select("material_id", { count: "exact", head: true })
+        .eq("status_estoque", "zerado"),
+
+      // Contas a receber vencidas
+      supabase.from("accounts_receivable").select("remaining_amount")
+        .lt("due_date", td).eq("status", "pendente"),
+
+      // Contas a pagar próximos 7 dias
+      supabase.from("accounts_payable").select("remaining_amount")
+        .gte("due_date", td).lte("due_date", in7).eq("status", "pendente"),
+    ]);
+
+    const proxEvt = nextEvt.data?.[0];
+
+    setKpi({
+      eventosProximos7:   evts7.count   ?? 0,
+      eventosProximos30:  evts30.count  ?? 0,
+      proximoEvento: proxEvt ? {
+        nome:    proxEvt.event_name,
+        data:    proxEvt.event_date,
+        pessoas: proxEvt.total_people ?? 0,
+        cliente: (proxEvt as any).clients?.name ?? "—",
+      } : null,
+      propostasPendentes:   proposals.count ?? 0,
+      ordensPendentes:      ordPending.count ?? 0,
+      ordensEmAndamento:    ordActive.count  ?? 0,
+      materiaisAbaixoMinimo: stockLow.count  ?? 0,
+      materiaisZerados:      stockZero.count ?? 0,
+      contasReceberVencidas: apVencido.data?.length ?? 0,
+      contasPagarProximas7:  apProximo.data?.length ?? 0,
+      totalReceberVencido:   apVencido.data?.reduce((s, r) => s + parseFloat(r.remaining_amount ?? 0), 0) ?? 0,
+      totalPagarProximas7:   apProximo.data?.reduce((s, r) => s + parseFloat(r.remaining_amount ?? 0), 0) ?? 0,
+    });
+  };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex justify-center items-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-10">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">Visão geral do seu sistema de gestão</p>
+        <h1 className="text-3xl font-bold mb-1">Dashboard</h1>
+        <p className="text-muted-foreground text-sm">Visão operacional em tempo real</p>
       </div>
 
-      {/* Métricas Principais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
-        <Card className="shadow-soft">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Plus className="h-4 w-4 text-primary" />
-              </div>
-              Materiais
-            </CardTitle>
-            <CardDescription>Total cadastrado</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-primary">{ingredients.length}</span>
-              <span className="text-muted-foreground">itens</span>
-            </div>
-          </CardContent>
-        </Card>
+      {/* ── BLOCO 1: COMERCIAL ─────────────────────────────────────────── */}
+      <section>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+          Comercial
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-        <Card className="shadow-soft">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <div className="p-2 bg-accent-mocca/20 rounded-lg">
-                <BookOpen className="h-4 w-4 text-accent-coffee" />
+          <Card className="shadow-soft cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate("/agenda")}>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Eventos esta semana</CardTitle>
+                <Calendar className="h-4 w-4 text-primary" />
               </div>
-              Fichas Técnicas
-            </CardTitle>
-            <CardDescription>Total ativas</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-accent-coffee">{boms.length}</span>
-              <span className="text-muted-foreground">fichas</span>
-            </div>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="text-3xl font-bold text-primary">{kpi.eventosProximos7}</div>
+              <p className="text-xs text-muted-foreground mt-1">{kpi.eventosProximos30} nos próximos 30 dias</p>
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-soft">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Building2 className="h-4 w-4 text-blue-600" />
+          <Card className="shadow-soft cursor-pointer hover:shadow-md transition-shadow col-span-1 sm:col-span-2"
+            onClick={() => navigate("/agenda")}>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Próximo evento</CardTitle>
+                <Calendar className="h-4 w-4 text-accent-coffee" />
               </div>
-              Fornecedores
-            </CardTitle>
-            <CardDescription>Parceiros ativos</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-blue-600">
-                {suppliers.filter(s => s.status === 'Ativo').length}
-              </span>
-              <span className="text-muted-foreground">ativos</span>
-            </div>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              {kpi.proximoEvento ? (
+                <div>
+                  <p className="font-semibold text-base leading-tight">{kpi.proximoEvento.nome}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {new Date(kpi.proximoEvento.data + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}
+                    &nbsp;·&nbsp;{kpi.proximoEvento.pessoas} pessoas
+                    &nbsp;·&nbsp;{kpi.proximoEvento.cliente}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">Nenhum evento agendado</p>
+              )}
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-soft">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <div className="p-2 bg-secondary/50 rounded-lg">
-                <Calculator className="h-4 w-4 text-secondary-foreground" />
+          <Card className="shadow-soft cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate("/vendas")}>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Propostas pendentes</CardTitle>
+                <TrendingUp className="h-4 w-4 text-blue-500" />
               </div>
-              Custo Médio
-            </CardTitle>
-            <CardDescription>Por ficha técnica</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-secondary-foreground">
-                R$ {avgBomCost.toFixed(2).replace('.', ',')}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="text-3xl font-bold text-blue-600">{kpi.propostasPendentes}</div>
+              <p className="text-xs text-muted-foreground mt-1">aguardando aprovação</p>
+            </CardContent>
+          </Card>
 
-      {/* Calendário de Eventos */}
-      <div className="mb-8">
+        </div>
+      </section>
+
+      {/* ── BLOCO 2: OPERACIONAL ────────────────────────────────────────── */}
+      <section>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+          Operacional
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+          <Card className="shadow-soft cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate("/producao/planejamento")}>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Ordens em andamento</CardTitle>
+                <ClipboardList className="h-4 w-4 text-orange-500" />
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="text-3xl font-bold text-orange-500">{kpi.ordensEmAndamento}</div>
+              <p className="text-xs text-muted-foreground mt-1">{kpi.ordensPendentes} pendentes</p>
+            </CardContent>
+          </Card>
+
+          <Card className={`shadow-soft cursor-pointer hover:shadow-md transition-shadow ${kpi.materiaisZerados > 0 ? "border-red-200" : ""}`}
+            onClick={() => navigate("/materiais/controle")}>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Estoque crítico</CardTitle>
+                <AlertTriangle className={`h-4 w-4 ${kpi.materiaisZerados > 0 ? "text-red-500" : "text-yellow-500"}`} />
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className={`text-3xl font-bold ${kpi.materiaisZerados > 0 ? "text-red-600" : "text-yellow-600"}`}>
+                {kpi.materiaisAbaixoMinimo}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                abaixo do mínimo · {kpi.materiaisZerados} zerados
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-soft cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate("/producao/fichas-tecnicas")}>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Ordens pendentes</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="text-3xl font-bold">{kpi.ordensPendentes}</div>
+              <p className="text-xs text-muted-foreground mt-1">aguardando início</p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-soft cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate("/materiais/controle")}>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Materiais zerados</CardTitle>
+                <Package className="h-4 w-4 text-red-400" />
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className={`text-3xl font-bold ${kpi.materiaisZerados > 0 ? "text-red-600" : "text-green-600"}`}>
+                {kpi.materiaisZerados}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {kpi.materiaisZerados === 0 ? "tudo ok" : "requer atenção"}
+              </p>
+            </CardContent>
+          </Card>
+
+        </div>
+      </section>
+
+      {/* ── BLOCO 3: FINANCEIRO ─────────────────────────────────────────── */}
+      <section>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+          Financeiro
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          <Card className={`shadow-soft cursor-pointer hover:shadow-md transition-shadow ${kpi.contasReceberVencidas > 0 ? "border-red-200" : ""}`}
+            onClick={() => navigate("/financeiro/receber")}>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">A receber vencidas</CardTitle>
+                <DollarSign className={`h-4 w-4 ${kpi.contasReceberVencidas > 0 ? "text-red-500" : "text-green-500"}`} />
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className={`text-2xl font-bold ${kpi.contasReceberVencidas > 0 ? "text-red-600" : "text-green-600"}`}>
+                {fmt(kpi.totalReceberVencido)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {kpi.contasReceberVencidas} {kpi.contasReceberVencidas === 1 ? "conta vencida" : "contas vencidas"}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-soft cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate("/financeiro/pagar")}>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">A pagar (próximos 7 dias)</CardTitle>
+                <DollarSign className="h-4 w-4 text-orange-500" />
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="text-2xl font-bold text-orange-600">
+                {fmt(kpi.totalPagarProximas7)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {kpi.contasPagarProximas7} {kpi.contasPagarProximas7 === 1 ? "conta" : "contas"} nos próximos 7 dias
+              </p>
+            </CardContent>
+          </Card>
+
+        </div>
+      </section>
+
+      {/* ── CALENDÁRIO ──────────────────────────────────────────────────── */}
+      <section>
         <EventCalendar
           events={events}
-          onEventSelect={(event) => {
-            toast.info(`Evento selecionado: ${event.event_name}`);
-          }}
-          onEventCreate={(_date) => {
-            toast.info('Para criar um evento, acesse a página Agenda');
-          }}
+          onEventSelect={(event) => navigate("/agenda")}
+          onEventCreate={(_date) => navigate("/agenda")}
         />
-      </div>
-
-      {/* Resumos Recentes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-        <Card className="shadow-elegant">
-          <CardHeader>
-            <CardTitle>Materiais Recentes</CardTitle>
-            <CardDescription>Últimos itens adicionados</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {ingredients.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">
-                Nenhum material cadastrado ainda
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {ingredients.slice(-3).map((item) => (
-                  <div key={item.id} className="flex justify-between items-center p-3 bg-accent rounded-lg">
-                    <div>
-                      <p className="font-medium">{item.name}</p>
-                      <p className="text-sm text-muted-foreground">{item.usage_unit}</p>
-                    </div>
-                    <span className="font-semibold text-primary">
-                      R$ {(item.cost_price || 0).toFixed(4)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-elegant">
-          <CardHeader>
-            <CardTitle>Fichas Técnicas Recentes</CardTitle>
-            <CardDescription>Últimas criadas</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {boms.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">
-                Nenhuma ficha técnica criada ainda
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {boms.slice(0, 3).map((bom) => (
-                  <div key={bom.id} className="flex justify-between items-center p-3 bg-accent rounded-lg">
-                    <div>
-                      <p className="font-medium">{bom.materials?.name || '—'}</p>
-                      <p className="text-sm text-muted-foreground">{bom.materials?.category || '—'}</p>
-                    </div>
-                    <span className="font-semibold text-accent-coffee">
-                      R$ {(bom.cached_total_cost || 0).toFixed(2).replace('.', ',')}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      </section>
     </div>
   );
 };
