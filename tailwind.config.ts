@@ -15,8 +15,10 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        serif: ['Playfair Display', 'ui-serif', 'Georgia', 'serif'],
-        display: ['Playfair Display', 'serif'],
+        serif: ['Georgia', 'ui-serif', 'serif'],
+        display: ['Inter', 'sans-serif'],
+        // Classe utilitária para documentos de cliente (proposta PDF etc.)
+        script: ['Dancing Script', 'cursive'],
       },
       colors: {
         border: "hsl(var(--border))",
