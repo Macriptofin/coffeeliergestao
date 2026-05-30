@@ -18,6 +18,10 @@ export interface StockItem {
   };
   currentQuantity: number;
   minimumQuantity: number;
+  idealQty: number;
+  reservedQty: number;
+  committedQty: number;
+  availableQty: number;
   averagePrice: number;
   totalValue: number;
   lastMovementDate?: string;
@@ -78,22 +82,31 @@ const Stock = () => {
 
     if (error) throw error;
 
-    const formattedItems: StockItem[] = data.map(item => ({
-      id: item.id,
-      ingredient: {
-        id: item.materials.id,
-        name: item.materials.name,
-        code: item.materials.code,
-        usageUnit: item.materials.usage_unit,
-        materialType: item.materials.material_type || '',
-        category: item.materials.category || ''
-      },
-      currentQuantity: parseFloat(item.current_quantity?.toString() || '0'),
-      minimumQuantity: parseFloat(item.minimum_quantity?.toString() || '0'),
-      averagePrice: parseFloat(item.average_price?.toString() || '0'),
-      totalValue: parseFloat(item.total_value?.toString() || '0'),
-      lastMovementDate: item.last_movement_date
-    }));
+    const formattedItems: StockItem[] = data.map(item => {
+      const current  = parseFloat(item.current_quantity?.toString() || '0');
+      const reserved = parseFloat((item as any).reserved_qty?.toString() || '0');
+      const committed = parseFloat((item as any).committed_qty?.toString() || '0');
+      return {
+        id: item.id,
+        ingredient: {
+          id: item.materials.id,
+          name: item.materials.name,
+          code: item.materials.code,
+          usageUnit: item.materials.usage_unit,
+          materialType: item.materials.material_type || '',
+          category: item.materials.category || ''
+        },
+        currentQuantity: current,
+        minimumQuantity: parseFloat(item.minimum_quantity?.toString() || '0'),
+        idealQty: parseFloat((item as any).ideal_qty?.toString() || '0'),
+        reservedQty: reserved,
+        committedQty: committed,
+        availableQty: Math.max(0, current - reserved - committed),
+        averagePrice: parseFloat(item.average_price?.toString() || '0'),
+        totalValue: parseFloat(item.total_value?.toString() || '0'),
+        lastMovementDate: item.last_movement_date
+      };
+    });
 
     setStockItems(formattedItems);
   };
