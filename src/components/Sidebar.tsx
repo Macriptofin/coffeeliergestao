@@ -129,6 +129,7 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       href: "/financeiro",
       icon: DollarSign,
       children: [
+        { name: "DRE", href: "/financeiro/dre" },
         { name: "Contas a Pagar", href: "/financeiro/pagar" },
         { name: "Contas a Receber", href: "/financeiro/receber" },
         { name: "Fluxo de Caixa", href: "/financeiro/fluxo" },

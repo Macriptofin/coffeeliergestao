@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, CreditCard, FileText, TrendingUp, Calculator, PieChart, Building2, Repeat, CalendarClock, LineChart } from "lucide-react";
+import { DollarSign, CreditCard, FileText, TrendingUp, Calculator, PieChart, Building2, Repeat, CalendarClock, LineChart, BarChart2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { FinancialAlerts } from "@/components/financeiro/FinancialAlerts";
 
@@ -63,6 +63,13 @@ const Financeiro = () => {
       icon: Calculator,
       href: "/financeiro/custos",
       color: "bg-purple-500"
+    },
+    {
+      title: "DRE",
+      description: "Demonstração de Resultado do Exercício — mensal ou anual",
+      icon: BarChart2,
+      href: "/financeiro/dre",
+      color: "bg-emerald-600"
     },
     {
       title: "Análises Financeiras",
