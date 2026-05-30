@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Copy, Trash2, Factory, ShoppingCart, CheckCircle2 } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Copy, Trash2, Factory, ShoppingCart, CheckCircle2, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Table,
@@ -40,6 +40,7 @@ interface Props {
   onNewProposal: () => void;
   onEditProposal: (id: string) => void;
   onViewProposal: (id: string) => void;
+  onPdfProposal?: (id: string) => void;
 }
 
 const statusOptions = [
@@ -54,7 +55,7 @@ const statusOptions = [
   { value: 'Aprovada', label: 'Aprovada', variant: 'success' },
 ];
 
-export default function ProposalsList({ onNewProposal, onEditProposal, onViewProposal }: Props) {
+export default function ProposalsList({ onNewProposal, onEditProposal, onViewProposal, onPdfProposal }: Props) {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -356,13 +357,19 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                       <TableCell>
                         <div className="flex gap-1 flex-wrap">
                           <Button variant="ghost" size="icon" className="h-7 w-7"
-                            onClick={() => onViewProposal(proposal.id)} title="Visualizar">
+                            onClick={() => onViewProposal(proposal.id)} title="Visualizar / Compor">
                             <Eye size={13} />
                           </Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7"
                             onClick={() => onEditProposal(proposal.id)} title="Editar">
                             <Edit size={13} />
                           </Button>
+                          {onPdfProposal && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-green-700 hover:text-green-900"
+                              onClick={() => onPdfProposal(proposal.id)} title="Gerar PDF da proposta">
+                              <FileDown size={13} />
+                            </Button>
+                          )}
                           {/* Botão Aprovar */}
                           {!['aprovada', 'Aprovada', 'cancelada'].includes(proposal.status) && (
                             <Button

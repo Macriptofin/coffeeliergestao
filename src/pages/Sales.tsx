@@ -9,6 +9,7 @@ import ClientForm from '@/components/sales/ClientForm';
 import ClientsList from '@/components/sales/ClientsList';
 import ClientDetails from '@/components/sales/client/ClientDetails';
 import ProposalCategoryComposer from '@/components/sales/ProposalCategoryComposer';
+import { ProposalPDF } from '@/components/sales/ProposalPDF';
 import OrdersList from '@/components/sales/OrdersList';
 import SalesReports from '@/components/sales/SalesReports';
 import SalesDashboard from '@/components/sales/SalesDashboard';
@@ -21,6 +22,7 @@ const Sales = () => {
   const [showClientForm, setShowClientForm] = useState(false);
   const [createdProposalId, setCreatedProposalId] = useState<string | null>(null);
   const [showProposalComposer, setShowProposalComposer] = useState(false);
+  const [pdfProposalId, setPdfProposalId] = useState<string | null>(null);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [viewingClientId, setViewingClientId] = useState<string | null>(null);
 
@@ -43,6 +45,11 @@ const Sales = () => {
   const handleViewProposal = (id: string) => {
     setCreatedProposalId(id);
     setShowProposalComposer(true);
+  };
+
+  const handlePdfProposal = (id: string) => {
+    setPdfProposalId(id);
+    setActiveTab('proposals');
   };
 
   const handleProposalSuccess = (proposalId?: string) => {
@@ -185,7 +192,12 @@ const Sales = () => {
         </TabsContent>
 
         <TabsContent value="proposals" className="mt-6">
-          {showProposalComposer && createdProposalId ? (
+          {pdfProposalId ? (
+            <ProposalPDF
+              proposalId={pdfProposalId}
+              onClose={() => setPdfProposalId(null)}
+            />
+          ) : showProposalComposer && createdProposalId ? (
             <ProposalCategoryComposer
               proposalId={createdProposalId}
               onComplete={handleProposalComposerComplete}
@@ -201,6 +213,7 @@ const Sales = () => {
               onNewProposal={handleNewProposal}
               onEditProposal={handleEditProposal}
               onViewProposal={handleViewProposal}
+              onPdfProposal={handlePdfProposal}
             />
           )}
         </TabsContent>
