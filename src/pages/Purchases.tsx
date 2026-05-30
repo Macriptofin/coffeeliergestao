@@ -12,6 +12,7 @@ import { PurchaseRequirements } from "@/components/purchase/PurchaseRequirements
 import { PurchaseRequestsList } from "@/components/purchase/PurchaseRequestsList";
 import { PurchaseOrders } from "@/components/purchase/PurchaseOrders";
 import { InvoiceOCRUploader } from "@/components/purchase/InvoiceOCRUploader";
+import { MRPGenerator } from "@/components/purchase/MRPGenerator";
 
 export interface PurchaseInvoice {
   id: string;
@@ -258,7 +259,8 @@ const Purchases = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="requirements" className="mt-6">
+        <TabsContent value="requirements" className="mt-6 space-y-6">
+          <MRPGenerator onGenerated={loadData} />
           <PurchaseRequirements />
         </TabsContent>
 
