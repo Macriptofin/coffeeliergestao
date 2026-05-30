@@ -1,12 +1,42 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChefHat, ClipboardList, Calculator, FileText, Settings, Calendar, Package2 } from "lucide-react";
+import { ChefHat, ClipboardList, FileText, Settings, Calendar, Package2, AlertTriangle, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useFeatureFlags, logFeatureFlagEvent } from "@/hooks/useFeatureFlags";
+import { supabase } from "@/integrations/supabase/client";
+
+interface BomAlert {
+  id: string;
+  name: string;
+  cost_status: string;
+  missing_count: number;
+}
 
 const ProducaoMain = () => {
   const navigate = useNavigate();
   const { flags, loading } = useFeatureFlags();
+  const [bomAlerts, setBomAlerts] = useState<BomAlert[]>([]);
+
+  useEffect(() => { loadBomAlerts(); }, []);
+
+  const loadBomAlerts = async () => {
+    const { data } = await supabase
+      .from('recipes_bom')
+      .select('id, cost_status, missing_cost_items, materials!finished_material_id(name)')
+      .in('cost_status', ['incomplete', 'partial', 'unknown'])
+      .eq('is_archived', false)
+      .limit(10);
+
+    if (data) {
+      setBomAlerts(data.map((b: any) => ({
+        id: b.id,
+        name: b.materials?.name || '—',
+        cost_status: b.cost_status,
+        missing_count: Array.isArray(b.missing_cost_items) ? b.missing_cost_items.length : 0,
+      })));
+    }
+  };
 
   // Legacy modules (shown when flags are OFF)
   const legacyModules = [
@@ -123,6 +153,34 @@ const ProducaoMain = () => {
           Controle completo da produção unificada: produtos, receitas, custos e execução
         </p>
       </div>
+
+      {/* Alertas de fichas com custo incompleto */}
+      {bomAlerts.length > 0 && (
+        <div className="mb-6 border border-yellow-200 bg-yellow-50 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+            <span className="font-semibold text-yellow-800 text-sm">
+              {bomAlerts.length} {bomAlerts.length === 1 ? 'ficha técnica com custo incompleto' : 'fichas técnicas com custo incompleto'}
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {bomAlerts.map(alert => (
+              <div key={alert.id} className="flex items-center justify-between text-sm">
+                <span className="text-yellow-800 font-medium">{alert.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-yellow-600 text-xs">
+                    {alert.missing_count > 0 ? `${alert.missing_count} ingrediente(s) sem custo` : alert.cost_status}
+                  </span>
+                  <Button size="sm" variant="ghost" className="h-6 text-xs text-yellow-700 hover:text-yellow-900"
+                    onClick={() => navigate(`/producao/fichas-tecnicas`)}>
+                    Corrigir <ChevronRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {modules.map((module) => {

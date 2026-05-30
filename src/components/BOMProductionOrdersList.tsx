@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useReactToPrint } from 'react-to-print';
 import { PrintableBOMProductionOrder } from './PrintableBOMProductionOrder';
+import { ProductionChecklist } from './production/ProductionChecklist';
 
 interface ProductionOrder {
   id: string;
@@ -75,6 +76,7 @@ export const BOMProductionOrdersList = () => {
   const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [includeTechnicalSheets, setIncludeTechnicalSheets] = useState(false);
   const [technicalSheetsData, setTechnicalSheetsData] = useState<any[]>([]);
+  const [checklistOrderId, setChecklistOrderId] = useState<string | null>(null);
   const [stockItems, setStockItems] = useState<Array<{ material_id: string; current_quantity: number; average_price: number }>>([]);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -546,6 +548,16 @@ export const BOMProductionOrdersList = () => {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => setChecklistOrderId(order.id)}
+                  className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Checklist
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => prepareForPrint(order)}
                   className="bg-blue-50 hover:bg-blue-100 border-blue-200"
                 >
@@ -808,6 +820,24 @@ export const BOMProductionOrdersList = () => {
           </div>
         </div>
       )}
+
+      {/* Dialog Checklist de Produção */}
+      {checklistOrderId && (() => {
+        const order = productionOrders.find(o => o.id === checklistOrderId);
+        if (!order) return null;
+        return (
+          <Dialog open={!!checklistOrderId} onOpenChange={() => setChecklistOrderId(null)}>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <ProductionChecklist
+                orderId={order.id}
+                orderName={order.order_name}
+                orderDate={order.order_date}
+                onClose={() => setChecklistOrderId(null)}
+              />
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
     </div>
   );
 };
