@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Users, Shield, Clock, FileText, Calendar, Award } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -12,42 +13,48 @@ const RecursosHumanos = () => {
       description: "Cadastro e gestão de funcionários e dados pessoais",
       icon: Users,
       href: "/rh/colaboradores",
-      color: "bg-blue-500"
+      color: "bg-blue-500",
+      available: true
     },
     {
       title: "Usuários do Sistema",
       description: "Controle de acesso, perfis e permissões",
       icon: Shield,
       href: "/usuarios",
-      color: "bg-purple-500"
+      color: "bg-purple-500",
+      available: true
     },
     {
       title: "Controle de Ponto",
       description: "Registro de horários, faltas e horas extras",
       icon: Clock,
       href: "/rh/ponto",
-      color: "bg-green-500"
+      color: "bg-green-500",
+      available: true
     },
     {
       title: "Folha de Pagamento",
       description: "Cálculos salariais, descontos e benefícios",
       icon: FileText,
-      href: "/rh/folha",
-      color: "bg-orange-500"
+      href: null,
+      color: "bg-orange-500",
+      available: false
     },
     {
       title: "Férias e Afastamentos",
       description: "Controle de férias, licenças e afastamentos",
       icon: Calendar,
-      href: "/rh/ferias",
-      color: "bg-cyan-500"
+      href: null,
+      color: "bg-cyan-500",
+      available: false
     },
     {
       title: "Treinamentos",
       description: "Gestão de capacitação e desenvolvimento",
       icon: Award,
-      href: "/rh/treinamentos",
-      color: "bg-red-500"
+      href: null,
+      color: "bg-red-500",
+      available: false
     }
   ];
 
@@ -64,14 +71,17 @@ const RecursosHumanos = () => {
         {modules.map((module) => {
           const Icon = module.icon;
           return (
-            <Card key={module.title} className="cursor-pointer hover:shadow-lg transition-shadow">
+            <Card key={module.title} className={`transition-shadow ${module.available ? "cursor-pointer hover:shadow-lg" : "opacity-60"}`}>
               <CardHeader className="pb-4">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${module.color} text-white`}>
                     <Icon className="h-5 w-5" />
                   </div>
-                  <div>
+                  <div className="flex items-center gap-2">
                     <CardTitle className="text-lg">{module.title}</CardTitle>
+                    {!module.available && (
+                      <Badge variant="secondary" className="text-xs">Em breve</Badge>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -79,12 +89,13 @@ const RecursosHumanos = () => {
                 <CardDescription className="mb-4">
                   {module.description}
                 </CardDescription>
-                <Button 
-                  onClick={() => navigate(module.href)}
-                  variant="outline" 
+                <Button
+                  onClick={() => module.available && module.href && navigate(module.href)}
+                  variant="outline"
                   className="w-full"
+                  disabled={!module.available}
                 >
-                  Acessar
+                  {module.available ? "Acessar" : "Em desenvolvimento"}
                 </Button>
               </CardContent>
             </Card>
