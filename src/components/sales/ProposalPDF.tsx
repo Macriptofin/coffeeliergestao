@@ -268,23 +268,28 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
             {/* Blob decorativo curva */}
             <CurveTopRight />
 
-            {/* Metade esquerda — imagem placeholder */}
+            {/* Metade esquerda — foto da Coffeelier */}
             <div style={{
               position: 'absolute', left: 0, top: 0,
               width: '50%', height: '100%',
-              background: `linear-gradient(135deg, ${C.greenLight}55 0%, ${C.green}33 100%)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden',
             }}>
-              {/* Blob orgânico simulando a foto */}
+              <img
+                src="/proposal-cover.jpg"
+                alt="Coffeelier"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: 'center top',
+                }}
+              />
+              {/* Overlay suave para transição com o lado direito */}
               <div style={{
-                width: 200, height: 240,
-                borderRadius: '60% 40% 55% 45% / 50% 60% 40% 50%',
-                background: `${C.greenLight}88`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 48,
-              }}>
-                ☕
-              </div>
+                position: 'absolute', top: 0, right: 0,
+                width: '30%', height: '100%',
+                background: `linear-gradient(to right, transparent, ${C.bg})`,
+              }} />
             </div>
 
             {/* Metade direita — texto */}
