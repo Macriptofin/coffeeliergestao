@@ -1,5 +1,6 @@
 import { AdminSetup } from "@/components/AdminSetup";
 import { UserRoleManager } from "@/components/UserRoleManager";
+import { ModulePermissionsManager } from "@/components/ModulePermissionsManager";
 
 const UserManagement = () => {
   return (
@@ -14,6 +15,7 @@ const UserManagement = () => {
       <div className="space-y-6">
         <AdminSetup />
         <UserRoleManager />
+        <ModulePermissionsManager />
       </div>
     </div>
   );
