@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { useSecureAuth } from "@/hooks/useSecureAuth";
 import { useSessionSecurity } from "@/hooks/useSessionSecurity";
 import SecurityHeader from "@/components/security/SecurityHeader";
+import { NotificationBell } from "@/components/NotificationBell";
 import SecureErrorBoundary from "@/components/security/SecureErrorBoundary";
 
 export const Layout = () => {
@@ -102,15 +103,18 @@ if (!session || !user) {
               </div>
             </div>
             
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={handleLogout}
-              className="text-primary-foreground hover:bg-primary-foreground/10"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
-            </Button>
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="text-primary-foreground hover:bg-primary-foreground/10"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sair
+              </Button>
+            </div>
           </div>
         </div>
       </div>
