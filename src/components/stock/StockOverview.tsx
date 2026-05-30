@@ -189,30 +189,42 @@ export function StockOverview({ stockItems, onRefresh }: StockOverviewProps) {
                         </Badge>
                         <h3 className="font-medium">{item.ingredient.name}</h3>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground">
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm text-muted-foreground mt-2">
                         <div>
-                          <span className={`block font-medium ${stockColor}`}>
-                            {item.currentQuantity.toFixed(2)} {item.ingredient.usageUnit}
+                          <span className={`block font-semibold ${stockColor}`}>
+                            {item.currentQuantity.toFixed(2)}
                           </span>
-                          <span>Estoque Atual</span>
+                          <span>Físico</span>
                         </div>
                         <div>
-                          <span className="block font-medium text-foreground">
-                            {item.minimumQuantity.toFixed(2)} {item.ingredient.usageUnit}
+                          <span className="block font-semibold text-blue-600">
+                            {item.availableQty.toFixed(2)}
                           </span>
-                          <span>Estoque Mínimo</span>
+                          <span>Disponível</span>
                         </div>
                         <div>
-                          <span className="block font-medium text-foreground">
+                          <span className="block font-semibold text-orange-500">
+                            {item.reservedQty.toFixed(2)}
+                          </span>
+                          <span>Reservado</span>
+                        </div>
+                        <div>
+                          <span className="block font-semibold text-purple-500">
+                            {item.committedQty.toFixed(2)}
+                          </span>
+                          <span>Comprometido</span>
+                        </div>
+                        <div>
+                          <span className="block font-semibold text-foreground">
+                            {item.minimumQuantity.toFixed(2)}
+                          </span>
+                          <span>Mínimo</span>
+                        </div>
+                        <div>
+                          <span className="block font-semibold text-foreground">
                             R$ {item.averagePrice.toFixed(4)}
                           </span>
-                          <span>Preço Médio</span>
-                        </div>
-                        <div>
-                          <span className="block font-medium text-foreground">
-                            R$ {item.totalValue.toFixed(2)}
-                          </span>
-                          <span>Valor Total</span>
+                          <span>Custo Médio</span>
                         </div>
                       </div>
                     </div>
