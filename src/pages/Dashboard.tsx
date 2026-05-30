@@ -2,10 +2,25 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, ChefHat, Calculator, Building2 } from "lucide-react";
-import type { Ingredient, Recipe } from "@/types";
+import { Plus, BookOpen, Building2, Calculator } from "lucide-react";
 import type { Supplier } from "@/components/SupplierForm";
 import { EventCalendar } from "@/components/agenda/EventCalendar";
+
+interface DashboardIngredient {
+  id: string;
+  name: string;
+  usage_unit: string;
+  cost_price: number;
+}
+
+interface DashboardBOM {
+  id: string;
+  cached_total_cost: number | null;
+  materials: {
+    name: string;
+    category: string | null;
+  } | null;
+}
 
 interface DashboardEvent {
   id: string;
@@ -22,8 +37,8 @@ interface DashboardEvent {
 }
 
 const Dashboard = () => {
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [ingredients, setIngredients] = useState<DashboardIngredient[]>([]);
+  const [boms, setBoms] = useState<DashboardBOM[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +48,6 @@ const Dashboard = () => {
   }, []);
 
   const loadData = async () => {
-    // Helper to cap each fetch to 10s and name failures
     const withTimeout = async <T,>(p: Promise<T>, ms: number, name: string) => {
       return await Promise.race<PromiseSettledResult<T>>([
         p.then((res) => ({ status: 'fulfilled', value: res } as PromiseSettledResult<T>))
@@ -48,7 +62,7 @@ const Dashboard = () => {
       setLoading(true);
       const results = await Promise.all([
         withTimeout(loadIngredients(), 10_000, 'ingredientes'),
-        withTimeout(loadRecipes(), 10_000, 'receitas'),
+        withTimeout(loadBOMs(), 10_000, 'fichas técnicas'),
         withTimeout(loadSuppliers(), 10_000, 'fornecedores'),
         withTimeout(loadEvents(), 10_000, 'eventos')
       ]);
@@ -56,7 +70,7 @@ const Dashboard = () => {
       const failed = results
         .map((r, i) => ({ r, i }))
         .filter(({ r }) => r.status === 'rejected')
-        .map(({ i }) => ['ingredientes', 'receitas', 'fornecedores', 'eventos'][i]);
+        .map(({ i }) => ['ingredientes', 'fichas técnicas', 'fornecedores', 'eventos'][i]);
 
       if (failed.length) {
         console.warn('Falhas ao carregar:', failed);
@@ -69,60 +83,32 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
+
   const loadIngredients = async () => {
     const { data, error } = await supabase
       .from('materials')
-      .select('*')
+      .select('id, name, usage_unit, cost_price')
+      .eq('is_archived', false)
       .order('name');
-    
     if (error) throw error;
-    
-    const formattedIngredients = data.map(item => ({
-      id: item.id,
-      name: item.name,
-      purchaseUnit: item.purchase_unit,
-      usageUnit: item.usage_unit,
-      conversionFactor: parseFloat(item.conversion_factor.toString()),
-      pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit.toString()),
-      supplier: item.supplier || undefined
-    }));
-    
-    setIngredients(formattedIngredients);
+    setIngredients(data || []);
   };
 
-  const loadRecipes = async () => {
-    const { data: recipesData, error: recipesError } = await supabase
-      .from('recipes')
+  const loadBOMs = async () => {
+    const { data, error } = await supabase
+      .from('recipes_bom')
       .select(`
-        *,
-        recipe_ingredients (
-          quantity,
-          material_id
+        id,
+        cached_total_cost,
+        materials!finished_material_id (
+          name,
+          category
         )
       `)
-      .order('name');
-    
-    if (recipesError) throw recipesError;
-    
-    const formattedRecipes = recipesData.map(item => ({
-      id: item.id,
-      name: item.name,
-      description: item.description || '',
-      category: item.category,
-      instructions: item.instructions || '',
-      preparationTime: item.preparation_time || 0,
-      difficulty: item.difficulty as 'Fácil' | 'Médio' | 'Difícil',
-      yield: item.yield_amount,
-      totalCost: item.total_cost ? parseFloat(item.total_cost.toString()) : undefined,
-      suggestedPrice: item.suggested_price ? parseFloat(item.suggested_price.toString()) : undefined,
-      profitMargin: item.profit_margin ? parseFloat(item.profit_margin.toString()) : undefined,
-      ingredients: item.recipe_ingredients.map((ri: any) => ({
-        ingredientId: ri.material_id,
-        quantity: parseFloat(ri.quantity.toString())
-      }))
-    }));
-    
-    setRecipes(formattedRecipes);
+      .eq('is_archived', false)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    setBoms((data as unknown as DashboardBOM[]) || []);
   };
 
   const loadSuppliers = async () => {
@@ -130,10 +116,8 @@ const Dashboard = () => {
       .from('suppliers')
       .select('*')
       .order('company_name');
-    
     if (error) throw error;
-    
-    const formattedSuppliers = data.map(item => ({
+    const formattedSuppliers = (data || []).map(item => ({
       id: item.id,
       code: item.code,
       status: item.status as 'Ativo' | 'Inativo',
@@ -152,23 +136,21 @@ const Dashboard = () => {
       minimumOrderValue: parseFloat(item.minimum_order_value?.toString() || '0'),
       notes: item.notes || undefined
     }));
-    
     setSuppliers(formattedSuppliers);
   };
 
   const loadEvents = async () => {
     const { data, error } = await supabase
       .from('events')
-      .select(`
-        *,
-        clients(name)
-      `)
+      .select('*, clients(name)')
       .order('event_date', { ascending: true });
-    
     if (error) throw error;
-    
     setEvents(data || []);
   };
+
+  const avgBomCost = boms.length > 0
+    ? boms.reduce((sum, b) => sum + (b.cached_total_cost || 0), 0) / boms.length
+    : 0;
 
   if (loading) {
     return (
@@ -193,7 +175,7 @@ const Dashboard = () => {
               <div className="p-2 bg-primary/10 rounded-lg">
                 <Plus className="h-4 w-4 text-primary" />
               </div>
-              Ingredientes
+              Materiais
             </CardTitle>
             <CardDescription>Total cadastrado</CardDescription>
           </CardHeader>
@@ -209,16 +191,16 @@ const Dashboard = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <div className="p-2 bg-accent-mocca/20 rounded-lg">
-                <ChefHat className="h-4 w-4 text-accent-coffee" />
+                <BookOpen className="h-4 w-4 text-accent-coffee" />
               </div>
-              Receitas
+              Fichas Técnicas
             </CardTitle>
-            <CardDescription>Total criadas</CardDescription>
+            <CardDescription>Total ativas</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-accent-coffee">{recipes.length}</span>
-              <span className="text-muted-foreground">receitas</span>
+              <span className="text-3xl font-bold text-accent-coffee">{boms.length}</span>
+              <span className="text-muted-foreground">fichas</span>
             </div>
           </CardContent>
         </Card>
@@ -251,15 +233,12 @@ const Dashboard = () => {
               </div>
               Custo Médio
             </CardTitle>
-            <CardDescription>Por receita</CardDescription>
+            <CardDescription>Por ficha técnica</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold text-secondary-foreground">
-                R$ {recipes.length > 0 
-                  ? (recipes.reduce((sum, recipe) => sum + (recipe.totalCost || 0), 0) / recipes.length).toFixed(2)
-                  : '0,00'
-                }
+                R$ {avgBomCost.toFixed(2).replace('.', ',')}
               </span>
             </div>
           </CardContent>
@@ -268,12 +247,12 @@ const Dashboard = () => {
 
       {/* Calendário de Eventos */}
       <div className="mb-8">
-        <EventCalendar 
+        <EventCalendar
           events={events}
           onEventSelect={(event) => {
             toast.info(`Evento selecionado: ${event.event_name}`);
           }}
-          onEventCreate={(date) => {
+          onEventCreate={(_date) => {
             toast.info('Para criar um evento, acesse a página Agenda');
           }}
         />
@@ -283,24 +262,24 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         <Card className="shadow-elegant">
           <CardHeader>
-            <CardTitle>Ingredientes Recentes</CardTitle>
+            <CardTitle>Materiais Recentes</CardTitle>
             <CardDescription>Últimos itens adicionados</CardDescription>
           </CardHeader>
           <CardContent>
             {ingredients.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">
-                Nenhum ingrediente cadastrado ainda
+                Nenhum material cadastrado ainda
               </p>
             ) : (
               <div className="space-y-3">
-                {ingredients.slice(-3).map((ingredient) => (
-                  <div key={ingredient.id} className="flex justify-between items-center p-3 bg-accent rounded-lg">
+                {ingredients.slice(-3).map((item) => (
+                  <div key={item.id} className="flex justify-between items-center p-3 bg-accent rounded-lg">
                     <div>
-                      <p className="font-medium">{ingredient.name}</p>
-                      <p className="text-sm text-muted-foreground">{ingredient.usageUnit}</p>
+                      <p className="font-medium">{item.name}</p>
+                      <p className="text-sm text-muted-foreground">{item.usage_unit}</p>
                     </div>
                     <span className="font-semibold text-primary">
-                      R$ {(ingredient.pricePerPurchaseUnit / ingredient.conversionFactor).toFixed(4)}
+                      R$ {(item.cost_price || 0).toFixed(4)}
                     </span>
                   </div>
                 ))}
@@ -311,24 +290,24 @@ const Dashboard = () => {
 
         <Card className="shadow-elegant">
           <CardHeader>
-            <CardTitle>Receitas Recentes</CardTitle>
+            <CardTitle>Fichas Técnicas Recentes</CardTitle>
             <CardDescription>Últimas criadas</CardDescription>
           </CardHeader>
           <CardContent>
-            {recipes.length === 0 ? (
+            {boms.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">
-                Nenhuma receita criada ainda
+                Nenhuma ficha técnica criada ainda
               </p>
             ) : (
               <div className="space-y-3">
-                {recipes.slice(-3).map((recipe) => (
-                  <div key={recipe.id} className="flex justify-between items-center p-3 bg-accent rounded-lg">
+                {boms.slice(0, 3).map((bom) => (
+                  <div key={bom.id} className="flex justify-between items-center p-3 bg-accent rounded-lg">
                     <div>
-                      <p className="font-medium">{recipe.name}</p>
-                      <p className="text-sm text-muted-foreground">{recipe.category}</p>
+                      <p className="font-medium">{bom.materials?.name || '—'}</p>
+                      <p className="text-sm text-muted-foreground">{bom.materials?.category || '—'}</p>
                     </div>
                     <span className="font-semibold text-accent-coffee">
-                      R$ {recipe.totalCost?.toFixed(2) || '0,00'}
+                      R$ {(bom.cached_total_cost || 0).toFixed(2).replace('.', ',')}
                     </span>
                   </div>
                 ))}
