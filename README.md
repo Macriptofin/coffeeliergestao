@@ -1,82 +1,123 @@
-# Coffeelier ERP - Sistema de Gestão para Catering
+# Coffeelier ERP — Sistema de Gestão
 
-Sistema ERP completo para gestão de cafeterias, confeitarias e empresas de catering.
+Sistema ERP completo para gestão de empresas de catering, coffee breaks, eventos corporativos, kits gastronômicos e revenda de produtos.
 
-## 📚 Documentação
+**URL de produção:** https://coffeelier.com.br  
+**Stack:** React + TypeScript + Vite + Supabase + shadcn/ui + Tailwind CSS  
+**Banco de dados:** PostgreSQL (Supabase) — região `sa-east-1`  
+**Projeto Supabase:** `njxxqdcwvehlvqufuyww`
 
-A documentação completa do sistema está organizada em:
-- **[/docs/](./docs/)** - Documentação técnica e guias operacionais
-- **[/diagnostics/](./diagnostics/)** - Arquivos de diagnóstico e análise
-- **[/scripts/](./scripts/)** - Scripts SQL de manutenção
+---
 
-## Project info
+## Visão Geral
 
-**URL**: https://lovable.dev/projects/832a63db-6ce7-4c71-9811-73baf90cf8d5
+O núcleo operacional do Coffeelier é o fluxo:
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/832a63db-6ce7-4c71-9811-73baf90cf8d5) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+Materiais → Fichas Técnicas → Propostas → Eventos → Produção → Financeiro
 ```
 
-**Edit a file directly in GitHub**
+Todo módulo existe para alimentar esse processo. O sistema não é orientado a estoque nem a financeiro — é orientado a **eventos de catering**.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## Documentação Técnica
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+| Documento | Descrição |
+|---|---|
+| [docs/ARQUITETURA.md](./docs/ARQUITETURA.md) | Fluxo do sistema, decisões técnicas, estrutura de módulos |
+| [docs/BANCO_DE_DADOS.md](./docs/BANCO_DE_DADOS.md) | Todas as tabelas, campos, relacionamentos e observações |
+| [docs/MODULOS.md](./docs/MODULOS.md) | Cada módulo explicado: telas, tabelas, fluxo operacional |
+| [docs/DESENVOLVIMENTO.md](./docs/DESENVOLVIMENTO.md) | Setup local, variáveis de ambiente, padrões de código |
+| [docs/SEGURANCA.md](./docs/SEGURANCA.md) | RLS, perfis de acesso, hooks de segurança |
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+## Setup Rápido
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Pré-requisitos
+- Node.js 18+ ou Bun 1.0+
+- Conta Supabase com acesso ao projeto `njxxqdcwvehlvqufuyww`
 
-## How can I deploy this project?
+### Instalação
 
-Simply open [Lovable](https://lovable.dev/projects/832a63db-6ce7-4c71-9811-73baf90cf8d5) and click on Share -> Publish.
+```bash
+# Clonar o repositório
+git clone https://github.com/Macriptofin/coffeeliergestao.git
+cd coffeeliergestao
 
-## Can I connect a custom domain to my Lovable project?
+# Instalar dependências (usar bun, não npm)
+bun install
 
-Yes, you can!
+# Configurar variáveis de ambiente
+cp .env.example .env.local
+# Editar .env.local com as chaves do Supabase
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+# Rodar em desenvolvimento
+bun run dev
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### Variáveis de Ambiente
+
+```env
+VITE_SUPABASE_URL=https://njxxqdcwvehlvqufuyww.supabase.co
+VITE_SUPABASE_ANON_KEY=sua_chave_anonima_aqui
+```
+
+> As chaves estão disponíveis em: Supabase Dashboard → Project Settings → API
+
+---
+
+## Estrutura de Pastas
+
+```
+coffeeliergestao/
+├── src/
+│   ├── pages/              # Páginas da aplicação (roteadas via App.tsx)
+│   │   ├── financeiro/     # Sub-páginas do módulo financeiro
+│   │   ├── production/     # Sub-páginas de produção
+│   │   ├── rh/             # Sub-páginas de RH
+│   │   └── stock/          # Sub-páginas de estoque
+│   ├── components/         # Componentes reutilizáveis
+│   │   └── ui/             # Componentes shadcn/ui
+│   ├── hooks/              # React hooks customizados (29 hooks)
+│   ├── integrations/       # Clientes Supabase e tipos gerados
+│   └── lib/                # Utilitários
+├── supabase/
+│   └── migrations/         # Histórico de migrations SQL (200+)
+├── docs/                   # Documentação técnica
+├── diagnostics/            # Arquivos de diagnóstico do banco
+└── scripts/                # Scripts SQL de manutenção
+```
+
+---
+
+## Gerenciador de Pacotes
+
+Este projeto usa **Bun** como gerenciador de pacotes. Não commitar `package-lock.json` (npm) — usar apenas `bun.lockb`.
+
+```bash
+bun install          # instalar dependências
+bun run dev          # servidor de desenvolvimento
+bun run build        # build de produção
+bun run type-check   # verificar TypeScript
+```
+
+---
+
+## Branch Strategy
+
+| Branch | Propósito |
+|---|---|
+| `main` | Produção — deploy automático via Lovable |
+| `feature/fase*` | Branches de desenvolvimento por fase |
+
+Nunca fazer commit direto em `main`. Sempre abrir PR e revisar antes do merge.
+
+---
+
+## Contato
+
+**Responsável:** Maciel  
+**Email:** macriptofin@gmail.com  
+**Última atualização da documentação:** Maio 2026

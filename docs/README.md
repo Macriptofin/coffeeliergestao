@@ -1,47 +1,56 @@
-# 📚 Documentação do Sistema Coffeelier ERP
+# Documentação Técnica — Coffeelier ERP
 
-Esta pasta contém toda a documentação técnica e operacional do sistema.
-
-## 📋 Índice de Documentos
-
-### 📖 Documentação Principal
-- **[DOCUMENTACAO_COMPLETA.md](./DOCUMENTACAO_COMPLETA.md)** - Documentação técnica completa do sistema
-  - Arquitetura e stack tecnológico
-  - Estrutura do banco de dados
-  - Módulos e funcionalidades
-  - Guias de desenvolvimento
-
-### 🔧 Guias Operacionais
-- **[GUIA_CORRECAO_MATERIAIS.md](./GUIA_CORRECAO_MATERIAIS.md)** - Procedimentos para correção de materiais
-- **[IMPLEMENTACAO_PRECOS_RESUMO.md](./IMPLEMENTACAO_PRECOS_RESUMO.md)** - Resumo da implementação do sistema de preços
-
-### 📊 Diagramas
-- **[DIAGRAMAS_ARQUITETURA.md](./DIAGRAMAS_ARQUITETURA.md)** - Diagramas de arquitetura do sistema
-
-### 🎫 Tickets e Melhorias
-- **[TICKET_MELHORIAS_LISTA_NECESSIDADES.md](./TICKET_MELHORIAS_LISTA_NECESSIDADES.md)** - Lista de melhorias planejadas
-
-## 🗂️ Outras Pastas
-
-### `/diagnostics/`
-Arquivos de diagnóstico e análise do banco de dados:
-- Schema exports (SQL)
-- Índices e constraints (CSV)
-- Views e functions (SQL)
-- Políticas RLS (CSV)
-- Health checks e análises
-
-### `/scripts/`
-Scripts SQL para manutenção e correções:
-- Scripts de correção de custos
-- Migrations manuais
-- Utilitários de banco de dados
-
-## 📝 Post-Mortems e Registros
-
-Na raiz do projeto:
-- **LOOP_INFINITO_RESOLVIDO_16NOV2025.md** - Resolução do bug crítico de loop infinito
+**Última atualização:** Maio 2026
 
 ---
 
-**Última atualização:** 16/11/2025
+## Documentos
+
+| Documento | Conteúdo |
+|---|---|
+| [ARQUITETURA.md](./ARQUITETURA.md) | Princípios do sistema, fluxo operacional, stack tecnológica, modelo de dados, sistema de BOM, custo médio móvel |
+| [MODULOS.md](./MODULOS.md) | Cada módulo detalhado: telas, rotas, tabelas, fluxos operacionais |
+| [BANCO_DE_DADOS.md](./BANCO_DE_DADOS.md) | Todas as 103 tabelas, campos, relacionamentos, funções e triggers |
+| [DESENVOLVIMENTO.md](./DESENVOLVIMENTO.md) | Setup local, padrões de código, roteamento, migrations, hooks disponíveis |
+| [SEGURANCA.md](./SEGURANCA.md) | RLS, autenticação, perfis e permissões, auditoria, LGPD |
+
+---
+
+## Referência Rápida
+
+**Rodar localmente:**
+```bash
+bun install && bun run dev
+```
+
+**Stack:** React 18 + TypeScript + Vite + Supabase (PostgreSQL) + shadcn/ui + Tailwind
+
+**Banco:** Supabase `njxxqdcwvehlvqufuyww` — região sa-east-1
+
+**Produção:** https://coffeelier.com.br
+
+**Fluxo principal:**
+```
+Materiais → Fichas Técnicas → Propostas → Eventos → Produção → Financeiro
+```
+
+---
+
+## Arquivos de Diagnóstico
+
+A pasta `/diagnostics/` contém exports do banco para análise:
+- Schema SQL
+- Índices e constraints
+- Views e functions
+- Políticas RLS
+
+## Scripts de Manutenção
+
+A pasta `/scripts/` contém scripts SQL para:
+- Correções de custos
+- Migrations manuais
+- Utilitários de banco
+
+---
+
+*Documentação gerada em Maio 2026 com base em análise completa do repositório e banco de dados.*
