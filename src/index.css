@@ -2,9 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* ================================================================
+   COFFEELIER — Design System
+   Paleta oficial (MIV):
+     Oliva    #626432  → HSL(62, 34%, 29%)
+     Café     #552D19  → HSL(20, 54%, 22%)
+     Caramelo #C06C3A  → HSL(25, 53%, 49%)
+     Mocca    #DAAA73  → HSL(34, 52%, 65%)
+     Creme    #FCE8D0  → HSL(34, 88%, 90%)
+   Tipografia: Nunito (principal) · Dancing Script (script/assinatura)
+================================================================ */
 
 @layer base {
   :root {
