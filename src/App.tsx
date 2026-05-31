@@ -26,6 +26,7 @@ import FluxoCaixa from "./pages/financeiro/FluxoCaixa";
 import CentrosCusto from "./pages/financeiro/CentrosCusto";
 import AnaliseFinanceira from "./pages/financeiro/AnaliseFinanceira";
 import DRE from "./pages/financeiro/DRE";
+import PropostaAprovacao from "./pages/PropostaAprovacao";
 import RelatoriosContabeis from "./pages/financeiro/RelatoriosContabeis";
 import ContasBancarias from "./pages/financeiro/ContasBancarias";
 import RecurringTransactions from "./pages/financeiro/RecurringTransactions";
@@ -63,6 +64,8 @@ function App() {
           <Toaster />
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            {/* Rota pública — aprovação de proposta pelo cliente (sem login) */}
+            <Route path="/aprovar/:token" element={<PropostaAprovacao />} />
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
               
