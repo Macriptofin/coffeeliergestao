@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Copy, Trash2, Factory, ShoppingCart, CheckCircle2, FileDown } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Copy, Trash2, Factory, ShoppingCart, CheckCircle2, FileDown, Send, Link } from 'lucide-react';
+import { toast } from 'sonner';
 import { toast } from 'sonner';
 import {
   Table,
@@ -148,6 +149,35 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
     } catch (error: any) {
       console.error('Erro ao converter proposta:', error);
       toast.error(error.message || 'Erro ao converter proposta em pedido');
+    }
+  };
+
+  const handleSendForApproval = async (proposalId: string) => {
+    try {
+      // Criar token de aprovação
+      const { data, error } = await supabase
+        .from('proposal_approval_tokens')
+        .insert({ proposal_id: proposalId })
+        .select('token')
+        .single();
+
+      if (error) throw error;
+
+      // Marcar proposta como enviada
+      await supabase.from('proposals').update({ status: 'enviada' }).eq('id', proposalId);
+
+      // Copiar link para o clipboard
+      const url = `${window.location.origin}/aprovar/${data.token}`;
+      await navigator.clipboard.writeText(url);
+
+      toast.success('Link copiado! Cole no e-mail ou WhatsApp para enviar ao cliente.', {
+        duration: 6000,
+        description: url,
+      });
+
+      loadProposals();
+    } catch (e: any) {
+      toast.error('Erro ao gerar link: ' + e.message);
     }
   };
 
@@ -368,6 +398,14 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-green-700 hover:text-green-900"
                               onClick={() => onPdfProposal(proposal.id)} title="Gerar PDF da proposta">
                               <FileDown size={13} />
+                            </Button>
+                          )}
+                          {/* Enviar para aprovação do cliente */}
+                          {!['aprovada', 'Aprovada', 'cancelada'].includes(proposal.status) && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600 hover:text-blue-800"
+                              onClick={() => handleSendForApproval(proposal.id)}
+                              title="Gerar link de aprovação para o cliente">
+                              <Send size={13} />
                             </Button>
                           )}
                           {/* Botão Aprovar */}
