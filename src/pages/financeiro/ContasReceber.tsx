@@ -387,27 +387,48 @@ const ContasReceber = () => {
 
       if (receiptError) throw receiptError;
 
+      // Atualizar a conta a receber — CORREÇÃO DO BUG
+      const totalRecebido  = (selectedAccount.received_amount || 0) + receiptAmount;
+      const totalOriginal  = selectedAccount.original_amount
+                           + (selectedAccount.interest_amount || 0)
+                           - (selectedAccount.discount_amount || 0)
+                           + interestAmount
+                           - discountAmount;
+      const saldoRestante  = Math.max(0, totalOriginal - totalRecebido);
+      const novoStatus     = saldoRestante <= 0.01 ? 'Pago' : 'Parcial';
+
+      const { error: updateError } = await supabase
+        .from('accounts_receivable')
+        .update({
+          received_amount:  totalRecebido,
+          remaining_amount: saldoRestante,
+          status:           novoStatus,
+          ...(novoStatus === 'Pago' ? { receipt_date: receiptData.receipt_date } : {}),
+        })
+        .eq('id', selectedAccount.id);
+
+      if (updateError) throw updateError;
+
       // Atualizar saldo da conta bancária se informada
       if (receiptData.bank_account_id) {
-        const { data: bankData, error: bankFetchError } = await supabase
+        const { data: bankData } = await supabase
           .from('bank_accounts')
           .select('current_balance')
           .eq('id', receiptData.bank_account_id)
           .single();
 
-        if (bankFetchError) throw bankFetchError;
-
-        const newBalance = (bankData?.current_balance || 0) + receiptAmount;
-
-        const { error: bankUpdateError } = await supabase
-          .from('bank_accounts')
-          .update({ current_balance: newBalance })
-          .eq('id', receiptData.bank_account_id);
-
-        if (bankUpdateError) throw bankUpdateError;
+        if (bankData) {
+          await supabase
+            .from('bank_accounts')
+            .update({ current_balance: (bankData.current_balance || 0) + receiptAmount })
+            .eq('id', receiptData.bank_account_id);
+        }
       }
 
-      toast.success('Recebimento registrado com sucesso!');
+      toast.success(novoStatus === 'Pago'
+        ? `Recebimento de ${receiptAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} registrado — conta liquidada!`
+        : `Recebimento parcial registrado. Saldo restante: ${saldoRestante.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+      );
       setReceiptDialogOpen(false);
       setSelectedAccount(null);
       setReceiptData({

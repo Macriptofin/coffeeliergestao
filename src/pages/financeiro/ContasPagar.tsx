@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Plus, Search, DollarSign, Calendar, Receipt, CheckCircle, Pencil, Eye, Trash2, XCircle } from "lucide-react";
+import { Plus, Search, DollarSign, Calendar, Receipt, CheckCircle, Pencil, Eye, Trash2, XCircle, Building2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatLocalDate, parseLocalDate, isOverdue } from "@/lib/date-utils";
@@ -56,11 +56,18 @@ interface Account {
   code: string;
 }
 
+interface BankAccount {
+  id: string;
+  name: string;
+  bank_name: string;
+}
+
 const ContasPagar = () => {
   const [accounts, setAccounts] = useState<AccountPayable[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [chartAccounts, setChartAccounts] = useState<Account[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -75,8 +82,12 @@ const ContasPagar = () => {
   const [editingAccount, setEditingAccount] = useState<AccountPayable | null>(null);
   const [paymentData, setPaymentData] = useState({
     payment_date: format(new Date(), 'yyyy-MM-dd'),
-    payment_method: 'Dinheiro',
+    payment_method: 'PIX',
+    bank_account_id: '',
     amount: '',
+    discount_obtained: '0',
+    interest_paid: '0',
+    document_number: '',
     notes: ''
   });
   const [formData, setFormData] = useState({
@@ -115,19 +126,15 @@ const ContasPagar = () => {
 
   const fetchData = async () => {
     try {
-      const [accountsRes, suppliersRes, costCentersRes, chartAccountsRes] = await Promise.all([
+      const [accountsRes, suppliersRes, costCentersRes, chartAccountsRes, bankAccountsRes] = await Promise.all([
         supabase
           .from('accounts_payable')
-          .select(`
-            *,
-            suppliers(company_name),
-            cost_centers(name),
-            chart_of_accounts(name)
-          `)
+          .select(`*, suppliers(company_name), cost_centers(name), chart_of_accounts(name)`)
           .order('due_date', { ascending: false }),
         supabase.from('suppliers').select('id, company_name').eq('status', 'Ativo'),
         supabase.from('cost_centers').select('id, name, code').eq('is_active', true).order('code'),
-        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Despesas').order('code')
+        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Despesas').order('code'),
+        supabase.from('bank_accounts').select('id, name, bank_name').eq('is_active', true).order('name')
       ]);
 
       if (accountsRes.error) throw accountsRes.error;
@@ -139,6 +146,7 @@ const ContasPagar = () => {
       setSuppliers(suppliersRes.data || []);
       setCostCenters(costCentersRes.data || []);
       setChartAccounts(chartAccountsRes.data || []);
+      setBankAccounts(bankAccountsRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Erro ao carregar dados');
@@ -315,8 +323,12 @@ const ContasPagar = () => {
     setSelectedAccount(account);
     setPaymentData({
       payment_date: format(new Date(), 'yyyy-MM-dd'),
-      payment_method: 'Dinheiro',
+      payment_method: 'PIX',
+      bank_account_id: '',
       amount: account.remaining_amount.toString(),
+      discount_obtained: '0',
+      interest_paid: '0',
+      document_number: '',
       notes: ''
     });
     setPaymentDialogOpen(true);
@@ -326,30 +338,68 @@ const ContasPagar = () => {
     if (!selectedAccount) return;
 
     try {
-      const paymentAmount = parseFloat(paymentData.amount);
-      
-      // Criar transação de pagamento
-      const { data: paymentTransaction, error: paymentError } = await supabase
+      const paymentAmount    = parseFloat(paymentData.amount) || 0;
+      const discountObtained = parseFloat(paymentData.discount_obtained) || 0;
+      const interestPaid     = parseFloat(paymentData.interest_paid) || 0;
+
+      if (paymentAmount <= 0) {
+        toast.error('Informe um valor de pagamento válido');
+        return;
+      }
+
+      // 1. Criar transação de pagamento
+      const { error: paymentError } = await supabase
         .from('payment_transactions')
         .insert({
           account_payable_id: selectedAccount.id,
-          payment_date: paymentData.payment_date,
-          amount: paymentAmount,
-          payment_method: paymentData.payment_method,
-          notes: paymentData.notes
-        })
-        .select()
-        .single();
+          payment_date:       paymentData.payment_date,
+          amount:             paymentAmount,
+          payment_method:     paymentData.payment_method,
+          bank_account:       paymentData.bank_account_id || null,
+          document_number:    paymentData.document_number || null,
+          notes:              paymentData.notes || null,
+        });
 
       if (paymentError) throw paymentError;
 
-      toast.success('Pagamento registrado com sucesso!');
+      // 2. Atualizar a conta a pagar — CORREÇÃO DO BUG
+      const totalPago     = (selectedAccount.paid_amount || 0) + paymentAmount;
+      const totalDevido   = selectedAccount.original_amount
+                          + (selectedAccount.interest_amount || 0)
+                          - (selectedAccount.discount_amount || 0)
+                          + interestPaid
+                          - discountObtained;
+      const saldoRestante = Math.max(0, totalDevido - totalPago);
+      const novoStatus    = saldoRestante <= 0.01 ? 'Pago' : 'Parcial';
+
+      const { error: updateError } = await supabase
+        .from('accounts_payable')
+        .update({
+          paid_amount:      totalPago,
+          remaining_amount: saldoRestante,
+          status:           novoStatus,
+          ...(novoStatus === 'Pago' ? { payment_date: paymentData.payment_date } : {}),
+          ...(paymentData.bank_account_id ? { bank_account_id: paymentData.bank_account_id } : {}),
+        })
+        .eq('id', selectedAccount.id);
+
+      if (updateError) throw updateError;
+
+      toast.success(novoStatus === 'Pago'
+        ? `Pagamento de ${paymentAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} registrado — conta liquidada!`
+        : `Pagamento parcial registrado. Saldo restante: ${saldoRestante.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+      );
+
       setPaymentDialogOpen(false);
       setSelectedAccount(null);
       setPaymentData({
         payment_date: format(new Date(), 'yyyy-MM-dd'),
-        payment_method: 'Dinheiro',
+        payment_method: 'PIX',
+        bank_account_id: '',
         amount: '',
+        discount_obtained: '0',
+        interest_paid: '0',
+        document_number: '',
         notes: ''
       });
       fetchData();
@@ -773,61 +823,128 @@ const ContasPagar = () => {
         </CardContent>
       </Card>
 
-      {/* Dialog de Pagamento */}
+      {/* Dialog de Pagamento — melhorado */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Efetuar Pagamento</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Registrar Pagamento
+            </DialogTitle>
             <DialogDescription>
-              Registrar pagamento da conta: {selectedAccount?.description}
+              {selectedAccount?.description}
+              {selectedAccount?.suppliers?.company_name && ` · ${selectedAccount.suppliers.company_name}`}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="payment_date">Data do Pagamento *</Label>
-              <Input
-                id="payment_date"
-                type="date"
-                value={paymentData.payment_date}
-                onChange={(e) => setPaymentData(prev => ({ ...prev, payment_date: e.target.value }))}
-              />
+            {/* Data + Forma */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="payment_date">Data do Pagamento *</Label>
+                <Input
+                  id="payment_date"
+                  type="date"
+                  value={paymentData.payment_date}
+                  onChange={(e) => setPaymentData(prev => ({ ...prev, payment_date: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="payment_method">Forma de Pagamento *</Label>
+                <Select
+                  value={paymentData.payment_method}
+                  onValueChange={(value) => setPaymentData(prev => ({ ...prev, payment_method: value }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PIX">PIX</SelectItem>
+                    <SelectItem value="Transferência Bancária">Transferência Bancária</SelectItem>
+                    <SelectItem value="Boleto">Boleto</SelectItem>
+                    <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                    <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
+                    <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
+                    <SelectItem value="Cheque">Cheque</SelectItem>
+                    <SelectItem value="Depósito">Depósito</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
+            {/* Conta bancária */}
             <div>
-              <Label htmlFor="payment_method">Forma de Pagamento *</Label>
+              <Label htmlFor="bank_account_id" className="flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" /> Conta Bancária de Débito
+              </Label>
               <Select
-                value={paymentData.payment_method}
-                onValueChange={(value) => setPaymentData(prev => ({ ...prev, payment_method: value }))}
+                value={paymentData.bank_account_id}
+                onValueChange={(value) => setPaymentData(prev => ({ ...prev, bank_account_id: value }))}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione a conta bancária" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Dinheiro">Dinheiro</SelectItem>
-                  <SelectItem value="PIX">PIX</SelectItem>
-                  <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
-                  <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
-                  <SelectItem value="Transferência Bancária">Transferência Bancária</SelectItem>
-                  <SelectItem value="Boleto">Boleto</SelectItem>
-                  <SelectItem value="Cheque">Cheque</SelectItem>
+                  {bankAccounts.map(ba => (
+                    <SelectItem key={ba.id} value={ba.id}>
+                      {ba.name} — {ba.bank_name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div>
-              <Label htmlFor="payment_amount">Valor do Pagamento *</Label>
-              <Input
-                id="payment_amount"
-                type="number"
-                step="0.01"
-                value={paymentData.amount}
-                onChange={(e) => setPaymentData(prev => ({ ...prev, amount: e.target.value }))}
-                placeholder="0,00"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Saldo pendente: {selectedAccount?.remaining_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </p>
+            {/* Valor + Nº comprovante */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="payment_amount">Valor Pago *</Label>
+                <Input
+                  id="payment_amount"
+                  type="number"
+                  step="0.01"
+                  value={paymentData.amount}
+                  onChange={(e) => setPaymentData(prev => ({ ...prev, amount: e.target.value }))}
+                  placeholder="0,00"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Saldo: {selectedAccount?.remaining_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="document_number">Nº Comprovante / Transação</Label>
+                <Input
+                  id="document_number"
+                  value={paymentData.document_number}
+                  onChange={(e) => setPaymentData(prev => ({ ...prev, document_number: e.target.value }))}
+                  placeholder="Ex: E1234567890"
+                />
+              </div>
+            </div>
+
+            {/* Desconto obtido + Juros/multa */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="discount_obtained">Desconto Obtido no Pagamento</Label>
+                <Input
+                  id="discount_obtained"
+                  type="number"
+                  step="0.01"
+                  value={paymentData.discount_obtained}
+                  onChange={(e) => setPaymentData(prev => ({ ...prev, discount_obtained: e.target.value }))}
+                  placeholder="0,00"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Desconto negociado no ato</p>
+              </div>
+              <div>
+                <Label htmlFor="interest_paid">Juros / Multa por Atraso</Label>
+                <Input
+                  id="interest_paid"
+                  type="number"
+                  step="0.01"
+                  value={paymentData.interest_paid}
+                  onChange={(e) => setPaymentData(prev => ({ ...prev, interest_paid: e.target.value }))}
+                  placeholder="0,00"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Encargos pagos por atraso</p>
+              </div>
             </div>
 
             <div>
@@ -837,7 +954,7 @@ const ContasPagar = () => {
                 value={paymentData.notes}
                 onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder="Observações sobre o pagamento"
-                rows={3}
+                rows={2}
               />
             </div>
           </div>
@@ -846,7 +963,7 @@ const ContasPagar = () => {
             <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={processPayment}>
+            <Button onClick={processPayment} className="bg-green-600 hover:bg-green-700">
               <CheckCircle className="h-4 w-4 mr-2" />
               Confirmar Pagamento
             </Button>
