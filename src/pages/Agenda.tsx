@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, Users, MapPin, CheckSquare, Bell } from 'lucide-react';
+import { Calendar, Clock, Users, MapPin, Bell, LayoutList } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,6 +9,7 @@ import { EventsList } from '@/components/agenda/EventsList';
 import { EventCalendar } from '@/components/agenda/EventCalendar';
 import { EventForm } from '@/components/agenda/EventForm';
 import { EventNotifications } from '@/components/agenda/EventNotifications';
+import { EventOperationalCard } from '@/components/agenda/EventOperationalCard';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface Event {
@@ -30,9 +31,13 @@ interface Event {
   special_requirements?: string;
   created_at: string;
   updated_at: string;
-  clients?: {
-    name: string;
-  };
+  clients?: { name: string };
+  // Dados enriquecidos (buscados separadamente)
+  proposal_number?: string;
+  proposal_status?: string;
+  op_id?: string;
+  op_status?: string;
+  op_name?: string;
 }
 
 export default function Agenda() {
@@ -55,18 +60,55 @@ export default function Agenda() {
   const loadEvents = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+
+      // Buscar eventos com dados de cliente
+      const { data: eventsData, error } = await supabase
         .from('events')
-        .select(`
-          *,
-          clients:client_id (
-            name
-          )
-        `)
+        .select('*, clients:client_id(name)')
         .order('event_date', { ascending: true });
 
       if (error) throw error;
-      setEvents(data || []);
+
+      const evts = eventsData || [];
+
+      // Enriquecer com dados de proposta e OP
+      const proposalIds = [...new Set(evts.filter(e => e.proposal_id).map(e => e.proposal_id as string))];
+
+      let proposalMap: Record<string, { proposal_number: string; status: string; auto_generated_bom_order_id?: string }> = {};
+      let opMap: Record<string, { id: string; status: string; order_name: string }> = {};
+
+      if (proposalIds.length > 0) {
+        const { data: props } = await supabase
+          .from('proposals')
+          .select('id, proposal_number, status, auto_generated_bom_order_id')
+          .in('id', proposalIds);
+
+        (props || []).forEach(p => { proposalMap[p.id] = p; });
+
+        const opIds = [...new Set((props || []).filter(p => p.auto_generated_bom_order_id).map(p => p.auto_generated_bom_order_id as string))];
+        if (opIds.length > 0) {
+          const { data: ops } = await supabase
+            .from('bom_production_orders')
+            .select('id, status, order_name')
+            .in('id', opIds);
+          (ops || []).forEach(o => { opMap[o.id] = o; });
+        }
+      }
+
+      const enriched: Event[] = evts.map(e => {
+        const prop = e.proposal_id ? proposalMap[e.proposal_id] : undefined;
+        const op   = prop?.auto_generated_bom_order_id ? opMap[prop.auto_generated_bom_order_id] : undefined;
+        return {
+          ...e,
+          proposal_number: prop?.proposal_number,
+          proposal_status: prop?.status,
+          op_id:     op?.id,
+          op_status: op?.status,
+          op_name:   op?.order_name,
+        };
+      });
+
+      setEvents(enriched);
     } catch (error: any) {
       console.error('Erro ao carregar eventos:', error);
       toast.error('Erro ao carregar eventos');
@@ -219,8 +261,9 @@ export default function Agenda() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="operacional">Operacional</TabsTrigger>
           <TabsTrigger value="calendar">Calendário</TabsTrigger>
           <TabsTrigger value="events">Eventos</TabsTrigger>
           <TabsTrigger value="notifications">Notificações</TabsTrigger>
@@ -269,64 +312,49 @@ export default function Agenda() {
             </Card>
           </div>
 
-          {/* Próximos Eventos */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Próximos Eventos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {upcomingEvents.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">
-                  Nenhum evento próximo agendado
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {upcomingEvents.map((event) => (
-                    <div key={event.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-medium">{event.event_name}</h3>
-                          {getStatusBadge(event.status)}
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            {event.event_date.split('T')[0].split('-').reverse().join('/')}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Users className="h-4 w-4" />
-                            {event.total_people} pessoas
-                          </span>
-                          {event.venue && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-4 w-4" />
-                              {event.venue}
-                            </span>
-                          )}
-                        </div>
-                        {event.clients && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Cliente: {event.clients.name}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <div className="font-medium">
-                          R$ {Number(event.total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {event.total_weight}g total
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Próximos Eventos — cards operacionais */}
+          <div>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+              <Bell className="h-4 w-4" /> Próximos eventos
+            </h2>
+            {upcomingEvents.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">Nenhum evento próximo agendado</p>
+            ) : (
+              <div className="space-y-3">
+                {upcomingEvents.map(event => (
+                  <EventOperationalCard
+                    key={event.id}
+                    event={{ ...event, client_name: event.clients?.name }}
+                    onEdit={() => handleEditEvent(event)}
+                    onRefresh={loadEvents}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ABA OPERACIONAL */}
+        <TabsContent value="operacional" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Todos os eventos com visão operacional completa</p>
+          </div>
+          {events.filter(e => e.status !== 'Cancelado').length === 0 ? (
+            <p className="text-muted-foreground text-center py-12">Nenhum evento cadastrado</p>
+          ) : (
+            <div className="space-y-3">
+              {events
+                .filter(e => e.status !== 'Cancelado')
+                .map(event => (
+                  <EventOperationalCard
+                    key={event.id}
+                    event={{ ...event, client_name: event.clients?.name }}
+                    onEdit={() => handleEditEvent(event)}
+                    onRefresh={loadEvents}
+                  />
+                ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="calendar">
