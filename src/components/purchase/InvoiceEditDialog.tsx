@@ -428,6 +428,18 @@ export const InvoiceEditDialog = ({
     setLaunching(true);
 
     try {
+      // Verificar se já foi lançada (escopo correto — fora dos blocos if)
+      let jaLancada = false;
+      if (existingInvoiceId || invoiceId) {
+        const checkId = existingInvoiceId || invoiceId;
+        const { data: curState } = await supabase
+          .from('purchase_invoices')
+          .select('stock_posted')
+          .eq('id', checkId!)
+          .single();
+        jaLancada = curState?.stock_posted === true;
+      }
+
       // Buscar nome do fornecedor
       const { data: supplier } = await supabase
         .from('suppliers')
@@ -465,14 +477,6 @@ export const InvoiceEditDialog = ({
       
       if (existingInvoiceId) {
         // ATUALIZAR nota existente — NÃO resetar stock_posted se já foi lançada
-        const { data: currentInvoice } = await supabase
-          .from('purchase_invoices')
-          .select('stock_posted, workflow_status')
-          .eq('id', existingInvoiceId)
-          .single();
-
-        const jaLancada = currentInvoice?.stock_posted === true;
-
         const { data: updatedInvoice, error: updateError } = await supabase
           .from('purchase_invoices')
           .update({
