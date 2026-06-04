@@ -359,8 +359,8 @@ export const InvoiceEditDialog = ({
     if (!responsavelId) {
       errors.push({
         field: 'responsavel',
-        message: 'Responsável não selecionado',
-        severity: 'error'
+        message: 'Responsável não selecionado (recomendado)',
+        severity: 'warning'  // FIX: não bloqueia o salvamento
       });
     }
 
@@ -411,15 +411,6 @@ export const InvoiceEditDialog = ({
       toast({
         title: 'Fornecedor não selecionado',
         description: 'Selecione um fornecedor antes de lançar a nota.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    if (!responsavelId) {
-      toast({
-        title: 'Responsável não selecionado',
-        description: 'Selecione o responsável pelo lançamento.',
         variant: 'destructive'
       });
       return;
