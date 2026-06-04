@@ -464,7 +464,15 @@ export const InvoiceEditDialog = ({
       }
       
       if (existingInvoiceId) {
-        // ATUALIZAR nota existente
+        // ATUALIZAR nota existente — NÃO resetar stock_posted se já foi lançada
+        const { data: currentInvoice } = await supabase
+          .from('purchase_invoices')
+          .select('stock_posted, workflow_status')
+          .eq('id', existingInvoiceId)
+          .single();
+
+        const jaLancada = currentInvoice?.stock_posted === true;
+
         const { data: updatedInvoice, error: updateError } = await supabase
           .from('purchase_invoices')
           .update({
@@ -476,9 +484,10 @@ export const InvoiceEditDialog = ({
             discount_type: discountType,
             freight_amount: freightAmount,
             freight_cost_center_id: freightAmount > 0 ? freightCostCenterId : null,
-            workflow_status: 'pendente',
-            stock_posted: false,
-            items_locked: false,
+            // Não sobrescrever se já lançada
+            workflow_status: jaLancada ? 'lancada' : 'pendente',
+            stock_posted: jaLancada ? true : false,
+            items_locked: jaLancada ? true : false,
             notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
           })
           .eq('id', existingInvoiceId)
@@ -592,20 +601,20 @@ export const InvoiceEditDialog = ({
         throw itemsError;
       }
 
-      // Salvar matches para aprendizado (sem processar estoque)
+      // Salvar matches para aprendizado — usando material_name_mappings
       for (const item of editedData.itens) {
-        if (item.material_id) {
-          const itemNameNormalized = item.nome.toLowerCase().trim();
+        if (item.material_id && item.nome) {
           await supabase
-            .from('invoice_material_matches')
+            .from('material_name_mappings')
             .upsert({
-              invoice_item_name: item.nome,
-              invoice_item_name_normalized: itemNameNormalized,
+              invoice_description: item.nome,
               material_id: item.material_id,
-              supplier_id: supplierId
+              supplier_name: editedData.fornecedor || null,
             }, {
-              onConflict: 'invoice_item_name_normalized,material_id,supplier_id'
-            });
+              onConflict: 'invoice_description,material_id'
+            })
+            .then(() => {}) // falha silenciosa — não crítico
+            .catch(() => {});
         }
       }
 
@@ -624,8 +633,10 @@ export const InvoiceEditDialog = ({
       }
 
       toast({
-        title: '✅ Nota fiscal criada!',
-        description: 'A nota está pronta para ser lançada no estoque.'
+        title: jaLancada ? '✅ Nota fiscal atualizada!' : '✅ Nota fiscal salva!',
+        description: jaLancada
+          ? 'Dados da nota atualizados. Já foi lançada no estoque anteriormente.'
+          : 'Dados salvos. Clique em "Lançar no Estoque" na lista para concluir o lançamento.'
       });
       
       onOpenChange(false);
@@ -669,6 +680,14 @@ export const InvoiceEditDialog = ({
         fornecedorNome = supplier?.company_name || editedData.fornecedor;
       }
 
+      // Verificar se a nota já foi lançada — não resetar stock_posted/workflow_status
+      let jaFoiLancada = false;
+      if (invoiceId) {
+        const { data: cur } = await supabase
+          .from('purchase_invoices').select('stock_posted').eq('id', invoiceId).single();
+        jaFoiLancada = cur?.stock_posted === true;
+      }
+
       // Criar ou atualizar registro da nota fiscal como rascunho
       const invoicePayload = {
         invoice_number: editedData.numero_nota || `RASCUNHO-${Date.now()}`,
@@ -679,9 +698,10 @@ export const InvoiceEditDialog = ({
         discount_type: discountType,
         freight_amount: freightAmount,
         freight_cost_center_id: freightAmount > 0 ? freightCostCenterId : null,
-        workflow_status: 'rascunho',
-        stock_posted: false,
-        items_locked: false,
+        // FIX: não resetar se já foi lançada
+        workflow_status: jaFoiLancada ? 'lancada' : 'rascunho',
+        stock_posted: jaFoiLancada ? true : false,
+        items_locked: jaFoiLancada ? true : false,
         notes: `${observacoes || ''}\n\nForma de Pagamento: ${formaPagamento || 'Não definida'}\nResponsável: ${responsavelId || 'Não definido'}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
       };
 
@@ -1157,11 +1177,11 @@ export const InvoiceEditDialog = ({
                   <><Save className="h-4 w-4 mr-2" />Salvar Rascunho</>
                 )}
               </Button>
-              <Button onClick={handleLaunch} disabled={launching || saving}>
+              <Button onClick={handleLaunch} disabled={launching || saving} title="Salva os dados da nota. O lançamento no estoque é feito pela lista.">
                 {launching ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Lançando...</>
                 ) : (
-                  <><Check className="h-4 w-4 mr-2" />Lançar Nota</>
+                  <><Check className="h-4 w-4 mr-2" />Salvar Nota</>
                 )}
               </Button>
             </div>
