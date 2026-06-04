@@ -594,7 +594,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         .from('purchase_invoices')
         .update({
           stock_posted: true,
-          stock_posted_at: new Date().toISOString()
+          stock_posted_at: new Date().toISOString(),
+          workflow_status: 'lancada'   // FIX: atualizar status para 'lancada'
         })
         .eq('id', invoiceId);
 
