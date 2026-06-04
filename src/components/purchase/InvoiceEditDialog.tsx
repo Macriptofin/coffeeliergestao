@@ -87,6 +87,11 @@ export const InvoiceEditDialog = ({
   const [editedData, setEditedData] = useState<InvoiceData | null>(null);
   const [supplierId, setSupplierId] = useState<string | null>(initialSupplierId || null);
   const [formaPagamento, setFormaPagamento] = useState(initialFormaPagamento || '');
+  const [statusPagamento, setStatusPagamento] = useState<'pago' | 'a_vencer'>('a_vencer');
+  const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().split('T')[0]);
+  const [dataVencimento, setDataVencimento] = useState(
+    new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
+  );
   const [numeroParcelas, setNumeroParcelas] = useState(initialNumeroParcelas || 1);
   const [prazoPagamentoDias, setPrazoPagamentoDias] = useState(initialPrazoPagamentoDias || 30);
   const [responsavelId, setResponsavelId] = useState<string | null>(initialResponsavelId || null);
@@ -483,7 +488,7 @@ export const InvoiceEditDialog = ({
             workflow_status: jaLancada ? 'lancada' : 'pendente',
             stock_posted: jaLancada ? true : false,
             items_locked: jaLancada ? true : false,
-            notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
+            notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}\nStatus Pagamento: ${statusPagamento}\nData Pagamento: ${statusPagamento === 'pago' ? dataPagamento : dataVencimento}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
           })
           .eq('id', existingInvoiceId)
           .select()
@@ -524,7 +529,7 @@ export const InvoiceEditDialog = ({
             workflow_status: 'pendente',
             stock_posted: false,
             items_locked: false,
-            notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
+            notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}\nStatus Pagamento: ${statusPagamento}\nData Pagamento: ${statusPagamento === 'pago' ? dataPagamento : dataVencimento}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
           })
           .select()
           .single();
@@ -924,6 +929,54 @@ export const InvoiceEditDialog = ({
                 )}
               </div>
             )}
+
+            {/* Status e Data de Pagamento */}
+            <div className="space-y-2">
+              <Label>Status do Pagamento</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 'pago',     label: '✅ Já foi pago',       desc: 'Pagamento já realizado' },
+                  { value: 'a_vencer', label: '📅 A pagar / Boleto', desc: 'Aguardando pagamento' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setStatusPagamento(opt.value as 'pago' | 'a_vencer')}
+                    className={`p-2.5 rounded-lg border text-left transition-colors ${
+                      statusPagamento === opt.value
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:bg-accent text-foreground'
+                    }`}
+                  >
+                    <div className="font-medium text-sm">{opt.label}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                {statusPagamento === 'pago' ? (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Data do Pagamento</Label>
+                    <Input
+                      type="date"
+                      value={dataPagamento}
+                      onChange={e => setDataPagamento(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Informe a data real, mesmo que retroativa</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Data de Vencimento</Label>
+                    <Input
+                      type="date"
+                      value={dataVencimento}
+                      onChange={e => setDataVencimento(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Vencimento do boleto ou prazo</p>
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Responsável */}
             <div className="space-y-2">

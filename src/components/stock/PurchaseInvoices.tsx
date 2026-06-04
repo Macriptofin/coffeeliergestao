@@ -394,13 +394,14 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       const { data: invoice, error: checkError } = await supabase
         .from('purchase_invoices')
         .select(`
-          stock_posted, 
+          stock_posted,
           invoice_number,
           invoice_date,
           total_amount,
           discount_total,
           freight_amount,
           freight_cost_center_id,
+          notes,
           suppliers:supplier_id (
             id,
             company_name
@@ -408,6 +409,13 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         `)
         .eq('id', invoiceId)
         .single();
+
+      // Extrair status e data de pagamento do campo notes
+      const notesText = invoice?.notes || '';
+      const statusMatch = notesText.match(/Status Pagamento:\s*(pago|a_vencer)/i);
+      const dateMatch   = notesText.match(/Data Pagamento:\s*(\d{4}-\d{2}-\d{2})/i);
+      const invoicePaymentStatus = statusMatch?.[1] || 'a_vencer';
+      const invoicePaymentDate   = dateMatch?.[1] || new Date().toISOString().split('T')[0];
 
       if (checkError) throw checkError;
 
@@ -510,9 +518,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       // Criar contas a pagar com condição de pagamento definida pelo usuário
       if (paymentData.createPayable) {
         const currentDate = new Date().toISOString().split('T')[0];
-        // Usar dados do launchPaymentData (definidos no dialog de condição)
-        const isPaid     = launchPaymentData.paymentStatus === 'pago';
-        const dueDate    = isPaid ? launchPaymentData.paymentDate : launchPaymentData.dueDate;
+        // Usar dados salvos no formulário da NF (status e data de pagamento)
+        const isPaid  = invoicePaymentStatus === 'pago';
+        const dueDate = invoicePaymentDate;
         const totalAmount = parseFloat(invoice.total_amount?.toString() || '0');
         const freightAmount = parseFloat(invoice.freight_amount?.toString() || '0');
         const productsAmount = totalAmount - freightAmount;
@@ -929,7 +937,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                      {invoice.workflowStatus !== 'lancada' && !invoice.stockPosted && (
                        <Button
                          variant="default"
-                         onClick={(e) => { e.stopPropagation(); openPaymentConditionDialog(invoice.id); }}
+                         onClick={(e) => { e.stopPropagation(); postToStock(invoice.id); }}
                          size="sm"
                          disabled={loading}
                          className="flex items-center gap-2"
@@ -968,8 +976,10 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         </CardContent>
       </Card>
 
-      {/* Dialog de condição de pagamento antes de lançar no estoque */}
-      <Dialog open={showPaymentConditionDialog} onOpenChange={setShowPaymentConditionDialog}>
+      {/* As condições de pagamento agora são preenchidas no formulário da NF */}
+
+      {/* Dialog para criar conta a pagar retroativa — REMOVIDO TEMPORARIAMENTE */}
+      {false && <Dialog open={showPaymentConditionDialog} onOpenChange={setShowPaymentConditionDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1067,7 +1077,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             </button>
           </div>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
 
       {/* Dialog para criar conta a pagar retroativa */}
       <Dialog open={showRetroactiveDialog} onOpenChange={setShowRetroactiveDialog}>
