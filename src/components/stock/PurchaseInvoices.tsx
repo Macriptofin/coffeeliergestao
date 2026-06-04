@@ -66,6 +66,18 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   });
   const [showRetroactiveDialog, setShowRetroactiveDialog] = useState(false);
   const [selectedInvoiceForRetroactive, setSelectedInvoiceForRetroactive] = useState<any>(null);
+  // Dialog de condição de pagamento antes de lançar no estoque
+  const [showPaymentConditionDialog, setShowPaymentConditionDialog] = useState(false);
+  const [invoiceToLaunch, setInvoiceToLaunch] = useState<string | null>(null);
+  const [paymentCondition, setPaymentCondition] = useState<'pago' | 'a_pagar'>('pago');
+  const [launchPaymentData, setLaunchPaymentData] = useState({
+    paymentStatus: 'pago' as 'pago' | 'a_pagar',
+    paymentDate:   new Date().toISOString().split('T')[0],
+    dueDate:       new Date().toISOString().split('T')[0],
+    paymentMethod: 'PIX',
+    bankAccountId: '',
+    notes:         '',
+  });
   const [existingPayables, setExistingPayables] = useState<any[]>([]);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -356,6 +368,25 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     }
   };
 
+  const openPaymentConditionDialog = (invoiceId: string) => {
+    setInvoiceToLaunch(invoiceId);
+    setLaunchPaymentData({
+      paymentStatus: 'pago',
+      paymentDate:   new Date().toISOString().split('T')[0],
+      dueDate:       new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+      paymentMethod: 'PIX',
+      bankAccountId: '',
+      notes:         '',
+    });
+    setShowPaymentConditionDialog(true);
+  };
+
+  const confirmAndLaunch = async () => {
+    if (!invoiceToLaunch) return;
+    setShowPaymentConditionDialog(false);
+    await postToStock(invoiceToLaunch);
+  };
+
   const postToStock = async (invoiceId: string) => {
     setLoading(true);
     try {
@@ -476,16 +507,15 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         }
       }
 
-      // Criar contas a pagar se configurado
+      // Criar contas a pagar com condição de pagamento definida pelo usuário
       if (paymentData.createPayable) {
         const currentDate = new Date().toISOString().split('T')[0];
-        const dueDate = paymentData.paymentDate;
+        // Usar dados do launchPaymentData (definidos no dialog de condição)
+        const isPaid     = launchPaymentData.paymentStatus === 'pago';
+        const dueDate    = isPaid ? launchPaymentData.paymentDate : launchPaymentData.dueDate;
         const totalAmount = parseFloat(invoice.total_amount?.toString() || '0');
         const freightAmount = parseFloat(invoice.freight_amount?.toString() || '0');
         const productsAmount = totalAmount - freightAmount;
-        
-        // Verificar se deve ser criada como paga (data de vencimento igual ou anterior à data atual)
-        const isPaid = dueDate <= currentDate;
         
         // 1. CONTA A PAGAR - PRODUTOS (vinculada ao fornecedor)
         if (productsAmount > 0) {
@@ -514,7 +544,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               source_type: 'purchase_invoice',
               source_id: invoiceId,
               account_id: purchaseAccount?.id || null,
-              notes: `Produtos da nota fiscal. Método: ${paymentData.paymentMethod}${paymentData.responsiblePerson ? `, Responsável: ${paymentData.responsiblePerson}` : ''}${isPaid ? ' - Pago automaticamente' : ''}`
+              notes: `Produtos da nota fiscal. Método: ${launchPaymentData.paymentMethod}${isPaid ? ` - Pago em ${launchPaymentData.paymentDate}` : ` - Vence em ${launchPaymentData.dueDate}`}${launchPaymentData.notes ? `. ${launchPaymentData.notes}` : ''}`
             })
             .select()
             .single();
@@ -523,15 +553,16 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             console.error('Erro ao criar conta a pagar de produtos:', productsPayableError);
             toast.error('Estoque lançado, mas houve erro ao criar conta a pagar de produtos');
           } else if (isPaid && productsPayable) {
-            // Criar transação de pagamento para produtos
+            // Criar transação de pagamento com data real informada pelo usuário
             await supabase
               .from('payment_transactions')
               .insert({
                 account_payable_id: productsPayable.id,
-                payment_date: currentDate,
+                payment_date: launchPaymentData.paymentDate,
                 amount: productsAmount,
-                payment_method: paymentData.paymentMethod,
-                notes: `Pagamento automático - Produtos - ${paymentData.paymentMethod}`
+                payment_method: launchPaymentData.paymentMethod,
+                bank_account: launchPaymentData.bankAccountId || null,
+                notes: `Pagamento - ${launchPaymentData.paymentMethod}${launchPaymentData.notes ? ` - ${launchPaymentData.notes}` : ''}`
               });
           }
         }
@@ -825,6 +856,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               }}
               invoiceData={manualInvoiceData}
               onLaunch={handleInvoiceLaunch}
+              onSaveDraft={onRefresh}
               formaPagamento="dinheiro"
               numeroParcelas={1}
               prazoPagamentoDias={30}
@@ -897,8 +929,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                      {invoice.workflowStatus !== 'lancada' && !invoice.stockPosted && (
                        <Button
                          variant="default"
+                         onClick={(e) => { e.stopPropagation(); openPaymentConditionDialog(invoice.id); }}
                          size="sm"
-                         onClick={() => postToStock(invoice.id)}
                          disabled={loading}
                          className="flex items-center gap-2"
                        >
@@ -935,6 +967,107 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de condição de pagamento antes de lançar no estoque */}
+      <Dialog open={showPaymentConditionDialog} onOpenChange={setShowPaymentConditionDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" />
+              Condição de Pagamento
+            </DialogTitle>
+            <DialogDescription>
+              Informe como esta nota foi ou será paga antes de lançar no estoque.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {/* Tipo: Já pago ou A pagar */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">Status do pagamento</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 'pago',    label: '✅ Já foi pago',      desc: 'Pagamento já realizado' },
+                  { value: 'a_pagar', label: '📅 A vencer / Boleto', desc: 'Ainda precisa pagar' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setLaunchPaymentData(p => ({ ...p, paymentStatus: opt.value as 'pago'|'a_pagar' }))}
+                    className={`p-3 rounded-lg border text-left transition-colors ${
+                      launchPaymentData.paymentStatus === opt.value
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:bg-accent'
+                    }`}
+                  >
+                    <div className="font-medium text-sm">{opt.label}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Data de pagamento ou vencimento */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1">
+                  {launchPaymentData.paymentStatus === 'pago' ? 'Data do Pagamento' : 'Data de Vencimento'}
+                </label>
+                <input
+                  type="date"
+                  value={launchPaymentData.paymentStatus === 'pago' ? launchPaymentData.paymentDate : launchPaymentData.dueDate}
+                  onChange={e => setLaunchPaymentData(p =>
+                    p.paymentStatus === 'pago'
+                      ? { ...p, paymentDate: e.target.value }
+                      : { ...p, dueDate: e.target.value }
+                  )}
+                  className="w-full border rounded px-2 py-1.5 text-sm bg-background"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1">
+                  Forma de Pagamento
+                </label>
+                <select
+                  value={launchPaymentData.paymentMethod}
+                  onChange={e => setLaunchPaymentData(p => ({ ...p, paymentMethod: e.target.value }))}
+                  className="w-full border rounded px-2 py-1.5 text-sm bg-background"
+                >
+                  {['PIX','Transferência Bancária','Boleto','Dinheiro','Cartão de Débito','Cartão de Crédito','Cheque'].map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1">
+                Observações (opcional)
+              </label>
+              <input
+                type="text"
+                value={launchPaymentData.notes}
+                onChange={e => setLaunchPaymentData(p => ({ ...p, notes: e.target.value }))}
+                placeholder="Ex: NF paga via PIX em 15/05, ref. pedido 1234..."
+                className="w-full border rounded px-2 py-1.5 text-sm bg-background"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={() => setShowPaymentConditionDialog(false)}
+              className="flex-1 px-4 py-2 border rounded-lg text-sm hover:bg-accent transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmAndLaunch}
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Lançando...' : 'Confirmar e Lançar no Estoque'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog para criar conta a pagar retroativa */}
       <Dialog open={showRetroactiveDialog} onOpenChange={setShowRetroactiveDialog}>
