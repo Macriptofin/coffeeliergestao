@@ -133,7 +133,7 @@ const ContasPagar = () => {
           .order('due_date', { ascending: false }),
         supabase.from('suppliers').select('id, company_name').eq('status', 'Ativo'),
         supabase.from('cost_centers').select('id, name, code').eq('is_active', true).order('code'),
-        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Despesas').order('code'),
+        supabase.from('chart_of_accounts').select('id, name, code, level, is_postable').eq('is_active', true).eq('account_type', 'Despesas').order('code'),
         supabase.from('bank_accounts').select('id, name, bank_name').eq('is_active', true).order('name')
       ]);
 
@@ -675,11 +675,15 @@ const ContasPagar = () => {
                       <SelectValue placeholder="Selecione a conta" />
                     </SelectTrigger>
                     <SelectContent>
-                      {chartAccounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.code} - {account.name}
-                        </SelectItem>
-                      ))}
+                      {chartAccounts
+                        .filter((a: any) => a.is_postable !== false)
+                        .map((account: any) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            <span style={{ paddingLeft: ((account.level || 1) - 1) * 12 }}>
+                              {account.code} — {account.name}
+                            </span>
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1140,11 +1144,15 @@ const ContasPagar = () => {
                     <SelectValue placeholder="Selecione a conta" />
                   </SelectTrigger>
                   <SelectContent>
-                    {chartAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.code} - {account.name}
-                      </SelectItem>
-                    ))}
+                    {chartAccounts
+                      .filter((a: any) => a.is_postable !== false)
+                      .map((account: any) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          <span style={{ paddingLeft: ((account.level || 1) - 1) * 12 }}>
+                            {account.code} — {account.name}
+                          </span>
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
