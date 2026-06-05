@@ -26,6 +26,7 @@ import FluxoCaixa from "./pages/financeiro/FluxoCaixa";
 import CentrosCusto from "./pages/financeiro/CentrosCusto";
 import AnaliseFinanceira from "./pages/financeiro/AnaliseFinanceira";
 import DRE from "./pages/financeiro/DRE";
+import PlanoContas from "./pages/financeiro/PlanoContas";
 import PropostaAprovacao from "./pages/PropostaAprovacao";
 import RelatoriosContabeis from "./pages/financeiro/RelatoriosContabeis";
 import ContasBancarias from "./pages/financeiro/ContasBancarias";
@@ -125,6 +126,7 @@ function App() {
               <Route path="financeiro/custos" element={<CentrosCusto />} />
               <Route path="financeiro/analises" element={<AnaliseFinanceira />} />
               <Route path="financeiro/dre" element={<DRE />} />
+              <Route path="financeiro/plano-contas" element={<PlanoContas />} />
               <Route path="financeiro/relatorios" element={<RelatoriosContabeis />} />
               <Route path="financeiro/bancos" element={<ContasBancarias />} />
               <Route path="financeiro/recorrentes" element={<RecurringTransactions />} />

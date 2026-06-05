@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, CreditCard, FileText, TrendingUp, Calculator, PieChart, Building2, Repeat, CalendarClock, LineChart, BarChart2 } from "lucide-react";
+import { DollarSign, CreditCard, FileText, TrendingUp, Calculator, PieChart, Building2, Repeat, CalendarClock, LineChart, BarChart2, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { FinancialAlerts } from "@/components/financeiro/FinancialAlerts";
 
@@ -70,6 +70,13 @@ const Financeiro = () => {
       icon: BarChart2,
       href: "/financeiro/dre",
       color: "bg-emerald-600"
+    },
+    {
+      title: "Plano de Contas",
+      description: "Gestão da estrutura hierárquica de contas contábeis gerenciais",
+      icon: BookOpen,
+      href: "/financeiro/plano-contas",
+      color: "bg-indigo-600"
     },
     {
       title: "Análises Financeiras",
