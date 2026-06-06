@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -45,20 +45,31 @@ const getOriginLabel = (referenceType?: string) => {
 const FluxoCaixa = () => {
   const [transactions, setTransactions] = useState<CashTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetching, setFetching] = useState(false); // refetch silencioso (sem blankar a tela)
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState({
     start: format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), "yyyy-MM-dd"),
     end: format(new Date(), "yyyy-MM-dd"),
   });
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    fetchData();
+    // Debounce de 600ms para evitar flash a cada tecla digitada na data
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      // Só busca se ambas as datas forem datas válidas completas (10 chars: yyyy-mm-dd)
+      if (dateFilter.start.length === 10 && dateFilter.end.length === 10) {
+        fetchData(false);
+      }
+    }, 600);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [dateFilter]);
 
-  const fetchData = async () => {
+  const fetchData = async (initial = true) => {
     try {
-      setLoading(true);
+      if (initial) setLoading(true);
+      else setFetching(true);
 
       const { data, error } = await supabase
         .from("cash_transactions")
@@ -80,8 +91,12 @@ const FluxoCaixa = () => {
       toast.error("Erro ao carregar fluxo de caixa");
     } finally {
       setLoading(false);
+      setFetching(false);
     }
   };
+
+  // Carga inicial
+  useEffect(() => { fetchData(true); }, []);
 
   const filteredTransactions = transactions.filter((transaction) => {
     const matchesSearch =
@@ -105,7 +120,12 @@ const FluxoCaixa = () => {
   const saldoLiquido = totalEntradas - totalSaidas;
 
   if (loading) {
-    return <div className="p-6">Carregando...</div>;
+    return (
+      <div className="p-6 flex items-center gap-3 text-muted-foreground">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        Carregando fluxo de caixa...
+      </div>
+    );
   }
 
   return (
@@ -203,7 +223,10 @@ const FluxoCaixa = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Movimentações de Caixa</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Movimentações de Caixa
+            {fetching && <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />}
+          </CardTitle>
           <CardDescription>
             Extrato somente leitura com {filteredTransactions.length} movimentação(ões)
           </CardDescription>
