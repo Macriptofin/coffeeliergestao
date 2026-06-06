@@ -24,7 +24,13 @@ import {
   Paperclip,
   History,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  ChefHat,
+  Plus,
+  DollarSign,
+  CheckCircle2,
+  AlertCircle,
+  Pencil
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { Material } from "@/types";
@@ -33,6 +39,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
+import { RecipeBOMForm } from "@/components/bom/RecipeBOMForm";
 
 interface MaterialEditorProps {
   material?: Material;
@@ -58,6 +65,9 @@ export const MaterialEditor = ({
   const isMobile = useIsMobile();
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [duplicateError, setDuplicateError] = useState('');
+  const [editingBOM, setEditingBOM] = useState(false);
+  const [bomData, setBomData] = useState<any>(null);
+  const [bomLoading, setBomLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: material?.name || '',
     description: material?.description || '',
@@ -207,6 +217,13 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
     }
   }, [formData, material, materialTypesFromTaxonomy]);
 
+  // Load BOM data for produced materials
+  useEffect(() => {
+    if (material && ['intermediate_product', 'finished_product'].includes(material.materialType)) {
+      loadBOMData();
+    }
+  }, [material?.id]);
+
   // Handle Escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -322,6 +339,32 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
     }
   };
 
+  const isProducedMaterial = material && ['intermediate_product', 'finished_product'].includes(material.materialType);
+
+  const loadBOMData = async () => {
+    if (!material) return;
+    setBomLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('recipes_bom')
+        .select(`
+          id, yield_quantity, yield_unit, cached_total_cost, cached_unit_cost,
+          cost_status, missing_cost_items, cost_last_calculated_at,
+          recipe_bom_items (id, material_id, quantity, unit, waste_percent, is_packaging)
+        `)
+        .eq('finished_material_id', material.id)
+        .eq('is_archived', false)
+        .maybeSingle();
+      if (error) throw error;
+      setBomData(data);
+    } catch (err) {
+      console.error('Erro ao carregar BOM:', err);
+      setBomData(null);
+    } finally {
+      setBomLoading(false);
+    }
+  };
+
   if (!material) return null;
 
   const EditorContent = () => (
@@ -391,6 +434,13 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
               <FileText className="h-4 w-4" />
               Fiscal
             </TabsTrigger>
+            {isProducedMaterial && (
+              <TabsTrigger value="bom" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                <ChefHat className="h-4 w-4" />
+                Ficha Técnica
+                {bomData && <Badge variant="secondary" className="ml-1 text-xs">✓</Badge>}
+              </TabsTrigger>
+            )}
             <TabsTrigger value="attachments" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none" disabled>
               <Paperclip className="h-4 w-4" />
               Anexos
@@ -754,6 +804,101 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {isProducedMaterial && (
+              <TabsContent value="bom" className="mt-0">
+                {editingBOM ? (
+                  <RecipeBOMForm
+                    finishedMaterial={{
+                      id: material.id,
+                      name: material.name,
+                      code: material.code,
+                      usage_unit: material.usageUnit,
+                      material_type: material.materialType,
+                    }}
+                    onSuccess={() => {
+                      setEditingBOM(false);
+                      loadBOMData();
+                    }}
+                    onCancel={() => setEditingBOM(false)}
+                  />
+                ) : (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <ChefHat className="h-5 w-5" />
+                        Ficha Técnica
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {bomLoading ? (
+                        <p className="text-sm text-muted-foreground">Carregando...</p>
+                      ) : bomData ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2">
+                            {bomData.cost_status === 'complete' ? (
+                              <CheckCircle2 className="h-5 w-5 text-green-600" />
+                            ) : (
+                              <AlertCircle className="h-5 w-5 text-amber-500" />
+                            )}
+                            <span className="text-sm font-medium">
+                              {bomData.cost_status === 'complete'
+                                ? 'Custos completos'
+                                : bomData.cost_status === 'partial'
+                                ? 'Custos parciais'
+                                : 'Custos pendentes'}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="p-3 bg-muted rounded-lg text-center">
+                              <p className="text-xs text-muted-foreground">Rendimento</p>
+                              <p className="font-semibold">
+                                {bomData.yield_quantity} {bomData.yield_unit}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-muted rounded-lg text-center">
+                              <p className="text-xs text-muted-foreground">CMV Unitário</p>
+                              <p className="font-semibold text-green-700">
+                                {bomData.cached_unit_cost != null
+                                  ? `R$ ${Number(bomData.cached_unit_cost).toFixed(4)}`
+                                  : '—'}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-muted rounded-lg text-center">
+                              <p className="text-xs text-muted-foreground">Componentes</p>
+                              <p className="font-semibold">
+                                {bomData.recipe_bom_items?.length ?? 0}
+                              </p>
+                            </div>
+                          </div>
+
+                          <Button
+                            onClick={() => setEditingBOM(true)}
+                            variant="outline"
+                            className="w-full"
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Editar Ficha Técnica
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="text-center py-10 space-y-4">
+                          <ChefHat className="h-12 w-12 text-muted-foreground mx-auto" />
+                          <p className="text-muted-foreground">
+                            Este material ainda não tem ficha técnica cadastrada.
+                          </p>
+                          <Button onClick={() => setEditingBOM(true)}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Criar Ficha Técnica
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+            )}
           </div>
         </Tabs>
       </div>
