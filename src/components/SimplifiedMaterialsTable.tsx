@@ -13,16 +13,18 @@ interface SimplifiedMaterialsTableProps {
   selectedMaterials: string[];
   onSelectMaterial: (materialId: string, selected: boolean) => void;
   onSelectAll: (selected: boolean) => void;
+  onRowClick?: (material: Material) => void;
 }
 
 type SortField = 'name' | 'code' | 'category' | 'subcategory' | 'purchaseUnit' | 'usageUnit' | 'conversionFactor';
 type SortDirection = 'asc' | 'desc';
 
-export const SimplifiedMaterialsTable = ({ 
-  materials, 
-  selectedMaterials, 
-  onSelectMaterial, 
-  onSelectAll 
+export const SimplifiedMaterialsTable = ({
+  materials,
+  selectedMaterials,
+  onSelectMaterial,
+  onSelectAll,
+  onRowClick,
 }: SimplifiedMaterialsTableProps) => {
   const { terms, getTermsByTaxonomy } = useTaxonomy();
   const [sortField, setSortField] = useState<SortField>('name');
@@ -194,8 +196,15 @@ export const SimplifiedMaterialsTable = ({
         </TableHeader>
         <TableBody>
           {sortedMaterials.map((material) => (
-            <TableRow key={material.id} className="hover:bg-muted/50">
-              <TableCell className="sticky left-0 bg-background z-10">
+            <TableRow
+              key={material.id}
+              className={`hover:bg-muted/50 ${onRowClick ? 'cursor-pointer' : ''}`}
+              onClick={() => onRowClick?.(material)}
+            >
+              <TableCell
+                className="sticky left-0 bg-background z-10"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <Checkbox
                   checked={selectedMaterials.includes(material.id)}
                   onCheckedChange={(checked) => onSelectMaterial(material.id, !!checked)}
