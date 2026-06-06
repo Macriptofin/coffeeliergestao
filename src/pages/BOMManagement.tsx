@@ -32,7 +32,11 @@ interface BOMSummary {
   items_count: number;
   bom_id?: string;
   total_cost?: number;
+  unit_cost?: number;
+  yield_quantity?: number;
+  yield_unit?: string;
   cost_calculated_at?: string;
+  cost_status?: string;
 }
 
 const BOMManagement = () => {
@@ -76,6 +80,10 @@ const BOMManagement = () => {
           recipes_bom (
             id,
             cached_total_cost,
+            cached_unit_cost,
+            yield_quantity,
+            yield_unit,
+            cost_status,
             cost_last_calculated_at,
             recipe_bom_items (id)
           )
@@ -101,6 +109,10 @@ const BOMManagement = () => {
           items_count: bom?.recipe_bom_items?.length || 0,
           bom_id: bom?.id,
           total_cost: bom?.cached_total_cost ? parseFloat(bom.cached_total_cost) : undefined,
+          unit_cost: bom?.cached_unit_cost ? parseFloat(bom.cached_unit_cost) : undefined,
+          yield_quantity: bom?.yield_quantity ? parseFloat(bom.yield_quantity) : undefined,
+          yield_unit: bom?.yield_unit,
+          cost_status: bom?.cost_status,
           cost_calculated_at: bom?.cost_last_calculated_at
         };
       });
@@ -317,24 +329,40 @@ const BOMManagement = () => {
         )}
       </TableCell>
       <TableCell className="text-right">
-        {item.has_bom && item.total_cost !== undefined ? (
-          <div className="flex flex-col items-end gap-1">
-            <span className="font-bold text-primary">
-              R$ {item.total_cost.toFixed(2)}
-            </span>
-            {item.cost_calculated_at && (
+        {item.has_bom ? (
+          <div className="flex flex-col items-end gap-0.5">
+            {/* CMV unitário — principal */}
+            {item.unit_cost != null ? (
+              <span className={`font-bold text-sm ${
+                item.cost_status === 'complete' ? 'text-primary' :
+                item.cost_status === 'partial' ? 'text-amber-600' :
+                'text-muted-foreground'
+              }`}>
+                {item.unit_cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                <span className="text-xs font-normal text-muted-foreground ml-1">
+                  / {item.yield_unit || 'un'}
+                </span>
+              </span>
+            ) : (
+              <span className="text-xs text-amber-600">Sem preço médio</span>
+            )}
+            {/* Custo total da receita */}
+            {item.total_cost != null && (
               <span className="text-xs text-muted-foreground">
+                Total: {item.total_cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </span>
+            )}
+            {item.cost_calculated_at && (
+              <span className="text-xs text-muted-foreground/60">
                 {new Date(item.cost_calculated_at).toLocaleString('pt-BR', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit'
+                  day: '2-digit', month: '2-digit',
+                  hour: '2-digit', minute: '2-digit'
                 })}
               </span>
             )}
           </div>
         ) : (
-          <span className="text-sm text-muted-foreground">-</span>
+          <span className="text-sm text-muted-foreground">—</span>
         )}
       </TableCell>
       <TableCell>
@@ -532,7 +560,7 @@ const BOMManagement = () => {
                     <TableHead>Produto</TableHead>
                     <TableHead className="text-center">Status BOM</TableHead>
                     <TableHead className="text-center">Itens</TableHead>
-                    <TableHead className="text-right">Custo Total</TableHead>
+                    <TableHead className="text-right">CMV Unitário</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -578,7 +606,7 @@ const BOMManagement = () => {
                     <TableHead>Produto</TableHead>
                     <TableHead className="text-center">Status BOM</TableHead>
                     <TableHead className="text-center">Componentes</TableHead>
-                    <TableHead className="text-right">Custo Total</TableHead>
+                    <TableHead className="text-right">CMV Unitário</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>

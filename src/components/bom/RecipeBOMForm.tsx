@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, RefreshCw } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
 interface Material {
@@ -17,6 +17,8 @@ interface Material {
   code: string;
   usage_unit: string;
   material_type: string;
+  average_price?: number;   // de stock_items
+  cached_unit_cost?: number; // de recipes_bom (para intermediários)
 }
 
 interface BOMItem {
@@ -37,6 +39,9 @@ interface RecipeBOM {
   waste_percent: number;
   notes?: string;
   items: BOMItem[];
+  cached_total_cost?: number;
+  cached_unit_cost?: number;
+  cost_status?: string;
 }
 
 interface RecipeBOMFormProps {
@@ -45,6 +50,23 @@ interface RecipeBOMFormProps {
   onCancel: () => void;
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  ingredient: 'Insumo',
+  packaging: 'Embalagem',
+  intermediate_product: 'Intermediário',
+  raw_material: 'Mat. Prima',
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  ingredient: 'bg-blue-100 text-blue-700',
+  packaging: 'bg-amber-100 text-amber-700',
+  intermediate_product: 'bg-purple-100 text-purple-700',
+  raw_material: 'bg-green-100 text-green-700',
+};
+
+const fmt = (v?: number | null) =>
+  v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
 export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
   finishedMaterial,
   onSuccess,
@@ -52,6 +74,7 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
 }) => {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [bomData, setBomData] = useState<RecipeBOM>({
     finished_material_id: finishedMaterial?.id || '',
     yield_quantity: 1,
@@ -70,14 +93,48 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
 
   const loadMaterials = async () => {
     try {
-      const { data, error } = await supabase
+      // Buscar materiais que podem ser componentes de uma ficha técnica:
+      // insumos, embalagens e produtos intermediários (que já têm sua própria ficha)
+      const { data: mats, error } = await supabase
         .from('materials')
         .select('id, name, code, usage_unit, material_type')
-        .in('material_type', ['ingredient', 'packaging'])
+        .in('material_type', ['ingredient', 'packaging', 'intermediate_product', 'raw_material'])
+        .eq('is_archived', false)
         .order('name');
 
       if (error) throw error;
-      setMaterials(data || []);
+
+      // Buscar preços de custo: average_price de stock_items (insumos)
+      // e cached_unit_cost de recipes_bom (intermediários)
+      const ids = (mats || []).map(m => m.id);
+      if (ids.length === 0) { setMaterials([]); return; }
+
+      const [{ data: stocks }, { data: boms }] = await Promise.all([
+        supabase
+          .from('stock_items')
+          .select('material_id, average_price')
+          .in('material_id', ids),
+        supabase
+          .from('recipes_bom')
+          .select('finished_material_id, cached_unit_cost')
+          .in('finished_material_id', ids)
+          .eq('is_archived', false)
+      ]);
+
+      const stockMap = Object.fromEntries(
+        (stocks || []).map(s => [s.material_id, s.average_price])
+      );
+      const bomCostMap = Object.fromEntries(
+        (boms || []).map(b => [b.finished_material_id, b.cached_unit_cost])
+      );
+
+      const enriched: Material[] = (mats || []).map(m => ({
+        ...m,
+        average_price: stockMap[m.id] ?? undefined,
+        cached_unit_cost: bomCostMap[m.id] ?? undefined,
+      }));
+
+      setMaterials(enriched);
     } catch (error) {
       console.error('Erro ao carregar materiais:', error);
       toast.error('Erro ao carregar materiais');
@@ -86,28 +143,26 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
 
   const loadExistingBOM = async () => {
     if (!finishedMaterial?.id) return;
-
     try {
-      const { data: bomData, error: bomError } = await supabase
+      const { data, error } = await supabase
         .from('recipes_bom')
-        .select(`
-          *,
-          recipe_bom_items (*)
-        `)
+        .select('*, recipe_bom_items (*)')
         .eq('finished_material_id', finishedMaterial.id)
-        .single();
+        .maybeSingle();
 
-      if (bomError && bomError.code !== 'PGRST116') throw bomError;
-
-      if (bomData) {
+      if (error) throw error;
+      if (data) {
         setBomData({
-          id: bomData.id,
-          finished_material_id: bomData.finished_material_id,
-          yield_quantity: bomData.yield_quantity,
-          yield_unit: bomData.yield_unit,
-          waste_percent: bomData.waste_percent,
-          notes: bomData.notes || '',
-          items: bomData.recipe_bom_items.map((item: any) => ({
+          id: data.id,
+          finished_material_id: data.finished_material_id,
+          yield_quantity: data.yield_quantity,
+          yield_unit: data.yield_unit,
+          waste_percent: data.waste_percent,
+          notes: data.notes || '',
+          cached_total_cost: data.cached_total_cost,
+          cached_unit_cost: data.cached_unit_cost,
+          cost_status: data.cost_status,
+          items: (data.recipe_bom_items || []).map((item: any) => ({
             id: item.id,
             material_id: item.material_id,
             quantity: item.quantity,
@@ -123,27 +178,60 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
     }
   };
 
+  // Custo unitário de um material: average_price (insumos) ou cached_unit_cost (intermediários)
+  const getMaterialUnitCost = useCallback((materialId: string): number | undefined => {
+    const mat = materials.find(m => m.id === materialId);
+    if (!mat) return undefined;
+    if (mat.material_type === 'intermediate_product') {
+      return mat.cached_unit_cost ?? mat.average_price;
+    }
+    return mat.average_price;
+  }, [materials]);
+
+  // Custo estimado de um item = quantidade * custo_unitário
+  const getItemCost = (item: BOMItem): number | undefined => {
+    const uc = getMaterialUnitCost(item.material_id);
+    if (uc == null || uc === 0) return undefined;
+    const qty = item.quantity * (1 + (item.waste_percent || 0) / 100);
+    return qty * uc;
+  };
+
+  // CMV total estimado (soma dos itens com custo conhecido)
+  const estimatedTotalCost = bomData.items.reduce((sum, item) => {
+    const c = getItemCost(item);
+    return sum + (c ?? 0);
+  }, 0);
+
+  const estimatedUnitCost =
+    bomData.yield_quantity > 0 ? estimatedTotalCost / bomData.yield_quantity : 0;
+
   const addBOMItem = () => {
-    const newItem: BOMItem = {
-      material_id: '',
-      quantity: 0,
-      unit: 'g',
-      waste_percent: 0,
-      is_packaging: false,
-      position: bomData.items.length + 1
-    };
     setBomData(prev => ({
       ...prev,
-      items: [...prev.items, newItem]
+      items: [...prev.items, {
+        material_id: '',
+        quantity: 0,
+        unit: 'g',
+        waste_percent: 0,
+        is_packaging: false,
+        position: prev.items.length + 1
+      }]
     }));
   };
 
   const updateBOMItem = (index: number, field: keyof BOMItem, value: any) => {
     setBomData(prev => ({
       ...prev,
-      items: prev.items.map((item, i) => 
-        i === index ? { ...item, [field]: value } : item
-      )
+      items: prev.items.map((item, i) => {
+        if (i !== index) return item;
+        const updated = { ...item, [field]: value };
+        // Preencher unidade automaticamente ao selecionar material
+        if (field === 'material_id') {
+          const mat = materials.find(m => m.id === value);
+          if (mat) updated.unit = mat.usage_unit || 'g';
+        }
+        return updated;
+      })
     }));
   };
 
@@ -156,18 +244,22 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!bomData.finished_material_id || bomData.items.length === 0) {
-      toast.error('Produto acabado e pelo menos um item são obrigatórios');
+      toast.error('Informe pelo menos um componente na receita');
+      return;
+    }
+
+    const hasEmpty = bomData.items.some(i => !i.material_id || i.quantity <= 0);
+    if (hasEmpty) {
+      toast.error('Todos os itens precisam ter material e quantidade');
       return;
     }
 
     setLoading(true);
-
     try {
       let bomId = bomData.id;
 
-      // Inserir ou atualizar BOM principal
       if (bomId) {
         const { error } = await supabase
           .from('recipes_bom')
@@ -178,14 +270,9 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
             notes: bomData.notes
           })
           .eq('id', bomId);
-
         if (error) throw error;
 
-        // Remover itens existentes
-        await supabase
-          .from('recipe_bom_items')
-          .delete()
-          .eq('recipe_id', bomId);
+        await supabase.from('recipe_bom_items').delete().eq('recipe_id', bomId);
       } else {
         const { data, error } = await supabase
           .from('recipes_bom')
@@ -198,80 +285,144 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
           })
           .select()
           .single();
-
         if (error) throw error;
         bomId = data.id;
       }
 
-      // Inserir novos itens
-      const itemsToInsert = bomData.items.map((item, index) => ({
-        recipe_id: bomId,
-        material_id: item.material_id,
-        quantity: item.quantity,
-        unit: item.unit,
-        waste_percent: item.waste_percent,
-        is_packaging: item.is_packaging,
-        position: index + 1
-      }));
-
       const { error: itemsError } = await supabase
         .from('recipe_bom_items')
-        .insert(itemsToInsert);
-
+        .insert(bomData.items.map((item, idx) => ({
+          recipe_id: bomId,
+          material_id: item.material_id,
+          quantity: item.quantity,
+          unit: item.unit,
+          waste_percent: item.waste_percent,
+          is_packaging: item.is_packaging,
+          position: idx + 1
+        })));
       if (itemsError) throw itemsError;
 
-      toast.success('BOM salva com sucesso!');
+      // Disparar recálculo de custo imediatamente após salvar
+      try {
+        for (const item of bomData.items) {
+          await supabase.rpc('trigger_refresh_bom_costs_on_material_price_change' as any, {
+            p_material_id: item.material_id
+          });
+        }
+      } catch (_) {
+        // Não crítico — o trigger automático recalcula na próxima compra
+      }
+
+      toast.success('Ficha técnica salva com sucesso!');
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar BOM:', error);
-      toast.error('Erro ao salvar BOM');
+      if (error?.message?.includes('Ciclo')) {
+        toast.error('Referência circular detectada: um produto não pode conter a si mesmo na receita');
+      } else {
+        toast.error('Erro ao salvar ficha técnica');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const yieldUnits = ['unidade', 'kg', 'g', 'porção'];
-  const usageUnits = ['g', 'kg', 'ml', 'l', 'unidade'];
+  // Recalcular custos manualmente (botão Atualizar CMV)
+  const handleRecalculate = async () => {
+    if (!bomData.finished_material_id) return;
+    setRecalculating(true);
+    try {
+      for (const item of bomData.items) {
+        if (item.material_id) {
+          await supabase.rpc('trigger_refresh_bom_costs_on_material_price_change' as any, {
+            p_material_id: item.material_id
+          });
+        }
+      }
+      await loadExistingBOM();
+      await loadMaterials();
+      toast.success('CMV recalculado com base nos preços médios atuais');
+    } catch {
+      toast.error('Erro ao recalcular CMV');
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
+  const yieldUnits = ['unidade', 'kg', 'g', 'ml', 'l', 'porção', 'dose'];
+  const usageUnits = ['g', 'kg', 'ml', 'l', 'unidade', 'porção'];
+
+  const costStatusColor = {
+    complete: 'text-emerald-600',
+    partial: 'text-amber-600',
+    incomplete: 'text-red-600',
+    unknown: 'text-muted-foreground',
+  };
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
-        <CardTitle>BOM - Produto Acabado</CardTitle>
-        <CardDescription>
-          {finishedMaterial ? `Configurar BOM para: ${finishedMaterial.name}` : 'Definir estrutura do produto acabado'}
-        </CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle>Ficha Técnica</CardTitle>
+            <CardDescription>
+              {finishedMaterial
+                ? `Receita de: ${finishedMaterial.name}`
+                : 'Definir receita do produto'}
+            </CardDescription>
+          </div>
+
+          {/* Painel de CMV atual (quando já existe no banco) */}
+          {bomData.id && (
+            <div className="text-right space-y-0.5">
+              <p className="text-xs text-muted-foreground">CMV salvo no banco</p>
+              <p className={`font-semibold text-sm ${costStatusColor[bomData.cost_status as keyof typeof costStatusColor] || ''}`}>
+                Total: {fmt(bomData.cached_total_cost)}
+              </p>
+              <p className={`text-xs ${costStatusColor[bomData.cost_status as keyof typeof costStatusColor] || ''}`}>
+                Unitário: {fmt(bomData.cached_unit_cost)}
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={handleRecalculate}
+                disabled={recalculating}
+              >
+                <RefreshCw className={`h-3 w-3 mr-1 ${recalculating ? 'animate-spin' : ''}`} />
+                Atualizar CMV
+              </Button>
+            </div>
+          )}
+        </div>
       </CardHeader>
 
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Informações básicas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Rendimento */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="yield_quantity">Rendimento</Label>
               <Input
                 id="yield_quantity"
                 type="number"
                 step="0.01"
+                min="0.01"
                 value={bomData.yield_quantity}
-                onChange={(e) => setBomData(prev => ({ ...prev, yield_quantity: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => setBomData(prev => ({ ...prev, yield_quantity: parseFloat(e.target.value) || 1 }))}
                 required
               />
             </div>
-
             <div>
-              <Label htmlFor="yield_unit">Unidade do Rendimento</Label>
-              <Select value={bomData.yield_unit} onValueChange={(value) => setBomData(prev => ({ ...prev, yield_unit: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Label htmlFor="yield_unit">Unidade</Label>
+              <Select value={bomData.yield_unit} onValueChange={(v) => setBomData(prev => ({ ...prev, yield_unit: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {yieldUnits.map(unit => (
-                    <SelectItem key={unit} value={unit}>{unit}</SelectItem>
-                  ))}
+                  {yieldUnits.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-
             <div>
               <Label htmlFor="waste_percent">% Perda Geral</Label>
               <Input
@@ -287,129 +438,160 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
           </div>
 
           <div>
-            <Label htmlFor="notes">Observações</Label>
+            <Label htmlFor="notes">Observações / Modo de Preparo</Label>
             <Textarea
               id="notes"
               value={bomData.notes}
               onChange={(e) => setBomData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="Instruções especiais, observações..."
+              placeholder="Instruções de preparo, observações..."
+              rows={2}
             />
           </div>
 
-          {/* Lista de itens */}
+          {/* Componentes */}
           <div>
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-3">
               <Label>Componentes da Receita</Label>
-              <Button type="button" onClick={addBOMItem} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar Item
+              <Button type="button" onClick={addBOMItem} size="sm" variant="outline">
+                <Plus className="h-4 w-4 mr-1" />
+                Adicionar
               </Button>
             </div>
 
-            <div className="space-y-3">
-              {bomData.items.map((item, index) => (
-                <Card key={index} className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
-                    <div>
-                      <Label>Material</Label>
-                      <Select 
-                        value={item.material_id} 
-                        onValueChange={(value) => updateBOMItem(index, 'material_id', value)}
+            <div className="space-y-2">
+              {bomData.items.map((item, index) => {
+                const mat = materials.find(m => m.id === item.material_id);
+                const itemCost = getItemCost(item);
+                return (
+                  <div
+                    key={index}
+                    className="grid grid-cols-12 gap-2 items-end border rounded-lg p-3 bg-muted/20"
+                  >
+                    {/* Material (5 colunas) */}
+                    <div className="col-span-5">
+                      {index === 0 && <Label className="text-xs text-muted-foreground mb-1 block">Material</Label>}
+                      <Select
+                        value={item.material_id}
+                        onValueChange={(v) => updateBOMItem(index, 'material_id', v)}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-8 text-sm">
                           <SelectValue placeholder="Selecionar..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {materials.map(material => (
-                            <SelectItem key={material.id} value={material.id}>
-                              <div className="flex items-center gap-2">
-                                <span>{material.name}</span>
-                                <Badge variant="outline" className="text-xs">
-                                  {material.code}
-                                </Badge>
-                              </div>
-                            </SelectItem>
-                          ))}
+                          {/* Agrupar por tipo */}
+                          {['ingredient', 'raw_material', 'intermediate_product', 'packaging'].map(type => {
+                            const group = materials.filter(m => m.material_type === type);
+                            if (group.length === 0) return null;
+                            return (
+                              <React.Fragment key={type}>
+                                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/50">
+                                  {TYPE_LABELS[type] || type}
+                                </div>
+                                {group.map(material => (
+                                  <SelectItem key={material.id} value={material.id}>
+                                    <span className="flex items-center gap-2">
+                                      <span className={`text-xs px-1.5 py-0.5 rounded ${TYPE_COLORS[material.material_type] || ''}`}>
+                                        {material.code}
+                                      </span>
+                                      {material.name}
+                                      {material.material_type === 'intermediate_product' && (
+                                        <span className="text-xs text-muted-foreground">
+                                          (CMV: {fmt(material.cached_unit_cost ?? material.average_price)})
+                                        </span>
+                                      )}
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </React.Fragment>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div>
-                      <Label>Quantidade</Label>
+                    {/* Quantidade (2 colunas) */}
+                    <div className="col-span-2">
+                      {index === 0 && <Label className="text-xs text-muted-foreground mb-1 block">Qtd</Label>}
                       <Input
                         type="number"
                         step="0.001"
-                        value={item.quantity}
+                        min="0"
+                        value={item.quantity || ''}
                         onChange={(e) => updateBOMItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                        className="h-8 text-sm"
                       />
                     </div>
 
-                    <div>
-                      <Label>Unidade</Label>
-                      <Select 
-                        value={item.unit} 
-                        onValueChange={(value) => updateBOMItem(index, 'unit', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
+                    {/* Unidade (1.5 colunas) */}
+                    <div className="col-span-2">
+                      {index === 0 && <Label className="text-xs text-muted-foreground mb-1 block">Unidade</Label>}
+                      <Select value={item.unit} onValueChange={(v) => updateBOMItem(index, 'unit', v)}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {usageUnits.map(unit => (
-                            <SelectItem key={unit} value={unit}>{unit}</SelectItem>
-                          ))}
+                          {usageUnits.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div>
-                      <Label>% Perda</Label>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="100"
-                        value={item.waste_percent}
-                        onChange={(e) => updateBOMItem(index, 'waste_percent', parseFloat(e.target.value) || 0)}
-                      />
+                    {/* Custo estimado do item (2 colunas) */}
+                    <div className="col-span-2">
+                      {index === 0 && <Label className="text-xs text-muted-foreground mb-1 block">Custo (est.)</Label>}
+                      <div className={`h-8 flex items-center text-sm font-medium ${itemCost != null ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {itemCost != null ? fmt(itemCost) : '—'}
+                      </div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`packaging-${index}`}
-                        checked={item.is_packaging}
-                        onCheckedChange={(checked) => updateBOMItem(index, 'is_packaging', checked)}
-                      />
-                      <Label htmlFor={`packaging-${index}`} className="text-sm">Embalagem</Label>
+                    {/* Remover */}
+                    <div className="col-span-1 flex items-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => removeBOMItem(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeBOMItem(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
-                </Card>
-              ))}
+                );
+              })}
 
               {bomData.items.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Nenhum componente adicionado</p>
-                  <p className="text-sm">Clique em "Adicionar Item" para começar</p>
+                <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">
+                  <p className="text-sm">Nenhum componente adicionado</p>
+                  <p className="text-xs mt-1">Clique em "Adicionar" para incluir insumos ou produtos intermediários</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Botões */}
+          {/* Resumo de CMV estimado */}
+          {bomData.items.length > 0 && (
+            <div className="border rounded-lg p-4 bg-muted/30 space-y-1">
+              <p className="text-sm font-semibold text-foreground">Estimativa de CMV</p>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Custo total da receita</span>
+                <span className="font-medium">{fmt(estimatedTotalCost)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">
+                  Custo unitário ({bomData.yield_quantity} {bomData.yield_unit})
+                </span>
+                <span className="font-semibold text-primary">{fmt(estimatedUnitCost)}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                * Baseado nos preços médios ponderados das últimas compras
+              </p>
+            </div>
+          )}
+
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Salvando...' : 'Salvar BOM'}
+              {loading ? 'Salvando...' : 'Salvar Ficha Técnica'}
             </Button>
           </div>
         </form>
