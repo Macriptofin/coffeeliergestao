@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, User, MapPin, DollarSign, Star, Loader2 } from "lucide-react";
+import { Building2, User, MapPin, DollarSign, Star, Loader2, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -197,14 +197,19 @@ export const SupplierForm = ({ supplier, onSubmit, onCancel, isSubmitting = fals
 
       const [hqData, supData] = await Promise.all([hqRes.json(), supRes.json()]);
 
-      // BrasilAPI retorna location.coordinates = [longitude, latitude]
+      // BrasilAPI retorna location.coordinates = { longitude: string, latitude: string }
       const hqCoords = hqData?.location?.coordinates;
       const supCoords = supData?.location?.coordinates;
 
-      if (!hqCoords) throw new Error('Coordenadas da sede indisponíveis para este CEP');
-      if (!supCoords) throw new Error('Coordenadas do fornecedor indisponíveis para este CEP');
+      const hqLat = parseFloat(hqCoords?.latitude);
+      const hqLon = parseFloat(hqCoords?.longitude);
+      const supLat = parseFloat(supCoords?.latitude);
+      const supLon = parseFloat(supCoords?.longitude);
 
-      const km = haversine(hqCoords[1], hqCoords[0], supCoords[1], supCoords[0]);
+      if (isNaN(hqLat) || isNaN(hqLon)) throw new Error('Coordenadas da sede indisponíveis para este CEP');
+      if (isNaN(supLat) || isNaN(supLon)) throw new Error('Coordenadas do fornecedor indisponíveis para este CEP');
+
+      const km = haversine(hqLat, hqLon, supLat, supLon);
       const rounded = Math.round(km * 10) / 10;
       set('distanceKm', rounded);
       toast.success(`Distância calculada: ${rounded} km`);
@@ -312,15 +317,14 @@ export const SupplierForm = ({ supplier, onSubmit, onCancel, isSubmitting = fals
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
+                    size="icon"
                     onClick={handleFetchCnpj}
                     disabled={fetchingCnpj}
-                    className="whitespace-nowrap"
                     title="Buscar dados na Receita Federal via CNPJ"
                   >
                     {fetchingCnpj
                       ? <Loader2 className="h-4 w-4 animate-spin" />
-                      : 'Buscar dados'}
+                      : <Search className="h-4 w-4" />}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
