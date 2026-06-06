@@ -5,7 +5,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, User, MapPin, DollarSign, Star } from "lucide-react";
+import { Building2, User, MapPin, DollarSign, Star, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+// Haversine — distância em km entre dois pontos (lat/lng)
+const haversine = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371;
+  const toRad = (v: number) => v * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
 
 export interface Supplier {
   id: string;
@@ -100,6 +113,62 @@ export const SupplierForm = ({ supplier, onSubmit, onCancel, isSubmitting = fals
 
   const set = (field: keyof typeof formData, value: string | number) =>
     setFormData(prev => ({ ...prev, [field]: value }));
+
+  const [calculatingDistance, setCalculatingDistance] = useState(false);
+
+  const handleCalculateDistance = async () => {
+    const cep = (formData.zipCode ?? '').replace(/\D/g, '');
+    if (cep.length !== 8) {
+      toast.error('Informe o CEP do fornecedor (8 dígitos) antes de calcular');
+      return;
+    }
+    setCalculatingDistance(true);
+    try {
+      // Buscar CEP da sede nas configurações
+      const { data: nsRow } = await supabase
+        .from('config_namespaces')
+        .select('id')
+        .eq('key', 'gerais')
+        .single();
+
+      const { data: cepRow } = await supabase
+        .from('config_values')
+        .select('value_jsonb')
+        .eq('namespace_id', nsRow?.id)
+        .eq('key', 'empresa_cep')
+        .single();
+
+      const hqCep = (cepRow?.value_jsonb as string ?? '').replace(/\D/g, '');
+      if (!hqCep) throw new Error('CEP da sede não encontrado nas configurações');
+
+      // Chamar BrasilAPI para os dois CEPs em paralelo
+      const [hqRes, supRes] = await Promise.all([
+        fetch(`https://brasilapi.com.br/api/cep/v2/${hqCep}`),
+        fetch(`https://brasilapi.com.br/api/cep/v2/${cep}`),
+      ]);
+
+      if (!hqRes.ok) throw new Error('Não foi possível geocodificar o CEP da sede');
+      if (!supRes.ok) throw new Error('CEP do fornecedor não encontrado');
+
+      const [hqData, supData] = await Promise.all([hqRes.json(), supRes.json()]);
+
+      // BrasilAPI retorna location.coordinates = [longitude, latitude]
+      const hqCoords = hqData?.location?.coordinates;
+      const supCoords = supData?.location?.coordinates;
+
+      if (!hqCoords) throw new Error('Coordenadas da sede indisponíveis para este CEP');
+      if (!supCoords) throw new Error('Coordenadas do fornecedor indisponíveis para este CEP');
+
+      const km = haversine(hqCoords[1], hqCoords[0], supCoords[1], supCoords[0]);
+      const rounded = Math.round(km * 10) / 10;
+      set('distanceKm', rounded);
+      toast.success(`Distância calculada: ${rounded} km`);
+    } catch (err: any) {
+      toast.error(err.message ?? 'Erro ao calcular distância');
+    } finally {
+      setCalculatingDistance(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -298,14 +367,31 @@ export const SupplierForm = ({ supplier, onSubmit, onCancel, isSubmitting = fals
             </div>
             <div className="mt-4 space-y-2 max-w-xs">
               <Label>Distância da sede (km)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.1"
-                value={formData.distanceKm}
-                onChange={e => set('distanceKm', e.target.value === '' ? '' : parseFloat(e.target.value))}
-                placeholder="Ex: 12.5"
-              />
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={formData.distanceKm}
+                  onChange={e => set('distanceKm', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                  placeholder="Ex: 12.5"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleCalculateDistance}
+                  disabled={calculatingDistance}
+                  title="Calcular distância automaticamente via CEP"
+                >
+                  {calculatingDistance
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <MapPin className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Preencha o CEP acima e clique em 📍 para calcular automaticamente
+              </p>
             </div>
           </section>
 
