@@ -660,11 +660,16 @@ const ContasPagar = () => {
                       <SelectValue placeholder="Selecione o centro de custo" />
                     </SelectTrigger>
                     <SelectContent>
-                      {costCenters.map((center) => (
-                        <SelectItem key={center.id} value={center.id}>
-                          {center.code} - {center.name}
-                        </SelectItem>
-                      ))}
+                      {costCenters.map((center) => {
+                        const level = center.code.split('.').length;
+                        return (
+                          <SelectItem key={center.id} value={center.id}>
+                            <span style={{ marginLeft: (level - 1) * 16 }}>
+                              {center.code} - {center.name}
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -675,15 +680,27 @@ const ContasPagar = () => {
                       <SelectValue placeholder="Selecione a conta" />
                     </SelectTrigger>
                     <SelectContent>
-                      {chartAccounts
-                        .filter((a: any) => a.is_postable !== false)
-                        .map((account: any) => (
+                      {chartAccounts.map((account: any) => {
+                        const indent = ((account.level || 1) - 1) * 14;
+                        if (account.is_postable === false) {
+                          return (
+                            <div
+                              key={account.id}
+                              className="relative flex w-full select-none items-center py-1.5 pr-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+                              style={{ paddingLeft: `${indent + 8}px` }}
+                            >
+                              {account.code} {account.name}
+                            </div>
+                          );
+                        }
+                        return (
                           <SelectItem key={account.id} value={account.id}>
-                            <span style={{ paddingLeft: ((account.level || 1) - 1) * 12 }}>
+                            <span style={{ marginLeft: indent }}>
                               {account.code} — {account.name}
                             </span>
                           </SelectItem>
-                        ))}
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1129,11 +1146,16 @@ const ContasPagar = () => {
                     <SelectValue placeholder="Selecione o centro de custo" />
                   </SelectTrigger>
                   <SelectContent>
-                    {costCenters.map((center) => (
-                      <SelectItem key={center.id} value={center.id}>
-                        {center.code} - {center.name}
-                      </SelectItem>
-                    ))}
+                    {costCenters.map((center) => {
+                      const level = center.code.split('.').length;
+                      return (
+                        <SelectItem key={center.id} value={center.id}>
+                          <span style={{ marginLeft: (level - 1) * 16 }}>
+                            {center.code} - {center.name}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -1144,15 +1166,27 @@ const ContasPagar = () => {
                     <SelectValue placeholder="Selecione a conta" />
                   </SelectTrigger>
                   <SelectContent>
-                    {chartAccounts
-                      .filter((a: any) => a.is_postable !== false)
-                      .map((account: any) => (
+                    {chartAccounts.map((account: any) => {
+                      const indent = ((account.level || 1) - 1) * 14;
+                      if (account.is_postable === false) {
+                        return (
+                          <div
+                            key={account.id}
+                            className="relative flex w-full select-none items-center py-1.5 pr-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+                            style={{ paddingLeft: `${indent + 8}px` }}
+                          >
+                            {account.code} {account.name}
+                          </div>
+                        );
+                      }
+                      return (
                         <SelectItem key={account.id} value={account.id}>
-                          <span style={{ paddingLeft: ((account.level || 1) - 1) * 12 }}>
+                          <span style={{ marginLeft: indent }}>
                             {account.code} — {account.name}
                           </span>
                         </SelectItem>
-                      ))}
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
