@@ -39,6 +39,11 @@ export interface Material {
   manualPrice?: boolean;
   currentQuantity?: number;
   minimumQuantity?: number;
+  // Campos fiscais
+  ncm?: string;
+  cfop?: string;
+  cst?: string;
+  origem?: number; // 0=Nacional, 1=Estrangeira direta, 2=Estrangeira mercado interno
 }
 
 export interface Recipe {

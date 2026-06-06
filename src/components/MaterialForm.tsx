@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { Textarea } from "@/components/ui/textarea";
-import { X, AlertTriangle, Package, Tag, Wrench, Building } from "lucide-react";
+import { X, AlertTriangle, Package, Tag, Layers, Receipt } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Material } from "@/types";
 import { useTaxonomy } from "@/hooks/useConfig";
@@ -21,40 +21,47 @@ interface MaterialFormProps {
 }
 
 export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }: MaterialFormProps) => {
-  const { terms, loading: taxonomyLoading, getTermsByTaxonomy } = useTaxonomy();
-  
-  // Get material types from taxonomy
+  const { loading: taxonomyLoading, getTermsByTaxonomy } = useTaxonomy();
+
   const materialTypesFromTaxonomy = getTermsByTaxonomy('material_type').filter(term => term.is_active);
-  
-  // Find initial type term based on material's category or type
-  const getInitialTypeTerm = () => {
+  const allCategories = getTermsByTaxonomy('material_category').filter(term => term.is_active);
+  const allSubcategories = getTermsByTaxonomy('material_subcategory').filter(term => term.is_active);
+
+  const getInitialTypeTermId = () => {
     if (!material) return '';
-    // Try to find by existing type_term_id or match by category name
-    const typeTerm = materialTypesFromTaxonomy.find(t => 
-      t.name === material.category || 
-      (material.materialType === 'ingredient' && t.name === 'Insumo') ||
-      (material.materialType === 'packaging' && t.name === 'Embalagem') ||
-      (material.materialType === 'finished_product' && t.name === 'Produto Acabado') ||
-      (material.materialType === 'intermediate_product' && t.name === 'Produto Intermediário') ||
-      (material.materialType === 'composite_product' && t.name === 'Produto Composto')
-    );
-    return typeTerm?.id || '';
+    if (material.typeTermId) return material.typeTermId;
+    const map: Record<string, string> = {
+      'ingredient': 'd2498815-bbd6-4f94-957b-d134c8823d32',
+      'packaging': '8c31df83-585c-4412-b6a0-bd0be8eee94a',
+      'finished_product': 'e263616d-2bc2-47b7-992b-1813621c4479',
+      'intermediate_product': '6131ef24-9980-4cf1-98be-74a7b8643790',
+      'composite_product': 'f0255968-b549-4cd4-b645-8a828ed00bca',
+    };
+    return map[material.materialType] || '';
   };
 
   const [formData, setFormData] = useState({
+    // Classificação
+    typeTermId: getInitialTypeTermId(),
+    category: material?.category || '',
+    subcategory: material?.subcategory || '',
+    // Identificação
     name: material?.name || '',
     description: material?.description || '',
+    allowedBrands: material?.allowedBrands?.join(', ') || '',
+    // Unidades & Medidas
     purchaseUnit: material?.purchaseUnit || '',
     usageUnit: material?.usageUnit || '',
     conversionFactor: material?.conversionFactor?.toString() || '',
-    supplier: material?.supplier || '',
-    allowedBrands: material?.allowedBrands?.join(', ') || '',
-    typeTermId: getInitialTypeTerm(),
-    category: material?.category || '',
-    subcategory: material?.subcategory || '',
-    materialType: material?.materialType || 'ingredient' as Material['materialType'],
+    pricePerPurchaseUnit: material?.pricePerPurchaseUnit?.toString() || '0',
     unitWeight: material?.unitWeight?.toString() || '',
+    // Fiscal
+    ncm: material?.ncm || '',
+    cfop: material?.cfop || '',
+    cst: material?.cst || '',
+    origem: material?.origem?.toString() || '0',
   });
+
   const [duplicateError, setDuplicateError] = useState('');
   const originalName = material?.name || '';
 
@@ -62,78 +69,62 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     'kg', 'g', 'L', 'mL', 'unidade', 'pacote', 'caixa', 'lata', 'saco', 'envelope', 'dúzia', 'centena'
   ];
 
-  const weightUnits = ['kg', 'g'];
-  const isWeightUnit = weightUnits.includes(formData.usageUnit);
+  const isWeightUnit = ['kg', 'g'].includes(formData.usageUnit);
   const needsUnitWeight = !isWeightUnit && formData.usageUnit;
 
-  // Get icon component by category
-  const getIconForCategory = (categoryName: string) => {
-    // Map category names to icons
-    if (categoryName?.toLowerCase().includes('embalagem')) return Package;
-    if (categoryName?.toLowerCase().includes('produto')) return Tag;
-    if (categoryName?.toLowerCase().includes('higiene')) return Wrench;
-    if (categoryName?.toLowerCase().includes('infraestrutura')) return Building;
-    return Package; // default
-  };
-
-  // Get dynamic categories and subcategories from taxonomy
-  // Categories are now linked to Types via parent_id
-  const allCategories = getTermsByTaxonomy('material_category').filter(term => term.is_active);
-  const allSubcategories = getTermsByTaxonomy('material_subcategory').filter(term => term.is_active);
-  
-  // Filter categories based on selected type (categories have parent_id pointing to type)
   const selectedTypeTerm = materialTypesFromTaxonomy.find(t => t.id === formData.typeTermId);
-  const availableCategories = formData.typeTermId 
+  const availableCategories = formData.typeTermId
     ? allCategories.filter(cat => cat.parent_id === formData.typeTermId)
     : [];
-  
-  // Get available subcategories for selected category
+
   const selectedCategoryTerm = allCategories.find(cat => cat.name === formData.category);
-  const availableSubcategories = selectedCategoryTerm 
+  const availableSubcategories = selectedCategoryTerm
     ? allSubcategories.filter(sub => sub.parent_id === selectedCategoryTerm.id)
     : [];
 
-  // Legacy materialTypes for database compatibility
-  const materialTypes = [
-    { value: 'ingredient' as const, label: 'Ingrediente' },
-    { value: 'packaging' as const, label: 'Embalagem' },
-    { value: 'intermediate_product' as const, label: 'Produto Intermediário (Receita-base)' },
-    { value: 'finished_product' as const, label: 'Produto Acabado' },
-    { value: 'composite_product' as const, label: 'Produto Composto' }
-  ];
-
-  // Map type term to legacy materialType for database
-  const getlegacyMaterialType = (typeTermId: string): Material['materialType'] => {
-    const typeTerm = materialTypesFromTaxonomy.find(t => t.id === typeTermId);
-    if (!typeTerm) return 'ingredient';
-    
-    const nameToType: Record<string, Material['materialType']> = {
+  const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => {
+    const term = materialTypesFromTaxonomy.find(t => t.id === typeTermId);
+    if (!term) return 'ingredient';
+    const map: Record<string, Material['materialType']> = {
       'Insumo': 'ingredient',
       'Embalagem': 'packaging',
       'Produto Acabado': 'finished_product',
       'Produto Intermediário': 'intermediate_product',
-      'Produto Composto': 'composite_product'
+      'Produto Composto': 'composite_product',
+      'Produto de Revenda': 'finished_product',
+      'Material de Limpeza': 'ingredient',
+      'Material de Consumo': 'ingredient',
     };
-    return nameToType[typeTerm.name] || 'ingredient';
+    return map[term.name] || 'ingredient';
   };
 
-
-  // Auto-sync category with material_type
-  const syncCategoryWithMaterialType = (materialType: Material['materialType']) => {
-    const categoryMap: Record<Material['materialType'], string> = {
-      'ingredient': 'Insumo',
-      'packaging': 'Embalagem',
-      'intermediate_product': 'Produto Intermediário',
-      'finished_product': 'Produto Acabado',
-      'composite_product': 'Produto Composto'
-    };
-    return categoryMap[materialType] || 'Insumo';
+  const handleTypeChange = (newTypeTermId: string) => {
+    setFormData({ ...formData, typeTermId: newTypeTermId, category: '', subcategory: '' });
   };
+
+  const handleCategoryChange = (newCategory: string) => {
+    setFormData({ ...formData, category: newCategory, subcategory: '' });
+  };
+
+  const handleNameChange = (value: string) => {
+    setFormData({ ...formData, name: value });
+    if (duplicateError) setDuplicateError('');
+  };
+
+  const handleNameSelect = (selectedName: string) => {
+    const existing = existingMaterials.find(mat =>
+      mat.name.toLowerCase() === selectedName.toLowerCase()
+    );
+    if (existing && (!material || existing.id !== material.id) && selectedName.toLowerCase() !== originalName.toLowerCase()) {
+      setDuplicateError(`Material "${selectedName}" já está cadastrado`);
+    }
+  };
+
+  const isBOMProduct = material && ['intermediate_product', 'finished_product'].includes(material.materialType);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate required fields including new hierarchy
+
     if (!formData.typeTermId) {
       setDuplicateError('Selecione o Tipo de Material');
       return;
@@ -144,27 +135,21 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     }
     if (!formData.name || !formData.purchaseUnit || !formData.usageUnit || !formData.conversionFactor) return;
 
-    // Verificar duplicidade apenas se o nome foi alterado do original
     if (formData.name.toLowerCase() !== originalName.toLowerCase()) {
-      const duplicateMaterial = existingMaterials.find(mat => 
-        mat.name.toLowerCase() === formData.name.toLowerCase() && 
+      const duplicate = existingMaterials.find(mat =>
+        mat.name.toLowerCase() === formData.name.toLowerCase() &&
         (!material || mat.id !== material.id)
       );
-
-      if (duplicateMaterial) {
-        setDuplicateError(`Já existe um material cadastrado com o nome "${duplicateMaterial.name}"`);
+      if (duplicate) {
+        setDuplicateError(`Já existe um material com o nome "${duplicate.name}"`);
         return;
       }
     }
 
     setDuplicateError('');
-    
-    // Get legacy materialType from type term
-    const legacyMaterialType = getlegacyMaterialType(formData.typeTermId);
-    
-    // Find taxonomy term IDs for the selected category and subcategory
+
     const categoryTerm = allCategories.find(cat => cat.name === formData.category);
-    const subcategoryTerm = formData.subcategory 
+    const subcategoryTerm = formData.subcategory
       ? availableSubcategories.find(sub => sub.name === formData.subcategory)
       : undefined;
 
@@ -174,71 +159,31 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       purchaseUnit: formData.purchaseUnit,
       usageUnit: formData.usageUnit,
       conversionFactor: parseFloat(formData.conversionFactor),
-      pricePerPurchaseUnit: 0, // Valor padrão, será definido no controle de estoque
-      supplier: formData.supplier || undefined,
-      allowedBrands: formData.allowedBrands ? formData.allowedBrands.split(',').map(b => b.trim()).filter(b => b) : undefined,
+      pricePerPurchaseUnit: parseFloat(formData.pricePerPurchaseUnit) || 0,
+      allowedBrands: formData.allowedBrands
+        ? formData.allowedBrands.split(',').map(b => b.trim()).filter(Boolean)
+        : undefined,
       category: formData.category,
       subcategory: formData.subcategory || undefined,
+      typeTermId: formData.typeTermId,
       categoryTermId: categoryTerm?.id,
       subcategoryTermId: subcategoryTerm?.id,
-      materialType: legacyMaterialType,
+      materialType: getLegacyMaterialType(formData.typeTermId),
       unitWeight: formData.unitWeight ? parseFloat(formData.unitWeight) : undefined,
+      // Fiscal
+      ncm: formData.ncm || undefined,
+      cfop: formData.cfop || undefined,
+      cst: formData.cst || undefined,
+      origem: formData.origem !== '' ? parseInt(formData.origem) : undefined,
     });
   };
-
-  const handleNameChange = (value: string) => {
-    setFormData({ ...formData, name: value });
-    // Limpar erro de duplicidade quando o usuário começar a digitar
-    if (duplicateError) {
-      setDuplicateError('');
-    }
-  };
-
-  const handleNameSelect = (selectedName: string) => {
-    // Quando selecionar um nome existente, mostrar aviso apenas se não for o próprio material
-    // e se o nome for diferente do original
-    const existing = existingMaterials.find(mat => 
-      mat.name.toLowerCase() === selectedName.toLowerCase()
-    );
-    if (existing && (!material || existing.id !== material.id) && selectedName.toLowerCase() !== originalName.toLowerCase()) {
-      setDuplicateError(`Material "${selectedName}" já está cadastrado`);
-    }
-  };
-
-  // Reset category and subcategory when type changes
-  const handleTypeChange = (newTypeTermId: string) => {
-    setFormData({ 
-      ...formData, 
-      typeTermId: newTypeTermId,
-      category: '', // Reset category when type changes
-      subcategory: '' // Reset subcategory when type changes
-    });
-  };
-
-  // Reset subcategory when category changes
-  const handleCategoryChange = (newCategory: string) => {
-    setFormData({ 
-      ...formData, 
-      category: newCategory,
-      subcategory: '' // Reset subcategory when category changes
-    });
-  };
-
-  // Produtos intermediários e acabados só podem ter composição editada via BOM
-  const isBOMProduct = material && ['intermediate_product', 'finished_product'].includes(material.materialType);
-  const isEditingBOMProduct = Boolean(isBOMProduct && material);
 
   return (
     <Card className="shadow-elegant border-primary/20 w-full">
       <CardHeader className="pb-4 px-4 sm:px-6">
         <div className="flex justify-between items-center gap-4">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="flex-shrink-0">
-              {(() => {
-                const IconComponent = getIconForCategory(formData.category);
-                return <IconComponent className="h-5 w-5" />;
-              })()}
-            </div>
+            <Package className="h-5 w-5 flex-shrink-0 text-primary" />
             <CardTitle className="text-primary truncate">
               {material ? 'Editar Material' : 'Novo Material'}
             </CardTitle>
@@ -253,276 +198,346 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
           </Button>
         </div>
       </CardHeader>
+
       <CardContent className="px-4 sm:px-6">
-        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-          {isEditingBOMProduct && (
+        <form onSubmit={handleSubmit} className="space-y-6">
+
+          {isBOMProduct && (
             <Alert className="border-primary/30 bg-primary/5">
               <AlertTriangle className="h-4 w-4 text-primary" />
-              <AlertDescription className="text-foreground">
-                <strong>Produto com BOM:</strong> Os campos de composição (unidades, conversão, peso) são gerenciados pela ficha técnica e não podem ser alterados aqui.
+              <AlertDescription>
+                <strong>Produto com BOM:</strong> Unidades e conversão são gerenciados pela ficha técnica.
               </AlertDescription>
             </Alert>
           )}
-          
+
           {duplicateError && (
             <Alert className="border-red-200 bg-red-50">
               <AlertTriangle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-red-800">
-                {duplicateError}
-              </AlertDescription>
+              <AlertDescription className="text-red-800">{duplicateError}</AlertDescription>
             </Alert>
           )}
-          
-          {/* Tipo de Material - Primeiro nível da hierarquia */}
-          <div className="space-y-3">
-            <Label htmlFor="materialType" className="flex items-center">
-              Tipo de Material *
-              <HelpTooltip content='Selecione o tipo principal do material. Isso determina as categorias e subcategorias disponíveis.' />
-            </Label>
-            <Select value={formData.typeTermId} onValueChange={handleTypeChange} disabled={taxonomyLoading}>
-              <SelectTrigger className="bg-card">
-                <SelectValue placeholder={taxonomyLoading ? "Carregando..." : "Selecione o tipo de material"} />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border shadow-lg z-50 max-w-[calc(100vw-2rem)]">
-                {materialTypesFromTaxonomy.map((type) => (
-                  <SelectItem key={type.id} value={type.id}>
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{type.name}</div>
-                      {type.code && (
-                        <div className="text-xs text-muted-foreground truncate">Código: {type.code}</div>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
 
-          {/* Categoria - Segundo nível da hierarquia */}
-          <div className="space-y-3">
-            <Label htmlFor="category" className="flex items-center">
-              Categoria *
-              <HelpTooltip content='Classifique corretamente o material. As categorias disponíveis dependem do Tipo selecionado.' />
-            </Label>
-            <Select 
-              value={formData.category} 
-              onValueChange={handleCategoryChange} 
-              disabled={taxonomyLoading || !formData.typeTermId || availableCategories.length === 0}
-            >
-              <SelectTrigger className="bg-card">
-                <SelectValue placeholder={
-                  taxonomyLoading ? "Carregando..." : 
-                  !formData.typeTermId ? "Selecione um tipo primeiro" :
-                  availableCategories.length === 0 ? "Nenhuma categoria disponível" :
-                  "Selecione uma categoria"
-                } />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border shadow-lg z-50 max-w-[calc(100vw-2rem)]">
-                {availableCategories.map((category) => {
-                  const IconComponent = getIconForCategory(category.name);
-                  return (
-                    <SelectItem key={category.id} value={category.name}>
-                      <div className="flex items-center gap-2">
-                        <IconComponent className="h-4 w-4 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <div className="font-medium truncate">{category.name}</div>
-                          {category.code && (
-                            <div className="text-xs text-muted-foreground truncate">Código: {category.code}</div>
-                          )}
-                        </div>
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Subcategoria - Terceiro nível da hierarquia */}
-          <div className="space-y-3">
-            <Label htmlFor="subcategory">Subcategoria (Opcional)</Label>
-            <Select 
-              value={formData.subcategory || 'none'} 
-              onValueChange={(value) => setFormData({ ...formData, subcategory: value === 'none' ? '' : value })} 
-              disabled={taxonomyLoading || !formData.category || availableSubcategories.length === 0}
-            >
-              <SelectTrigger className="bg-card">
-                <SelectValue placeholder={
-                  taxonomyLoading ? "Carregando..." : 
-                  !formData.category ? "Selecione uma categoria primeiro" :
-                  availableSubcategories.length === 0 ? "Nenhuma subcategoria disponível" : 
-                  "Selecione uma subcategoria"
-                } />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border shadow-lg z-50 max-w-[calc(100vw-2rem)]">
-                <SelectItem value="none">Nenhuma subcategoria</SelectItem>
-                {availableSubcategories.map((subcategory) => (
-                  <SelectItem key={subcategory.id} value={subcategory.name}>
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{subcategory.name}</div>
-                      {subcategory.code && (
-                        <div className="text-xs text-muted-foreground truncate">Código: {subcategory.code}</div>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Nome do Material */}
-          <div className="space-y-2">
-            <Label htmlFor="name">Nome do Material *</Label>
-            <AutocompleteInput
-              id="name"
-              value={formData.name}
-              onChange={handleNameChange}
-              onSelect={handleNameSelect}
-              suggestions={existingMaterials.map(mat => mat.name)}
-              placeholder="Ex: Farinha de trigo, Caixa de papelão, Brigadeiro"
-              required
-              originalValue={originalName}
-              className={duplicateError ? "border-red-300 focus:border-red-500" : ""}
-            />
-          </div>
-
-          {/* Descrição do Material */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Descrição Detalhada</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Descreva as características, propriedades e especificações técnicas do material..."
-              className="min-h-20"
-            />
-            <p className="text-xs text-muted-foreground">
-              Inclua informações relevantes como características físicas, qualidade, especificações técnicas, etc.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="purchaseUnit" className="flex items-center">
-                Unidade de Compra *
-                <HelpTooltip content="Unidade na qual o material é adquirido (ex: kg, pacote, caixa)." />
-              </Label>
-              <Select 
-                value={formData.purchaseUnit} 
-                onValueChange={(value) => setFormData({ ...formData, purchaseUnit: value })}
-                disabled={isEditingBOMProduct}
-              >
-                <SelectTrigger className="bg-card">
-                  <SelectValue placeholder="Como você compra?" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border shadow-lg z-50">
-                  {units.map((unit) => (
-                    <SelectItem key={unit} value={unit}>
-                      {unit}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* ── SEÇÃO 1: CLASSIFICAÇÃO ── */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              <Layers className="h-4 w-4" />
+              <span>Classificação</span>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="usageUnit" className="flex items-center">
-                Unidade de Uso *
-                <HelpTooltip content="Unidade utilizada na produção/receita (ex: g, ml, unidade)." />
-              </Label>
-              <Select 
-                value={formData.usageUnit} 
-                onValueChange={(value) => setFormData({ ...formData, usageUnit: value })}
-                disabled={isEditingBOMProduct}
-              >
-                <SelectTrigger className="bg-card">
-                  <SelectValue placeholder="Como você usa?" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border shadow-lg z-50">
-                  {units.map((unit) => (
-                    <SelectItem key={unit} value={unit}>
-                      {unit}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Tipo */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  Tipo *
+                  <HelpTooltip content="Tipo principal do material. Define as categorias disponíveis." />
+                </Label>
+                <Select value={formData.typeTermId} onValueChange={handleTypeChange} disabled={taxonomyLoading}>
+                  <SelectTrigger className="bg-card">
+                    <SelectValue placeholder={taxonomyLoading ? "Carregando..." : "Selecione o tipo"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border shadow-lg z-50">
+                    {materialTypesFromTaxonomy.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Categoria */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  Categoria *
+                  <HelpTooltip content="Categoria dentro do tipo selecionado." />
+                </Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={handleCategoryChange}
+                  disabled={taxonomyLoading || !formData.typeTermId || availableCategories.length === 0}
+                >
+                  <SelectTrigger className="bg-card">
+                    <SelectValue placeholder={
+                      !formData.typeTermId ? "Selecione o tipo primeiro" :
+                      availableCategories.length === 0 ? "Nenhuma categoria" :
+                      "Selecione a categoria"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border shadow-lg z-50">
+                    {availableCategories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Subcategoria */}
+              <div className="space-y-2">
+                <Label>Subcategoria</Label>
+                <Select
+                  value={formData.subcategory || 'none'}
+                  onValueChange={(v) => setFormData({ ...formData, subcategory: v === 'none' ? '' : v })}
+                  disabled={taxonomyLoading || !formData.category || availableSubcategories.length === 0}
+                >
+                  <SelectTrigger className="bg-card">
+                    <SelectValue placeholder={
+                      !formData.category ? "Selecione categoria primeiro" :
+                      availableSubcategories.length === 0 ? "Nenhuma subcategoria" :
+                      "Selecione (opcional)"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border shadow-lg z-50">
+                    <SelectItem value="none">Nenhuma</SelectItem>
+                    {availableSubcategories.map((sub) => (
+                      <SelectItem key={sub.id} value={sub.name}>
+                        {sub.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="border-t border-border" />
+
+          {/* ── SEÇÃO 2: IDENTIFICAÇÃO ── */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              <Tag className="h-4 w-4" />
+              <span>Identificação</span>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="conversionFactor" className="flex items-center">
-                Fator de Conversão *
-                <HelpTooltip content="Relação entre a unidade de compra e a unidade de uso. Exemplo: 1kg = 1000g → fator de conversão = 1000." />
+              <Label htmlFor="name">Nome do Material *</Label>
+              <AutocompleteInput
+                id="name"
+                value={formData.name}
+                onChange={handleNameChange}
+                onSelect={handleNameSelect}
+                suggestions={existingMaterials.map(mat => mat.name)}
+                placeholder="Ex: Farinha de trigo, Caixa de papelão"
+                required
+                originalValue={originalName}
+                className={duplicateError ? "border-red-300 focus:border-red-500" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Descrição</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Características, especificações técnicas, qualidade..."
+                className="min-h-16"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="allowedBrands">
+                Marcas Permitidas
+                <span className="text-muted-foreground font-normal ml-1 text-xs">(separar por vírgulas)</span>
               </Label>
               <Input
-                id="conversionFactor"
-                type="number"
-                step="0.01"
-                value={formData.conversionFactor}
-                onChange={(e) => setFormData({ ...formData, conversionFactor: e.target.value })}
-                placeholder="Ex: 1000 (1kg = 1000g)"
-                required
-                disabled={isEditingBOMProduct}
+                id="allowedBrands"
+                value={formData.allowedBrands}
+                onChange={(e) => setFormData({ ...formData, allowedBrands: e.target.value })}
+                placeholder="Ex: Fleischmann, Fermipan, Itaiquara"
               />
-              <p className="text-xs text-muted-foreground">
-                Quantas unidades de uso em 1 unidade de compra
-              </p>
             </div>
-            
           </div>
 
+          <div className="border-t border-border" />
 
-          {needsUnitWeight && (
-            <div className="space-y-2">
-              <Label htmlFor="unitWeight">Peso por {formData.usageUnit} (gramas) *</Label>
-              <Input
-                id="unitWeight"
-                type="number"
-                step="0.1"
-                value={formData.unitWeight}
-                onChange={(e) => setFormData({ ...formData, unitWeight: e.target.value })}
-                placeholder="Ex: 50 (gramas por unidade)"
-                required
-                disabled={isEditingBOMProduct}
-              />
-              <p className="text-xs text-muted-foreground">
-                Peso em gramas de 1 {formData.usageUnit} para cálculos de receitas
-              </p>
+          {/* ── SEÇÃO 3: UNIDADES & MEDIDAS ── */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              <Package className="h-4 w-4" />
+              <span>Unidades & Medidas</span>
             </div>
-          )}
 
-          <div className="space-y-2">
-            <Label htmlFor="supplier">Fornecedor (Opcional)</Label>
-            <Input
-              id="supplier"
-              value={formData.supplier}
-              onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-              placeholder="Ex: Distribuidora ABC"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  Unidade de Compra *
+                  <HelpTooltip content="Unidade na qual o material é adquirido (ex: kg, pacote, caixa)." />
+                </Label>
+                <Select
+                  value={formData.purchaseUnit}
+                  onValueChange={(v) => setFormData({ ...formData, purchaseUnit: v })}
+                  disabled={!!isBOMProduct}
+                >
+                  <SelectTrigger className="bg-card">
+                    <SelectValue placeholder="Como você compra?" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border shadow-lg z-50">
+                    {units.map((unit) => (
+                      <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  Unidade de Uso *
+                  <HelpTooltip content="Unidade utilizada na produção/receita (ex: g, ml, unidade)." />
+                </Label>
+                <Select
+                  value={formData.usageUnit}
+                  onValueChange={(v) => setFormData({ ...formData, usageUnit: v })}
+                  disabled={!!isBOMProduct}
+                >
+                  <SelectTrigger className="bg-card">
+                    <SelectValue placeholder="Como você usa?" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border shadow-lg z-50">
+                    {units.map((unit) => (
+                      <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  Fator de Conversão *
+                  <HelpTooltip content="Quantas unidades de uso em 1 unidade de compra. Ex: 1kg = 1000g → fator 1000." />
+                </Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.conversionFactor}
+                  onChange={(e) => setFormData({ ...formData, conversionFactor: e.target.value })}
+                  placeholder="Ex: 1000"
+                  required
+                  disabled={!!isBOMProduct}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  Preço por Unidade de Compra (R$)
+                  <HelpTooltip content="Preço de referência por unidade de compra. Pode ser atualizado no módulo de Estoque." />
+                </Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.pricePerPurchaseUnit}
+                  onChange={(e) => setFormData({ ...formData, pricePerPurchaseUnit: e.target.value })}
+                  placeholder="0,00"
+                />
+              </div>
+
+              {needsUnitWeight && (
+                <div className="space-y-2">
+                  <Label>
+                    Peso por {formData.usageUnit} (gramas)
+                    <HelpTooltip content="Peso em gramas de 1 unidade de uso, para cálculos de receita." />
+                  </Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={formData.unitWeight}
+                    onChange={(e) => setFormData({ ...formData, unitWeight: e.target.value })}
+                    placeholder="Ex: 50 (gramas por unidade)"
+                    disabled={!!isBOMProduct}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="allowedBrands">Marcas Permitidas (Opcional)</Label>
-            <Input
-              id="allowedBrands"
-              value={formData.allowedBrands}
-              onChange={(e) => setFormData({ ...formData, allowedBrands: e.target.value })}
-              placeholder="Ex: Fleischmann, Fermipan, Itaiquara (separar por vírgulas)"
-            />
-            <p className="text-xs text-muted-foreground">
-              Liste as marcas aprovadas para compra deste material, separadas por vírgulas
-            </p>
+          <div className="border-t border-border" />
+
+          {/* ── SEÇÃO 4: FISCAL ── */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              <Receipt className="h-4 w-4" />
+              <span>Fiscal <span className="font-normal normal-case text-xs">(opcional)</span></span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  NCM
+                  <HelpTooltip content="Nomenclatura Comum do Mercosul. Código de 8 dígitos para classificação fiscal." />
+                </Label>
+                <Input
+                  value={formData.ncm}
+                  onChange={(e) => setFormData({ ...formData, ncm: e.target.value })}
+                  placeholder="Ex: 19059090"
+                  maxLength={10}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  CFOP
+                  <HelpTooltip content="Código Fiscal de Operações e Prestações. 4 dígitos." />
+                </Label>
+                <Input
+                  value={formData.cfop}
+                  onChange={(e) => setFormData({ ...formData, cfop: e.target.value })}
+                  placeholder="Ex: 5102"
+                  maxLength={5}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  CST
+                  <HelpTooltip content="Código de Situação Tributária. 3 dígitos." />
+                </Label>
+                <Input
+                  value={formData.cst}
+                  onChange={(e) => setFormData({ ...formData, cst: e.target.value })}
+                  placeholder="Ex: 040"
+                  maxLength={4}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  Origem
+                  <HelpTooltip content="Origem da mercadoria para fins fiscais." />
+                </Label>
+                <Select
+                  value={formData.origem}
+                  onValueChange={(v) => setFormData({ ...formData, origem: v })}
+                >
+                  <SelectTrigger className="bg-card">
+                    <SelectValue placeholder="Origem" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border shadow-lg z-50">
+                    <SelectItem value="0">0 — Nacional</SelectItem>
+                    <SelectItem value="1">1 — Estrangeira (importação direta)</SelectItem>
+                    <SelectItem value="2">2 — Estrangeira (mercado interno)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-4">
-            <Button type="submit" className="bg-gradient-primary flex-1 w-full sm:w-auto">
+          {/* ── BOTÕES ── */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <Button type="submit" className="bg-gradient-primary flex-1">
               {material ? 'Atualizar Material' : 'Cadastrar Material'}
             </Button>
-            <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
+            <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar
             </Button>
           </div>
+
         </form>
       </CardContent>
     </Card>

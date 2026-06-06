@@ -14,7 +14,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Material } from "@/types";
 import { useTaxonomy } from "@/hooks/useConfig";
-import { materialCategories, getSubcategoriesByCategory } from "@/lib/material-categories";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -42,8 +41,8 @@ const Materials = () => {
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [generatedExport, setGeneratedExport] = useState<GeneratedMaterialsExport | null>(null);
 
-  // Get dynamic categories from taxonomy
-  const materialCategories = getTermsByTaxonomy('material_category').filter(term => term.is_active && !term.parent_id);
+  // Get dynamic categories from taxonomy (all active, parent_id links to type — don't filter it out)
+  const materialCategories = getTermsByTaxonomy('material_category').filter(term => term.is_active);
   
   // Get categories with counts
   const categoriesWithCounts = [
@@ -223,12 +222,17 @@ const Materials = () => {
           allowed_brands,
           category,
           subcategory,
+          type_term_id,
           category_term_id,
           subcategory_term_id,
           code,
           material_type,
           unit_weight,
           is_sellable,
+          ncm,
+          cfop,
+          cst,
+          origem
         `)
         .eq('is_archived', false)
         .order('name');
@@ -260,14 +264,19 @@ const Materials = () => {
             pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit?.toString() || '0'),
             supplier: item.supplier || undefined,
             allowedBrands: item.allowed_brands || undefined,
-            category: item.category || 'Insumo',
+            category: item.category || 'Alimentos & Ingredientes',
             subcategory: item.subcategory || undefined,
+            typeTermId: item.type_term_id || undefined,
             categoryTermId: item.category_term_id || undefined,
             subcategoryTermId: item.subcategory_term_id || undefined,
             code: item.code || `MAT-${Date.now()}-${index}`,
             materialType: (item.material_type || 'ingredient') as Material['materialType'],
             unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
             isSellable: Boolean(item.is_sellable),
+            ncm: item.ncm || undefined,
+            cfop: item.cfop || undefined,
+            cst: item.cst || undefined,
+            origem: item.origem != null ? item.origem : undefined,
           };
           
           return formatted;
@@ -283,7 +292,7 @@ const Materials = () => {
             pricePerPurchaseUnit: 0,
             supplier: undefined,
             allowedBrands: undefined,
-            category: 'Insumo',
+            category: 'Alimentos & Ingredientes',
             subcategory: undefined,
             code: `ERR-${Date.now()}-${index}`,
             materialType: 'ingredient' as Material['materialType'],
@@ -327,11 +336,16 @@ const Materials = () => {
           allowed_brands: material.allowedBrands,
           category: material.category,
           subcategory: material.subcategory,
+          type_term_id: material.typeTermId,
           category_term_id: material.categoryTermId,
           subcategory_term_id: material.subcategoryTermId,
           material_type: material.materialType,
           unit_weight: material.unitWeight,
-          is_sellable: material.isSellable || false
+          is_sellable: material.isSellable || false,
+          ncm: material.ncm,
+          cfop: material.cfop,
+          cst: material.cst,
+          origem: material.origem,
         })
         .select()
         .single();
@@ -351,14 +365,19 @@ const Materials = () => {
         pricePerPurchaseUnit: parseFloat(data.price_per_purchase_unit?.toString() || '0'),
         supplier: data.supplier || undefined,
         allowedBrands: data.allowed_brands || undefined,
-        category: data.category || 'Insumo',
+        category: data.category || 'Alimentos & Ingredientes',
         subcategory: data.subcategory || undefined,
+        typeTermId: data.type_term_id || undefined,
         categoryTermId: data.category_term_id || undefined,
         subcategoryTermId: data.subcategory_term_id || undefined,
         code: data.code || '',
         materialType: (data.material_type || 'ingredient') as Material['materialType'],
         unitWeight: data.unit_weight ? parseFloat(data.unit_weight.toString()) : undefined,
-        isSellable: data.is_sellable || false
+        isSellable: data.is_sellable || false,
+        ncm: data.ncm || undefined,
+        cfop: data.cfop || undefined,
+        cst: data.cst || undefined,
+        origem: data.origem != null ? data.origem : undefined,
       };
       
       setMaterials([...materials, newMaterial]);
@@ -387,11 +406,16 @@ const Materials = () => {
           allowed_brands: updatedMaterial.allowedBrands,
           category: updatedMaterial.category,
           subcategory: updatedMaterial.subcategory,
+          type_term_id: updatedMaterial.typeTermId,
           category_term_id: updatedMaterial.categoryTermId,
           subcategory_term_id: updatedMaterial.subcategoryTermId,
           material_type: updatedMaterial.materialType,
           unit_weight: updatedMaterial.unitWeight,
-          is_sellable: updatedMaterial.isSellable || false
+          is_sellable: updatedMaterial.isSellable || false,
+          ncm: updatedMaterial.ncm,
+          cfop: updatedMaterial.cfop,
+          cst: updatedMaterial.cst,
+          origem: updatedMaterial.origem,
         })
         .eq('id', updatedMaterial.id);
       
@@ -551,8 +575,8 @@ const Materials = () => {
           id, name, description, code, material_type, category, subcategory,
           purchase_unit, usage_unit, conversion_factor, price_per_purchase_unit,
           supplier, allowed_brands, unit_weight, is_sellable, is_archived,
-          created_at, updated_at,
-          stock_items(current_quantity, minimum_quantity, average_price, total_value, cost_source, manual_price)
+          ncm, cfop, cst, origem, created_at, updated_at,
+          stock_items(current_quantity, minimum_quantity, average_price, total_value)
         `)
         .eq('is_archived', false)
         .order('name');
@@ -565,9 +589,17 @@ const Materials = () => {
         'Código', 'Nome', 'Descrição', 'Tipo Material', 'Categoria', 'Subcategoria',
         'Un. Compra', 'Un. Uso', 'Fator Conversão', 'Preço Un. Compra',
         'Fornecedor', 'Marcas Permitidas', 'Peso Unitário', 'Vendível',
+        'NCM', 'CFOP', 'CST', 'Origem',
         'Qtd Estoque', 'Estoque Mínimo', 'Preço Médio', 'Valor Total',
-        'Fonte Custo', 'Criado em', 'Atualizado em'
+        'Criado em', 'Atualizado em'
       ];
+
+      const origemLabel = (v: any) => {
+        if (v === 0) return '0 - Nacional';
+        if (v === 1) return '1 - Estrangeira (direta)';
+        if (v === 2) return '2 - Estrangeira (mercado interno)';
+        return '';
+      };
 
       const csvRows = rows.map(m => {
         const stock = (m.stock_items as any)?.[0];
@@ -586,11 +618,14 @@ const Materials = () => {
           (m.allowed_brands || []).join('; '),
           m.unit_weight ?? '',
           m.is_sellable ? 'Sim' : 'Não',
+          (m as any).ncm || '',
+          (m as any).cfop || '',
+          (m as any).cst || '',
+          origemLabel((m as any).origem),
           stock?.current_quantity ?? '',
           stock?.minimum_quantity ?? '',
           stock?.average_price ?? '',
           stock?.total_value ?? '',
-          stock?.cost_source || '',
           m.created_at ? new Date(m.created_at).toLocaleDateString('pt-BR') : '',
           m.updated_at ? new Date(m.updated_at).toLocaleDateString('pt-BR') : '',
         ];
