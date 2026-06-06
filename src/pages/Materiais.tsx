@@ -1,3 +1,4 @@
+//
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Package, Plus, TrendingUp, BarChart3, FileInput, ClipboardCheck, Settings } from "lucide-react";
