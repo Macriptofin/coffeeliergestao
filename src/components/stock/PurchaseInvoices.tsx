@@ -442,7 +442,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             name,
             purchase_unit,
             usage_unit,
-            conversion_factor
+            conversion_factor,
+            tracks_inventory
           )
         `)
         .eq('invoice_id', invoiceId);
@@ -465,7 +466,12 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           toast.error(`Material não encontrado para o item ${item.material_id}`);
           continue;
         }
-        
+
+        // Pular movimentação de estoque para materiais de consumo (combustível, descartáveis, etc.)
+        if (material.tracks_inventory === false) {
+          continue;
+        }
+
         // IMPORTANTE: Usar fator de conversão salvo no item da nota (ajustado pelo usuário)
         // Se não existir, usar o fator do cadastro do material como fallback
         const conversionFactor = item.conversion_factor 

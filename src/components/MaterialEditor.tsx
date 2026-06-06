@@ -12,20 +12,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  X, 
-  Save, 
-  ArrowLeft, 
-  ArrowRight, 
-  Package, 
-  Warehouse, 
-  Truck, 
-  FileText, 
-  Paperclip, 
+import {
+  X,
+  Save,
+  ArrowLeft,
+  ArrowRight,
+  Package,
+  Warehouse,
+  Truck,
+  FileText,
+  Paperclip,
   History,
   AlertTriangle,
   ExternalLink
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import type { Material } from "@/types";
 import { useTaxonomy } from "@/hooks/useConfig";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,6 +71,7 @@ export const MaterialEditor = ({
     subcategory: material?.subcategory || '',
     materialType: material?.materialType || 'ingredient' as Material['materialType'],
     unitWeight: material?.unitWeight?.toString() || '',
+    tracksInventory: material?.tracksInventory !== false, // default true
   });
 
   const units = [
@@ -158,6 +160,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
         subcategory: material.subcategory || '',
         materialType: material.materialType,
         unitWeight: material.unitWeight?.toString() || '',
+        tracksInventory: material.tracksInventory !== false,
       });
     }
   }, [material, materialTypesFromTaxonomy]);
@@ -178,7 +181,8 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
         formData.category !== material.category ||
         formData.subcategory !== (material.subcategory || '') ||
         formData.materialType !== material.materialType ||
-        formData.unitWeight !== (material.unitWeight?.toString() || '');
+        formData.unitWeight !== (material.unitWeight?.toString() || '') ||
+        formData.tracksInventory !== (material.tracksInventory !== false);
       
       setHasUnsavedChanges(hasChanges);
     }
@@ -263,6 +267,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
       subcategoryTermId: subcategoryTerm?.id,
       materialType: legacyMaterialType,
       unitWeight: formData.unitWeight ? parseFloat(formData.unitWeight) : undefined,
+      tracksInventory: formData.tracksInventory,
     };
 
     onSave(updatedMaterial);
@@ -604,6 +609,20 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
                     </div>
                   </div>
                   
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <Label>Movimenta Estoque</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Desative para materiais de uso e consumo (combustível, descartáveis).
+                        A NF será registrada como despesa sem gerar entrada no estoque.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.tracksInventory}
+                      onCheckedChange={(checked) => setFormData({ ...formData, tracksInventory: checked })}
+                    />
+                  </div>
+
                   <div className="pt-4 border-t">
                     <Button variant="outline" className="w-full">
                       <ExternalLink className="h-4 w-4 mr-2" />
