@@ -825,9 +825,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   // Componente inline de progresso por NF (3 etapas)
   const InvoiceProgress = ({ inv }: { inv: PurchaseInvoice }) => {
     const steps = [
-      { label: 'Efetivada', done: inv.workflowStatus === 'lancada' || inv.workflowStatus === 'pendente' },
-      { label: 'Estoque',   done: inv.stockPosted },
-      { label: 'Paga',      done: inv.status === 'Pago' },
+      { label: 'Efetivada',  done: inv.workflowStatus === 'lancada' || inv.workflowStatus === 'pendente' },
+      { label: 'Estoque',    done: inv.stockPosted },
+      { label: 'Financeiro', done: invoiceHasPayable(inv) },
     ];
     return (
       <div className="flex items-center gap-1 mt-2">
