@@ -159,7 +159,7 @@ export default function ProposalComposer({ proposalId, onComplete, onCancel }: P
       const totals = calculateTotals();
 
       // Salvar itens da proposta
-      const { error: itemsError } = await supabase
+      const { error: itemsError } = await (supabase as any)
         .from('proposal_items')
         .insert(items.map(item => ({
           proposal_id: proposalId,

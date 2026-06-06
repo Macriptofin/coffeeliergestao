@@ -55,7 +55,8 @@ export default function PropostaAprovacao() {
 
   const loadProposal = async () => {
     try {
-      const { data, error } = await supabase.rpc('get_proposal_by_token', { p_token: token });
+      const { data: rawData, error } = await supabase.rpc('get_proposal_by_token', { p_token: token });
+      const data = rawData as any;
       if (error || !data || data.error) {
         setState('error');
         setErrorMsg(data?.error || 'Não foi possível carregar a proposta.');

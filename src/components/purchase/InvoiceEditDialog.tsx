@@ -426,6 +426,7 @@ export const InvoiceEditDialog = ({
     try {
       // Verificar se já foi lançada (escopo correto — fora dos blocos if)
       let jaLancada = false;
+      let existingInvoiceId = invoiceId;
       if (existingInvoiceId || invoiceId) {
         const checkId = existingInvoiceId || invoiceId;
         const { data: curState } = await supabase
@@ -455,7 +456,6 @@ export const InvoiceEditDialog = ({
 
       // Verificar se é uma nota existente (rascunho) ou nova
       let invoiceRecord: { id: string } | null = null;
-      let existingInvoiceId = invoiceId;
       
       // Se não temos invoiceId mas temos número da nota, verificar se já existe
       if (!existingInvoiceId && editedData.numero_nota) {
@@ -613,8 +613,7 @@ export const InvoiceEditDialog = ({
             }, {
               onConflict: 'invoice_description,material_id'
             })
-            .then(() => {}) // falha silenciosa — não crítico
-            .catch(() => {});
+            .then(() => {}); // falha silenciosa — não crítico
         }
       }
 
