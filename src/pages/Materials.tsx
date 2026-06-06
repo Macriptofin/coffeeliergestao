@@ -38,7 +38,6 @@ const Materials = () => {
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
-  const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [generatedExport, setGeneratedExport] = useState<GeneratedMaterialsExport | null>(null);
 
   // Get dynamic categories from taxonomy (all active, parent_id links to type — don't filter it out)
@@ -71,15 +70,13 @@ const Materials = () => {
     }))
   ];
 
-  const suppliers = [...new Set(materials.map(m => m.supplier).filter(Boolean))].sort();
-
   useEffect(() => {
     loadMaterials();
   }, []);
 
   useEffect(() => {
     filterMaterials();
-  }, [materials, selectedCategory, selectedSubcategory, searchTerm, supplierFilter]);
+  }, [materials, selectedCategory, selectedSubcategory, searchTerm]);
 
   const filterMaterials = () => {
     let filtered = materials;
@@ -92,11 +89,6 @@ const Materials = () => {
     // Filtrar por subcategoria
     if (selectedSubcategory !== "all" && selectedCategory !== "all") {
       filtered = filtered.filter(material => material.subcategory === selectedSubcategory);
-    }
-    
-    // Filtrar por fornecedor
-    if (supplierFilter !== "all") {
-      filtered = filtered.filter(material => material.supplier === supplierFilter);
     }
     
     // Filtrar por termo de pesquisa
@@ -667,64 +659,73 @@ const Materials = () => {
   return (
     <ErrorBoundary>
       <div className="container mx-auto p-6 max-w-7xl">
-        <div className="space-y-6">
-          {/* Page Header */}
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              Cadastro de Materiais
-            </h1>
+        <div className="space-y-5">
+          {/* Page Header + Actions */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Cadastro de Materiais</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {materials.length} {materials.length === 1 ? 'material cadastrado' : 'materiais cadastrados'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => setShowMaterialForm(true)}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Material
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={handleEditSelected}
+                disabled={selectedMaterials.length !== 1}
+                className="border-primary/30 text-primary hover:bg-primary/5 disabled:opacity-50"
+                title={
+                  selectedMaterials.length === 0
+                    ? 'Selecione um material na tabela para editar'
+                    : selectedMaterials.length > 1
+                    ? 'Selecione apenas um material para editar'
+                    : undefined
+                }
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Editar
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={exportMaterialsToCSV}
+                className="border-border hover:bg-accent"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Exportar CSV
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => navigate('/config#estoque')}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Configurações
+              </Button>
+            </div>
           </div>
 
-          {/* Instructional Banner */}
+          {/* Instructional Banner — collapsible, starts collapsed */}
           <InstructionalBanner
-            title="Cadastro de Materiais"
+            title="Como usar o Cadastro de Materiais"
             description={[
               "Aqui você encontra todos os materiais cadastrados no sistema.",
               "Antes de criar um novo material, utilize os filtros ou a busca para verificar se ele já existe, evitando duplicidades.",
               "Cada material deve estar corretamente classificado em Categoria e Subcategoria.",
-              "Para dúvidas, consulte o manual completo."
+              "Para dúvidas, consulte o manual completo.",
             ]}
             onManualClick={handleManualClick}
+            collapsible
+            defaultCollapsed
           />
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3">
-            <Button 
-              onClick={() => setShowMaterialForm(true)} 
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Material
-            </Button>
-            
-            <Button 
-              variant="outline"
-              onClick={handleEditSelected}
-              disabled={selectedMaterials.length !== 1}
-              className="border-primary/30 text-primary hover:bg-primary/5"
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              Editar Material
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              onClick={exportMaterialsToCSV}
-              className="border-border hover:bg-accent"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Exportar CSV
-            </Button>
-            
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => navigate('/config#estoque')}
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Configurações
-            </Button>
-          </div>
 
           {generatedExport && (
             <div className="rounded-lg border border-border bg-muted/30 p-4">
@@ -781,7 +782,7 @@ const Materials = () => {
               </div>
 
               {/* Filter Row */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Category Filter */}
                 <Select value={selectedCategory} onValueChange={handleCategoryChange}>
                   <SelectTrigger>
@@ -802,40 +803,47 @@ const Materials = () => {
                 </Select>
 
                 {/* Subcategory Filter */}
-                {selectedCategory !== "all" && (
-                  <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Subcategoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subcategoriesWithCounts.map((subcategory) => (
-                        <SelectItem key={subcategory.value} value={subcategory.value}>
-                          <div className="flex items-center gap-2">
-                            <span className="truncate">{subcategory.label}</span>
-                            <Badge variant="outline" className="text-xs flex-shrink-0">
-                              {subcategory.count}
-                            </Badge>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-
-                {/* Supplier Filter */}
-                <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                <Select
+                  value={selectedSubcategory}
+                  onValueChange={setSelectedSubcategory}
+                  disabled={selectedCategory === "all"}
+                >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Subcategoria" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos os Fornecedores</SelectItem>
-                    {suppliers.map((supplier) => (
-                      <SelectItem key={supplier} value={supplier}>
-                        {supplier}
+                    {subcategoriesWithCounts.map((subcategory) => (
+                      <SelectItem key={subcategory.value} value={subcategory.value}>
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{subcategory.label}</span>
+                          <Badge variant="outline" className="text-xs flex-shrink-0">
+                            {subcategory.count}
+                          </Badge>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Result count */}
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                <span>
+                  {filteredMaterials.length === materials.length
+                    ? `${materials.length} materiais`
+                    : `${filteredMaterials.length} de ${materials.length} materiais`}
+                  {selectedMaterials.length > 0 && (
+                    <span className="ml-2 text-primary font-medium">· {selectedMaterials.length} selecionado{selectedMaterials.length !== 1 ? 's' : ''}</span>
+                  )}
+                </span>
+                {(selectedCategory !== "all" || selectedSubcategory !== "all" || searchTerm) && (
+                  <button
+                    onClick={() => { setSelectedCategory("all"); setSelectedSubcategory("all"); setSearchTerm(""); }}
+                    className="text-primary hover:underline"
+                  >
+                    Limpar filtros
+                  </button>
+                )}
               </div>
             </div>
 
