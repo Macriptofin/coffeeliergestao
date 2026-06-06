@@ -201,12 +201,18 @@ export const SupplierForm = ({ supplier, onSubmit, onCancel, isSubmitting = fals
       const hqCoords = hqData?.location?.coordinates;
       const supCoords = supData?.location?.coordinates;
 
-      const hqLat = parseFloat(hqCoords?.latitude);
-      const hqLon = parseFloat(hqCoords?.longitude);
+      // Fallback: coordenadas do centro de Guaíba RS caso o CEP da sede não tenha cobertura
+      const HQ_FALLBACK = { lat: -30.1126, lon: -51.3243 };
+
+      let hqLat = parseFloat(hqCoords?.latitude);
+      let hqLon = parseFloat(hqCoords?.longitude);
+      if (isNaN(hqLat) || isNaN(hqLon)) {
+        hqLat = HQ_FALLBACK.lat;
+        hqLon = HQ_FALLBACK.lon;
+      }
+
       const supLat = parseFloat(supCoords?.latitude);
       const supLon = parseFloat(supCoords?.longitude);
-
-      if (isNaN(hqLat) || isNaN(hqLon)) throw new Error('Coordenadas da sede indisponíveis para este CEP');
       if (isNaN(supLat) || isNaN(supLon)) throw new Error('Coordenadas do fornecedor indisponíveis para este CEP');
 
       const km = haversine(hqLat, hqLon, supLat, supLon);
