@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, Plus, ShoppingCart, X, Package, Shield, Trash2, CreditCard, FileEdit, Lock, Clock, Upload, CheckCircle2, Circle, History, Filter } from "lucide-react";
+import { FileText, Plus, ShoppingCart, X, Package, Shield, Trash2, CreditCard, FileEdit, Lock, Clock, Upload, CheckCircle2, Circle, History, Filter, AlertTriangle } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { InvoiceOCRUploader } from "@/components/purchase/InvoiceOCRUploader";
 import type { PurchaseInvoice } from "@/pages/Stock";
@@ -89,6 +90,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [isOCRSheetOpen, setIsOCRSheetOpen] = useState(false);
   const [historyFilters, setHistoryFilters] = useState({ supplierId: '', period: '' });
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showEditLockedDialog, setShowEditLockedDialog] = useState(false);
+  const [lockedInvoiceIdToEdit, setLockedInvoiceIdToEdit] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState({
     invoiceNumber: '',
     invoiceDate: '',
@@ -329,14 +332,13 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           throw deleteMovementsError;
         }
 
-        // Recalcular estoques afetados usando quantidades negativas para reverter
+        // Recalcular preço médio para cada material afetado (current_quantity já foi
+        // atualizado pelo trigger trg_sync_stock_quantity ao deletar os movimentos)
         if (movements) {
-          for (const movement of movements) {
-            // Usar quantidade negativa para reverter a entrada anterior
+          const uniqueMaterialIds = [...new Set(movements.map(m => m.material_id))];
+          for (const materialId of uniqueMaterialIds) {
             await supabase.rpc('calculate_weighted_average_price', {
-              p_material_id: movement.material_id,
-              p_new_quantity: -parseFloat(movement.quantity?.toString() || '0'),
-              p_new_price: parseFloat(movement.unit_price?.toString() || '0')
+              p_material_id: materialId
             });
           }
         }
@@ -513,18 +515,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           console.error('Erro ao criar movimentação de estoque:', stockError);
           throw stockError;
         }
-
-        // Atualizar preço médio ponderado
-        const { error: rpcError } = await supabase.rpc('calculate_weighted_average_price', {
-          p_material_id: item.material_id,
-          p_new_quantity: usageQuantity,
-          p_new_price: usageUnitPrice
-        });
-
-        if (rpcError) {
-          console.error('Erro no RPC calculate_weighted_average_price:', rpcError);
-          throw rpcError;
-        }
+        // current_quantity já é atualizado automaticamente pelo trigger trg_sync_stock_quantity
+        // trg_update_weighted_average cuida do average_price via V1 RPC
       }
 
       // Criar contas a pagar com condição de pagamento definida pelo usuário
@@ -640,24 +632,23 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         }
       }
 
-      // Marcar nota fiscal como lançada no estoque
+      // Marcar nota fiscal como lançada: atualiza status baseado na condição de pagamento
+      const finalStatus = (paymentData.createPayable && invoicePaymentStatus === 'pago') ? 'Pago' : 'Pendente';
       const { error: updateError } = await supabase
         .from('purchase_invoices')
         .update({
           stock_posted: true,
           stock_posted_at: new Date().toISOString(),
-          workflow_status: 'lancada'   // FIX: atualizar status para 'lancada'
+          workflow_status: 'lancada',
+          status: finalStatus
         })
         .eq('id', invoiceId);
 
       if (updateError) throw updateError;
 
-      const currentDate = new Date().toISOString().split('T')[0];
-      const isPaid = paymentData.createPayable && paymentData.paymentDate <= currentDate;
-      
       let successMessage = 'Nota fiscal lançada no estoque com sucesso';
       if (paymentData.createPayable) {
-        successMessage = isPaid 
+        successMessage = finalStatus === 'Pago'
           ? 'Nota fiscal lançada no estoque e conta marcada como PAGA com sucesso'
           : 'Nota fiscal lançada no estoque e conta a pagar criada com sucesso';
       }
@@ -807,9 +798,12 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     }
   };
 
-  // Classificação: NF "precisa de ação" se ainda não concluiu todas as etapas
+  // Classificação: NF "precisa de ação" se não concluiu o fluxo
+  // Uma NF lançada com AP existente (Pendente de pagamento) NÃO é "requer ação"
   const needsAction = (inv: PurchaseInvoice) =>
-    inv.workflowStatus !== 'lancada' || !inv.stockPosted || inv.status === 'Pendente';
+    inv.workflowStatus !== 'lancada' ||
+    !inv.stockPosted ||
+    (inv.status === 'Pendente' && !invoiceHasPayable(inv));
 
   const pendingInvoices = invoices.filter(needsAction);
   const completedInvoices = invoices.filter(inv => !needsAction(inv));
@@ -1059,10 +1053,19 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                      <Button
                        variant="outline"
                        size="sm"
-                       onClick={() => startEditInvoice(invoice.id)}
+                       onClick={() => {
+                         if (invoice.workflowStatus !== 'rascunho') {
+                           setLockedInvoiceIdToEdit(invoice.id);
+                           setShowEditLockedDialog(true);
+                         } else {
+                           startEditInvoice(invoice.id);
+                         }
+                       }}
                        className="flex items-center gap-2"
                      >
-                       <FileText className="h-4 w-4" />
+                       {invoice.workflowStatus !== 'rascunho'
+                         ? <Lock className="h-4 w-4" />
+                         : <FileText className="h-4 w-4" />}
                        Editar
                      </Button>
                      {invoice.workflowStatus !== 'lancada' && !invoice.stockPosted && (
@@ -1414,6 +1417,42 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de confirmação para editar NF já lançada */}
+      <AlertDialog open={showEditLockedDialog} onOpenChange={setShowEditLockedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              Nota Fiscal já lançada
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>Esta nota fiscal já foi lançada no estoque e/ou gerou contas a pagar.</p>
+              <p className="font-medium text-foreground">
+                Edições feitas aqui alteram apenas os dados cadastrais da NF — não revertem movimentações de estoque nem registros financeiros já criados.
+              </p>
+              <p>Para corrigir valores ou itens, o fluxo correto é excluir e relançar a nota.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setLockedInvoiceIdToEdit(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={() => {
+                setShowEditLockedDialog(false);
+                if (lockedInvoiceIdToEdit) {
+                  startEditInvoice(lockedInvoiceIdToEdit);
+                  setLockedInvoiceIdToEdit(null);
+                }
+              }}
+            >
+              Entendi, editar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
