@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +10,7 @@ export interface Supplier {
   id: string;
   code: string;
   status: 'Ativo' | 'Inativo';
+  // Identificação
   companyName: string;
   tradeName?: string;
   supplierType?: string;
@@ -65,6 +65,19 @@ const SectionTitle = ({ icon: Icon, label }: { icon: React.ElementType; label: s
   <div className="flex items-center gap-2 mb-4 pb-2 border-b">
     <Icon className="h-4 w-4 text-primary" />
     <h3 className="text-sm font-semibold text-primary uppercase tracking-wide">{label}</h3>
+  </div>
+);
+
+const BR_STATES = [
+  'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA',
+  'MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN',
+  'RS','RO','RR','SC','SP','SE','TO'
+];
+
+const SectionTitle = ({ icon: Icon, label }: { icon: React.ElementType; label: string }) => (
+  <div className="flex items-center gap-2 mb-4">
+    <Icon className="h-4 w-4 text-muted-foreground" />
+    <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">{label}</h3>
   </div>
 );
 
