@@ -122,6 +122,12 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
 
   const isBOMProduct = material && ['intermediate_product', 'finished_product'].includes(material.materialType);
 
+  // Tipo atualmente selecionado no formulário (pode diferir do material salvo ao trocar o tipo)
+  const currentLegacyType = formData.typeTermId ? getLegacyMaterialType(formData.typeTermId) : (material?.materialType || 'ingredient');
+  // Produto produzido = intermediário ou acabado. Não é comprado, portanto não tem
+  // unidade de compra nem fator de conversão — esses campos são preenchidos automaticamente.
+  const isProducedType = ['intermediate_product', 'finished_product'].includes(currentLegacyType);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -133,7 +139,12 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       setDuplicateError('Selecione a Categoria');
       return;
     }
-    if (!formData.name || !formData.purchaseUnit || !formData.usageUnit || !formData.conversionFactor) return;
+    // Produtos produzidos não precisam de unidade de compra — é preenchida automaticamente
+    if (isProducedType) {
+      if (!formData.name || !formData.usageUnit) return;
+    } else {
+      if (!formData.name || !formData.purchaseUnit || !formData.usageUnit || !formData.conversionFactor) return;
+    }
 
     if (formData.name.toLowerCase() !== originalName.toLowerCase()) {
       const duplicate = existingMaterials.find(mat =>
@@ -153,13 +164,19 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       ? availableSubcategories.find(sub => sub.name === formData.subcategory)
       : undefined;
 
+    // Para produtos produzidos, purchaseUnit = usageUnit e conversionFactor = 1
+    const finalPurchaseUnit = isProducedType ? formData.usageUnit : formData.purchaseUnit;
+    const finalConversionFactor = isProducedType ? 1 : parseFloat(formData.conversionFactor);
+    // CMV de produtos produzidos vem da ficha técnica — preço manual não faz sentido
+    const finalPrice = isProducedType ? 0 : (parseFloat(formData.pricePerPurchaseUnit) || 0);
+
     onSubmit({
       name: formData.name,
       description: formData.description || undefined,
-      purchaseUnit: formData.purchaseUnit,
+      purchaseUnit: finalPurchaseUnit,
       usageUnit: formData.usageUnit,
-      conversionFactor: parseFloat(formData.conversionFactor),
-      pricePerPurchaseUnit: parseFloat(formData.pricePerPurchaseUnit) || 0,
+      conversionFactor: finalConversionFactor,
+      pricePerPurchaseUnit: finalPrice,
       allowedBrands: formData.allowedBrands
         ? formData.allowedBrands.split(',').map(b => b.trim()).filter(Boolean)
         : undefined,
@@ -360,106 +377,157 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
               <span>Unidades & Medidas</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  Unidade de Compra *
-                  <HelpTooltip content="Unidade na qual o material é adquirido (ex: kg, pacote, caixa)." />
-                </Label>
-                <Select
-                  value={formData.purchaseUnit}
-                  onValueChange={(v) => setFormData({ ...formData, purchaseUnit: v })}
-                  disabled={!!isBOMProduct}
-                >
-                  <SelectTrigger className="bg-card">
-                    <SelectValue placeholder="Como você compra?" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border shadow-lg z-50">
-                    {units.map((unit) => (
-                      <SelectItem key={unit} value={unit}>{unit}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  Unidade de Uso *
-                  <HelpTooltip content="Unidade utilizada na produção/receita (ex: g, ml, unidade)." />
-                </Label>
-                <Select
-                  value={formData.usageUnit}
-                  onValueChange={(v) => setFormData({ ...formData, usageUnit: v })}
-                  disabled={!!isBOMProduct}
-                >
-                  <SelectTrigger className="bg-card">
-                    <SelectValue placeholder="Como você usa?" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border shadow-lg z-50">
-                    {units.map((unit) => (
-                      <SelectItem key={unit} value={unit}>{unit}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  Fator de Conversão *
-                  <HelpTooltip content="Quantas unidades de uso em 1 unidade de compra. Ex: 1kg = 1000g → fator 1000." />
-                </Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.conversionFactor}
-                  onChange={(e) => setFormData({ ...formData, conversionFactor: e.target.value })}
-                  placeholder="Ex: 1000"
-                  required
-                  disabled={!!isBOMProduct}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  Preço por Unidade de Compra (R$)
-                  <HelpTooltip content="Preço de referência por unidade de compra. Pode ser atualizado no módulo de Estoque." />
-                </Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.pricePerPurchaseUnit}
-                  onChange={(e) => setFormData({ ...formData, pricePerPurchaseUnit: e.target.value })}
-                  placeholder="0,00"
-                />
-              </div>
-
-              {needsUnitWeight && (
-                <div className="space-y-2">
-                  <Label>
-                    Peso por {formData.usageUnit} (gramas)
-                    <HelpTooltip content="Peso em gramas de 1 unidade de uso, para cálculos de receita." />
-                  </Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={formData.unitWeight}
-                    onChange={(e) => setFormData({ ...formData, unitWeight: e.target.value })}
-                    placeholder="Ex: 50 (gramas por unidade)"
-                    disabled={!!isBOMProduct}
-                  />
+            {isProducedType ? (
+              /* ── Produto produzido: só unidade de uso/produção ── */
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1">
+                      Unidade de Produção / Uso *
+                      <HelpTooltip content="Unidade em que este produto é produzido e usado nas receitas (ex: unidade, porção, kg)." />
+                    </Label>
+                    <Select
+                      value={formData.usageUnit}
+                      onValueChange={(v) => setFormData({ ...formData, usageUnit: v })}
+                    >
+                      <SelectTrigger className="bg-card">
+                        <SelectValue placeholder="Ex: unidade, porção, kg..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border shadow-lg z-50">
+                        {units.map((unit) => (
+                          <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {needsUnitWeight && (
+                    <div className="space-y-2">
+                      <Label>
+                        Peso por {formData.usageUnit} (gramas)
+                        <HelpTooltip content="Peso em gramas de 1 unidade, para cálculos de receita." />
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={formData.unitWeight}
+                        onChange={(e) => setFormData({ ...formData, unitWeight: e.target.value })}
+                        placeholder="Ex: 50"
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+                <p className="text-xs text-muted-foreground bg-muted/40 rounded px-3 py-2">
+                  O custo deste produto é calculado automaticamente a partir da ficha técnica (BOM), com base nos preços médios ponderados dos insumos.
+                </p>
+              </div>
+            ) : (
+              /* ── Insumo / embalagem: unidade compra + uso + conversão ── */
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1">
+                      Unidade de Compra *
+                      <HelpTooltip content="Unidade na qual o material é adquirido (ex: kg, pacote, caixa)." />
+                    </Label>
+                    <Select
+                      value={formData.purchaseUnit}
+                      onValueChange={(v) => setFormData({ ...formData, purchaseUnit: v })}
+                    >
+                      <SelectTrigger className="bg-card">
+                        <SelectValue placeholder="Como você compra?" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border shadow-lg z-50">
+                        {units.map((unit) => (
+                          <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1">
+                      Unidade de Uso *
+                      <HelpTooltip content="Unidade utilizada na produção/receita (ex: g, ml, unidade)." />
+                    </Label>
+                    <Select
+                      value={formData.usageUnit}
+                      onValueChange={(v) => setFormData({ ...formData, usageUnit: v })}
+                    >
+                      <SelectTrigger className="bg-card">
+                        <SelectValue placeholder="Como você usa?" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border shadow-lg z-50">
+                        {units.map((unit) => (
+                          <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1">
+                      Fator de Conversão *
+                      <HelpTooltip content="Quantas unidades de uso em 1 unidade de compra. Ex: 1kg = 1000g → fator 1000." />
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.conversionFactor}
+                      onChange={(e) => setFormData({ ...formData, conversionFactor: e.target.value })}
+                      placeholder="Ex: 1000"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1">
+                      Preço por Unidade de Compra (R$)
+                      <HelpTooltip content="Preço de referência por unidade de compra. Atualizado automaticamente ao lançar NF." />
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.pricePerPurchaseUnit}
+                      onChange={(e) => setFormData({ ...formData, pricePerPurchaseUnit: e.target.value })}
+                      placeholder="0,00"
+                    />
+                  </div>
+
+                  {needsUnitWeight && (
+                    <div className="space-y-2">
+                      <Label>
+                        Peso por {formData.usageUnit} (gramas)
+                        <HelpTooltip content="Peso em gramas de 1 unidade de uso, para cálculos de receita." />
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={formData.unitWeight}
+                        onChange={(e) => setFormData({ ...formData, unitWeight: e.target.value })}
+                        placeholder="Ex: 50 (gramas por unidade)"
+                      />
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="border-t border-border" />
 
           {/* ── SEÇÃO 4: FISCAL ── */}
+          {/* Para produtos produzidos internamente, fiscal só faz sentido se for revendido avulso */}
+          {isProducedType && (
+            <p className="text-xs text-muted-foreground bg-muted/40 rounded px-3 py-2 -mb-2">
+              Dados fiscais são necessários apenas se este produto for revendido avulso (NF de saída). Caso contrário, pode deixar em branco.
+            </p>
+          )}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
               <Receipt className="h-4 w-4" />
