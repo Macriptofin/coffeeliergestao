@@ -3340,11 +3340,13 @@ export type Database = {
           allowed_brands: string[] | null
           category: string
           category_term_id: string | null
+          cfop: string | null
           cfop_padrao: string | null
           code: string | null
           conversion_factor: number
           cost_price: number | null
           created_at: string | null
+          cst: string | null
           cst_csosn: string | null
           density_g_per_ml: number | null
           description: string | null
@@ -3371,11 +3373,13 @@ export type Database = {
           allowed_brands?: string[] | null
           category?: string
           category_term_id?: string | null
+          cfop?: string | null
           cfop_padrao?: string | null
           code?: string | null
           conversion_factor?: number
           cost_price?: number | null
           created_at?: string | null
+          cst?: string | null
           cst_csosn?: string | null
           density_g_per_ml?: number | null
           description?: string | null
@@ -3402,11 +3406,13 @@ export type Database = {
           allowed_brands?: string[] | null
           category?: string
           category_term_id?: string | null
+          cfop?: string | null
           cfop_padrao?: string | null
           code?: string | null
           conversion_factor?: number
           cost_price?: number | null
           created_at?: string | null
+          cst?: string | null
           cst_csosn?: string | null
           density_g_per_ml?: number | null
           description?: string | null
