@@ -235,7 +235,17 @@ export const SimplifiedMaterialsTable = ({
               <TableCell className="text-sm whitespace-nowrap">{material.usageUnit}</TableCell>
               <TableCell className="text-sm font-mono whitespace-nowrap">{material.conversionFactor}</TableCell>
               <TableCell className="text-sm whitespace-nowrap">
-                <span className="text-muted-foreground">0 {material.usageUnit}</span>
+                {material.currentQuantity != null ? (
+                  <span className={
+                    material.minimumQuantity != null && material.currentQuantity <= material.minimumQuantity
+                      ? 'text-destructive font-medium'
+                      : 'text-foreground'
+                  }>
+                    {material.currentQuantity} {material.usageUnit}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground/50 text-xs">—</span>
+                )}
               </TableCell>
             </TableRow>
           ))}

@@ -37,6 +37,8 @@ export interface Material {
   isSellable?: boolean;
   costSource?: 'purchase' | 'production' | 'manual';
   manualPrice?: boolean;
+  currentQuantity?: number;
+  minimumQuantity?: number;
 }
 
 export interface Recipe {

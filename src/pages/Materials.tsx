@@ -229,7 +229,7 @@ const Materials = () => {
           material_type,
           unit_weight,
           is_sellable,
-          stock_items(cost_source, manual_price)
+          stock_items(current_quantity, minimum_quantity)
         `)
         .eq('is_archived', false)
         .order('name');
@@ -269,8 +269,8 @@ const Materials = () => {
             materialType: (item.material_type || 'ingredient') as Material['materialType'],
             unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
             isSellable: Boolean(item.is_sellable),
-            costSource: (item as any).stock_items?.[0]?.cost_source || undefined,
-            manualPrice: (item as any).stock_items?.[0]?.manual_price || false,
+            currentQuantity: (item as any).stock_items?.[0]?.current_quantity ?? undefined,
+            minimumQuantity: (item as any).stock_items?.[0]?.minimum_quantity ?? undefined,
           };
           
           return formatted;
@@ -292,8 +292,8 @@ const Materials = () => {
             materialType: 'ingredient' as Material['materialType'],
             unitWeight: undefined,
             isSellable: false,
-            costSource: undefined,
-            manualPrice: false,
+            currentQuantity: undefined,
+            minimumQuantity: undefined,
           };
         }
       });
