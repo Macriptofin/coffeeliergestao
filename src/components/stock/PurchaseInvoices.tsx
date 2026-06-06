@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -92,6 +91,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showEditLockedDialog, setShowEditLockedDialog] = useState(false);
   const [lockedInvoiceIdToEdit, setLockedInvoiceIdToEdit] = useState<string | null>(null);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminAuthError, setAdminAuthError] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [editFormData, setEditFormData] = useState({
     invoiceNumber: '',
     invoiceDate: '',
@@ -248,6 +250,36 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       toast.error('Erro ao carregar dados da nota fiscal');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Admin digita a senha para desbloquear edição de NF já lançada
+  const handleAdminEditAuth = async () => {
+    if (!adminPassword || !lockedInvoiceIdToEdit) return;
+    setIsAuthenticating(true);
+    setAdminAuthError('');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) { setAdminAuthError('Sessão inválida. Faça login novamente.'); return; }
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: adminPassword,
+      });
+      if (error) {
+        setAdminAuthError('Senha incorreta. Tente novamente.');
+        return;
+      }
+      // Autenticação OK — abrir edição
+      setShowEditLockedDialog(false);
+      setAdminPassword('');
+      setAdminAuthError('');
+      const invoiceId = lockedInvoiceIdToEdit;
+      setLockedInvoiceIdToEdit(null);
+      startEditInvoice(invoiceId);
+    } catch {
+      setAdminAuthError('Erro ao verificar senha. Tente novamente.');
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
@@ -1418,41 +1450,77 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         </DialogContent>
       </Dialog>
 
-      {/* Dialog de confirmação para editar NF já lançada */}
-      <AlertDialog open={showEditLockedDialog} onOpenChange={setShowEditLockedDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-orange-500" />
-              Nota Fiscal já lançada
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>Esta nota fiscal já foi lançada no estoque e/ou gerou contas a pagar.</p>
-              <p className="font-medium text-foreground">
-                Edições feitas aqui alteram apenas os dados cadastrais da NF — não revertem movimentações de estoque nem registros financeiros já criados.
+      {/* Dialog: restrição de edição de NF lançada */}
+      <Dialog
+        open={showEditLockedDialog}
+        onOpenChange={(open) => {
+          setShowEditLockedDialog(open);
+          if (!open) { setLockedInvoiceIdToEdit(null); setAdminPassword(''); setAdminAuthError(''); }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-destructive" />
+              Nota Fiscal Bloqueada
+            </DialogTitle>
+          </DialogHeader>
+
+          <Alert variant="destructive" className="border-orange-200 bg-orange-50 text-orange-800">
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <AlertDescription>
+              Esta NF já foi lançada no estoque e gerou registros financeiros.
+              Edições <strong>não revertem</strong> movimentações de estoque nem contas a pagar já criadas.
+              Para corrigir valores ou itens, exclua e relance a nota.
+            </AlertDescription>
+          </Alert>
+
+          {isAdmin() ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Como administrador, você pode editar mediante confirmação de senha.
               </p>
-              <p>Para corrigir valores ou itens, o fluxo correto é excluir e relançar a nota.</p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setLockedInvoiceIdToEdit(null)}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-orange-500 hover:bg-orange-600 text-white"
-              onClick={() => {
-                setShowEditLockedDialog(false);
-                if (lockedInvoiceIdToEdit) {
-                  startEditInvoice(lockedInvoiceIdToEdit);
-                  setLockedInvoiceIdToEdit(null);
-                }
-              }}
-            >
-              Entendi, editar mesmo assim
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-pass">Senha de administrador</Label>
+                <Input
+                  id="admin-pass"
+                  type="password"
+                  placeholder="Digite sua senha"
+                  value={adminPassword}
+                  onChange={(e) => { setAdminPassword(e.target.value); setAdminAuthError(''); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAdminEditAuth(); }}
+                  autoFocus
+                />
+                {adminAuthError && (
+                  <p className="text-sm text-destructive">{adminAuthError}</p>
+                )}
+              </div>
+              <div className="flex gap-2 justify-end pt-1">
+                <Button variant="outline" onClick={() => setShowEditLockedDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={!adminPassword || isAuthenticating}
+                  onClick={handleAdminEditAuth}
+                >
+                  {isAuthenticating ? 'Verificando...' : 'Confirmar e Editar'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Apenas administradores podem editar notas fiscais já lançadas.
+                Entre em contato com o administrador para solicitar uma correção.
+              </p>
+              <div className="flex justify-end">
+                <Button onClick={() => setShowEditLockedDialog(false)}>Fechar</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
