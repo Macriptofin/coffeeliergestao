@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
@@ -72,7 +72,14 @@ export const MaterialEditor = ({
     materialType: material?.materialType || 'ingredient' as Material['materialType'],
     unitWeight: material?.unitWeight?.toString() || '',
     tracksInventory: material?.tracksInventory !== false, // default true
+    ncm: material?.ncm || '',
+    cfop: material?.cfop || '',
+    cst: material?.cst || '',
+    origem: material?.origem?.toString() || '0',
   });
+
+  // Track which material has been initialized to prevent formData reset on taxonomy re-renders
+  const initializedMaterialId = useRef<string | null>(null);
 
   const units = [
     'kg', 'g', 'L', 'mL', 'unidade', 'pacote', 'caixa', 'lata', 'saco', 'envelope', 'dúzia', 'centena'
@@ -143,9 +150,13 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
     return typeTerm?.id || '';
   };
 
-  // Update form data when material changes
+  // Update form data when material changes (guarded by material.id to prevent
+  // reset on every taxonomy re-render — materialTypesFromTaxonomy creates a
+  // new array reference on each render via .filter(), which would otherwise
+  // reset all user edits immediately after any setFormData call)
   useEffect(() => {
-    if (material && materialTypesFromTaxonomy.length > 0) {
+    if (material && materialTypesFromTaxonomy.length > 0 && initializedMaterialId.current !== material.id) {
+      initializedMaterialId.current = material.id;
       const typeTermId = getTypeTermIdFromMaterial(material);
       setFormData({
         name: material.name,
@@ -161,6 +172,10 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
         materialType: material.materialType,
         unitWeight: material.unitWeight?.toString() || '',
         tracksInventory: material.tracksInventory !== false,
+        ncm: material.ncm || '',
+        cfop: material.cfop || '',
+        cst: material.cst || '',
+        origem: material.origem?.toString() || '0',
       });
     }
   }, [material, materialTypesFromTaxonomy]);
@@ -182,7 +197,11 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
         formData.subcategory !== (material.subcategory || '') ||
         formData.materialType !== material.materialType ||
         formData.unitWeight !== (material.unitWeight?.toString() || '') ||
-        formData.tracksInventory !== (material.tracksInventory !== false);
+        formData.tracksInventory !== (material.tracksInventory !== false) ||
+        formData.ncm !== (material.ncm || '') ||
+        formData.cfop !== (material.cfop || '') ||
+        formData.cst !== (material.cst || '') ||
+        formData.origem !== (material.origem?.toString() || '0');
       
       setHasUnsavedChanges(hasChanges);
     }
@@ -268,6 +287,10 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
       materialType: legacyMaterialType,
       unitWeight: formData.unitWeight ? parseFloat(formData.unitWeight) : undefined,
       tracksInventory: formData.tracksInventory,
+      ncm: formData.ncm || undefined,
+      cfop: formData.cfop || undefined,
+      cst: formData.cst || undefined,
+      origem: formData.origem ? parseInt(formData.origem) : undefined,
     };
 
     onSave(updatedMaterial);
@@ -364,7 +387,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
               <Truck className="h-4 w-4" />
               Fornecedores
             </TabsTrigger>
-            <TabsTrigger value="fiscal" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none" disabled>
+            <TabsTrigger value="fiscal" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
               <FileText className="h-4 w-4" />
               Fiscal
             </TabsTrigger>
@@ -653,6 +676,80 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
                   
                   <div className="text-sm text-muted-foreground">
                     Funcionalidades avançadas de fornecedores serão implementadas em breve.
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="fiscal" className="mt-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Informações Fiscais
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="ncm">NCM</Label>
+                      <Input
+                        id="ncm"
+                        value={formData.ncm}
+                        onChange={(e) => setFormData({ ...formData, ncm: e.target.value.replace(/\D/g, '').slice(0, 8) })}
+                        placeholder="00000000"
+                        maxLength={8}
+                        className="font-mono"
+                      />
+                      <p className="text-xs text-muted-foreground">Nomenclatura Comum do Mercosul (8 dígitos)</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cfop">CFOP</Label>
+                      <Input
+                        id="cfop"
+                        value={formData.cfop}
+                        onChange={(e) => setFormData({ ...formData, cfop: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                        placeholder="1102"
+                        maxLength={4}
+                        className="font-mono"
+                      />
+                      <p className="text-xs text-muted-foreground">Código Fiscal de Operações e Prestações</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cst">CST</Label>
+                      <Input
+                        id="cst"
+                        value={formData.cst}
+                        onChange={(e) => setFormData({ ...formData, cst: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                        placeholder="000"
+                        maxLength={3}
+                        className="font-mono"
+                      />
+                      <p className="text-xs text-muted-foreground">Código de Situação Tributária</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Origem da Mercadoria</Label>
+                    <Select
+                      value={formData.origem}
+                      onValueChange={(v) => setFormData({ ...formData, origem: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">0 — Nacional</SelectItem>
+                        <SelectItem value="1">1 — Estrangeira (importação direta)</SelectItem>
+                        <SelectItem value="2">2 — Estrangeira (adquirida no mercado interno)</SelectItem>
+                        <SelectItem value="3">3 — Nacional com mais de 40% de conteúdo importado</SelectItem>
+                        <SelectItem value="4">4 — Nacional produção conforme processos básicos</SelectItem>
+                        <SelectItem value="5">5 — Nacional com até 40% de conteúdo importado</SelectItem>
+                        <SelectItem value="6">6 — Estrangeira (importação direta) sem similar nacional</SelectItem>
+                        <SelectItem value="7">7 — Estrangeira (mercado interno) sem similar nacional</SelectItem>
+                        <SelectItem value="8">8 — Nacional, mercadoria ou bem com Conteúdo de Importação superior a 70%</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </CardContent>
               </Card>
