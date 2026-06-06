@@ -1024,7 +1024,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               {displayedInvoices.map(invoice => (
                 <div key={invoice.id} className="flex items-center justify-between p-4 bg-accent rounded-lg">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1 flex-wrap">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <h3 className="font-medium">Nota #{invoice.invoiceNumber}</h3>
                       <Badge variant={getStatusColor(invoice.status)}>
                         {invoice.status}
@@ -1037,8 +1037,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                         </Badge>
                       )}
                     </div>
-                    <InvoiceProgress inv={invoice} />
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-muted-foreground mt-2">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
                       <div>
                         <span className="block font-medium text-foreground">
                           {invoice.supplier?.companyName || 'Sem fornecedor'}
