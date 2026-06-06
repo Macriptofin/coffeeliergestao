@@ -81,7 +81,7 @@ const Suppliers = () => {
         supabase.from('suppliers').select('*').order('company_name'),
         supabase
           .from('accounts_payable')
-          .select('supplier_id, amount')
+          .select('supplier_id, original_amount')
           .gte('due_date', `${new Date().getFullYear()}-01-01`)
           .lte('due_date', `${new Date().getFullYear()}-12-31`),
       ]);
@@ -91,7 +91,7 @@ const Suppliers = () => {
       const spend: Record<string, number> = {};
       (spendRes.data ?? []).forEach((row: any) => {
         if (row.supplier_id) {
-          spend[row.supplier_id] = (spend[row.supplier_id] ?? 0) + parseFloat(row.amount ?? '0');
+          spend[row.supplier_id] = (spend[row.supplier_id] ?? 0) + parseFloat(row.original_amount ?? '0');
         }
       });
 
