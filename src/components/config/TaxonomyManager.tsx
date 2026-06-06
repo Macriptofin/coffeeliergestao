@@ -48,6 +48,7 @@ export const TaxonomyManager = ({
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTerm, setEditingTerm] = useState<any>(null);
+  const [codeManuallyEdited, setCodeManuallyEdited] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -56,12 +57,31 @@ export const TaxonomyManager = ({
     is_active: true
   });
 
+  // Auto-generate code from name + optional parent
+  const generateCode = (name: string, parentId?: string): string => {
+    const clean = (str: string) =>
+      str
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')  // strip accents
+        .replace(/[^A-Z0-9]/g, '')        // keep alphanumeric only
+        .slice(0, 3);
+
+    const namePart = clean(name);
+    if (!parentId) return namePart;
+
+    const parent = terms.find(t => t.id === parentId);
+    const parentPart = parent ? clean(parent.name) : '';
+    return parentPart ? `${parentPart}_${namePart}` : namePart;
+  };
+
   const taxonomyTerms = getTermsByTaxonomy(taxonomyKey);
   // Filtrar termos: baseado na taxonomyKey específica e apenas ativos
   const allTerms = taxonomyTerms.filter(t => t.is_active !== false);
 
   const handleCreate = () => {
     setEditingTerm(null);
+    setCodeManuallyEdited(false);
     setFormData({
       name: '',
       code: '',
@@ -74,6 +94,7 @@ export const TaxonomyManager = ({
 
   const handleEdit = (term: any) => {
     setEditingTerm(term);
+    setCodeManuallyEdited(true); // editing: don't auto-overwrite code
     setFormData({
       name: term.name,
       code: term.code || '',
@@ -82,6 +103,25 @@ export const TaxonomyManager = ({
       is_active: term.is_active
     });
     setIsDialogOpen(true);
+  };
+
+  const handleNameChange = (name: string) => {
+    setFormData(prev => {
+      const newCode = !codeManuallyEdited ? generateCode(name, prev.parent_id) : prev.code;
+      return { ...prev, name, code: newCode };
+    });
+  };
+
+  const handleParentChange = (parentId: string) => {
+    setFormData(prev => {
+      const newCode = !codeManuallyEdited ? generateCode(prev.name, parentId) : prev.code;
+      return { ...prev, parent_id: parentId, code: newCode };
+    });
+  };
+
+  const handleCodeChange = (code: string) => {
+    setCodeManuallyEdited(true);
+    setFormData(prev => ({ ...prev, code: code.toUpperCase() }));
   };
 
   const handleSave = async () => {
@@ -189,37 +229,23 @@ export const TaxonomyManager = ({
                     <Input
                       id="name"
                       value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      onChange={(e) => handleNameChange(e.target.value)}
                       placeholder="Nome do termo"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="code">Código</Label>
-                    <Input
-                      id="code"
-                      value={formData.code}
-                      onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
-                      placeholder="Ex: INS, EMB"
-                      maxLength={10}
+                      autoFocus
                     />
                   </div>
 
                   {showParent && parentOptions.length > 0 && (
                     <div className="space-y-2">
                       <Label>
-                        {parentTaxonomyKey === 'material_type' ? 'Tipo de Material' : 
-                         parentTaxonomyKey === 'material_category' ? 'Categoria' : 'Termo Pai'}
+                        {parentTaxonomyKey === 'material_category' ? 'Categoria' : 'Termo Pai'}
                       </Label>
-                      <Select 
-                        value={formData.parent_id} 
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, parent_id: value }))}
+                      <Select
+                        value={formData.parent_id}
+                        onValueChange={handleParentChange}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder={
-                            parentTaxonomyKey === 'material_type' ? 'Selecione o tipo de material' : 
-                            parentTaxonomyKey === 'material_category' ? 'Selecione a categoria' : 'Selecione o termo pai'
-                          } />
+                          <SelectValue placeholder="Selecione a categoria" />
                         </SelectTrigger>
                         <SelectContent>
                           {parentOptions.map(parent => (
@@ -232,14 +258,26 @@ export const TaxonomyManager = ({
                     </div>
                   )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="sort_order">Ordem de Classificação</Label>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="code">Código</Label>
+                      {!codeManuallyEdited && formData.code && (
+                        <span className="text-xs text-muted-foreground">gerado automaticamente</span>
+                      )}
+                    </div>
                     <Input
-                      id="sort_order"
-                      type="number"
-                      value={formData.sort_order}
-                      onChange={(e) => setFormData(prev => ({ ...prev, sort_order: parseInt(e.target.value) || 0 }))}
+                      id="code"
+                      value={formData.code}
+                      onChange={(e) => handleCodeChange(e.target.value)}
+                      placeholder="Gerado automaticamente ao digitar o nome"
+                      maxLength={12}
+                      className="font-mono"
                     />
+                    {!codeManuallyEdited && (
+                      <p className="text-xs text-muted-foreground">
+                        Edite o campo acima para personalizar o código.
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center space-x-2">
@@ -251,7 +289,7 @@ export const TaxonomyManager = ({
                     <Label htmlFor="is_active">Ativo</Label>
                   </div>
 
-                  <div className="flex gap-2 pt-4">
+                  <div className="flex gap-2 pt-2">
                     <Button onClick={handleSave}>
                       <Save className="h-4 w-4 mr-2" />
                       Salvar
