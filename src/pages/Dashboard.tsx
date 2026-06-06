@@ -161,8 +161,8 @@ const Dashboard = () => {
       materiaisZerados:      stockZero.count ?? 0,
       contasReceberVencidas: apVencido.data?.length ?? 0,
       contasPagarProximas7:  apProximo.data?.length ?? 0,
-      totalReceberVencido:   apVencido.data?.reduce((s, r) => s + parseFloat(r.remaining_amount ?? 0), 0) ?? 0,
-      totalPagarProximas7:   apProximo.data?.reduce((s, r) => s + parseFloat(r.remaining_amount ?? 0), 0) ?? 0,
+      totalReceberVencido:   apVencido.data?.reduce((s, r) => s + parseFloat(r.remaining_amount ?? '0'), 0) ?? 0,
+      totalPagarProximas7:   apProximo.data?.reduce((s, r) => s + parseFloat(r.remaining_amount ?? '0'), 0) ?? 0,
     });
   };
 

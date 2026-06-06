@@ -65,7 +65,7 @@ export function LaunchProductDialog({ recipe, onSuccess }: LaunchProductDialogPr
       if (materialError) throw materialError;
 
       // 2. Inserir produto referenciando o material criado
-      const { error: productError } = await supabase
+      const { error: productError } = await (supabase as any)
         .from('products')
         .insert({
           name: formData.name,

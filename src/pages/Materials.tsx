@@ -361,7 +361,6 @@ const Materials = () => {
         usageUnit: data.usage_unit,
         conversionFactor: parseFloat(data.conversion_factor?.toString() || '1'),
         pricePerPurchaseUnit: parseFloat(data.price_per_purchase_unit?.toString() || '0'),
-        supplier: data.supplier || undefined,
         allowedBrands: data.allowed_brands || undefined,
         category: data.category || 'Alimentos & Ingredientes',
         subcategory: data.subcategory || undefined,

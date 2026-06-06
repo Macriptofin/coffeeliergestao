@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Eye, Edit, Copy, Trash2, Factory, ShoppingCart, CheckCircle2, FileDown, Send, Link } from 'lucide-react';
 import { toast } from 'sonner';
-import { toast } from 'sonner';
 import {
   Table,
   TableBody,
@@ -184,7 +183,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
   const handleApprove = async (proposalId: string) => {
     try {
       await supabase.from('proposals').update({ status: 'aprovada' }).eq('id', proposalId);
-      const { error: evtErr }  = await supabase.rpc('create_event_from_proposal',      { p_proposal_id: proposalId });
+      const { error: evtErr }  = await (supabase.rpc as any)('create_event_from_proposal',      { p_proposal_id: proposalId });
       const { error: prodErr } = await supabase.rpc('generate_production_from_proposal', { p_proposal_id: proposalId });
       if (evtErr)  console.warn('create_event_from_proposal:',      evtErr.message);
       if (prodErr) console.warn('generate_production_from_proposal:', prodErr.message);

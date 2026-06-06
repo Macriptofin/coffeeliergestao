@@ -116,7 +116,7 @@ export function EventOperationalCard({ event, onEdit, onRefresh }: Props) {
       .select('*')
       .eq('event_id', event.id)
       .order('created_at');
-    setChecklist(data || []);
+    setChecklist((data || []) as unknown as ChecklistItem[]);
   };
 
   const toggleItem = async (item: ChecklistItem) => {
@@ -126,8 +126,8 @@ export function EventOperationalCard({ event, onEdit, onRefresh }: Props) {
 
   const addItem = async () => {
     if (!newTask.trim()) return;
-    const { data } = await supabase.from('event_checklist').insert({ event_id: event.id, task: newTask.trim(), is_completed: false }).select().single();
-    if (data) { setChecklist(prev => [...prev, data]); setNewTask(''); }
+    const { data } = await (supabase as any).from('event_checklist').insert({ event_id: event.id, task: newTask.trim(), is_completed: false }).select().single();
+    if (data) { setChecklist(prev => [...prev, data as ChecklistItem]); setNewTask(''); }
   };
 
   const updateStatus = async (newStatus: string) => {

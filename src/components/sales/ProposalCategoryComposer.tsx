@@ -277,7 +277,7 @@ export default function ProposalCategoryComposer({ proposalId, onComplete, onCan
       await supabase.from('proposals').update({ status: 'aprovada' }).eq('id', proposalId);
 
       // 3. Criar evento automaticamente
-      const { error: evtErr } = await supabase.rpc('create_event_from_proposal', { p_proposal_id: proposalId });
+      const { error: evtErr } = await (supabase.rpc as any)('create_event_from_proposal', { p_proposal_id: proposalId });
       if (evtErr) console.warn('create_event_from_proposal:', evtErr.message);
 
       // 4. Gerar produção automaticamente
