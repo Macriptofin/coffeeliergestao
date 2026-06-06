@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,18 +69,6 @@ const SectionTitle = ({ icon: Icon, label }: { icon: React.ElementType; label: s
   </div>
 );
 
-const BR_STATES = [
-  'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA',
-  'MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN',
-  'RS','RO','RR','SC','SP','SE','TO'
-];
-
-const SectionTitle = ({ icon: Icon, label }: { icon: React.ElementType; label: string }) => (
-  <div className="flex items-center gap-2 mb-4">
-    <Icon className="h-4 w-4 text-muted-foreground" />
-    <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">{label}</h3>
-  </div>
-);
 
 export const SupplierForm = ({ supplier, onSubmit, onCancel, isSubmitting = false }: SupplierFormProps) => {
   const [formData, setFormData] = useState({
