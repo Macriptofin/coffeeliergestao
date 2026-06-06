@@ -11,7 +11,6 @@ import { ImportMaterials } from "@/components/ImportMaterials";
 import { PurchaseRequirements } from "@/components/purchase/PurchaseRequirements";
 import { PurchaseRequestsList } from "@/components/purchase/PurchaseRequestsList";
 import { PurchaseOrders } from "@/components/purchase/PurchaseOrders";
-import { InvoiceOCRUploader } from "@/components/purchase/InvoiceOCRUploader";
 import { MRPGenerator } from "@/components/purchase/MRPGenerator";
 
 export interface PurchaseInvoice {
@@ -193,42 +192,6 @@ const Purchases = () => {
         </Card>
       </div>
 
-      {/* Alerta de Notas Pendentes */}
-      {unpostedInvoices.length > 0 && (
-        <Card className="mb-8 border-blue-200 bg-blue-50">
-          <CardHeader>
-            <CardTitle className="text-blue-800 flex items-center gap-2">
-              <Package2 className="h-5 w-5" />
-              Alerta: Notas Não Lançadas no Estoque
-            </CardTitle>
-            <CardDescription className="text-blue-700">
-              As seguintes notas precisam ser lançadas no estoque
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3">
-              {unpostedInvoices.slice(0, 5).map(invoice => (
-                <div key={invoice.id} className="flex items-center justify-between p-3 bg-white rounded-lg">
-                  <div>
-                    <p className="font-medium text-blue-900">{invoice.invoiceNumber}</p>
-                    <p className="text-sm text-blue-600">
-                      {invoice.supplier?.companyName} - R$ {invoice.totalAmount.toFixed(2)}
-                    </p>
-                  </div>
-                  <Badge variant="secondary">
-                    Não Lançada
-                  </Badge>
-                </div>
-              ))}
-              {unpostedInvoices.length > 5 && (
-                <p className="text-sm text-blue-600 text-center">
-                  +{unpostedInvoices.length - 5} outras notas precisam ser lançadas
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Tabs do Sistema */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -237,17 +200,20 @@ const Purchases = () => {
             <TrendingUp className="h-4 w-4" />
             Necessidades
           </TabsTrigger>
-          <TabsTrigger value="requests" className="flex items-center gap-2">
+          <TabsTrigger value="requests" className="flex items-center gap-2 opacity-60">
             <FileText className="h-4 w-4" />
             Requisições
+            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 ml-1">Em breve</Badge>
           </TabsTrigger>
-          <TabsTrigger value="quotes" className="flex items-center gap-2">
+          <TabsTrigger value="quotes" className="flex items-center gap-2 opacity-60">
             <MessageSquare className="h-4 w-4" />
             Cotações
+            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 ml-1">Em breve</Badge>
           </TabsTrigger>
-          <TabsTrigger value="orders" className="flex items-center gap-2">
+          <TabsTrigger value="orders" className="flex items-center gap-2 opacity-60">
             <ShoppingCart className="h-4 w-4" />
             Pedidos
+            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 ml-1">Em breve</Badge>
           </TabsTrigger>
           <TabsTrigger value="invoices" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -265,27 +231,43 @@ const Purchases = () => {
         </TabsContent>
 
         <TabsContent value="requests" className="mt-6">
-          <PurchaseRequestsList />
+          <Card className="p-10 text-center">
+            <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <h3 className="font-semibold mb-1">Requisições de Compra</h3>
+            <p className="text-sm text-muted-foreground">
+              Funcionalidade planejada para o fluxo de compras com fabricantes e produtores diretos.<br />
+              Por enquanto, o lançamento vai direto de Necessidades → Notas Fiscais.
+            </p>
+          </Card>
         </TabsContent>
 
         <TabsContent value="quotes" className="mt-6">
-          <Card className="p-6">
-            <p className="text-muted-foreground">Módulo de Solicitações de Cotação em desenvolvimento</p>
+          <Card className="p-10 text-center">
+            <MessageSquare className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <h3 className="font-semibold mb-1">Cotações</h3>
+            <p className="text-sm text-muted-foreground">
+              Módulo de solicitação e comparativo de cotações entre fornecedores.<br />
+              Disponível em uma versão futura.
+            </p>
           </Card>
         </TabsContent>
 
         <TabsContent value="orders" className="mt-6">
-          <PurchaseOrders />
+          <Card className="p-10 text-center">
+            <ShoppingCart className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <h3 className="font-semibold mb-1">Pedidos de Compra</h3>
+            <p className="text-sm text-muted-foreground">
+              Emissão e acompanhamento de pedidos para fornecedores.<br />
+              Disponível em uma versão futura.
+            </p>
+          </Card>
         </TabsContent>
 
         <TabsContent value="invoices" className="mt-6">
-          <div className="space-y-6">
-            <InvoiceOCRUploader onCreated={loadPurchaseInvoices} />
-            <PurchaseInvoices 
-              invoices={purchaseInvoices}
-              onRefresh={loadPurchaseInvoices}
-            />
-          </div>
+          <PurchaseInvoices
+            invoices={purchaseInvoices}
+            onRefresh={loadPurchaseInvoices}
+          />
         </TabsContent>
 
         <TabsContent value="products" className="mt-6">

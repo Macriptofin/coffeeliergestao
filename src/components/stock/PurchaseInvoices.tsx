@@ -12,7 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, Plus, ShoppingCart, X, Package, Shield, Trash2, CreditCard, FileEdit, Lock, Clock } from "lucide-react";
+import { FileText, Plus, ShoppingCart, X, Package, Shield, Trash2, CreditCard, FileEdit, Lock, Clock, Upload, CheckCircle2, Circle, History, Filter } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { InvoiceOCRUploader } from "@/components/purchase/InvoiceOCRUploader";
 import type { PurchaseInvoice } from "@/pages/Stock";
 import { useUserRole } from "@/hooks/useUserRole";
 import { InvoiceEditDialog } from "../purchase/InvoiceEditDialog";
@@ -82,6 +84,10 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
+  // View mode: "pending" mostra NFs que precisam de ação; "history" mostra concluídas
+  const [viewMode, setViewMode] = useState<'pending' | 'history'>('pending');
+  const [isOCRSheetOpen, setIsOCRSheetOpen] = useState(false);
+  const [historyFilters, setHistoryFilters] = useState({ supplierId: '', period: '' });
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editFormData, setEditFormData] = useState({
     invoiceNumber: '',
@@ -801,6 +807,44 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     }
   };
 
+  // Classificação: NF "precisa de ação" se ainda não concluiu todas as etapas
+  const needsAction = (inv: PurchaseInvoice) =>
+    inv.workflowStatus !== 'lancada' || !inv.stockPosted || inv.status === 'Pendente';
+
+  const pendingInvoices = invoices.filter(needsAction);
+  const completedInvoices = invoices.filter(inv => !needsAction(inv));
+
+  const filteredHistory = completedInvoices.filter(inv => {
+    const supplierOk = !historyFilters.supplierId || inv.supplier?.id === historyFilters.supplierId;
+    const periodOk = !historyFilters.period || inv.invoiceDate.startsWith(historyFilters.period);
+    return supplierOk && periodOk;
+  });
+
+  const displayedInvoices = viewMode === 'pending' ? pendingInvoices : filteredHistory;
+
+  // Componente inline de progresso por NF (3 etapas)
+  const InvoiceProgress = ({ inv }: { inv: PurchaseInvoice }) => {
+    const steps = [
+      { label: 'Efetivada', done: inv.workflowStatus === 'lancada' || inv.workflowStatus === 'pendente' },
+      { label: 'Estoque',   done: inv.stockPosted },
+      { label: 'Paga',      done: inv.status === 'Pago' },
+    ];
+    return (
+      <div className="flex items-center gap-1 mt-2">
+        {steps.map((step, i) => (
+          <div key={i} className="flex items-center gap-1">
+            {step.done
+              ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+              : <Circle className="h-3.5 w-3.5 text-gray-300" />
+            }
+            <span className={`text-xs ${step.done ? 'text-green-600' : 'text-muted-foreground'}`}>{step.label}</span>
+            {i < steps.length - 1 && <div className="w-4 h-px bg-border mx-0.5" />}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   if (roleLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -839,64 +883,148 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5" />
                 Notas Fiscais de Compra
               </CardTitle>
               <CardDescription>
-                Controle de entrada de mercadorias e atualização automática do estoque
+                Controle de entrada de mercadorias e atualização do estoque
               </CardDescription>
             </div>
-            <Button 
-              onClick={openNewInvoiceDialog}
-              className="flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Nota Fiscal
-            </Button>
-
-            {/* Dialog robusto de lançamento com todos os campos */}
-            <InvoiceEditDialog
-              open={isInvoiceDialogOpen}
-              onOpenChange={(open) => {
-                setIsInvoiceDialogOpen(open);
-                if (!open) {
-                  setEditingInvoiceId(null);
-                  setEditingSupplierId(null);
-                  setEditingItemsLocked(false);
-                }
-              }}
-              invoiceData={manualInvoiceData}
-              onLaunch={handleInvoiceLaunch}
-              onSaveDraft={onRefresh}
-              formaPagamento="dinheiro"
-              numeroParcelas={1}
-              prazoPagamentoDias={30}
-              invoiceId={editingInvoiceId}
-              supplierId={editingSupplierId}
-              isEditMode={!!editingInvoiceId}
-              itemsLocked={editingItemsLocked}
-              isAdmin={isAdmin()}
-            />
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setIsOCRSheetOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Importar via OCR
+              </Button>
+              <Button size="sm" onClick={openNewInvoiceDialog}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova NF
+              </Button>
+            </div>
           </div>
+
+          {/* Toggle: Requer Ação | Histórico */}
+          <div className="flex items-center gap-2 pt-2">
+            <button
+              onClick={() => setViewMode('pending')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'pending'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              <Clock className="h-3.5 w-3.5" />
+              Requer Ação
+              {pendingInvoices.length > 0 && (
+                <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${
+                  viewMode === 'pending' ? 'bg-primary-foreground text-primary' : 'bg-orange-500 text-white'
+                }`}>
+                  {pendingInvoices.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setViewMode('history')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'history'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              <History className="h-3.5 w-3.5" />
+              Histórico
+              <span className="ml-1 text-xs opacity-70">({completedInvoices.length})</span>
+            </button>
+          </div>
+
+          {/* Filtros do histórico */}
+          {viewMode === 'history' && (
+            <div className="flex items-center gap-3 pt-2 border-t">
+              <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <Select value={historyFilters.supplierId} onValueChange={(v) => setHistoryFilters(f => ({ ...f, supplierId: v === 'all' ? '' : v }))}>
+                <SelectTrigger className="h-8 w-48 text-sm">
+                  <SelectValue placeholder="Todos os fornecedores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os fornecedores</SelectItem>
+                  {suppliers.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.companyName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <input
+                type="month"
+                value={historyFilters.period}
+                onChange={(e) => setHistoryFilters(f => ({ ...f, period: e.target.value }))}
+                className="h-8 px-2 border rounded-md text-sm bg-background"
+              />
+              {(historyFilters.supplierId || historyFilters.period) && (
+                <button
+                  onClick={() => setHistoryFilters({ supplierId: '', period: '' })}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Dialog robusto de lançamento com todos os campos */}
+          <InvoiceEditDialog
+            open={isInvoiceDialogOpen}
+            onOpenChange={(open) => {
+              setIsInvoiceDialogOpen(open);
+              if (!open) {
+                setEditingInvoiceId(null);
+                setEditingSupplierId(null);
+                setEditingItemsLocked(false);
+              }
+            }}
+            invoiceData={manualInvoiceData}
+            onLaunch={handleInvoiceLaunch}
+            onSaveDraft={onRefresh}
+            formaPagamento="dinheiro"
+            numeroParcelas={1}
+            prazoPagamentoDias={30}
+            invoiceId={editingInvoiceId}
+            supplierId={editingSupplierId}
+            isEditMode={!!editingInvoiceId}
+            itemsLocked={editingItemsLocked}
+            isAdmin={isAdmin()}
+          />
         </CardHeader>
         <CardContent>
-          {invoices.length === 0 ? (
-            <div className="text-center py-8">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Nenhuma nota fiscal cadastrada</p>
-              <p className="text-sm text-muted-foreground">
-                Cadastre notas fiscais para controlar entradas no estoque
-              </p>
+          {displayedInvoices.length === 0 ? (
+            <div className="text-center py-10">
+              {viewMode === 'pending' ? (
+                <>
+                  <CheckCircle2 className="h-12 w-12 text-green-400 mx-auto mb-3" />
+                  <p className="font-medium text-green-700">Tudo em dia!</p>
+                  <p className="text-sm text-muted-foreground mt-1">Nenhuma nota aguarda ação.</p>
+                </>
+              ) : (
+                <>
+                  <History className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">Nenhuma nota concluída encontrada.</p>
+                  {(historyFilters.supplierId || historyFilters.period) && (
+                    <button
+                      onClick={() => setHistoryFilters({ supplierId: '', period: '' })}
+                      className="text-sm text-primary mt-2 hover:underline"
+                    >
+                      Limpar filtros
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
-              {invoices.map(invoice => (
+              {displayedInvoices.map(invoice => (
                 <div key={invoice.id} className="flex items-center justify-between p-4 bg-accent rounded-lg">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2 flex-wrap">
+                    <div className="flex items-center gap-3 mb-1 flex-wrap">
                       <h3 className="font-medium">Nota #{invoice.invoiceNumber}</h3>
                       <Badge variant={getStatusColor(invoice.status)}>
                         {invoice.status}
@@ -909,7 +1037,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                         </Badge>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
+                    <InvoiceProgress inv={invoice} />
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-muted-foreground mt-2">
                       <div>
                         <span className="block font-medium text-foreground">
                           {invoice.supplier?.companyName || 'Sem fornecedor'}
@@ -981,6 +1110,19 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           )}
         </CardContent>
       </Card>
+
+      {/* Sheet lateral para importação via OCR */}
+      <Sheet open={isOCRSheetOpen} onOpenChange={setIsOCRSheetOpen}>
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Importar Nota Fiscal via OCR
+            </SheetTitle>
+          </SheetHeader>
+          <InvoiceOCRUploader onCreated={() => { setIsOCRSheetOpen(false); onRefresh(); }} />
+        </SheetContent>
+      </Sheet>
 
       {/* As condições de pagamento agora são preenchidas no formulário da NF */}
 
