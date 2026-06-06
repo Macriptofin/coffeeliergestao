@@ -218,7 +218,6 @@ const Materials = () => {
           usage_unit,
           conversion_factor,
           price_per_purchase_unit,
-          supplier,
           allowed_brands,
           category,
           subcategory,
@@ -262,7 +261,7 @@ const Materials = () => {
             usageUnit: item.usage_unit || 'unidade',
             conversionFactor: parseFloat(item.conversion_factor?.toString() || '1'),
             pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit?.toString() || '0'),
-            supplier: item.supplier || undefined,
+            supplier: undefined,
             allowedBrands: item.allowed_brands || undefined,
             category: item.category || 'Alimentos & Ingredientes',
             subcategory: item.subcategory || undefined,
@@ -332,7 +331,6 @@ const Materials = () => {
           usage_unit: material.usageUnit,
           conversion_factor: material.conversionFactor,
           price_per_purchase_unit: material.pricePerPurchaseUnit,
-          supplier: material.supplier,
           allowed_brands: material.allowedBrands,
           category: material.category,
           subcategory: material.subcategory,
@@ -402,7 +400,6 @@ const Materials = () => {
           usage_unit: updatedMaterial.usageUnit,
           conversion_factor: updatedMaterial.conversionFactor,
           price_per_purchase_unit: updatedMaterial.pricePerPurchaseUnit,
-          supplier: updatedMaterial.supplier,
           allowed_brands: updatedMaterial.allowedBrands,
           category: updatedMaterial.category,
           subcategory: updatedMaterial.subcategory,
@@ -574,7 +571,7 @@ const Materials = () => {
         .select(`
           id, name, description, code, material_type, category, subcategory,
           purchase_unit, usage_unit, conversion_factor, price_per_purchase_unit,
-          supplier, allowed_brands, unit_weight, is_sellable, is_archived,
+          allowed_brands, unit_weight, is_sellable, is_archived,
           ncm, cfop, cst, origem, created_at, updated_at,
           stock_items(current_quantity, minimum_quantity, average_price, total_value)
         `)
@@ -588,7 +585,7 @@ const Materials = () => {
       const headers = [
         'Código', 'Nome', 'Descrição', 'Tipo Material', 'Categoria', 'Subcategoria',
         'Un. Compra', 'Un. Uso', 'Fator Conversão', 'Preço Un. Compra',
-        'Fornecedor', 'Marcas Permitidas', 'Peso Unitário', 'Vendível',
+        'Marcas Permitidas', 'Peso Unitário', 'Vendível',
         'NCM', 'CFOP', 'CST', 'Origem',
         'Qtd Estoque', 'Estoque Mínimo', 'Preço Médio', 'Valor Total',
         'Criado em', 'Atualizado em'
@@ -614,7 +611,6 @@ const Materials = () => {
           m.usage_unit || '',
           m.conversion_factor ?? '',
           m.price_per_purchase_unit ?? '',
-          m.supplier || '',
           (m.allowed_brands || []).join('; '),
           m.unit_weight ?? '',
           m.is_sellable ? 'Sim' : 'Não',
