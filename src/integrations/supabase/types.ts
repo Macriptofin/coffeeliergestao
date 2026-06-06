@@ -3279,6 +3279,7 @@ export type Database = {
           is_archived: boolean | null
           is_sellable: boolean | null
           is_system_generated: boolean | null
+          tracks_inventory: boolean
           material_type: string
           name: string
           ncm: string | null
@@ -3311,6 +3312,7 @@ export type Database = {
           is_archived?: boolean | null
           is_sellable?: boolean | null
           is_system_generated?: boolean | null
+          tracks_inventory?: boolean
           material_type?: string
           name: string
           ncm?: string | null
@@ -3343,6 +3345,7 @@ export type Database = {
           is_archived?: boolean | null
           is_sellable?: boolean | null
           is_system_generated?: boolean | null
+          tracks_inventory?: boolean
           material_type?: string
           name?: string
           ncm?: string | null

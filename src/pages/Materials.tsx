@@ -222,7 +222,8 @@ const Materials = () => {
           ncm,
           cfop,
           cst,
-          origem
+          origem,
+          tracks_inventory
         `)
         .eq('is_archived', false)
         .order('name');
@@ -267,6 +268,7 @@ const Materials = () => {
             cfop: item.cfop || undefined,
             cst: item.cst || undefined,
             origem: item.origem != null ? item.origem : undefined,
+            tracksInventory: item.tracks_inventory !== false, // default true
           };
           
           return formatted;
@@ -335,6 +337,7 @@ const Materials = () => {
           cfop: material.cfop,
           cst: material.cst,
           origem: material.origem,
+          tracks_inventory: material.tracksInventory !== false,
         })
         .select()
         .single();
@@ -403,6 +406,7 @@ const Materials = () => {
           cfop: updatedMaterial.cfop,
           cst: updatedMaterial.cst,
           origem: updatedMaterial.origem,
+          tracks_inventory: updatedMaterial.tracksInventory !== false,
         })
         .eq('id', updatedMaterial.id);
       

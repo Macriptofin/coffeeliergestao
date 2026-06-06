@@ -44,6 +44,8 @@ export interface Material {
   cfop?: string;
   cst?: string;
   origem?: number; // 0=Nacional, 1=Estrangeira direta, 2=Estrangeira mercado interno
+  // Controle de estoque
+  tracksInventory?: boolean; // false = não gera movimentação de estoque na NF (ex: combustível, descartáveis)
 }
 
 export interface Recipe {

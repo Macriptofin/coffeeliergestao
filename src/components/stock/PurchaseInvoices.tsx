@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, Plus, ShoppingCart, X, Package, Shield, Trash2, CreditCard, FileEdit, Lock, Clock, Upload, CheckCircle2, Circle, History, Filter } from "lucide-react";
+import { FileText, Plus, ShoppingCart, X, Package, Shield, Trash2, CreditCard, FileEdit, Lock, Clock, Upload, CheckCircle2, Circle, History, Filter, AlertTriangle } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { InvoiceOCRUploader } from "@/components/purchase/InvoiceOCRUploader";
 import type { PurchaseInvoice } from "@/pages/Stock";
@@ -89,6 +89,11 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [isOCRSheetOpen, setIsOCRSheetOpen] = useState(false);
   const [historyFilters, setHistoryFilters] = useState({ supplierId: '', period: '' });
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showEditLockedDialog, setShowEditLockedDialog] = useState(false);
+  const [lockedInvoiceIdToEdit, setLockedInvoiceIdToEdit] = useState<string | null>(null);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminAuthError, setAdminAuthError] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [editFormData, setEditFormData] = useState({
     invoiceNumber: '',
     invoiceDate: '',
@@ -248,6 +253,36 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     }
   };
 
+  // Admin digita a senha para desbloquear edição de NF já lançada
+  const handleAdminEditAuth = async () => {
+    if (!adminPassword || !lockedInvoiceIdToEdit) return;
+    setIsAuthenticating(true);
+    setAdminAuthError('');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) { setAdminAuthError('Sessão inválida. Faça login novamente.'); return; }
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: adminPassword,
+      });
+      if (error) {
+        setAdminAuthError('Senha incorreta. Tente novamente.');
+        return;
+      }
+      // Autenticação OK — abrir edição
+      setShowEditLockedDialog(false);
+      setAdminPassword('');
+      setAdminAuthError('');
+      const invoiceId = lockedInvoiceIdToEdit;
+      setLockedInvoiceIdToEdit(null);
+      startEditInvoice(invoiceId);
+    } catch {
+      setAdminAuthError('Erro ao verificar senha. Tente novamente.');
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
   const saveEditedInvoice = async () => {
     if (!editingInvoice) return;
 
@@ -329,14 +364,13 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           throw deleteMovementsError;
         }
 
-        // Recalcular estoques afetados usando quantidades negativas para reverter
+        // Recalcular preço médio para cada material afetado (current_quantity já foi
+        // atualizado pelo trigger trg_sync_stock_quantity ao deletar os movimentos)
         if (movements) {
-          for (const movement of movements) {
-            // Usar quantidade negativa para reverter a entrada anterior
+          const uniqueMaterialIds = [...new Set(movements.map(m => m.material_id))];
+          for (const materialId of uniqueMaterialIds) {
             await supabase.rpc('calculate_weighted_average_price', {
-              p_material_id: movement.material_id,
-              p_new_quantity: -parseFloat(movement.quantity?.toString() || '0'),
-              p_new_price: parseFloat(movement.unit_price?.toString() || '0')
+              p_material_id: materialId
             });
           }
         }
@@ -513,18 +547,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           console.error('Erro ao criar movimentação de estoque:', stockError);
           throw stockError;
         }
-
-        // Atualizar preço médio ponderado
-        const { error: rpcError } = await supabase.rpc('calculate_weighted_average_price', {
-          p_material_id: item.material_id,
-          p_new_quantity: usageQuantity,
-          p_new_price: usageUnitPrice
-        });
-
-        if (rpcError) {
-          console.error('Erro no RPC calculate_weighted_average_price:', rpcError);
-          throw rpcError;
-        }
+        // current_quantity já é atualizado automaticamente pelo trigger trg_sync_stock_quantity
+        // trg_update_weighted_average cuida do average_price via V1 RPC
       }
 
       // Criar contas a pagar com condição de pagamento definida pelo usuário
@@ -640,24 +664,23 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         }
       }
 
-      // Marcar nota fiscal como lançada no estoque
+      // Marcar nota fiscal como lançada: atualiza status baseado na condição de pagamento
+      const finalStatus = (paymentData.createPayable && invoicePaymentStatus === 'pago') ? 'Pago' : 'Pendente';
       const { error: updateError } = await supabase
         .from('purchase_invoices')
         .update({
           stock_posted: true,
           stock_posted_at: new Date().toISOString(),
-          workflow_status: 'lancada'   // FIX: atualizar status para 'lancada'
+          workflow_status: 'lancada',
+          status: finalStatus
         })
         .eq('id', invoiceId);
 
       if (updateError) throw updateError;
 
-      const currentDate = new Date().toISOString().split('T')[0];
-      const isPaid = paymentData.createPayable && paymentData.paymentDate <= currentDate;
-      
       let successMessage = 'Nota fiscal lançada no estoque com sucesso';
       if (paymentData.createPayable) {
-        successMessage = isPaid 
+        successMessage = finalStatus === 'Pago'
           ? 'Nota fiscal lançada no estoque e conta marcada como PAGA com sucesso'
           : 'Nota fiscal lançada no estoque e conta a pagar criada com sucesso';
       }
@@ -807,9 +830,12 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     }
   };
 
-  // Classificação: NF "precisa de ação" se ainda não concluiu todas as etapas
+  // Classificação: NF "precisa de ação" se não concluiu o fluxo
+  // Uma NF lançada com AP existente (Pendente de pagamento) NÃO é "requer ação"
   const needsAction = (inv: PurchaseInvoice) =>
-    inv.workflowStatus !== 'lancada' || !inv.stockPosted || inv.status === 'Pendente';
+    inv.workflowStatus !== 'lancada' ||
+    !inv.stockPosted ||
+    (inv.status === 'Pendente' && !invoiceHasPayable(inv));
 
   const pendingInvoices = invoices.filter(needsAction);
   const completedInvoices = invoices.filter(inv => !needsAction(inv));
@@ -1059,10 +1085,19 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                      <Button
                        variant="outline"
                        size="sm"
-                       onClick={() => startEditInvoice(invoice.id)}
+                       onClick={() => {
+                         if (invoice.workflowStatus !== 'rascunho') {
+                           setLockedInvoiceIdToEdit(invoice.id);
+                           setShowEditLockedDialog(true);
+                         } else {
+                           startEditInvoice(invoice.id);
+                         }
+                       }}
                        className="flex items-center gap-2"
                      >
-                       <FileText className="h-4 w-4" />
+                       {invoice.workflowStatus !== 'rascunho'
+                         ? <Lock className="h-4 w-4" />
+                         : <FileText className="h-4 w-4" />}
                        Editar
                      </Button>
                      {invoice.workflowStatus !== 'lancada' && !invoice.stockPosted && (
@@ -1412,6 +1447,78 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               {loading ? 'Salvando...' : 'Salvar Alterações'}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: restrição de edição de NF lançada */}
+      <Dialog
+        open={showEditLockedDialog}
+        onOpenChange={(open) => {
+          setShowEditLockedDialog(open);
+          if (!open) { setLockedInvoiceIdToEdit(null); setAdminPassword(''); setAdminAuthError(''); }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-destructive" />
+              Nota Fiscal Bloqueada
+            </DialogTitle>
+          </DialogHeader>
+
+          <Alert variant="destructive" className="border-orange-200 bg-orange-50 text-orange-800">
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <AlertDescription>
+              Esta NF já foi lançada no estoque e gerou registros financeiros.
+              Edições <strong>não revertem</strong> movimentações de estoque nem contas a pagar já criadas.
+              Para corrigir valores ou itens, exclua e relance a nota.
+            </AlertDescription>
+          </Alert>
+
+          {isAdmin() ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Como administrador, você pode editar mediante confirmação de senha.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-pass">Senha de administrador</Label>
+                <Input
+                  id="admin-pass"
+                  type="password"
+                  placeholder="Digite sua senha"
+                  value={adminPassword}
+                  onChange={(e) => { setAdminPassword(e.target.value); setAdminAuthError(''); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAdminEditAuth(); }}
+                  autoFocus
+                />
+                {adminAuthError && (
+                  <p className="text-sm text-destructive">{adminAuthError}</p>
+                )}
+              </div>
+              <div className="flex gap-2 justify-end pt-1">
+                <Button variant="outline" onClick={() => setShowEditLockedDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={!adminPassword || isAuthenticating}
+                  onClick={handleAdminEditAuth}
+                >
+                  {isAuthenticating ? 'Verificando...' : 'Confirmar e Editar'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Apenas administradores podem editar notas fiscais já lançadas.
+                Entre em contato com o administrador para solicitar uma correção.
+              </p>
+              <div className="flex justify-end">
+                <Button onClick={() => setShowEditLockedDialog(false)}>Fechar</Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
