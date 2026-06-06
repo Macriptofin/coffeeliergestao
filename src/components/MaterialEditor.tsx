@@ -680,7 +680,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
   );
 
   if (isMobile) {
-    return <EditorContent />;
+    return EditorContent();
   }
 
   return (
@@ -689,7 +689,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
         <VisuallyHidden>
           <DialogTitle>Editor de Material</DialogTitle>
         </VisuallyHidden>
-        <EditorContent />
+        {EditorContent()}
       </DialogContent>
     </Dialog>
   );
