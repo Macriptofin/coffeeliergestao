@@ -426,15 +426,17 @@ export const InvoiceEditDialog = ({
     try {
       // Verificar se já foi lançada (escopo correto — fora dos blocos if)
       let jaLancada = false;
+      let originalInvoiceDate: string | null = null;
       let existingInvoiceId = invoiceId;
       if (existingInvoiceId || invoiceId) {
         const checkId = existingInvoiceId || invoiceId;
         const { data: curState } = await supabase
           .from('purchase_invoices')
-          .select('stock_posted')
+          .select('stock_posted, invoice_date')
           .eq('id', checkId!)
           .single();
         jaLancada = curState?.stock_posted === true;
+        originalInvoiceDate = curState?.invoice_date || null;
       }
 
       // Buscar nome do fornecedor
@@ -506,7 +508,32 @@ export const InvoiceEditDialog = ({
         }
         
         invoiceRecord = updatedInvoice;
-        
+
+        // Sincronizar datas nas APs e payment_transactions se a data da NF mudou
+        const newInvoiceDate = new Date(editedData.data).toISOString().split('T')[0];
+        if (jaLancada && originalInvoiceDate && newInvoiceDate !== originalInvoiceDate) {
+          // Atualiza issue_date das contas a pagar vinculadas
+          await supabase
+            .from('accounts_payable')
+            .update({ issue_date: newInvoiceDate })
+            .eq('source_id', existingInvoiceId);
+
+          // Atualiza payment_date nos pagamentos cuja data ainda era igual à data original da NF
+          // O trigger trg_cash_on_payment (UPDATE) propaga a mudança para cash_transactions automaticamente
+          const { data: relatedAPs } = await supabase
+            .from('accounts_payable')
+            .select('id')
+            .eq('source_id', existingInvoiceId);
+
+          if (relatedAPs && relatedAPs.length > 0) {
+            await supabase
+              .from('payment_transactions')
+              .update({ payment_date: newInvoiceDate })
+              .in('account_payable_id', relatedAPs.map(ap => ap.id))
+              .eq('payment_date', originalInvoiceDate);
+          }
+        }
+
         // Remover itens antigos antes de inserir novos
         await supabase
           .from('invoice_items')

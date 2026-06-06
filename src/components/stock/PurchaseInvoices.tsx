@@ -301,7 +301,29 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       if (updateError) throw updateError;
 
-      toast.success('Nota fiscal atualizada com sucesso');
+      // Sincronizar issue_date nas APs vinculadas (due_date preservada, pois pode ter sido negociada)
+      await supabase
+        .from('accounts_payable')
+        .update({ issue_date: editFormData.invoiceDate })
+        .eq('source_id', editingInvoice.id);
+
+      // Sincronizar payment_date nos payment_transactions cujo payment_date era igual à data original da NF
+      // O trigger trg_cash_on_payment (UPDATE) vai propagar a mudança para cash_transactions automaticamente
+      const { data: relatedAPs } = await supabase
+        .from('accounts_payable')
+        .select('id')
+        .eq('source_id', editingInvoice.id);
+
+      if (relatedAPs && relatedAPs.length > 0) {
+        const apIds = relatedAPs.map(ap => ap.id);
+        await supabase
+          .from('payment_transactions')
+          .update({ payment_date: editFormData.invoiceDate })
+          .in('account_payable_id', apIds)
+          .eq('payment_date', editingInvoice.invoice_date); // só atualiza se ainda tem a data original
+      }
+
+      toast.success('Nota fiscal atualizada — datas sincronizadas com contas a pagar e fluxo de caixa');
       setShowEditDialog(false);
       setEditingInvoice(null);
       onRefresh();
