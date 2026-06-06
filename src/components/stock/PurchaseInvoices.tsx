@@ -825,9 +825,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   // Componente inline de progresso por NF (3 etapas)
   const InvoiceProgress = ({ inv }: { inv: PurchaseInvoice }) => {
     const steps = [
-      { label: 'Efetivada', done: inv.workflowStatus === 'lancada' || inv.workflowStatus === 'pendente' },
-      { label: 'Estoque',   done: inv.stockPosted },
-      { label: 'Paga',      done: inv.status === 'Pago' },
+      { label: 'Efetivada',  done: inv.workflowStatus === 'lancada' || inv.workflowStatus === 'pendente' },
+      { label: 'Estoque',    done: inv.stockPosted },
+      { label: 'Financeiro', done: invoiceHasPayable(inv) },
     ];
     return (
       <div className="flex items-center gap-1 mt-2">
@@ -1026,10 +1026,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-1 flex-wrap">
                       <h3 className="font-medium">Nota #{invoice.invoiceNumber}</h3>
-                      <Badge variant={getStatusColor(invoice.status)}>
-                        {invoice.status}
-                      </Badge>
-                      {getWorkflowStatusBadge(invoice.workflowStatus)}
                       {invoice.itemsLocked && (
                         <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
                           <Lock className="h-3 w-3 mr-1" />
@@ -1038,7 +1034,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                       )}
                     </div>
                     <InvoiceProgress inv={invoice} />
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-muted-foreground mt-2">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
                       <div>
                         <span className="block font-medium text-foreground">
                           {invoice.supplier?.companyName || 'Sem fornecedor'}
