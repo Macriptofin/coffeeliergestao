@@ -115,6 +115,51 @@ export const SupplierForm = ({ supplier, onSubmit, onCancel, isSubmitting = fals
     setFormData(prev => ({ ...prev, [field]: value }));
 
   const [calculatingDistance, setCalculatingDistance] = useState(false);
+  const [fetchingCnpj, setFetchingCnpj] = useState(false);
+
+  const handleFetchCnpj = async () => {
+    const cnpj = (formData.cnpjCpf ?? '').replace(/\D/g, '');
+    if (cnpj.length !== 14) {
+      toast.error('Informe um CNPJ válido (14 dígitos) antes de buscar');
+      return;
+    }
+    setFetchingCnpj(true);
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+      if (!res.ok) throw new Error('CNPJ não encontrado na Receita Federal');
+      const d = await res.json();
+
+      // Formatar CEP: 12345678 → 12345-678
+      const cepFmt = (d.cep ?? '').replace(/\D/g, '').replace(/^(\d{5})(\d{3})$/, '$1-$2');
+      // Formatar telefone: "51 33332222" → "(51) 3333-2222"
+      const phoneFmt = (d.ddd_telefone_1 ?? '').trim().replace(/^(\d{2})\s?(\d{4,5})(\d{4})$/, '($1) $2-$3');
+      // Endereço completo
+      const addressParts = [d.logradouro, d.numero, d.complemento].filter(Boolean);
+      const address = addressParts.join(', ');
+      // Status baseado na situação cadastral
+      const status = (d.descricao_situacao_cadastral ?? '').toUpperCase() === 'ATIVA' ? 'Ativo' : 'Inativo';
+
+      setFormData(prev => ({
+        ...prev,
+        supplierType: 'PJ',
+        status: status as 'Ativo' | 'Inativo',
+        companyName: d.razao_social || prev.companyName,
+        tradeName: d.nome_fantasia || prev.tradeName,
+        address: address || prev.address,
+        city: d.municipio || prev.city,
+        state: d.uf || prev.state,
+        zipCode: cepFmt || prev.zipCode,
+        phone: phoneFmt || prev.phone,
+        email: d.email || prev.email,
+      }));
+
+      toast.success('Dados preenchidos com sucesso! Revise antes de salvar.');
+    } catch (err: any) {
+      toast.error(err.message ?? 'Erro ao consultar CNPJ');
+    } finally {
+      setFetchingCnpj(false);
+    }
+  };
 
   const handleCalculateDistance = async () => {
     const cep = (formData.zipCode ?? '').replace(/\D/g, '');
@@ -258,11 +303,29 @@ export const SupplierForm = ({ supplier, onSubmit, onCancel, isSubmitting = fals
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div className="space-y-2">
                 <Label>CNPJ / CPF</Label>
-                <Input
-                  value={formData.cnpjCpf}
-                  onChange={e => set('cnpjCpf', e.target.value)}
-                  placeholder="00.000.000/0000-00"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    value={formData.cnpjCpf}
+                    onChange={e => set('cnpjCpf', e.target.value)}
+                    placeholder="00.000.000/0000-00"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleFetchCnpj}
+                    disabled={fetchingCnpj}
+                    className="whitespace-nowrap"
+                    title="Buscar dados na Receita Federal via CNPJ"
+                  >
+                    {fetchingCnpj
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : 'Buscar dados'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Digite o CNPJ e clique em "Buscar dados" para preencher o formulário automaticamente
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Inscrição Estadual</Label>
