@@ -332,7 +332,10 @@ const Materials = () => {
           subcategory_term_id: material.subcategoryTermId,
           material_type: material.materialType,
           unit_weight: material.unitWeight,
-          is_sellable: material.isSellable || false,
+          // Produtos acabados são vendáveis por padrão
+          is_sellable: material.materialType === 'finished_product'
+            ? (material.isSellable !== false)
+            : (material.isSellable || false),
           ncm: material.ncm,
           cfop: material.cfop,
           cst: material.cst,
