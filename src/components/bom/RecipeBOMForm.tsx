@@ -75,10 +75,12 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
+  const [productOptions, setProductOptions] = useState<{id: string; name: string; code: string; usage_unit: string; material_type: string}[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [bomData, setBomData] = useState<RecipeBOM>({
     finished_material_id: finishedMaterial?.id || '',
     yield_quantity: 1,
-    yield_unit: 'unidade',
+    yield_unit: finishedMaterial?.usage_unit || 'unidade',
     waste_percent: 0,
     notes: '',
     items: []
@@ -89,7 +91,74 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
     if (finishedMaterial?.id) {
       loadExistingBOM();
     }
+    if (!finishedMaterial) {
+      loadProductOptions();
+    }
   }, [finishedMaterial]);
+
+  const loadProductOptions = async () => {
+    setLoadingProducts(true);
+    try {
+      const { data, error } = await supabase
+        .from('materials')
+        .select('id, name, code, usage_unit, material_type')
+        .in('material_type', ['intermediate_product', 'finished_product'])
+        .eq('is_archived', false)
+        .order('name');
+      if (error) throw error;
+      setProductOptions(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar produtos:', error);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  const handleProductSelect = async (productId: string) => {
+    const product = productOptions.find(p => p.id === productId);
+    if (!product) return;
+    // Reset form for the new product
+    setBomData({
+      finished_material_id: productId,
+      yield_quantity: 1,
+      yield_unit: product.usage_unit || 'unidade',
+      waste_percent: 0,
+      notes: '',
+      items: [],
+    });
+    // Load existing BOM if it exists for this product
+    try {
+      const { data } = await supabase
+        .from('recipes_bom')
+        .select('*, recipe_bom_items (*)')
+        .eq('finished_material_id', productId)
+        .maybeSingle();
+      if (data) {
+        setBomData({
+          id: data.id,
+          finished_material_id: data.finished_material_id,
+          yield_quantity: data.yield_quantity,
+          yield_unit: data.yield_unit,
+          waste_percent: data.waste_percent,
+          notes: data.notes || '',
+          cached_total_cost: data.cached_total_cost,
+          cached_unit_cost: data.cached_unit_cost,
+          cost_status: data.cost_status,
+          items: (data.recipe_bom_items || []).map((item: any) => ({
+            id: item.id,
+            material_id: item.material_id,
+            quantity: item.quantity,
+            unit: item.unit,
+            waste_percent: item.waste_percent,
+            is_packaging: item.is_packaging,
+            position: item.position
+          }))
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar BOM existente:', error);
+    }
+  };
 
   const loadMaterials = async () => {
     try {
@@ -245,7 +314,11 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!bomData.finished_material_id || bomData.items.length === 0) {
+    if (!bomData.finished_material_id) {
+      toast.error('Selecione o produto ao qual a ficha técnica pertence');
+      return;
+    }
+    if (bomData.items.length === 0) {
       toast.error('Informe pelo menos um componente na receita');
       return;
     }
@@ -400,6 +473,39 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
 
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Seletor de produto — apenas quando não há material pré-selecionado */}
+          {!finishedMaterial && (
+            <div className="space-y-1">
+              <Label>Produto *</Label>
+              <Select
+                value={bomData.finished_material_id || ''}
+                onValueChange={handleProductSelect}
+                disabled={loadingProducts}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={loadingProducts ? 'Carregando...' : 'Selecione o produto acabado ou intermediário'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {productOptions.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <span className="font-medium">{p.name}</span>
+                      <span className="text-xs text-muted-foreground ml-2">({p.code})</span>
+                      {p.material_type === 'intermediate_product' && (
+                        <span className="text-xs text-purple-600 ml-1">· Intermediário</span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Somente produtos acabados e intermediários podem ter ficha técnica
+              </p>
+            </div>
+          )}
+
+          {/* Campos do formulário — visíveis após selecionar produto */}
+          {(finishedMaterial || bomData.finished_material_id) && <>
+
           {/* Rendimento */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -594,6 +700,17 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
               {loading ? 'Salvando...' : 'Salvar Ficha Técnica'}
             </Button>
           </div>
+
+          </> /* end conditional fields block */}
+
+          {/* Botão cancelar sempre visível (mesmo sem produto selecionado) */}
+          {!finishedMaterial && !bomData.finished_material_id && (
+            <div className="flex justify-end">
+              <Button type="button" variant="outline" onClick={onCancel}>
+                Cancelar
+              </Button>
+            </div>
+          )}
         </form>
       </CardContent>
     </Card>
