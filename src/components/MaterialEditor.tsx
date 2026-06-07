@@ -415,9 +415,9 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto min-h-0">
-        <Tabs defaultValue="general" className="w-full">
-          <TabsList className="w-full justify-start border-b rounded-none bg-transparent h-auto p-0">
+      <div className="flex-1 min-h-0 flex flex-col">
+        <Tabs defaultValue="general" className="w-full flex flex-col flex-1 min-h-0">
+          <TabsList className="w-full justify-start border-b rounded-none bg-transparent h-auto p-0 flex-none">
             <TabsTrigger value="general" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
               <Package className="h-4 w-4" />
               Geral
@@ -451,7 +451,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
             </TabsTrigger>
           </TabsList>
 
-          <div className="p-6">
+          <div className="p-6 flex-1 overflow-y-auto min-h-0">
             <TabsContent value="general" className="mt-0 space-y-6">
               {duplicateError && (
                 <Alert className="border-red-200 bg-red-50">
