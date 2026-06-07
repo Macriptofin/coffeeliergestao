@@ -415,9 +415,28 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        <Tabs defaultValue="general" className="w-full flex flex-col flex-1 min-h-0">
-          <TabsList className="w-full justify-start border-b rounded-none bg-transparent h-auto p-0 flex-none">
+      <div className="flex-1 overflow-auto">
+        {/* Quando editando BOM, sai das tabs para ter scroll próprio */}
+        {editingBOM && isProducedMaterial ? (
+          <div className="p-6">
+            <RecipeBOMForm
+              finishedMaterial={{
+                id: material.id,
+                name: material.name,
+                code: material.code,
+                usage_unit: material.usageUnit,
+                material_type: material.materialType,
+              }}
+              onSuccess={() => {
+                setEditingBOM(false);
+                loadBOMData();
+              }}
+              onCancel={() => setEditingBOM(false)}
+            />
+          </div>
+        ) : (
+        <Tabs defaultValue="general" className="w-full">
+          <TabsList className="w-full justify-start border-b rounded-none bg-transparent h-auto p-0">
             <TabsTrigger value="general" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
               <Package className="h-4 w-4" />
               Geral
@@ -451,7 +470,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
             </TabsTrigger>
           </TabsList>
 
-          <div className="p-6 flex-1 overflow-y-auto min-h-0">
+          <div className="p-6">
             <TabsContent value="general" className="mt-0 space-y-6">
               {duplicateError && (
                 <Alert className="border-red-200 bg-red-50">
@@ -807,100 +826,73 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
 
             {isProducedMaterial && (
               <TabsContent value="bom" className="mt-0">
-                {editingBOM ? (
-                  <RecipeBOMForm
-                    finishedMaterial={{
-                      id: material.id,
-                      name: material.name,
-                      code: material.code,
-                      usage_unit: material.usageUnit,
-                      material_type: material.materialType,
-                    }}
-                    onSuccess={() => {
-                      setEditingBOM(false);
-                      loadBOMData();
-                    }}
-                    onCancel={() => setEditingBOM(false)}
-                  />
-                ) : (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <ChefHat className="h-5 w-5" />
-                        Ficha Técnica
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {bomLoading ? (
-                        <p className="text-sm text-muted-foreground">Carregando...</p>
-                      ) : bomData ? (
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-2">
-                            {bomData.cost_status === 'complete' ? (
-                              <CheckCircle2 className="h-5 w-5 text-green-600" />
-                            ) : (
-                              <AlertCircle className="h-5 w-5 text-amber-500" />
-                            )}
-                            <span className="text-sm font-medium">
-                              {bomData.cost_status === 'complete'
-                                ? 'Custos completos'
-                                : bomData.cost_status === 'partial'
-                                ? 'Custos parciais'
-                                : 'Custos pendentes'}
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-4">
-                            <div className="p-3 bg-muted rounded-lg text-center">
-                              <p className="text-xs text-muted-foreground">Rendimento</p>
-                              <p className="font-semibold">
-                                {bomData.yield_quantity} {bomData.yield_unit}
-                              </p>
-                            </div>
-                            <div className="p-3 bg-muted rounded-lg text-center">
-                              <p className="text-xs text-muted-foreground">CMV Unitário</p>
-                              <p className="font-semibold text-green-700">
-                                {bomData.cached_unit_cost != null
-                                  ? `R$ ${Number(bomData.cached_unit_cost).toFixed(4)}`
-                                  : '—'}
-                              </p>
-                            </div>
-                            <div className="p-3 bg-muted rounded-lg text-center">
-                              <p className="text-xs text-muted-foreground">Componentes</p>
-                              <p className="font-semibold">
-                                {bomData.recipe_bom_items?.length ?? 0}
-                              </p>
-                            </div>
-                          </div>
-
-                          <Button
-                            onClick={() => setEditingBOM(true)}
-                            variant="outline"
-                            className="w-full"
-                          >
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Editar Ficha Técnica
-                          </Button>
+                {/* Apenas o resumo aqui — o formulário de edição é renderizado fora das tabs */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ChefHat className="h-5 w-5" />
+                      Ficha Técnica
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {bomLoading ? (
+                      <p className="text-sm text-muted-foreground">Carregando...</p>
+                    ) : bomData ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          {bomData.cost_status === 'complete' ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <AlertCircle className="h-5 w-5 text-amber-500" />
+                          )}
+                          <span className="text-sm font-medium">
+                            {bomData.cost_status === 'complete'
+                              ? 'Custos completos'
+                              : bomData.cost_status === 'partial'
+                              ? 'Custos parciais'
+                              : 'Custos pendentes'}
+                          </span>
                         </div>
-                      ) : (
-                        <div className="text-center py-10 space-y-4">
-                          <ChefHat className="h-12 w-12 text-muted-foreground mx-auto" />
-                          <p className="text-muted-foreground">
-                            Este material ainda não tem ficha técnica cadastrada.
-                          </p>
-                          <Button onClick={() => setEditingBOM(true)}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Criar Ficha Técnica
-                          </Button>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="p-3 bg-muted rounded-lg text-center">
+                            <p className="text-xs text-muted-foreground">Rendimento</p>
+                            <p className="font-semibold">{bomData.yield_quantity} {bomData.yield_unit}</p>
+                          </div>
+                          <div className="p-3 bg-muted rounded-lg text-center">
+                            <p className="text-xs text-muted-foreground">CMV Unitário</p>
+                            <p className="font-semibold text-green-700">
+                              {bomData.cached_unit_cost != null
+                                ? `R$ ${Number(bomData.cached_unit_cost).toFixed(4)}`
+                                : '—'}
+                            </p>
+                          </div>
+                          <div className="p-3 bg-muted rounded-lg text-center">
+                            <p className="text-xs text-muted-foreground">Componentes</p>
+                            <p className="font-semibold">{bomData.recipe_bom_items?.length ?? 0}</p>
+                          </div>
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
+                        <Button onClick={() => setEditingBOM(true)} variant="outline" className="w-full">
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Editar Ficha Técnica
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="text-center py-10 space-y-4">
+                        <ChefHat className="h-12 w-12 text-muted-foreground mx-auto" />
+                        <p className="text-muted-foreground">Este material ainda não tem ficha técnica cadastrada.</p>
+                        <Button onClick={() => setEditingBOM(true)}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Criar Ficha Técnica
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </TabsContent>
             )}
           </div>
         </Tabs>
+        )} {/* fecha o bloco condicional editingBOM ? ... : (Tabs) */}
       </div>
 
       {/* Sticky Footer — hidden when editing BOM (form has its own buttons) */}
