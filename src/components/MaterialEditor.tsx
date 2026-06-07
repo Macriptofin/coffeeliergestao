@@ -368,7 +368,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
   if (!material) return null;
 
   const EditorContent = () => (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-[90vh]">
       {/* Sticky Header */}
       <div className="sticky top-0 bg-background border-b z-10 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -415,7 +415,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto min-h-0">
         {/* Quando editando BOM, sai das tabs para ter scroll próprio */}
         {editingBOM && isProducedMaterial ? (
           <div className="p-6">
