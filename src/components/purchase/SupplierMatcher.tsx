@@ -178,7 +178,7 @@ export const SupplierMatcher = ({
           
           <SelectGroup>
             <SelectLabel>Todos os Fornecedores</SelectLabel>
-            {allSuppliers.map(s => (
+            {allSuppliers.filter(s => !suggestions.find(sg => sg.id === s.id)).map(s => (
             <SelectItem key={s.id} value={s.id}>
               <div className="flex flex-col">
                 <span className="font-medium">{s.company_name}</span>
