@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +11,8 @@ import { Plus, Search, Filter, Package, Edit, Archive, ArchiveRestore, Eye, Arro
 import { TechnicalSheetActions } from '@/components/TechnicalSheetActions';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { TechnicalSheetWizard } from '@/components/TechnicalSheetWizard';
+import { RecipeBOMForm } from '@/components/bom/RecipeBOMForm';
+import { CompositeBOMForm } from '@/components/bom/CompositeBOMForm';
 
 interface TechnicalSheet {
   id: string;
@@ -26,15 +26,13 @@ interface TechnicalSheet {
   cost?: number;
   material_id: string;
   material_code?: string;
+  usage_unit?: string;
   is_archived: boolean;
   created_at: string;
   updated_at: string;
 }
 
 const FichasTecnicas = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
   const [technicalSheets, setTechnicalSheets] = useState<TechnicalSheet[]>([]);
   const [filteredSheets, setFilteredSheets] = useState<TechnicalSheet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,26 +40,14 @@ const FichasTecnicas = () => {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [showArchived, setShowArchived] = useState(false);
-  
+
   // Wizard states
   const [showWizard, setShowWizard] = useState(false);
-  const [editingSheetId, setEditingSheetId] = useState<string | undefined>();
+  const [editingSheet, setEditingSheet] = useState<TechnicalSheet | null>(null);
 
   useEffect(() => {
-    // Handle routing
-    if (location.pathname.includes('/producao/fichas/novo')) {
-      setShowWizard(true);
-      setEditingSheetId(undefined);
-    } else if (id) {
-      setShowWizard(true);
-      setEditingSheetId(id);
-    } else {
-      setShowWizard(false);
-      setEditingSheetId(undefined);
-    }
-    
     loadTechnicalSheets();
-  }, [id, location.pathname]);
+  }, []);
 
   useEffect(() => {
     applyFilters();
@@ -89,7 +75,8 @@ const FichasTecnicas = () => {
             code,
             category,
             subcategory,
-            material_type
+            material_type,
+            usage_unit
           ),
           recipe_bom_items(id)
         `)
@@ -113,6 +100,7 @@ const FichasTecnicas = () => {
           items_count: bom.recipe_bom_items?.length || 0,
           material_id: bom.materials?.id || '',
           material_code: bom.materials?.code,
+          usage_unit: bom.materials?.usage_unit,
           is_archived: bom.is_archived || false,
           created_at: bom.created_at,
           updated_at: bom.updated_at
@@ -133,7 +121,8 @@ const FichasTecnicas = () => {
             code,
             category,
             subcategory,
-            material_type
+            material_type,
+            usage_unit
           ),
           composite_bom_items(id)
         `)
@@ -151,6 +140,7 @@ const FichasTecnicas = () => {
           items_count: bom.composite_bom_items?.length || 0,
           material_id: bom.materials?.id || '',
           material_code: bom.materials?.code,
+          usage_unit: bom.materials?.usage_unit,
           is_archived: bom.is_archived || false,
           created_at: bom.created_at,
           updated_at: bom.updated_at
@@ -207,11 +197,13 @@ const FichasTecnicas = () => {
   };
 
   const handleNewTechnicalSheet = () => {
-    navigate('/producao/fichas/novo');
+    setEditingSheet(null);
+    setShowWizard(true);
   };
 
-  const handleEditTechnicalSheet = (sheetId: string) => {
-    navigate(`/producao/fichas/${sheetId}`);
+  const handleEditTechnicalSheet = (sheet: TechnicalSheet) => {
+    setEditingSheet(sheet);
+    setShowWizard(true);
   };
 
   const handleArchiveTechnicalSheet = async (sheet: TechnicalSheet, shouldArchive: boolean) => {
@@ -253,15 +245,13 @@ const FichasTecnicas = () => {
 
   const handleWizardSuccess = () => {
     setShowWizard(false);
-    setEditingSheetId(undefined);
-    navigate('/producao/fichas-tecnicas');
+    setEditingSheet(null);
     loadTechnicalSheets();
   };
 
   const handleWizardCancel = () => {
     setShowWizard(false);
-    setEditingSheetId(undefined);
-    navigate('/producao/fichas-tecnicas');
+    setEditingSheet(null);
   };
 
   const getTypeLabel = (type: string) => {
@@ -288,13 +278,34 @@ const FichasTecnicas = () => {
   ).sort();
 
   if (showWizard) {
+    const isComposite = editingSheet?.product_type === 'composite_product';
     return (
       <div className="container mx-auto px-4 py-8">
-        <TechnicalSheetWizard
-          technicalSheetId={editingSheetId}
-          onSuccess={handleWizardSuccess}
-          onCancel={handleWizardCancel}
-        />
+        {isComposite ? (
+          <CompositeBOMForm
+            compositeMaterial={editingSheet ? {
+              id: editingSheet.material_id,
+              name: editingSheet.name,
+              code: editingSheet.material_code || '',
+              usage_unit: editingSheet.usage_unit || 'unidade',
+              material_type: 'composite_product'
+            } : undefined}
+            onSuccess={handleWizardSuccess}
+            onCancel={handleWizardCancel}
+          />
+        ) : (
+          <RecipeBOMForm
+            finishedMaterial={editingSheet ? {
+              id: editingSheet.material_id,
+              name: editingSheet.name,
+              code: editingSheet.material_code || '',
+              usage_unit: editingSheet.usage_unit || 'unidade',
+              material_type: editingSheet.product_type
+            } : undefined}
+            onSuccess={handleWizardSuccess}
+            onCancel={handleWizardCancel}
+          />
+        )}
       </div>
     );
   }
@@ -482,7 +493,7 @@ const FichasTecnicas = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleEditTechnicalSheet(sheet.id)}
+                          onClick={() => handleEditTechnicalSheet(sheet)}
                           disabled={sheet.is_archived}
                         >
                           <Edit className="h-3 w-3 mr-1" />
