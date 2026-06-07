@@ -808,6 +808,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
             {isProducedMaterial && (
               <TabsContent value="bom" className="mt-0">
                 {editingBOM ? (
+                  <div className="overflow-y-auto">
                   <RecipeBOMForm
                     finishedMaterial={{
                       id: material.id,
@@ -822,6 +823,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
                     }}
                     onCancel={() => setEditingBOM(false)}
                   />
+                  </div>
                 ) : (
                   <Card>
                     <CardHeader>
@@ -903,21 +905,23 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
         </Tabs>
       </div>
 
-      {/* Sticky Footer */}
-      <div className="sticky bottom-0 bg-background border-t px-6 py-4">
-        <div className="flex gap-3 justify-end">
-          <Button variant="outline" onClick={handleClose}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={!hasUnsavedChanges}>
-            <Save className="h-4 w-4 mr-2" />
-            Salvar
-          </Button>
-          <Button variant="outline" onClick={handleSave} disabled={!hasUnsavedChanges}>
-            Salvar e Continuar
-          </Button>
+      {/* Sticky Footer — hidden when editing BOM (form has its own buttons) */}
+      {!editingBOM && (
+        <div className="sticky bottom-0 bg-background border-t px-6 py-4">
+          <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={handleClose}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={!hasUnsavedChanges}>
+              <Save className="h-4 w-4 mr-2" />
+              Salvar
+            </Button>
+            <Button variant="outline" onClick={handleSave} disabled={!hasUnsavedChanges}>
+              Salvar e Continuar
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 

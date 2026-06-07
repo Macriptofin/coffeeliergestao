@@ -513,6 +513,13 @@ const BOMManagement = () => {
             </div>
             <div className="flex gap-2">
               <Button
+                size="sm"
+                onClick={() => { setSelectedMaterial(null); setShowRecipeBOMForm(true); }}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Nova Ficha Técnica
+              </Button>
+              <Button
                 variant="outline"
                 size="sm"
                 onClick={() => selectAllFinished(filterMaterials(finishedProducts).map(i => i.material.id))}
