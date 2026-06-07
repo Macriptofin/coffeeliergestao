@@ -287,6 +287,11 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
       ? availableSubcategories.find(sub => sub.name === formData.subcategory)
       : undefined;
 
+    // Produtos acabados devem ser vendáveis por padrão (a menos que já esteja explicitamente false)
+    const isSellableValue = legacyMaterialType === 'finished_product'
+      ? (material.isSellable === false ? false : true)
+      : (material.isSellable || false);
+
     const updatedMaterial: Material = {
       ...material,
       name: formData.name,
@@ -304,6 +309,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
       materialType: legacyMaterialType,
       unitWeight: formData.unitWeight ? parseFloat(formData.unitWeight) : undefined,
       tracksInventory: formData.tracksInventory,
+      isSellable: isSellableValue,
       ncm: formData.ncm || undefined,
       cfop: formData.cfop || undefined,
       cst: formData.cst || undefined,

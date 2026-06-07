@@ -3,12 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, FileText, TrendingUp, ShoppingCart, BarChart3, Package } from "lucide-react";
-import ProposalForm from '@/components/sales/ProposalForm';
 import ProposalsList from '@/components/sales/ProposalsList';
 import ClientForm from '@/components/sales/ClientForm';
 import ClientsList from '@/components/sales/ClientsList';
 import ClientDetails from '@/components/sales/client/ClientDetails';
-import ProposalCategoryComposer from '@/components/sales/ProposalCategoryComposer';
+import ProposalEditor from '@/components/sales/ProposalEditor';
 import { ProposalPDF } from '@/components/sales/ProposalPDF';
 import OrdersList from '@/components/sales/OrdersList';
 import SalesReports from '@/components/sales/SalesReports';
@@ -17,11 +16,9 @@ import SalesDashboard from '@/components/sales/SalesDashboard';
 const Sales = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [showProposalForm, setShowProposalForm] = useState(false);
+  const [showProposalEditor, setShowProposalEditor] = useState(false);
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
   const [showClientForm, setShowClientForm] = useState(false);
-  const [createdProposalId, setCreatedProposalId] = useState<string | null>(null);
-  const [showProposalComposer, setShowProposalComposer] = useState(false);
   const [pdfProposalId, setPdfProposalId] = useState<string | null>(null);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [viewingClientId, setViewingClientId] = useState<string | null>(null);
@@ -33,18 +30,18 @@ const Sales = () => {
 
   const handleNewProposal = () => {
     setEditingProposalId(null);
-    setShowProposalForm(true);
+    setShowProposalEditor(true);
     setActiveTab('proposals');
   };
 
   const handleEditProposal = (id: string) => {
-    setCreatedProposalId(id);
-    setShowProposalComposer(true);
+    setEditingProposalId(id);
+    setShowProposalEditor(true);
   };
 
   const handleViewProposal = (id: string) => {
-    setCreatedProposalId(id);
-    setShowProposalComposer(true);
+    setEditingProposalId(id);
+    setShowProposalEditor(true);
   };
 
   const handlePdfProposal = (id: string) => {
@@ -52,29 +49,13 @@ const Sales = () => {
     setActiveTab('proposals');
   };
 
-  const handleProposalSuccess = (proposalId?: string) => {
-    if (proposalId) {
-      setCreatedProposalId(proposalId);
-      setShowProposalComposer(true);
-      setShowProposalForm(false);
-    } else {
-      setShowProposalForm(false);
-      setEditingProposalId(null);
-    }
+  const handleProposalEditorComplete = () => {
+    setShowProposalEditor(false);
+    setEditingProposalId(null);
   };
 
-  const handleProposalComposerComplete = () => {
-    setShowProposalComposer(false);
-    setCreatedProposalId(null);
-  };
-
-  const handleProposalComposerCancel = () => {
-    setShowProposalComposer(false);
-    setCreatedProposalId(null);
-  };
-
-  const handleProposalCancel = () => {
-    setShowProposalForm(false);
+  const handleProposalEditorCancel = () => {
+    setShowProposalEditor(false);
     setEditingProposalId(null);
   };
 
@@ -197,16 +178,11 @@ const Sales = () => {
               proposalId={pdfProposalId}
               onClose={() => setPdfProposalId(null)}
             />
-          ) : showProposalComposer && createdProposalId ? (
-            <ProposalCategoryComposer
-              proposalId={createdProposalId}
-              onComplete={handleProposalComposerComplete}
-              onCancel={handleProposalComposerCancel}
-            />
-          ) : showProposalForm ? (
-            <ProposalForm
-              onSuccess={handleProposalSuccess}
-              onCancel={handleProposalCancel}
+          ) : showProposalEditor ? (
+            <ProposalEditor
+              proposalId={editingProposalId}
+              onComplete={handleProposalEditorComplete}
+              onCancel={handleProposalEditorCancel}
             />
           ) : (
             <ProposalsList

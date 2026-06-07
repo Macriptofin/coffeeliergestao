@@ -94,21 +94,32 @@ export default function ProposalCategoryComposer({ proposalId, onComplete, onCan
       if (matRes.error)  throw matRes.error;
       if (propRes.error) throw propRes.error;
 
-      // Buscar custo médio do estoque para cada material
+      // Buscar custo da ficha técnica (recipes_bom) e custo médio de estoque
       const matIds = matRes.data.map((m: any) => m.id);
-      const { data: stockData } = await supabase
-        .from('stock_items')
-        .select('material_id, average_price')
-        .in('material_id', matIds);
+      const [stockRes, bomRes] = await Promise.all([
+        supabase
+          .from('stock_items')
+          .select('material_id, average_price')
+          .in('material_id', matIds),
+        supabase
+          .from('recipes_bom')
+          .select('finished_material_id, cached_unit_cost')
+          .in('finished_material_id', matIds),
+      ]);
 
       const stockMap: Record<string, number> = {};
-      stockData?.forEach((s: any) => { stockMap[s.material_id] = parseFloat(s.average_price || 0); });
+      stockRes.data?.forEach((s: any) => { stockMap[s.material_id] = parseFloat(s.average_price || 0); });
+
+      // cached_unit_cost = CMV real calculado pela ficha técnica (mais preciso para produtos produzidos)
+      const bomMap: Record<string, number> = {};
+      bomRes.data?.forEach((b: any) => { bomMap[b.finished_material_id] = parseFloat(b.cached_unit_cost || 0); });
 
       const enriched: Material[] = matRes.data.map((m: any) => ({
         ...m,
         unit_weight:   parseFloat(m.unit_weight   || 0),
         cost_price:    parseFloat(m.cost_price     || 0),
-        average_price: stockMap[m.id] ?? parseFloat(m.cost_price || 0),
+        // Prioridade: cached_unit_cost (ficha técnica) > average_price (estoque) > cost_price (manual)
+        average_price: bomMap[m.id] || stockMap[m.id] || parseFloat(m.cost_price || 0),
       }));
 
       setMaterials(enriched);
