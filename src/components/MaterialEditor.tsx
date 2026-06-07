@@ -415,7 +415,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto min-h-0">
         <Tabs defaultValue="general" className="w-full">
           <TabsList className="w-full justify-start border-b rounded-none bg-transparent h-auto p-0">
             <TabsTrigger value="general" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
@@ -808,7 +808,6 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
             {isProducedMaterial && (
               <TabsContent value="bom" className="mt-0">
                 {editingBOM ? (
-                  <div className="overflow-y-auto">
                   <RecipeBOMForm
                     finishedMaterial={{
                       id: material.id,
@@ -823,7 +822,6 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
                     }}
                     onCancel={() => setEditingBOM(false)}
                   />
-                  </div>
                 ) : (
                   <Card>
                     <CardHeader>
