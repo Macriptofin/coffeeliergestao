@@ -672,15 +672,16 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             console.error('Erro ao criar conta a pagar de frete:', freightPayableError);
             toast.error('Conta de produtos criada, mas houve erro ao criar conta de frete');
           } else if (isPaid && freightPayable) {
-            // Criar transação de pagamento para frete
+            // Criar transação de pagamento para frete usando a data real do pagamento
             await supabase
               .from('payment_transactions')
               .insert({
                 account_payable_id: freightPayable.id,
-                payment_date: currentDate,
+                payment_date: launchPaymentData.paymentDate,
                 amount: freightAmount,
-                payment_method: paymentData.paymentMethod,
-                notes: `Pagamento automático - Frete - ${paymentData.paymentMethod}`
+                payment_method: launchPaymentData.paymentMethod,
+                bank_account: launchPaymentData.bankAccountId || null,
+                notes: `Frete - ${launchPaymentData.paymentMethod}${launchPaymentData.notes ? ` - ${launchPaymentData.notes}` : ''}`
               });
           }
         }
@@ -779,13 +780,13 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       if (payableError) throw payableError;
 
-      // Se foi marcada como paga, criar transação de pagamento
+      // Se foi marcada como paga, criar transação de pagamento com a data real informada
       if (isPaid && payableAccount) {
         const { error: paymentError } = await supabase
           .from('payment_transactions')
           .insert({
             account_payable_id: payableAccount.id,
-            payment_date: currentDate,
+            payment_date: retroactivePaymentData.paymentDate,
             amount: invoiceAmount,
             payment_method: retroactivePaymentData.paymentMethod,
             notes: `Pagamento retroativo - ${retroactivePaymentData.paymentMethod}${retroactivePaymentData.responsiblePerson ? ` - Responsável: ${retroactivePaymentData.responsiblePerson}` : ''}`
