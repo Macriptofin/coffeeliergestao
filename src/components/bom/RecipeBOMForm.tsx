@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Plus, RefreshCw } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { NumericInput } from '@/components/ui/numeric-input';
+import { Combobox } from '@/components/ui/combobox';
 
 interface Material {
   id: string;
@@ -510,9 +512,8 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="yield_quantity">Rendimento</Label>
-              <Input
+              <NumericInput
                 id="yield_quantity"
-                type="number"
                 step="0.01"
                 min="0.01"
                 value={bomData.yield_quantity}
@@ -531,9 +532,8 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
             </div>
             <div>
               <Label htmlFor="waste_percent">% Perda Geral</Label>
-              <Input
+              <NumericInput
                 id="waste_percent"
-                type="number"
                 step="0.1"
                 min="0"
                 max="100"
@@ -568,58 +568,37 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
               {bomData.items.map((item, index) => {
                 const mat = materials.find(m => m.id === item.material_id);
                 const itemCost = getItemCost(item);
+
+                // Opções para o Combobox de ingredientes
+                const materialOptions = materials.map(m => ({
+                  value: m.id,
+                  label: m.name,
+                  searchText: `${m.name} ${m.code} ${TYPE_LABELS[m.material_type] || ''}`,
+                }));
+
                 return (
                   <div
                     key={index}
                     className="grid grid-cols-12 gap-2 items-end border rounded-lg p-3 bg-muted/20"
                   >
-                    {/* Material (5 colunas) */}
+                    {/* Material (5 colunas) — Combobox com busca */}
                     <div className="col-span-5">
                       {index === 0 && <Label className="text-xs text-muted-foreground mb-1 block">Material</Label>}
-                      <Select
+                      <Combobox
+                        options={materialOptions}
                         value={item.material_id}
-                        onValueChange={(v) => updateBOMItem(index, 'material_id', v)}
-                      >
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue placeholder="Selecionar..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {/* Agrupar por tipo */}
-                          {['ingredient', 'raw_material', 'intermediate_product', 'packaging'].map(type => {
-                            const group = materials.filter(m => m.material_type === type);
-                            if (group.length === 0) return null;
-                            return (
-                              <React.Fragment key={type}>
-                                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted/50">
-                                  {TYPE_LABELS[type] || type}
-                                </div>
-                                {group.map(material => (
-                                  <SelectItem key={material.id} value={material.id}>
-                                    <span className="flex items-center gap-2">
-                                      <span className={`text-xs px-1.5 py-0.5 rounded ${TYPE_COLORS[material.material_type] || ''}`}>
-                                        {material.code}
-                                      </span>
-                                      {material.name}
-                                      {material.material_type === 'intermediate_product' && (
-                                        <span className="text-xs text-muted-foreground">
-                                          (CMV: {fmt(material.cached_unit_cost ?? material.average_price)})
-                                        </span>
-                                      )}
-                                    </span>
-                                  </SelectItem>
-                                ))}
-                              </React.Fragment>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Selecionar..."
+                        searchPlaceholder="Buscar ingrediente..."
+                        emptyText="Nenhum ingrediente encontrado."
+                        onSelect={(v) => updateBOMItem(index, 'material_id', v)}
+                        className="h-8 text-sm font-normal"
+                      />
                     </div>
 
                     {/* Quantidade (2 colunas) */}
                     <div className="col-span-2">
                       {index === 0 && <Label className="text-xs text-muted-foreground mb-1 block">Qtd</Label>}
-                      <Input
-                        type="number"
+                      <NumericInput
                         step="0.001"
                         min="0"
                         value={item.quantity || ''}

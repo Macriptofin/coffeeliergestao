@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
 import { CheckCircle, Plus, Trash2, AlertTriangle, TrendingDown } from 'lucide-react';
+import { NumericInput } from '@/components/ui/numeric-input';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -253,8 +254,7 @@ export function ProductionFinalizationDialog({ order, open, onClose, onFinalized
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">Rendimento real ({item.yield_unit})</Label>
-                      <Input
-                        type="number"
+                      <NumericInput
                         min="0"
                         step="0.01"
                         value={entry?.actual_yield_quantity ?? ''}
@@ -340,8 +340,7 @@ export function ProductionFinalizationDialog({ order, open, onClose, onFinalized
                     <div>
                       <Label className="text-xs">Quantidade perdida</Label>
                       <div className="flex gap-1">
-                        <Input
-                          type="number"
+                        <NumericInput
                           min="0.01"
                           step="0.01"
                           placeholder="0"
