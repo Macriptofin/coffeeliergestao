@@ -142,7 +142,7 @@ const Stock = () => {
   }
 
   return (
-    <div>
+    <div className="max-w-7xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Controle de Estoque</h1>
         <p className="text-muted-foreground">

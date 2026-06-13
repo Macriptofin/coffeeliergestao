@@ -12,7 +12,7 @@ const InventarioAjustes = () => {
   const [activeTab, setActiveTab] = useState("cycles");
 
   return (
-    <div>
+    <div className="max-w-7xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Inventário & Ajustes</h1>
         <p className="text-muted-foreground">
