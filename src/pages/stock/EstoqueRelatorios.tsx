@@ -345,7 +345,7 @@ const EstoqueRelatorios = () => {
   const types = [...new Set(zeroStockItems.map(item => item.material_type))];
 
   return (
-    <div>
+    <div className="max-w-7xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Relatórios de Estoque</h1>
         <p className="text-muted-foreground">
