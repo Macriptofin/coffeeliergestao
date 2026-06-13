@@ -60,6 +60,7 @@ interface ConsolidatedMaterial {
   material: {
     id: string;
     name: string;
+    code: string;
     category: string;
     usage_unit: string;
   };
@@ -136,7 +137,7 @@ export const BOMProductionOrdersList = () => {
           consolidated_materials:bom_production_consolidated_materials (
             *,
             material:materials (
-              id, name, category, usage_unit
+              id, name, code, category, usage_unit
             )
           )
         `)
@@ -793,7 +794,7 @@ export const BOMProductionOrdersList = () => {
                 material: {
                   id: material.material.id,
                   name: material.material.name,
-                  code: material.material_id, // usando como fallback
+                  code: material.material.code || material.material_id,
                   material_type: 'ingredient',
                   category: material.material.category,
                   usage_unit: material.material.usage_unit
