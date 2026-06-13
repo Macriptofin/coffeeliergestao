@@ -88,7 +88,8 @@ export const InventoryCyclesList = () => {
       .from("materials")
       .select("category")
       .eq("tracks_inventory", true)
-      .not("category", "is", null);
+      .not("category", "is", null)
+      .neq("category", "");
     if (data) {
       const unique = [...new Set(data.map((d: any) => d.category as string).filter(Boolean))].sort();
       setCategories(unique);
@@ -139,8 +140,7 @@ export const InventoryCyclesList = () => {
     let query = supabase
       .from("materials")
       .select("id")
-      .eq("tracks_inventory", true)
-      .eq("is_active", true);
+      .eq("tracks_inventory", true);
 
     if (scope === "category" && selectedCategory) {
       query = query.eq("category", selectedCategory);
