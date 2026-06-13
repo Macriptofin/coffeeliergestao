@@ -47,6 +47,11 @@ export function Combobox({
   const [open, setOpen] = React.useState(false)
   const [selectedValue, setSelectedValue] = React.useState(value || "")
 
+  // Sync quando o valor externo muda (ex: carga inicial de dados existentes)
+  React.useEffect(() => {
+    setSelectedValue(value || "")
+  }, [value])
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
