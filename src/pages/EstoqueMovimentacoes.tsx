@@ -1,21 +1,16 @@
-import { StockMovements } from "@/components/stock/StockMovements";
+import { HistoricoUnificado } from "@/components/inventory/HistoricoUnificado";
 
 const EstoqueMovimentacoes = () => {
-  const handleRefresh = () => {
-    // Força o reload do componente StockMovements
-    window.location.reload();
-  };
-
   return (
     <div className="max-w-7xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Movimentações de Estoque</h1>
-        <p className="text-muted-foreground">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-1">Movimentações de Estoque</h1>
+        <p className="text-muted-foreground text-sm">
           Histórico completo de entradas, saídas e ajustes de estoque
         </p>
       </div>
-      
-      <StockMovements onRefresh={handleRefresh} />
+
+      <HistoricoUnificado />
     </div>
   );
 };

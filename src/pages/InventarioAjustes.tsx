@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RotateCcw, AlertTriangle, History } from "lucide-react";
+import { RotateCcw, AlertTriangle } from "lucide-react";
 import { InventoryCyclesList } from "@/components/inventory/InventoryCyclesList";
 import { AjusteAvulso }        from "@/components/inventory/AjusteAvulso";
-import { HistoricoUnificado }  from "@/components/inventory/HistoricoUnificado";
 
 const InventarioAjustes = () => {
   const [activeTab, setActiveTab] = useState("ciclos");
@@ -18,7 +17,7 @@ const InventarioAjustes = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="ciclos" className="flex items-center gap-2">
             <RotateCcw className="h-4 w-4" />
             Ciclos de Inventário
@@ -26,10 +25,6 @@ const InventarioAjustes = () => {
           <TabsTrigger value="avulso" className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
             Ajuste Avulso
-          </TabsTrigger>
-          <TabsTrigger value="historico" className="flex items-center gap-2">
-            <History className="h-4 w-4" />
-            Histórico Unificado
           </TabsTrigger>
         </TabsList>
 
@@ -54,10 +49,7 @@ const InventarioAjustes = () => {
           </div>
         </TabsContent>
 
-        {/* ── Histórico ── */}
-        <TabsContent value="historico">
-          <HistoricoUnificado />
-        </TabsContent>
+
       </Tabs>
     </div>
   );
