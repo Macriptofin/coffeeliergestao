@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +16,7 @@ import SalesDashboard from '@/components/sales/SalesDashboard';
 
 const Sales = () => {
   const [loading, setLoading] = useState(true);
+  const showLoader = useDelayedLoading(loading);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showProposalEditor, setShowProposalEditor] = useState(false);
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
@@ -100,7 +102,7 @@ const Sales = () => {
     }
   };
 
-  if (loading) {
+  if (showLoader) {
     return (
       <div className="flex justify-center items-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -215,6 +217,7 @@ const ProductsTab = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const showLoader = useDelayedLoading(loading);
   useEffect(() => {
     loadProducts();
   }, []);
@@ -237,7 +240,7 @@ const ProductsTab = () => {
     }
   };
 
-  if (loading) {
+  if (showLoader) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

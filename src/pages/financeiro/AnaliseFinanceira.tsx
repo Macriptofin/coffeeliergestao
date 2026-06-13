@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -34,6 +35,7 @@ interface CostCenterData {
 const AnaliseFinanceira = () => {
   const { hasAnyFinancialAccess, canViewAllFinancial, loading: permissionsLoading } = useFinancialPermissions();
   const [loading, setLoading] = useState(true);
+  const showLoader = useDelayedLoading(loading);
   const [period, setPeriod] = useState("3"); // Últimos 3 meses
   const [dateFilter, setDateFilter] = useState({
     start: format(subMonths(startOfMonth(new Date()), 2), 'yyyy-MM-dd'),
@@ -239,7 +241,7 @@ const AnaliseFinanceira = () => {
     );
   }
 
-  if (loading) {
+  if (showLoader) {
     return <div className="p-6">Carregando análises...</div>;
   }
 

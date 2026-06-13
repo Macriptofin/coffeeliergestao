@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ const Suppliers = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [ytdSpend, setYtdSpend] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const showLoader = useDelayedLoading(loading);
   const [submitting, setSubmitting] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
@@ -278,7 +280,7 @@ const Suppliers = () => {
       return a.companyName.localeCompare(b.companyName, 'pt-BR');
     });
 
-  if (loading || roleLoading) {
+  if (showLoader || roleLoading) {
     return (
       <div className="flex justify-center items-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />

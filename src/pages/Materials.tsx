@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -33,6 +34,7 @@ const Materials = () => {
   const [showMaterialEditor, setShowMaterialEditor] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
+  const showLoader = useDelayedLoading(loading);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -651,7 +653,7 @@ const Materials = () => {
     }
   };
 
-  if (loading) {
+  if (showLoader) {
     return (
       <div className="flex justify-center items-center py-12">
         <div className="text-center">

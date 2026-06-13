@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,7 @@ const getOriginLabel = (referenceType?: string) => {
 const FluxoCaixa = () => {
   const [transactions, setTransactions] = useState<CashTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useDelayedLoading(loading);
   const [fetching, setFetching] = useState(false); // refetch silencioso (sem blankar a tela)
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -119,7 +121,7 @@ const FluxoCaixa = () => {
 
   const saldoLiquido = totalEntradas - totalSaidas;
 
-  if (loading) {
+  if (showLoader) {
     return (
       <div className="p-6 flex items-center gap-3 text-muted-foreground">
         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
