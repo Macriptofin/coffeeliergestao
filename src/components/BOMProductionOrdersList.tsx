@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useReactToPrint } from 'react-to-print';
 import { PrintableBOMProductionOrder } from './PrintableBOMProductionOrder';
 import { ProductionChecklist } from './production/ProductionChecklist';
+import { ProductionFinalizationDialog } from './production/ProductionFinalizationDialog';
 
 interface ProductionOrder {
   id: string;
@@ -78,6 +79,7 @@ export const BOMProductionOrdersList = () => {
   const [includeTechnicalSheets, setIncludeTechnicalSheets] = useState(false);
   const [technicalSheetsData, setTechnicalSheetsData] = useState<any[]>([]);
   const [checklistOrderId, setChecklistOrderId] = useState<string | null>(null);
+  const [finalizingOrder, setFinalizingOrder] = useState<ProductionOrder | null>(null);
   const [stockItems, setStockItems] = useState<Array<{ material_id: string; current_quantity: number; average_price: number }>>([]);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -584,16 +586,12 @@ export const BOMProductionOrdersList = () => {
 
                 {canTransitionTo(order.status, 'completed') && (
                   <Button
-                    onClick={() => updateOrderStatus(order.id, 'completed')}
+                    onClick={() => setFinalizingOrder(order)}
                     disabled={processingOrder === order.id}
                     className="bg-green-600 hover:bg-green-700"
                     size="sm"
                   >
-                    {processingOrder === order.id ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    ) : (
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                    )}
+                    <CheckCircle className="h-4 w-4 mr-2" />
                     Concluir Produção
                   </Button>
                 )}
@@ -820,6 +818,19 @@ export const BOMProductionOrdersList = () => {
             />
           </div>
         </div>
+      )}
+
+      {/* Dialog de Finalização */}
+      {finalizingOrder && (
+        <ProductionFinalizationDialog
+          order={finalizingOrder}
+          open={!!finalizingOrder}
+          onClose={() => setFinalizingOrder(null)}
+          onFinalized={() => {
+            setFinalizingOrder(null);
+            loadProductionOrders();
+          }}
+        />
       )}
 
       {/* Dialog Checklist de Produção */}
