@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +34,7 @@ export interface PurchaseInvoice {
 const Purchases = () => {
   const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseInvoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useDelayedLoading(loading);
   const [activeTab, setActiveTab] = useState('requirements');
 
   useEffect(() => {
@@ -96,7 +98,7 @@ const Purchases = () => {
     })
     .reduce((sum, invoice) => sum + invoice.totalAmount, 0);
 
-  if (loading) {
+  if (showLoader) {
     return (
       <div className="flex justify-center items-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

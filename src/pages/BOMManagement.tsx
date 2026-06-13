@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useDelayedLoading } from '@/hooks/useDelayedLoading';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,6 +44,7 @@ const BOMManagement = () => {
   const [finishedProducts, setFinishedProducts] = useState<BOMSummary[]>([]);
   const [compositeProducts, setCompositeProducts] = useState<BOMSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useDelayedLoading(loading);
   const [searchTerm, setSearchTerm] = useState('');
   const [showRecipeBOMForm, setShowRecipeBOMForm] = useState(false);
   const [showCompositeBOMForm, setShowCompositeBOMForm] = useState(false);
@@ -408,7 +410,7 @@ const BOMManagement = () => {
     </TableRow>
   );
 
-  if (loading) {
+  if (showLoader) {
     return (
       <div className="flex justify-center items-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChefHat, ClipboardList, FileText, Settings, Calendar, Package2, AlertTriangle, ChevronRight } from "lucide-react";
@@ -16,6 +17,7 @@ interface BomAlert {
 const ProducaoMain = () => {
   const navigate = useNavigate();
   const { flags, loading } = useFeatureFlags();
+  const showLoader = useDelayedLoading(loading);
   const [bomAlerts, setBomAlerts] = useState<BomAlert[]>([]);
 
   useEffect(() => { loadBomAlerts(); }, []);
@@ -129,7 +131,7 @@ const ProducaoMain = () => {
   };
 
   // Mostrar loading enquanto os feature flags carregam para evitar "pulo" na interface
-  if (loading) {
+  if (showLoader) {
     return (
       <div>
         <div className="mb-8">

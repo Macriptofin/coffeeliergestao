@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +48,7 @@ export interface PurchaseInvoice {
 const Stock = () => {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useDelayedLoading(loading);
   const [filterType, setFilterType] = useState<'all' | 'low' | 'zero'>('all');
 
   useEffect(() => {
@@ -131,7 +133,7 @@ const Stock = () => {
 
   const filteredStockItems = getFilteredItems();
 
-  if (loading) {
+  if (showLoader) {
     return (
       <div className="flex justify-center items-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

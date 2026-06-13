@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,6 +70,7 @@ const ContasPagar = () => {
   const [chartAccounts, setChartAccounts] = useState<Account[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useDelayedLoading(loading);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -463,7 +465,7 @@ const ContasPagar = () => {
     .filter(acc => acc.effectiveStatus === 'Vencido')
     .reduce((sum, acc) => sum + acc.remaining_amount, 0);
 
-  if (loading) {
+  if (showLoader) {
     return <div className="p-6">Carregando...</div>;
   }
 

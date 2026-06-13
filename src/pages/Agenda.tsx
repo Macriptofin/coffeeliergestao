@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useDelayedLoading } from '@/hooks/useDelayedLoading';
 import { Calendar, Clock, Users, MapPin, Bell, LayoutList } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -43,6 +44,7 @@ interface Event {
 export default function Agenda() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useDelayedLoading(loading);
   const [showEventForm, setShowEventForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [selectedDateForNewEvent, setSelectedDateForNewEvent] = useState<Date | undefined>();
@@ -162,7 +164,7 @@ export default function Agenda() {
     );
   }
 
-  if (loading) {
+  if (showLoader) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
