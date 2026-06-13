@@ -683,8 +683,95 @@ export type Database = {
           },
         ]
       }
+      bom_production_losses: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          loss_quantity: number
+          loss_reason: string | null
+          loss_unit: string
+          material_id: string
+          notes: string | null
+          production_order_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          loss_quantity: number
+          loss_reason?: string | null
+          loss_unit: string
+          material_id: string
+          notes?: string | null
+          production_order_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          loss_quantity?: number
+          loss_reason?: string | null
+          loss_unit?: string
+          material_id?: string
+          notes?: string | null
+          production_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_production_losses_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_production_losses_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "bom_production_losses_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "bom_production_losses_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "bom_production_losses_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "bom_production_losses_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "bom_production_losses_production_order_id_fkey"
+            columns: ["production_order_id"]
+            isOneToOne: false
+            referencedRelation: "bom_production_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bom_production_order_items: {
         Row: {
+          actual_yield_quantity: number | null
           bom_id: string
           created_at: string | null
           id: string
@@ -694,9 +781,11 @@ export type Database = {
           production_order_id: string
           quantity: number
           total_yield_quantity: number
+          yield_notes: string | null
           yield_unit: string
         }
         Insert: {
+          actual_yield_quantity?: number | null
           bom_id: string
           created_at?: string | null
           id?: string
@@ -706,9 +795,11 @@ export type Database = {
           production_order_id: string
           quantity?: number
           total_yield_quantity: number
+          yield_notes?: string | null
           yield_unit: string
         }
         Update: {
+          actual_yield_quantity?: number | null
           bom_id?: string
           created_at?: string | null
           id?: string
@@ -718,6 +809,7 @@ export type Database = {
           production_order_id?: string
           quantity?: number
           total_yield_quantity?: number
+          yield_notes?: string | null
           yield_unit?: string
         }
         Relationships: [
@@ -2736,7 +2828,7 @@ export type Database = {
           is_draft: boolean
           material_id: string
           notes: string | null
-          physical_quantity: number
+          physical_quantity: number | null
           quantity_difference: number | null
           reference_document: string | null
           responsible_user_id: string | null
@@ -2753,7 +2845,7 @@ export type Database = {
           is_draft?: boolean
           material_id: string
           notes?: string | null
-          physical_quantity: number
+          physical_quantity?: number | null
           quantity_difference?: number | null
           reference_document?: string | null
           responsible_user_id?: string | null
@@ -2770,7 +2862,7 @@ export type Database = {
           is_draft?: boolean
           material_id?: string
           notes?: string | null
-          physical_quantity?: number
+          physical_quantity?: number | null
           quantity_difference?: number | null
           reference_document?: string | null
           responsible_user_id?: string | null
@@ -3279,7 +3371,6 @@ export type Database = {
           is_archived: boolean | null
           is_sellable: boolean | null
           is_system_generated: boolean | null
-          tracks_inventory: boolean
           material_type: string
           name: string
           ncm: string | null
@@ -3289,6 +3380,7 @@ export type Database = {
           subcategory: string | null
           subcategory_term_id: string | null
           supplier_id: string | null
+          tracks_inventory: boolean
           type_term_id: string | null
           unit_weight: number | null
           updated_at: string | null
@@ -3312,7 +3404,6 @@ export type Database = {
           is_archived?: boolean | null
           is_sellable?: boolean | null
           is_system_generated?: boolean | null
-          tracks_inventory?: boolean
           material_type?: string
           name: string
           ncm?: string | null
@@ -3322,6 +3413,7 @@ export type Database = {
           subcategory?: string | null
           subcategory_term_id?: string | null
           supplier_id?: string | null
+          tracks_inventory?: boolean
           type_term_id?: string | null
           unit_weight?: number | null
           updated_at?: string | null
@@ -3345,7 +3437,6 @@ export type Database = {
           is_archived?: boolean | null
           is_sellable?: boolean | null
           is_system_generated?: boolean | null
-          tracks_inventory?: boolean
           material_type?: string
           name?: string
           ncm?: string | null
@@ -3355,6 +3446,7 @@ export type Database = {
           subcategory?: string | null
           subcategory_term_id?: string | null
           supplier_id?: string | null
+          tracks_inventory?: boolean
           type_term_id?: string | null
           unit_weight?: number | null
           updated_at?: string | null
@@ -7009,6 +7101,10 @@ export type Database = {
       finalize_legacy_recipes_to_bom: {
         Args: { create_intermediates?: boolean; dry_run?: boolean }
         Returns: Json
+      }
+      finalize_production_order: {
+        Args: { p_items?: Json; p_losses?: Json; p_production_order_id: string }
+        Returns: undefined
       }
       finalize_proposal_fulfillment: {
         Args: { p_proposal_id: string }
