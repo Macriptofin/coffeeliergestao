@@ -578,8 +578,8 @@ const ContasPagar = () => {
       {/* ── Filtros ── */}
       <Card className="mb-4">
         <CardContent className="pt-4 pb-3">
-          {/* Linha 1: busca + status + fornecedor */}
-          <div className="flex flex-wrap gap-3 mb-3">
+          {/* Linha 1: busca + status + fornecedor + botões de ação */}
+          <div className="flex flex-wrap gap-3 mb-3 items-center">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
@@ -605,7 +605,7 @@ const ContasPagar = () => {
             </Select>
 
             <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[190px]">
                 <SelectValue placeholder="Fornecedor" />
               </SelectTrigger>
               <SelectContent>
@@ -615,14 +615,31 @@ const ContasPagar = () => {
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Botões de ação — sempre visíveis na primeira linha */}
+            <div className="ml-auto flex gap-2 shrink-0">
+              <Button variant="outline" onClick={() => {
+                setFormData({ ...emptyForm, document_type: 'recibo', due_date: today });
+                setNewDialogOpen(true);
+              }}>
+                <FileText className="mr-2 h-4 w-4" />
+                Nova Despesa
+              </Button>
+              <Button onClick={() => {
+                setFormData({ ...emptyForm, document_type: 'nota_fiscal' });
+                setNewDialogOpen(true);
+              }}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Conta
+              </Button>
+            </div>
           </div>
 
-          {/* Linha 2: período rápido + datas + botões */}
+          {/* Linha 2: período rápido + datas (só filtros, sem botões) */}
           <div className="flex flex-wrap gap-2 items-center">
             <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
             <span className="text-xs text-muted-foreground">Vencimento:</span>
 
-            {/* Quick selectors */}
             {[
               { v: "current", l: "Este mês" },
               { v: "last",    l: "Mês passado" },
@@ -656,25 +673,6 @@ const ContasPagar = () => {
                 onChange={e => { setDateEnd(e.target.value); setMonthQuick(""); }}
                 className="w-36 h-8 text-sm"
               />
-            </div>
-
-            <div className="ml-auto flex gap-2">
-              {/* Nova Despesa (sem NF) */}
-              <Button variant="outline" onClick={() => {
-                setFormData({ ...emptyForm, document_type: 'recibo', due_date: today });
-                setNewDialogOpen(true);
-              }}>
-                <FileText className="mr-2 h-4 w-4" />
-                Nova Despesa
-              </Button>
-              {/* Nova Conta (com NF) */}
-              <Button onClick={() => {
-                setFormData({ ...emptyForm, document_type: 'nota_fiscal' });
-                setNewDialogOpen(true);
-              }}>
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Conta
-              </Button>
             </div>
           </div>
         </CardContent>
