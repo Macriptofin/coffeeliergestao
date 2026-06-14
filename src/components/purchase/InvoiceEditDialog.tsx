@@ -503,13 +503,15 @@ export const InvoiceEditDialog = ({
         ? (discountTotal / 100) * subtotal
         : discountTotal;
       const totalWithDiscount = Math.max(0, subtotal - discountValue);
-      const totalWithFreight = totalWithDiscount + freightAmount;
+      // IPI é cobrado separadamente pelo fornecedor e compõe o total da nota
+      const ipiGrandTotal = editedData.itens.reduce((s, i) => s + (i.ipi_valor || 0), 0);
+      const totalWithFreight = totalWithDiscount + freightAmount + ipiGrandTotal;
 
       // Totais fiscais calculados dos itens
       const fiscalTotals = {
         icms_total: editedData.itens.reduce((s, i) => s + (i.icms_valor || 0), 0) || null,
         icms_st_total: editedData.itens.reduce((s, i) => s + (i.icms_st_valor || 0), 0) || null,
-        ipi_total: editedData.itens.reduce((s, i) => s + (i.ipi_valor || 0), 0) || null,
+        ipi_total: ipiGrandTotal || null,
         tributos_aprox_valor: editedData.tributos_aprox_valor || null,
         tributos_aprox_percent: editedData.tributos_aprox_percent || null,
         natureza_operacao: editedData.natureza_operacao || null,
@@ -760,11 +762,13 @@ export const InvoiceEditDialog = ({
 
     try {
       const subtotal = editedData.itens.reduce((sum, item) => sum + item.preco_total, 0);
-      const discountValue = discountType === 'percent' 
-        ? (discountTotal / 100) * subtotal 
+      const discountValue = discountType === 'percent'
+        ? (discountTotal / 100) * subtotal
         : discountTotal;
       const totalWithDiscount = subtotal - discountValue;
-      const totalWithFreight = totalWithDiscount + freightAmount;
+      // IPI é cobrado separadamente e compõe o total pago ao fornecedor
+      const ipiGrandTotalDraft = editedData.itens.reduce((s, i) => s + (i.ipi_valor || 0), 0);
+      const totalWithFreight = totalWithDiscount + freightAmount + ipiGrandTotalDraft;
 
       // Buscar nome do fornecedor se selecionado
       let fornecedorNome = editedData.fornecedor;
@@ -1277,12 +1281,13 @@ export const InvoiceEditDialog = ({
             <div className="p-4 bg-muted/50 rounded-lg space-y-2">
               {(() => {
                 const subtotal = editedData.itens.reduce((sum, item) => sum + item.preco_total, 0);
-                const discountValue = discountType === 'percent' 
-                  ? (discountTotal / 100) * subtotal 
+                const discountValue = discountType === 'percent'
+                  ? (discountTotal / 100) * subtotal
                   : discountTotal;
                 const totalProducts = Math.max(0, subtotal - discountValue);
-                const totalWithFreight = totalProducts + freightAmount;
-                
+                const ipiDisplay = editedData.itens.reduce((s, i) => s + (i.ipi_valor || 0), 0);
+                const totalWithFreight = totalProducts + freightAmount + ipiDisplay;
+
                 return (
                   <>
                     <div className="flex justify-between items-center text-sm">
@@ -1299,6 +1304,12 @@ export const InvoiceEditDialog = ({
                       <span className="text-muted-foreground">Total Produtos:</span>
                       <span className="font-medium">R$ {totalProducts.toFixed(2)}</span>
                     </div>
+                    {ipiDisplay > 0 && (
+                      <div className="flex justify-between items-center text-sm text-amber-700">
+                        <span>IPI (cobrado à parte):</span>
+                        <span>+ R$ {ipiDisplay.toFixed(2)}</span>
+                      </div>
+                    )}
                     {freightAmount > 0 && (
                       <div className="flex justify-between items-center text-sm text-blue-600">
                         <span>Frete (despesa):</span>
@@ -1313,7 +1324,7 @@ export const InvoiceEditDialog = ({
                     </div>
                     {(() => {
                       const totalIcms = editedData.itens.reduce((s, i) => s + (i.icms_valor || 0), 0);
-                      const totalIpi = editedData.itens.reduce((s, i) => s + (i.ipi_valor || 0), 0);
+                      const totalIpi = ipiDisplay;
                       const totalIcmsSt = editedData.itens.reduce((s, i) => s + (i.icms_st_valor || 0), 0);
                       if (totalIcms === 0 && totalIpi === 0 && totalIcmsSt === 0) return null;
                       return (
@@ -1333,7 +1344,7 @@ export const InvoiceEditDialog = ({
                           )}
                           {totalIpi > 0 && (
                             <div className="flex justify-between items-center text-xs text-amber-700 font-medium">
-                              <span>IPI Total (⚡ incluso no custo):</span>
+                              <span>IPI (⚡ incluso no total e no custo unitário):</span>
                               <span>R$ {totalIpi.toFixed(2)}</span>
                             </div>
                           )}
