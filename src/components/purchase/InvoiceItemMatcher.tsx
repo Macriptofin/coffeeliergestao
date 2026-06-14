@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSepa
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Check, AlertTriangle, Clock, Plus, Factory, Search } from 'lucide-react';
+import { Check, AlertTriangle, Clock, Plus, Factory, Search, ChevronDown, ChevronUp, Receipt } from 'lucide-react';
 
 interface Material {
   id: string;
@@ -41,6 +41,17 @@ interface InvoiceItem {
   converted_unit_price?: number;
   match_confidence?: number;
   match_method?: string;
+  // Campos fiscais
+  ncm?: string;
+  cst?: string;
+  cfop?: string;
+  icms_base?: number;
+  icms_aliquota?: number;
+  icms_valor?: number;
+  icms_st_base?: number;
+  icms_st_valor?: number;
+  ipi_valor?: number;
+  ipi_aliquota?: number;
 }
 
 interface InvoiceItemMatcherProps {
@@ -51,6 +62,7 @@ interface InvoiceItemMatcherProps {
   onConversionFactorAdjust: (index: number, newFactor: number) => void;
   onItemValueChange: (index: number, field: keyof InvoiceItem, value: any) => void;
   onItemNameChange?: (index: number, newName: string) => void;
+  onFiscalChange?: (index: number, field: keyof InvoiceItem, value: any) => void;
   canEditName?: boolean;
 }
 
@@ -62,12 +74,14 @@ export const InvoiceItemMatcher = ({
   onConversionFactorAdjust,
   onItemValueChange,
   onItemNameChange,
+  onFiscalChange,
   canEditName = false
 }: InvoiceItemMatcherProps) => {
   const [suggestions, setSuggestions] = useState<MaterialSuggestion[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<Material[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fiscalOpen, setFiscalOpen] = useState(false);
 
   // Modo manual = quando o nome do item ainda está vazio OU o usuário pode editar
   const isManualMode = canEditName;
@@ -414,6 +428,12 @@ export const InvoiceItemMatcher = ({
                   })()}
                 </span>
               </div>
+              {(item.ipi_valor || 0) > 0 && (
+                <div className="flex justify-between text-amber-600">
+                  <span>IPI ({item.ipi_aliquota || 0}%) — {item.quantidade} un:</span>
+                  <span>+ R$ {((item.ipi_valor || 0) / item.quantidade).toFixed(4)}/un</span>
+                </div>
+              )}
               <div className="flex justify-between items-center gap-2">
                 <span className="text-muted-foreground">Fator de Conversão:</span>
                 <div className="flex items-center gap-1">
@@ -432,11 +452,78 @@ export const InvoiceItemMatcher = ({
                 </div>
               </div>
               <div className="flex justify-between border-t pt-1">
-                <span className="text-muted-foreground">Entrada no Estoque:</span>
+                <span className="text-muted-foreground">Custo unitário no estoque{(item.ipi_valor || 0) > 0 ? ' (c/ IPI)' : ''}:</span>
                 <span className="font-medium text-primary">
-                  {item.converted_quantity?.toFixed(3)} {item.usage_unit} × R$ {item.converted_unit_price?.toFixed(4)}
+                  R$ {item.converted_unit_price?.toFixed(4)} / {item.usage_unit}
                 </span>
               </div>
+            </div>
+          )}
+
+          {/* Seção fiscal colapsável */}
+          {onFiscalChange && (
+            <div className="border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setFiscalOpen(v => !v)}
+                className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Receipt className="h-3.5 w-3.5" />
+                  Dados Fiscais
+                  {(item.ncm || item.icms_valor || item.ipi_valor) && (
+                    <Badge variant="secondary" className="text-xs py-0">preenchido</Badge>
+                  )}
+                </span>
+                {fiscalOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </button>
+              {fiscalOpen && (
+                <div className="p-3 border-t space-y-3 bg-muted/20">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">NCM</Label>
+                      <Input value={item.ncm || ''} onChange={e => onFiscalChange(index, 'ncm', e.target.value)} className="h-7 text-xs" placeholder="00000000" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">CST/CSOSN</Label>
+                      <Input value={item.cst || ''} onChange={e => onFiscalChange(index, 'cst', e.target.value)} className="h-7 text-xs" placeholder="051" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">CFOP</Label>
+                      <Input value={item.cfop || ''} onChange={e => onFiscalChange(index, 'cfop', e.target.value)} className="h-7 text-xs" placeholder="5102" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Base ICMS (R$)</Label>
+                      <Input type="number" step="0.01" value={item.icms_base || 0} onChange={e => onFiscalChange(index, 'icms_base', parseFloat(e.target.value) || 0)} className="h-7 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Alíq. ICMS (%)</Label>
+                      <Input type="number" step="0.01" value={item.icms_aliquota || 0} onChange={e => onFiscalChange(index, 'icms_aliquota', parseFloat(e.target.value) || 0)} className="h-7 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Valor ICMS (R$)</Label>
+                      <Input type="number" step="0.01" value={item.icms_valor || 0} onChange={e => onFiscalChange(index, 'icms_valor', parseFloat(e.target.value) || 0)} className="h-7 text-xs" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-amber-700">IPI Valor (R$) ⚡ afeta custo</Label>
+                      <Input type="number" step="0.01" value={item.ipi_valor || 0} onChange={e => onFiscalChange(index, 'ipi_valor', parseFloat(e.target.value) || 0)} className="h-7 text-xs border-amber-200 focus:border-amber-400" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Alíq. IPI (%)</Label>
+                      <Input type="number" step="0.01" value={item.ipi_aliquota || 0} onChange={e => onFiscalChange(index, 'ipi_aliquota', parseFloat(e.target.value) || 0)} className="h-7 text-xs" />
+                    </div>
+                  </div>
+                  {(item.ipi_valor || 0) > 0 && item.quantidade > 0 && (
+                    <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                      ⚡ IPI de R$ {(item.ipi_valor || 0).toFixed(2)} ÷ {item.quantidade} un = <strong>+R$ {((item.ipi_valor || 0) / item.quantidade).toFixed(4)}/un</strong> adicionado ao custo unitário do estoque.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -638,10 +725,16 @@ export const InvoiceItemMatcher = ({
                     <span className="text-xs">{item.usage_unit}</span>
                   </div>
                 </div>
+                {(item.ipi_valor || 0) > 0 && (
+                  <div className="flex justify-between text-amber-600">
+                    <span>IPI ({item.ipi_aliquota || 0}%):</span>
+                    <span>+ R$ {((item.ipi_valor || 0) / item.quantidade).toFixed(4)}/un</span>
+                  </div>
+                )}
                 <div className="flex justify-between border-t pt-1">
-                  <span className="text-muted-foreground">Entrada no Estoque:</span>
+                  <span className="text-muted-foreground">Custo unitário no estoque{(item.ipi_valor || 0) > 0 ? ' (c/ IPI)' : ''}:</span>
                   <span className="font-medium text-primary">
-                    {item.converted_quantity?.toFixed(3)} {item.usage_unit} × R$ {item.converted_unit_price?.toFixed(4)}
+                    R$ {item.converted_unit_price?.toFixed(4)} / {item.usage_unit}
                   </span>
                 </div>
               </div>
@@ -664,6 +757,73 @@ export const InvoiceItemMatcher = ({
             )}
           </div>
         </div>
+
+        {/* Seção fiscal colapsável — OCR mode */}
+        {onFiscalChange && (
+          <div className="border rounded-lg overflow-hidden mt-4">
+            <button
+              type="button"
+              onClick={() => setFiscalOpen(v => !v)}
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <Receipt className="h-3.5 w-3.5" />
+                Dados Fiscais
+                {(item.ncm || item.icms_valor || item.ipi_valor) && (
+                  <Badge variant="secondary" className="text-xs py-0">preenchido</Badge>
+                )}
+              </span>
+              {fiscalOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </button>
+            {fiscalOpen && (
+              <div className="p-3 border-t space-y-3 bg-muted/20">
+                <div className="grid grid-cols-6 gap-2">
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs">NCM</Label>
+                    <Input value={item.ncm || ''} onChange={e => onFiscalChange(index, 'ncm', e.target.value)} className="h-7 text-xs" placeholder="00000000" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs">CST/CSOSN</Label>
+                    <Input value={item.cst || ''} onChange={e => onFiscalChange(index, 'cst', e.target.value)} className="h-7 text-xs" placeholder="051" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs">CFOP</Label>
+                    <Input value={item.cfop || ''} onChange={e => onFiscalChange(index, 'cfop', e.target.value)} className="h-7 text-xs" placeholder="5102" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-6 gap-2">
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs">Base ICMS (R$)</Label>
+                    <Input type="number" step="0.01" value={item.icms_base || 0} onChange={e => onFiscalChange(index, 'icms_base', parseFloat(e.target.value) || 0)} className="h-7 text-xs" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs">Alíq. ICMS (%)</Label>
+                    <Input type="number" step="0.01" value={item.icms_aliquota || 0} onChange={e => onFiscalChange(index, 'icms_aliquota', parseFloat(e.target.value) || 0)} className="h-7 text-xs" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs">Valor ICMS (R$)</Label>
+                    <Input type="number" step="0.01" value={item.icms_valor || 0} onChange={e => onFiscalChange(index, 'icms_valor', parseFloat(e.target.value) || 0)} className="h-7 text-xs" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs text-amber-700">IPI Valor (R$) ⚡ afeta custo</Label>
+                    <Input type="number" step="0.01" value={item.ipi_valor || 0} onChange={e => onFiscalChange(index, 'ipi_valor', parseFloat(e.target.value) || 0)} className="h-7 text-xs border-amber-200 focus:border-amber-400" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs">Alíq. IPI (%)</Label>
+                    <Input type="number" step="0.01" value={item.ipi_aliquota || 0} onChange={e => onFiscalChange(index, 'ipi_aliquota', parseFloat(e.target.value) || 0)} className="h-7 text-xs" />
+                  </div>
+                </div>
+                {(item.ipi_valor || 0) > 0 && item.quantidade > 0 && (
+                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                    ⚡ IPI de R$ {(item.ipi_valor || 0).toFixed(2)} ÷ {item.quantidade} un = <strong>+R$ {((item.ipi_valor || 0) / item.quantidade).toFixed(4)}/un</strong> adicionado ao custo unitário do estoque.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

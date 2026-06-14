@@ -32,6 +32,17 @@ interface InvoiceItem {
   converted_unit_price?: number;
   match_confidence?: number;
   match_method?: string;
+  // Campos fiscais
+  ncm?: string;
+  cst?: string;
+  cfop?: string;
+  icms_base?: number;
+  icms_aliquota?: number;
+  icms_valor?: number;
+  icms_st_base?: number;
+  icms_st_valor?: number;
+  ipi_valor?: number;
+  ipi_aliquota?: number;
 }
 
 interface InvoiceData {
@@ -41,6 +52,13 @@ interface InvoiceData {
   itens: InvoiceItem[];
   discount_total?: number;
   discount_type?: 'value' | 'percent';
+  // Totalizadores fiscais
+  icms_total?: number;
+  icms_st_total?: number;
+  ipi_total?: number;
+  tributos_aprox_valor?: number;
+  tributos_aprox_percent?: number;
+  natureza_operacao?: string;
 }
 
 interface ValidationError {
@@ -171,7 +189,6 @@ export const InvoiceEditDialog = ({
   const handleMaterialSelect = async (itemIndex: number, materialId: string) => {
     if (!editedData) return;
 
-    // Buscar dados do material
     const { data: material } = await supabase
       .from('materials')
       .select('*')
@@ -183,12 +200,19 @@ export const InvoiceEditDialog = ({
     const item = editedData.itens[itemIndex];
     const conversionFactor = material.conversion_factor || 1;
     const convertedQty = item.quantidade * conversionFactor;
-    
-    // Usar preço com desconto se disponível
-    const precoUnitarioFinal = item.preco_com_desconto 
-      ? (item.preco_com_desconto / item.quantidade)
+
+    // Preço com desconto se disponível
+    const precoComDescontoUnit = item.preco_com_desconto
+      ? item.preco_com_desconto / item.quantidade
       : item.preco_unitario;
-    const convertedPrice = precoUnitarioFinal / conversionFactor;
+
+    // IPI é um custo real (não recuperável para maioria dos casos) — soma ao custo unitário
+    const ipiPorUnidade = item.ipi_valor && item.quantidade > 0
+      ? item.ipi_valor / item.quantidade
+      : 0;
+
+    const custoUnitarioEfetivo = precoComDescontoUnit + ipiPorUnidade;
+    const convertedPrice = custoUnitarioEfetivo / conversionFactor;
 
     const newItems = [...editedData.itens];
     newItems[itemIndex] = {
@@ -204,6 +228,27 @@ export const InvoiceEditDialog = ({
       converted_unit_price: convertedPrice
     };
 
+    setEditedData({ ...editedData, itens: newItems });
+  };
+
+  // Atualizar campo fiscal de um item
+  const handleFiscalChange = (itemIndex: number, field: keyof InvoiceItem, value: any) => {
+    if (!editedData) return;
+    const newItems = [...editedData.itens];
+    const item = { ...newItems[itemIndex], [field]: value };
+
+    // Quando IPI muda, recalcular custo convertido se material já vinculado
+    if ((field === 'ipi_valor' || field === 'quantidade') && item.material_id && item.conversion_factor) {
+      const precoBaseUnit = item.preco_com_desconto
+        ? item.preco_com_desconto / item.quantidade
+        : item.preco_unitario;
+      const ipiPorUnidade = (item.ipi_valor || 0) / (item.quantidade || 1);
+      const custoEfetivo = precoBaseUnit + ipiPorUnidade;
+      item.converted_unit_price = custoEfetivo / item.conversion_factor;
+      item.converted_quantity = item.quantidade * item.conversion_factor;
+    }
+
+    newItems[itemIndex] = item;
     setEditedData({ ...editedData, itens: newItems });
   };
 
@@ -259,11 +304,15 @@ export const InvoiceEditDialog = ({
       newItem.preco_com_desconto = undefined;
     }
 
-    // Recalcular conversão se material já está vinculado
+    // Recalcular conversão se material já está vinculado (IPI incluído no custo)
     if (newItem.material_id && newItem.conversion_factor) {
-      const precoTotalFinal = newItem.preco_com_desconto || newItem.preco_total;
+      const precoBaseUnit = newItem.preco_com_desconto
+        ? newItem.preco_com_desconto / newItem.quantidade
+        : newItem.preco_unitario;
+      const ipiPorUnidade = (newItem.ipi_valor || 0) / (newItem.quantidade || 1);
+      const custoEfetivo = precoBaseUnit + ipiPorUnidade;
       newItem.converted_quantity = newItem.quantidade * newItem.conversion_factor;
-      newItem.converted_unit_price = precoTotalFinal / newItem.converted_quantity;
+      newItem.converted_unit_price = custoEfetivo / newItem.conversion_factor;
     }
 
     const newItems = [...editedData.itens];
@@ -450,11 +499,21 @@ export const InvoiceEditDialog = ({
 
       // Calcular valores com desconto
       const subtotal = editedData.itens.reduce((sum, item) => sum + item.preco_total, 0);
-      const discountValue = discountType === 'percent' 
-        ? (discountTotal / 100) * subtotal 
+      const discountValue = discountType === 'percent'
+        ? (discountTotal / 100) * subtotal
         : discountTotal;
       const totalWithDiscount = Math.max(0, subtotal - discountValue);
       const totalWithFreight = totalWithDiscount + freightAmount;
+
+      // Totais fiscais calculados dos itens
+      const fiscalTotals = {
+        icms_total: editedData.itens.reduce((s, i) => s + (i.icms_valor || 0), 0) || null,
+        icms_st_total: editedData.itens.reduce((s, i) => s + (i.icms_st_valor || 0), 0) || null,
+        ipi_total: editedData.itens.reduce((s, i) => s + (i.ipi_valor || 0), 0) || null,
+        tributos_aprox_valor: editedData.tributos_aprox_valor || null,
+        tributos_aprox_percent: editedData.tributos_aprox_percent || null,
+        natureza_operacao: editedData.natureza_operacao || null,
+      };
 
       // Verificar se é uma nota existente (rascunho) ou nova
       let invoiceRecord: { id: string } | null = null;
@@ -490,7 +549,8 @@ export const InvoiceEditDialog = ({
             workflow_status: jaLancada ? 'lancada' : 'pendente',
             stock_posted: jaLancada ? true : false,
             items_locked: jaLancada ? true : false,
-            notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}\nStatus Pagamento: ${statusPagamento}\nData Pagamento: ${statusPagamento === 'pago' ? dataPagamento : dataVencimento}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
+            notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}\nStatus Pagamento: ${statusPagamento}\nData Pagamento: ${statusPagamento === 'pago' ? dataPagamento : dataVencimento}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`,
+            ...fiscalTotals,
           })
           .eq('id', existingInvoiceId)
           .select()
@@ -556,7 +616,8 @@ export const InvoiceEditDialog = ({
             workflow_status: 'pendente',
             stock_posted: false,
             items_locked: false,
-            notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}\nStatus Pagamento: ${statusPagamento}\nData Pagamento: ${statusPagamento === 'pago' ? dataPagamento : dataVencimento}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
+            notes: `${observacoes}\n\nForma de Pagamento: ${formaPagamento}\nResponsável: ${responsavelId}\nStatus Pagamento: ${statusPagamento}\nData Pagamento: ${statusPagamento === 'pago' ? dataPagamento : dataVencimento}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`,
+            ...fiscalTotals,
           })
           .select()
           .single();
@@ -595,7 +656,7 @@ export const InvoiceEditDialog = ({
         const itemDiscount = discountValue > 0 && subtotal > 0
           ? (item.preco_total / subtotal) * discountValue
           : (item.desconto || 0);
-        
+
         return {
           invoice_id: invoiceRecord.id,
           material_id: item.material_id,
@@ -605,12 +666,22 @@ export const InvoiceEditDialog = ({
           discount_amount: itemDiscount,
           discount_percent: item.preco_total > 0 ? (itemDiscount / item.preco_total) * 100 : 0,
           final_price: item.preco_total - itemDiscount,
-          // Salvar fator de conversão e valores convertidos
           conversion_factor: item.conversion_factor || 1,
           converted_quantity: item.converted_quantity || item.quantidade,
           converted_unit_price: item.converted_unit_price || item.preco_unitario,
           unit: item.unidade || 'un',
-          description: item.nome
+          description: item.nome,
+          // Campos fiscais
+          ncm: item.ncm || null,
+          cst: item.cst || null,
+          cfop: item.cfop || null,
+          icms_base: item.icms_base || 0,
+          icms_aliquota: item.icms_aliquota || 0,
+          icms_valor: item.icms_valor || 0,
+          icms_st_base: item.icms_st_base || 0,
+          icms_st_valor: item.icms_st_valor || 0,
+          ipi_valor: item.ipi_valor || 0,
+          ipi_aliquota: item.ipi_aliquota || 0,
         };
       });
 
@@ -714,6 +785,16 @@ export const InvoiceEditDialog = ({
         jaFoiLancada = cur?.stock_posted === true;
       }
 
+      // Totais fiscais calculados dos itens
+      const fiscalTotalsDraft = {
+        icms_total: editedData.itens.reduce((s, i) => s + (i.icms_valor || 0), 0) || null,
+        icms_st_total: editedData.itens.reduce((s, i) => s + (i.icms_st_valor || 0), 0) || null,
+        ipi_total: editedData.itens.reduce((s, i) => s + (i.ipi_valor || 0), 0) || null,
+        tributos_aprox_valor: editedData.tributos_aprox_valor || null,
+        tributos_aprox_percent: editedData.tributos_aprox_percent || null,
+        natureza_operacao: editedData.natureza_operacao || null,
+      };
+
       // Criar ou atualizar registro da nota fiscal como rascunho
       const invoicePayload = {
         invoice_number: editedData.numero_nota || `RASCUNHO-${Date.now()}`,
@@ -728,7 +809,8 @@ export const InvoiceEditDialog = ({
         workflow_status: jaFoiLancada ? 'lancada' : 'rascunho',
         stock_posted: jaFoiLancada ? true : false,
         items_locked: jaFoiLancada ? true : false,
-        notes: `${observacoes || ''}\n\nForma de Pagamento: ${formaPagamento || 'Não definida'}\nResponsável: ${responsavelId || 'Não definido'}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`
+        notes: `${observacoes || ''}\n\nForma de Pagamento: ${formaPagamento || 'Não definida'}\nResponsável: ${responsavelId || 'Não definido'}${freightAmount > 0 ? `\nFrete: R$ ${freightAmount.toFixed(2)}` : ''}`,
+        ...fiscalTotalsDraft,
       };
 
       let invoiceRecord;
@@ -777,7 +859,23 @@ export const InvoiceEditDialog = ({
             total_price: item.preco_total,
             discount_amount: itemDiscount,
             discount_percent: item.preco_total > 0 ? (itemDiscount / item.preco_total) * 100 : 0,
-            final_price: item.preco_total - itemDiscount
+            final_price: item.preco_total - itemDiscount,
+            conversion_factor: item.conversion_factor || 1,
+            converted_quantity: item.converted_quantity || item.quantidade,
+            converted_unit_price: item.converted_unit_price || item.preco_unitario,
+            unit: item.unidade || 'un',
+            description: item.nome,
+            // Campos fiscais
+            ncm: item.ncm || null,
+            cst: item.cst || null,
+            cfop: item.cfop || null,
+            icms_base: item.icms_base || 0,
+            icms_aliquota: item.icms_aliquota || 0,
+            icms_valor: item.icms_valor || 0,
+            icms_st_base: item.icms_st_base || 0,
+            icms_st_valor: item.icms_st_valor || 0,
+            ipi_valor: item.ipi_valor || 0,
+            ipi_aliquota: item.ipi_aliquota || 0,
           };
         });
 
@@ -1059,6 +1157,7 @@ export const InvoiceEditDialog = ({
                     onConversionFactorAdjust={handleConversionFactorAdjust}
                     onItemValueChange={handleItemValueChange}
                     onItemNameChange={handleItemNameChange}
+                    onFiscalChange={handleFiscalChange}
                     canEditName={canEditItems}
                   />
                   {canEditItems && editedData.itens.length > 1 && (
@@ -1212,6 +1311,41 @@ export const InvoiceEditDialog = ({
                         R$ {totalWithFreight.toFixed(2)}
                       </span>
                     </div>
+                    {(() => {
+                      const totalIcms = editedData.itens.reduce((s, i) => s + (i.icms_valor || 0), 0);
+                      const totalIpi = editedData.itens.reduce((s, i) => s + (i.ipi_valor || 0), 0);
+                      const totalIcmsSt = editedData.itens.reduce((s, i) => s + (i.icms_st_valor || 0), 0);
+                      if (totalIcms === 0 && totalIpi === 0 && totalIcmsSt === 0) return null;
+                      return (
+                        <div className="mt-2 pt-2 border-t border-dashed space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Impostos (referência)</p>
+                          {totalIcms > 0 && (
+                            <div className="flex justify-between items-center text-xs text-muted-foreground">
+                              <span>ICMS Total:</span>
+                              <span>R$ {totalIcms.toFixed(2)}</span>
+                            </div>
+                          )}
+                          {totalIcmsSt > 0 && (
+                            <div className="flex justify-between items-center text-xs text-muted-foreground">
+                              <span>ICMS-ST Total:</span>
+                              <span>R$ {totalIcmsSt.toFixed(2)}</span>
+                            </div>
+                          )}
+                          {totalIpi > 0 && (
+                            <div className="flex justify-between items-center text-xs text-amber-700 font-medium">
+                              <span>IPI Total (⚡ incluso no custo):</span>
+                              <span>R$ {totalIpi.toFixed(2)}</span>
+                            </div>
+                          )}
+                          {editedData.tributos_aprox_percent && editedData.tributos_aprox_percent > 0 && (
+                            <div className="flex justify-between items-center text-xs text-muted-foreground">
+                              <span>Tributos Aprox. ({editedData.tributos_aprox_percent}%):</span>
+                              <span>R$ {(editedData.tributos_aprox_valor || 0).toFixed(2)}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </>
                 );
               })()}
