@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Search, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatLocalDate } from "@/lib/date-utils";
 
 interface CashTransaction {
   id: string;
@@ -252,7 +253,7 @@ const FluxoCaixa = () => {
               {filteredTransactions.map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell>
-                    {format(new Date(transaction.transaction_date), "dd/MM/yyyy", { locale: ptBR })}
+                    {formatLocalDate(transaction.transaction_date)}
                   </TableCell>
                   <TableCell>{transaction.description}</TableCell>
                   <TableCell>
