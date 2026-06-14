@@ -1,6 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign } from "lucide-react";
 import { ConfigParams } from "./ConfigParams";
+import { PaymentMethodsManager } from "./PaymentMethodsManager";
 
 export const ConfigFinanceiro = () => {
   return (
@@ -14,6 +14,8 @@ export const ConfigFinanceiro = () => {
       </div>
 
       <ConfigParams namespace="financeiro" />
+
+      <PaymentMethodsManager />
     </div>
   );
 };

@@ -17,6 +17,7 @@ import { Plus, Search, DollarSign, Calendar, Receipt, CheckCircle, Pencil, Eye, 
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatLocalDate, parseLocalDate, isOverdue } from "@/lib/date-utils";
+import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 
 interface AccountReceivable {
   id: string;
@@ -71,6 +72,7 @@ interface BankAccount {
 }
 
 const ContasReceber = () => {
+  const { methodNames: paymentMethodNames } = usePaymentMethods();
   const [accounts, setAccounts] = useState<AccountReceivable[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -932,13 +934,9 @@ const ContasReceber = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Dinheiro">Dinheiro</SelectItem>
-                    <SelectItem value="PIX">PIX</SelectItem>
-                    <SelectItem value="Cartão Débito">Cartão de Débito</SelectItem>
-                    <SelectItem value="Cartão Crédito">Cartão de Crédito</SelectItem>
-                    <SelectItem value="Transferência">Transferência Bancária</SelectItem>
-                    <SelectItem value="Boleto">Boleto</SelectItem>
-                    <SelectItem value="Cheque">Cheque</SelectItem>
+                    {paymentMethodNames.map(m => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

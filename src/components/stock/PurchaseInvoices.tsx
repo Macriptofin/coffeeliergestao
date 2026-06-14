@@ -18,6 +18,7 @@ import { InvoiceOCRUploader } from "@/components/purchase/InvoiceOCRUploader";
 import type { PurchaseInvoice } from "@/pages/Stock";
 import { useUserRole } from "@/hooks/useUserRole";
 import { InvoiceEditDialog } from "../purchase/InvoiceEditDialog";
+import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 
 interface Supplier {
   id: string;
@@ -48,6 +49,7 @@ interface PurchaseInvoicesProps {
 
 export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps) {
   const { isAdminOrManager, isAdmin, loading: roleLoading } = useUserRole();
+  const { methodNames: paymentMethodNames } = usePaymentMethods();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
@@ -1243,7 +1245,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                   onChange={e => setLaunchPaymentData(p => ({ ...p, paymentMethod: e.target.value }))}
                   className="w-full border rounded px-2 py-1.5 text-sm bg-background"
                 >
-                  {['PIX','Transferência Bancária','Boleto','Dinheiro','Cartão de Débito','Cartão de Crédito','Cheque'].map(m => (
+                  {paymentMethodNames.map(m => (
                     <option key={m} value={m}>{m}</option>
                   ))}
                 </select>
@@ -1302,13 +1304,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Dinheiro">Dinheiro</SelectItem>
-                  <SelectItem value="PIX">PIX</SelectItem>
-                  <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
-                  <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
-                  <SelectItem value="Transferência Bancária">Transferência Bancária</SelectItem>
-                  <SelectItem value="Boleto">Boleto</SelectItem>
-                  <SelectItem value="Cheque">Cheque</SelectItem>
+                  {paymentMethodNames.map(m => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -1396,13 +1394,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                   <SelectValue placeholder="Selecione a forma de pagamento" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Dinheiro">Dinheiro</SelectItem>
-                  <SelectItem value="PIX">PIX</SelectItem>
-                  <SelectItem value="Cartão de Débito">Cartão de Débito</SelectItem>
-                  <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
-                  <SelectItem value="Transferência Bancária">Transferência Bancária</SelectItem>
-                  <SelectItem value="Boleto">Boleto</SelectItem>
-                  <SelectItem value="Cheque">Cheque</SelectItem>
+                  {paymentMethodNames.map(m => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

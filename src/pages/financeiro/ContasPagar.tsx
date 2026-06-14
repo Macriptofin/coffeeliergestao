@@ -18,6 +18,7 @@ import { Plus, Search, DollarSign, Calendar, Receipt, CheckCircle, Pencil, Eye, 
 import { format, startOfMonth, endOfMonth, subMonths, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatLocalDate, isOverdue } from "@/lib/date-utils";
+import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 
 interface AccountPayable {
   id: string;
@@ -129,6 +130,8 @@ const ContasPagar = () => {
     document_number:   "",
     notes:             ""
   });
+
+  const { methodNames: paymentMethodNames } = usePaymentMethods();
 
   // ── fetch ─────────────────────────────────────────────────────────────────
   useEffect(() => { fetchData(); }, []);
@@ -915,7 +918,7 @@ const ContasPagar = () => {
                     <Select value={formData.pago_method} onValueChange={v => setFormData(f => ({ ...f, pago_method: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {['PIX','Dinheiro','Transferência Bancária','Boleto','Cartão de Débito','Cartão de Crédito','Cheque','Depósito'].map(m => (
+                        {paymentMethodNames.map(m => (
                           <SelectItem key={m} value={m}>{m}</SelectItem>
                         ))}
                       </SelectContent>
@@ -972,7 +975,7 @@ const ContasPagar = () => {
                 <Select value={paymentData.payment_method} onValueChange={v => setPaymentData(p => ({ ...p, payment_method: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {['PIX','Transferência Bancária','Boleto','Dinheiro','Cartão de Débito','Cartão de Crédito','Cheque','Depósito'].map(m => (
+                    {paymentMethodNames.map(m => (
                       <SelectItem key={m} value={m}>{m}</SelectItem>
                     ))}
                   </SelectContent>
