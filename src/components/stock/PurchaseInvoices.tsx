@@ -621,12 +621,12 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             console.error('Erro ao criar conta a pagar de produtos:', productsPayableError);
             toast.error('Estoque lançado, mas houve erro ao criar conta a pagar de produtos');
           } else if (isPaid && productsPayable) {
-            // Criar transação de pagamento com data real informada pelo usuário
+            // Usar data de pagamento da NF (salva no campo notes), não a data de hoje
             await supabase
               .from('payment_transactions')
               .insert({
                 account_payable_id: productsPayable.id,
-                payment_date: launchPaymentData.paymentDate,
+                payment_date: invoicePaymentDate,
                 amount: productsAmount,
                 payment_method: launchPaymentData.paymentMethod,
                 bank_account: launchPaymentData.bankAccountId || null,
@@ -674,12 +674,12 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             console.error('Erro ao criar conta a pagar de frete:', freightPayableError);
             toast.error('Conta de produtos criada, mas houve erro ao criar conta de frete');
           } else if (isPaid && freightPayable) {
-            // Criar transação de pagamento para frete usando a data real do pagamento
+            // Usar data de pagamento da NF (salva no campo notes), não a data de hoje
             await supabase
               .from('payment_transactions')
               .insert({
                 account_payable_id: freightPayable.id,
-                payment_date: launchPaymentData.paymentDate,
+                payment_date: invoicePaymentDate,
                 amount: freightAmount,
                 payment_method: launchPaymentData.paymentMethod,
                 bank_account: launchPaymentData.bankAccountId || null,
