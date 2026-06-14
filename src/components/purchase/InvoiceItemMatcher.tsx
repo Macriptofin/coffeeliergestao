@@ -242,7 +242,18 @@ export const InvoiceItemMatcher = ({
               </Label>
               <Select value={item.material_id || ''} onValueChange={handleSelect}>
                 <SelectTrigger className={!item.material_id ? 'border-destructive' : 'border-green-500'}>
-                  <SelectValue placeholder="Pesquise e selecione o material..." />
+                  {item.material_id && item.material_nome ? (
+                    <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                      {item.material_codigo && (
+                        <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground shrink-0">
+                          {item.material_codigo}
+                        </span>
+                      )}
+                      <span className="font-medium truncate">{item.material_nome}</span>
+                    </div>
+                  ) : (
+                    <SelectValue placeholder="Pesquise e selecione o material..." />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   {/* Item fantasma: garante que o Radix encontre o value selecionado e exiba o nome no trigger */}
@@ -650,7 +661,18 @@ export const InvoiceItemMatcher = ({
             <Label className="text-xs text-muted-foreground">Material do Estoque</Label>
             <Select value={item.material_id || ''} onValueChange={handleSelect}>
               <SelectTrigger className={!item.material_id ? 'border-destructive' : 'border-green-500'}>
-                <SelectValue placeholder="Selecione o material correspondente" />
+                {item.material_id && item.material_nome ? (
+                  <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                    {item.material_codigo && (
+                      <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground shrink-0">
+                        {item.material_codigo}
+                      </span>
+                    )}
+                    <span className="font-medium truncate">{item.material_nome}</span>
+                  </div>
+                ) : (
+                  <SelectValue placeholder="Selecione o material correspondente" />
+                )}
               </SelectTrigger>
               <SelectContent>
                 {/* Item fantasma: garante que o Radix exiba o nome no trigger quando material já está selecionado */}
