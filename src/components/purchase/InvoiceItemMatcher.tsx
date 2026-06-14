@@ -245,6 +245,18 @@ export const InvoiceItemMatcher = ({
                   <SelectValue placeholder="Pesquise e selecione o material..." />
                 </SelectTrigger>
                 <SelectContent>
+                  {/* Item fantasma: garante que o Radix encontre o value selecionado e exiba o nome no trigger */}
+                  {item.material_id && item.material_nome && (
+                    <SelectItem
+                      key={`selected-${item.material_id}`}
+                      value={item.material_id}
+                      textValue={item.material_nome}
+                      className="hidden"
+                    >
+                      {item.material_nome}
+                    </SelectItem>
+                  )}
+
                   {/* Campo de busca live */}
                   <div className="px-2 py-2 sticky top-0 bg-popover border-b">
                     <div className="relative">
@@ -641,6 +653,17 @@ export const InvoiceItemMatcher = ({
                 <SelectValue placeholder="Selecione o material correspondente" />
               </SelectTrigger>
               <SelectContent>
+                {/* Item fantasma: garante que o Radix exiba o nome no trigger quando material já está selecionado */}
+                {item.material_id && item.material_nome && (
+                  <SelectItem
+                    key={`selected-${item.material_id}`}
+                    value={item.material_id}
+                    textValue={item.material_nome}
+                    className="hidden"
+                  >
+                    {item.material_nome}
+                  </SelectItem>
+                )}
                 {suggestions.length > 0 && (
                   <>
                     <SelectGroup>

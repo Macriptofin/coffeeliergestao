@@ -130,16 +130,19 @@ export const InvoiceEditDialog = ({
 
   useEffect(() => {
     if (invoiceData && open) {
-      setEditedData(JSON.parse(JSON.stringify(invoiceData)));
       loadUsers();
       loadCostCenters();
-      
+
       // Inicializar itens com status
       const itemsWithStatus: InvoiceItem[] = invoiceData.itens.map(item => ({
         ...item,
         status: (item.material_id ? 'matched' : 'pending') as 'matched' | 'not_found' | 'pending'
       }));
       setEditedData({ ...invoiceData, itens: itemsWithStatus });
+
+      // Restaurar desconto global e tipo (preserva rascunho salvo)
+      if (invoiceData.discount_total != null) setDiscountTotal(invoiceData.discount_total);
+      if (invoiceData.discount_type) setDiscountType(invoiceData.discount_type);
     }
   }, [invoiceData, open]);
 
@@ -498,7 +501,11 @@ export const InvoiceEditDialog = ({
       const fornecedorNome = supplier?.company_name || editedData.fornecedor;
 
       // Calcular valores com desconto
-      const subtotal = editedData.itens.reduce((sum, item) => sum + item.preco_total, 0);
+      // grossSubtotal = soma bruta; perItemDiscountsTotal = descontos individuais dos itens
+      // subtotal = base para aplicar o desconto global da nota
+      const grossSubtotal = editedData.itens.reduce((sum, item) => sum + item.preco_total, 0);
+      const perItemDiscountsTotal = editedData.itens.reduce((sum, item) => sum + (item.desconto || 0), 0);
+      const subtotal = grossSubtotal - perItemDiscountsTotal;
       const discountValue = discountType === 'percent'
         ? (discountTotal / 100) * subtotal
         : discountTotal;
@@ -655,9 +662,14 @@ export const InvoiceEditDialog = ({
 
       // Criar itens da nota fiscal com desconto rateado e fator de conversão
       const invoiceItemsData = editedData.itens.map(item => {
-        const itemDiscount = discountValue > 0 && subtotal > 0
-          ? (item.preco_total / subtotal) * discountValue
-          : (item.desconto || 0);
+        // Desconto individual do item (vem da NF por item)
+        const itemPerItemDiscount = item.desconto || 0;
+        const itemAfterPerItem = item.preco_total - itemPerItemDiscount;
+        // Desconto global rateado proporcionalmente sobre o valor já com desconto por item
+        const itemGlobalDiscount = discountValue > 0 && subtotal > 0
+          ? (itemAfterPerItem / subtotal) * discountValue
+          : 0;
+        const itemTotalDiscount = itemPerItemDiscount + itemGlobalDiscount;
 
         return {
           invoice_id: invoiceRecord.id,
@@ -665,9 +677,9 @@ export const InvoiceEditDialog = ({
           quantity: item.quantidade,
           unit_price: item.preco_unitario,
           total_price: item.preco_total,
-          discount_amount: itemDiscount,
-          discount_percent: item.preco_total > 0 ? (itemDiscount / item.preco_total) * 100 : 0,
-          final_price: item.preco_total - itemDiscount,
+          discount_amount: itemTotalDiscount,
+          discount_percent: item.preco_total > 0 ? (itemTotalDiscount / item.preco_total) * 100 : 0,
+          final_price: item.preco_total - itemTotalDiscount,
           conversion_factor: item.conversion_factor || 1,
           converted_quantity: item.converted_quantity || item.quantidade,
           converted_unit_price: item.converted_unit_price || item.preco_unitario,
@@ -761,7 +773,9 @@ export const InvoiceEditDialog = ({
     setSaving(true);
 
     try {
-      const subtotal = editedData.itens.reduce((sum, item) => sum + item.preco_total, 0);
+      const grossSubtotalDraft = editedData.itens.reduce((sum, item) => sum + item.preco_total, 0);
+      const perItemDiscountsTotalDraft = editedData.itens.reduce((sum, item) => sum + (item.desconto || 0), 0);
+      const subtotal = grossSubtotalDraft - perItemDiscountsTotalDraft;
       const discountValue = discountType === 'percent'
         ? (discountTotal / 100) * subtotal
         : discountTotal;
@@ -1280,7 +1294,9 @@ export const InvoiceEditDialog = ({
             {/* Total */}
             <div className="p-4 bg-muted/50 rounded-lg space-y-2">
               {(() => {
-                const subtotal = editedData.itens.reduce((sum, item) => sum + item.preco_total, 0);
+                const grossSubtotalDisplay = editedData.itens.reduce((sum, item) => sum + item.preco_total, 0);
+                const perItemDiscountsDisplay = editedData.itens.reduce((sum, item) => sum + (item.desconto || 0), 0);
+                const subtotal = grossSubtotalDisplay - perItemDiscountsDisplay;
                 const discountValue = discountType === 'percent'
                   ? (discountTotal / 100) * subtotal
                   : discountTotal;
@@ -1292,11 +1308,17 @@ export const InvoiceEditDialog = ({
                   <>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Subtotal Produtos:</span>
-                      <span className="font-medium">R$ {subtotal.toFixed(2)}</span>
+                      <span className="font-medium">R$ {grossSubtotalDisplay.toFixed(2)}</span>
                     </div>
+                    {perItemDiscountsDisplay > 0 && (
+                      <div className="flex justify-between items-center text-sm text-green-600">
+                        <span>Descontos por item:</span>
+                        <span>- R$ {perItemDiscountsDisplay.toFixed(2)}</span>
+                      </div>
+                    )}
                     {discountValue > 0 && (
                       <div className="flex justify-between items-center text-sm text-green-600">
-                        <span>Desconto ({discountType === 'percent' ? `${discountTotal}%` : 'valor'}):</span>
+                        <span>Desconto na Nota ({discountType === 'percent' ? `${discountTotal}%` : 'valor'}):</span>
                         <span>- R$ {discountValue.toFixed(2)}</span>
                       </div>
                     )}

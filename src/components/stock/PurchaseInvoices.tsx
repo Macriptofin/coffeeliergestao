@@ -228,8 +228,10 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           quantidade: item.quantity || 0,
           unidade: item.unit || 'un',
           preco_unitario: item.unit_price || 0,
-          preco_total: (item.quantity || 0) * (item.unit_price || 0),
+          preco_total: item.total_price ?? ((item.quantity || 0) * (item.unit_price || 0)),
           desconto: item.discount_amount || 0,
+          desconto_percentual: item.discount_percent || 0,
+          preco_com_desconto: item.final_price ?? null,
           material_id: item.material_id,
           material_nome: item.materials?.name,
           material_codigo: item.materials?.code,
@@ -237,9 +239,28 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           conversion_factor: item.conversion_factor || 1,
           usage_unit: item.materials?.usage_unit || item.unit,
           converted_quantity: item.converted_quantity || item.quantity,
-          converted_unit_price: item.converted_unit_price || item.unit_price
+          converted_unit_price: item.converted_unit_price || item.unit_price,
+          // Campos fiscais
+          ncm: item.ncm || null,
+          cst: item.cst || null,
+          cfop: item.cfop || null,
+          icms_base: item.icms_base || 0,
+          icms_aliquota: item.icms_aliquota || 0,
+          icms_valor: item.icms_valor || 0,
+          icms_st_base: item.icms_st_base || 0,
+          icms_st_valor: item.icms_st_valor || 0,
+          ipi_valor: item.ipi_valor || 0,
+          ipi_aliquota: item.ipi_aliquota || 0,
         })),
-        discount_total: invoice.discount_total || 0
+        discount_total: invoice.discount_total || 0,
+        discount_type: (invoice.discount_type as 'value' | 'percent') || 'value',
+        // Totalizadores fiscais da nota
+        icms_total: invoice.icms_total || null,
+        icms_st_total: invoice.icms_st_total || null,
+        ipi_total: invoice.ipi_total || null,
+        tributos_aprox_valor: invoice.tributos_aprox_valor || null,
+        tributos_aprox_percent: invoice.tributos_aprox_percent || null,
+        natureza_operacao: invoice.natureza_operacao || null,
       };
 
       setManualInvoiceData(invoiceData);
