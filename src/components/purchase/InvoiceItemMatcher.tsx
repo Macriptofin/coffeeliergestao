@@ -114,12 +114,20 @@ export const InvoiceItemMatcher = ({
           stock_items(cost_source)
         `)
         .eq('is_archived', false)
-        .not('material_type', 'in', '(finished_product,intermediate_product,composite_product)')
-        .limit(100);
+        .limit(200);
 
       if (!materials) return;
 
-      const suggs = generateSuggestions(item.nome, materials);
+      // Excluir apenas materiais cujo custo é calculado por ficha técnica (composite/intermediate com recipe)
+      // Produto acabado SEM ficha (ex: revenda) pode receber entrada por NF
+      const eligible = materials.filter((m: any) => {
+        const costSource = m.stock_items?.[0]?.cost_source;
+        if (costSource === 'recipe') return false; // tem ficha técnica → não pode receber NF
+        if (m.material_type === 'intermediate_product' || m.material_type === 'composite_product') return false;
+        return true;
+      });
+
+      const suggs = generateSuggestions(item.nome, eligible);
       setSuggestions(suggs);
     } catch (error) {
       console.error('Erro ao carregar sugestões:', error);
@@ -180,13 +188,21 @@ export const InvoiceItemMatcher = ({
     try {
       const { data } = await supabase
         .from('materials')
-        .select('id, name, code, usage_unit, conversion_factor')
+        .select('id, name, code, usage_unit, conversion_factor, material_type, stock_items(cost_source)')
         .eq('is_archived', false)
-        .not('material_type', 'in', '(finished_product,intermediate_product,composite_product)')
+        .not('material_type', 'in', '(intermediate_product,composite_product)')
         .ilike('name', `%${searchTerm}%`)
-        .limit(20);
+        .limit(30);
 
-      setSearchResults(data || []);
+      // Excluir apenas finished_product com ficha técnica (cost_source = 'recipe')
+      const eligible = (data || []).filter((m: any) => {
+        if (m.material_type === 'finished_product') {
+          return m.stock_items?.[0]?.cost_source !== 'recipe';
+        }
+        return true;
+      });
+
+      setSearchResults(eligible);
     } catch (error) {
       console.error('Erro ao buscar materiais:', error);
     } finally {
