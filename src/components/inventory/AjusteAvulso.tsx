@@ -14,7 +14,6 @@ import { MaterialSelect } from "@/components/MaterialSelect";
 import { TrendingUp, TrendingDown, AlertTriangle, Lock, CheckCircle, Package, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 
-const ADMIN_PASSWORD = "coffeelier2024";
 
 const QTY_REASON_CODES = [
   { value: "quebra",       label: "Quebra / Dano físico" },
@@ -120,13 +119,24 @@ export const AjusteAvulso = () => {
   };
 
   const handleConfirm = async () => {
-    if (adminPassword !== ADMIN_PASSWORD) {
-      setPasswordError(true);
-      return;
-    }
-    setPasswordError(false);
     setSubmitting(true);
     try {
+      // Re-autenticar o usuário atual com a senha digitada
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) throw new Error("Usuário não autenticado");
+
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: adminPassword,
+      });
+
+      if (authError) {
+        setPasswordError(true);
+        setSubmitting(false);
+        return;
+      }
+
+      setPasswordError(false);
       if (type === "qty") {
         const { error } = await supabase.rpc("process_inventory_adjustment", {
           p_material_id:        materialId,
@@ -438,7 +448,7 @@ export const AjusteAvulso = () => {
             </div>
 
             <div>
-              <Label>Senha de administrador *</Label>
+              <Label>Sua senha de acesso *</Label>
               <Input
                 type="password"
                 value={adminPassword}
@@ -448,7 +458,7 @@ export const AjusteAvulso = () => {
                 onKeyDown={e => { if (e.key === "Enter") handleConfirm(); }}
               />
               {passwordError && (
-                <p className="text-xs text-destructive mt-1">Senha incorreta.</p>
+                <p className="text-xs text-destructive mt-1">Senha incorreta. Use a mesma senha do seu login.</p>
               )}
             </div>
           </div>
