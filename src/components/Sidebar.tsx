@@ -143,10 +143,9 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       name: "Recursos Humanos",
       href: "/rh",
       icon: Users,
-      matchPaths: ["/rh", "/usuarios"],
+      matchPaths: ["/rh"],
       children: [
         { name: "Colaboradores", href: "/rh/colaboradores" },
-        { name: "Usuários do Sistema", href: "/usuarios" },
         { name: "Controle de Ponto", href: "/rh/ponto" },
       ]
     },

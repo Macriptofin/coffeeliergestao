@@ -1,6 +1,6 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from "@/components/ui/sonner";
 import { FeatureFlagRedirect } from '@/components/FeatureFlagRedirect';
 import { Layout } from "./components/Layout";
@@ -12,7 +12,6 @@ import Stock from "./pages/Stock";
 import Purchases from "./pages/Purchases";
 import Sales from "./pages/Sales";
 import Reports from "./pages/Reports";
-import UserManagement from "./pages/UserManagement";
 import SecurityMonitoring from "./pages/SecurityMonitoring";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -144,7 +143,8 @@ function App() {
 
               {/* Gestão de usuários, segurança e config — somente admin */}
               <Route element={<ProtectedRoute requiredRoles={['admin']} />}>
-                <Route path="usuarios" element={<UserManagement />} />
+                {/* /usuarios redireciona para Configurações → aba Usuários (fonte única) */}
+                <Route path="usuarios" element={<Navigate to="/config#usuarios" replace />} />
                 <Route path="seguranca" element={<SecurityMonitoring />} />
                 <Route path="seguranca/avancado" element={<EnhancedSecurity />} />
                 <Route path="seguranca/anomalias" element={<SecurityAnomalies />} />

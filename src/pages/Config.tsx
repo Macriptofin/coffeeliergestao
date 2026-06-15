@@ -17,6 +17,8 @@ import { ConfigFinanceiro } from "@/components/config/ConfigFinanceiro";
 import { ConfigEventos } from "@/components/config/ConfigEventos";
 import { ConfigRH } from "@/components/config/ConfigRH";
 import { useConfig } from "@/hooks/useConfig";
+import { UserRoleManager } from "@/components/UserRoleManager";
+import { ModulePermissionsManager } from "@/components/ModulePermissionsManager";
 
 // ─── Navigation structure ────────────────────────────────────────────────────
 
@@ -65,11 +67,10 @@ function ConfigContent({ section }: { section: string }) {
     case 'aparencia':  return <ConfigGeneral />;
     case 'usuarios':
       return (
-        <Card className="p-8 text-center text-muted-foreground">
-          <UserCog className="h-10 w-10 mx-auto mb-3 opacity-40" />
-          <p className="font-medium">Gestão de Usuários</p>
-          <p className="text-sm mt-1">Em breve — controle de acesso e permissões por módulo.</p>
-        </Card>
+        <div className="space-y-6">
+          <UserRoleManager />
+          <ModulePermissionsManager />
+        </div>
       );
     default: return null;
   }
