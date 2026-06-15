@@ -94,6 +94,8 @@ export function useUserRole() {
   const can = useCallback((module: AppModule, action: ModuleAction): boolean => {
     if (!userRole) return false;
     if (['admin', 'manager'].includes(userRole)) return true;
+    // financial role: acesso total ao módulo financeiro por definição de role
+    if (userRole === 'financial' && module === 'financeiro') return true;
     return modulePerms.some(p => p.module === module && p.action === action);
   }, [userRole, modulePerms]);
 

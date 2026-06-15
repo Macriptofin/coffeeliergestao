@@ -54,6 +54,7 @@ import Config from "./pages/Config";
 import EstoqueRelatorios from "./pages/stock/EstoqueRelatorios";
 import MateriaisProblemas from "./pages/stock/MateriaisProblemas";
 import MateriaisDiagnostico from "./pages/stock/MateriaisDiagnostico";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -118,30 +119,37 @@ function App() {
               <Route path="producao/eventos" element={<EventTables />} />
               {/* Fornecedores */}
               <Route path="fornecedores" element={<Suppliers />} />
-              {/* Categoria Financeiro */}
-              <Route path="financeiro" element={<Financeiro />} />
-              <Route path="financeiro/pagar" element={<ContasPagar />} />
-              <Route path="financeiro/receber" element={<ContasReceber />} />
-              <Route path="financeiro/fluxo" element={<FluxoCaixa />} />
-              <Route path="financeiro/custos" element={<CentrosCusto />} />
-              <Route path="financeiro/analises" element={<AnaliseFinanceira />} />
-              <Route path="financeiro/dre" element={<DRE />} />
-              <Route path="financeiro/plano-contas" element={<PlanoContas />} />
-              <Route path="financeiro/relatorios" element={<RelatoriosContabeis />} />
-              <Route path="financeiro/bancos" element={<ContasBancarias />} />
-              <Route path="financeiro/recorrentes" element={<RecurringTransactions />} />
-              <Route path="financeiro/aging" element={<AgingReport />} />
-              <Route path="financeiro/previsao" element={<CashFlowForecast />} />
-              {/* Categoria Recursos Humanos */}
-              <Route path="rh" element={<RecursosHumanos />} />
-              <Route path="rh/colaboradores" element={<Colaboradores />} />
-              <Route path="rh/ponto" element={<ControlePonto />} />
-              <Route path="usuarios" element={<UserManagement />} />
-              <Route path="seguranca" element={<SecurityMonitoring />} />
-              <Route path="seguranca/avancado" element={<EnhancedSecurity />} />
-              <Route path="seguranca/anomalias" element={<SecurityAnomalies />} />
-              {/* Configurações */}
-              <Route path="config" element={<Config />} />
+              {/* Categoria Financeiro — admin, manager e financial */}
+              <Route element={<ProtectedRoute requiredRoles={['admin', 'manager', 'financial']} />}>
+                <Route path="financeiro" element={<Financeiro />} />
+                <Route path="financeiro/pagar" element={<ContasPagar />} />
+                <Route path="financeiro/receber" element={<ContasReceber />} />
+                <Route path="financeiro/fluxo" element={<FluxoCaixa />} />
+                <Route path="financeiro/custos" element={<CentrosCusto />} />
+                <Route path="financeiro/analises" element={<AnaliseFinanceira />} />
+                <Route path="financeiro/dre" element={<DRE />} />
+                <Route path="financeiro/plano-contas" element={<PlanoContas />} />
+                <Route path="financeiro/relatorios" element={<RelatoriosContabeis />} />
+                <Route path="financeiro/bancos" element={<ContasBancarias />} />
+                <Route path="financeiro/recorrentes" element={<RecurringTransactions />} />
+                <Route path="financeiro/aging" element={<AgingReport />} />
+                <Route path="financeiro/previsao" element={<CashFlowForecast />} />
+              </Route>
+              {/* Categoria Recursos Humanos — admin e manager */}
+              <Route element={<ProtectedRoute requiredRoles={['admin', 'manager']} />}>
+                <Route path="rh" element={<RecursosHumanos />} />
+                <Route path="rh/colaboradores" element={<Colaboradores />} />
+                <Route path="rh/ponto" element={<ControlePonto />} />
+              </Route>
+
+              {/* Gestão de usuários, segurança e config — somente admin */}
+              <Route element={<ProtectedRoute requiredRoles={['admin']} />}>
+                <Route path="usuarios" element={<UserManagement />} />
+                <Route path="seguranca" element={<SecurityMonitoring />} />
+                <Route path="seguranca/avancado" element={<EnhancedSecurity />} />
+                <Route path="seguranca/anomalias" element={<SecurityAnomalies />} />
+                <Route path="config" element={<Config />} />
+              </Route>
               {/* Relatórios */}
               <Route path="relatorios" element={<Reports />} />
             </Route>
