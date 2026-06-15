@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Shield, Clock, FileText, Calendar, Award } from "lucide-react";
+import { Users, Clock, FileText, Calendar, Award } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const RecursosHumanos = () => {
@@ -14,14 +14,6 @@ const RecursosHumanos = () => {
       icon: Users,
       href: "/rh/colaboradores",
       color: "bg-blue-500",
-      available: true
-    },
-    {
-      title: "Usuários do Sistema",
-      description: "Controle de acesso, perfis e permissões",
-      icon: Shield,
-      href: "/usuarios",
-      color: "bg-purple-500",
       available: true
     },
     {
