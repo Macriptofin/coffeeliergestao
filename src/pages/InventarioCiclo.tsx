@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useReactToPrint } from "react-to-print";
 import { useParams, useNavigate } from "react-router-dom";
+import { InventarioPrintLayout } from "@/components/inventory/InventarioPrintLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -280,124 +282,20 @@ const InventarioCiclo = () => {
     }
   };
 
-  const printInventoryList = () => {
-    if (adjustments.length === 0) {
-      toast.error('Não há materiais para imprimir');
-      return;
-    }
+  // ref para o layout de impressão (hidden na tela, visível apenas ao imprimir)
+  const printRef = useRef<HTMLDivElement>(null);
 
-    const now = format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
-    const groupedByCategory = adjustments.reduce<Record<string, InventoryAdjustment[]>>((acc, adj) => {
-      const cat = adj.material_category || 'Sem categoria';
-      if (!acc[cat]) acc[cat] = [];
-      acc[cat].push(adj);
-      return acc;
-    }, {});
-
-    const rows = Object.entries(groupedByCategory).map(([category, items]) => `
-      <tr class="category-row">
-        <td colspan="6"><strong>${category}</strong></td>
-      </tr>
-      ${items.map((adj, i) => `
-        <tr class="${i % 2 === 0 ? 'even' : 'odd'}">
-          <td>${adj.material_code || '—'}</td>
-          <td>${adj.material_name}</td>
-          <td>${adj.material_unit}</td>
-          <td class="number">${adj.system_quantity.toFixed(3)}</td>
-          <td class="write-field"></td>
-          <td class="write-field"></td>
-        </tr>
-      `).join('')}
-    `).join('');
-
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <title>Lista de Inventário — ${cycle?.name}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; font-size: 11px; color: #111; padding: 20px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; border-bottom: 2px solid #333; padding-bottom: 12px; }
-    .header-left h1 { font-size: 16px; font-weight: bold; }
-    .header-left p { font-size: 10px; color: #555; margin-top: 3px; }
-    .header-right { text-align: right; font-size: 10px; color: #555; }
-    .header-right strong { display: block; font-size: 13px; color: #111; }
-    .meta { display: flex; gap: 32px; margin-bottom: 14px; font-size: 10px; }
-    .meta span { color: #555; }
-    .meta strong { color: #111; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-    th { background: #222; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-    th.number, td.number { text-align: right; }
-    th.write-field { text-align: center; }
-    td { padding: 5px 8px; border-bottom: 1px solid #e0e0e0; vertical-align: middle; }
-    tr.even { background: #f9f9f9; }
-    tr.odd { background: #fff; }
-    tr.category-row td { background: #ebebeb; font-size: 10px; padding: 4px 8px; letter-spacing: 0.3px; color: #333; border-bottom: none; }
-    td.write-field { border: 1px solid #bbb; height: 22px; min-width: 80px; background: #fff; }
-    .footer { margin-top: 32px; display: flex; justify-content: space-between; font-size: 10px; }
-    .sig-line { width: 220px; border-top: 1px solid #333; padding-top: 4px; text-align: center; color: #555; }
-    .summary { margin-bottom: 14px; font-size: 10px; color: #555; }
-    @media print {
-      body { padding: 10px; }
-      @page { margin: 15mm; }
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="header-left">
-      <h1>☕ Coffeelier — Lista de Inventário Físico</h1>
-      <p>Preencha a coluna "Qtd. Física" com as quantidades encontradas. Não altere os demais campos.</p>
-    </div>
-    <div class="header-right">
-      <strong>${cycle?.name}</strong>
-      Emitido em: ${now}
-    </div>
-  </div>
-
-  <div class="meta">
-    <div><span>Total de itens: </span><strong>${adjustments.length}</strong></div>
-    <div><span>Status: </span><strong>Rascunho / Em contagem</strong></div>
-    ${cycle?.notes ? `<div><span>Obs: </span><strong>${cycle.notes}</strong></div>` : ''}
-  </div>
-
-  <div class="summary">Após a contagem, devolva esta lista ao responsável pelo lançamento no sistema.</div>
-
-  <table>
-    <thead>
-      <tr>
-        <th style="width:70px">Código</th>
-        <th>Material</th>
-        <th style="width:55px">Un.</th>
-        <th class="number" style="width:90px">Qtd. Sistema</th>
-        <th class="write-field" style="width:90px">Qtd. Física</th>
-        <th class="write-field" style="width:80px">Observação</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows}
-    </tbody>
-  </table>
-
-  <div class="footer">
-    <div class="sig-line">Responsável pela contagem</div>
-    <div class="sig-line">Data da contagem: ____/____/________</div>
-    <div class="sig-line">Conferido por</div>
-  </div>
-
-  <script>window.onload = () => window.print();</script>
-</body>
-</html>`;
-
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-    } else {
-      toast.error('Permita pop-ups para imprimir a lista');
-    }
-  };
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Inventário — ${cycle?.name ?? 'ciclo'}`,
+    onBeforePrint: () => {
+      if (adjustments.length === 0) {
+        toast.error('Não há materiais para imprimir');
+        return Promise.reject();
+      }
+      return Promise.resolve();
+    },
+  });
 
   const exportCSV = () => {
     if (adjustments.length === 0) {
@@ -565,9 +463,9 @@ const InventarioCiclo = () => {
           </Dialog>
         )}
         
-        <Button variant="outline" onClick={printInventoryList}>
+        <Button variant="outline" onClick={() => handlePrint()}>
           <Printer className="h-4 w-4 mr-2" />
-          Imprimir Lista
+          Imprimir / PDF
         </Button>
 
         <Button variant="outline" onClick={exportCSV}>
@@ -703,6 +601,15 @@ const InventarioCiclo = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Layout de impressão — oculto na tela, visível apenas ao imprimir */}
+      <div style={{ display: "none" }}>
+        <InventarioPrintLayout
+          ref={printRef}
+          cycle={cycle}
+          adjustments={adjustments}
+        />
+      </div>
     </div>
   );
 };
