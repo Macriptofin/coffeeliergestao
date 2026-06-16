@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import {
   Plus, Minus, Save, ArrowLeft, X, Scale, DollarSign,
   CheckCircle2, Loader2, Users, Calendar, ChefHat, Trash2,
-  CalendarClock, MapPin,
+  CalendarClock, MapPin, Send,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -146,6 +146,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
   const [approving, setApproving] = useState(false);
+  const [sending, setSending]   = useState(false);
 
   // ── Load ───────────────────────────────────────────────────────────────────
 
@@ -642,6 +643,37 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     }
   };
 
+  const handleSend = async () => {
+    if (calc.grand.totalItemCount === 0) { toast.error('Adicione pelo menos um item'); return; }
+    try {
+      setSending(true);
+      // Salva a proposta como 'enviada'
+      const pid = await persistAll('enviada');
+      if (!pid) return;
+
+      // Gera o token de aprovação e monta o link público
+      const { data: tok, error: tokErr } = await supabase
+        .from('proposal_approval_tokens')
+        .insert({ proposal_id: pid })
+        .select('token')
+        .single();
+      if (tokErr) throw tokErr;
+
+      const url = `${window.location.origin}/aprovar/${tok.token}`;
+      try { await navigator.clipboard.writeText(url); } catch { /* clipboard pode falhar; link no toast */ }
+
+      toast.success('Proposta enviada! Link copiado — cole no e-mail/WhatsApp para o cliente aprovar.', {
+        duration: 8000,
+        description: url,
+      });
+      onComplete();
+    } catch (e: any) {
+      toast.error('Erro ao enviar: ' + e.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -1082,14 +1114,21 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                 <Separator />
 
                 <div className="space-y-2 pt-1">
-                  <Button className="w-full" variant="outline" onClick={handleSave} disabled={saving || approving}>
+                  <Button className="w-full" variant="outline" onClick={handleSave} disabled={saving || approving || sending}>
                     {saving
                       ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</>
                       : <><Save className="h-4 w-4 mr-2" />Salvar rascunho</>
                     }
                   </Button>
 
-                  <Button className="w-full" onClick={handleApprove} disabled={saving || approving || calc.grand.totalItemCount === 0}>
+                  <Button className="w-full" variant="secondary" onClick={handleSend} disabled={saving || approving || sending || calc.grand.totalItemCount === 0}>
+                    {sending
+                      ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</>
+                      : <><Send className="h-4 w-4 mr-2" />Enviar proposta</>
+                    }
+                  </Button>
+
+                  <Button className="w-full" onClick={handleApprove} disabled={saving || approving || sending || calc.grand.totalItemCount === 0}>
                     {approving
                       ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Aprovando...</>
                       : <><CheckCircle2 className="h-4 w-4 mr-2" />Aprovar proposta</>
