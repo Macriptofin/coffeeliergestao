@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,9 +36,28 @@ const ACCOUNT_TYPES = [
 const typeColor = (type: string) =>
   ACCOUNT_TYPES.find(t => t.value === type)?.color || 'bg-muted text-muted-foreground';
 
+const EMPTY_ACCOUNTS: Account[] = [];
+
+async function fetchAccounts(): Promise<Account[]> {
+  const { data, error } = await supabase
+    .from('chart_of_accounts')
+    .select('*, parent:parent_id(name, code)')
+    .order('code');
+  if (error) throw error;
+  return data || [];
+}
+
 const PlanoContas = () => {
-  const [accounts,     setAccounts]     = useState<Account[]>([]);
-  const [loading,      setLoading]      = useState(true);
+  const queryClient = useQueryClient();
+
+  const {
+    data: accounts = EMPTY_ACCOUNTS,
+    isPending: loading,
+    isError,
+  } = useQuery({ queryKey: ['chart-of-accounts'], queryFn: fetchAccounts });
+
+  const refetchAccounts = () => queryClient.invalidateQueries({ queryKey: ['chart-of-accounts'] });
+
   const [searchTerm,   setSearchTerm]   = useState("");
   const [typeFilter,   setTypeFilter]   = useState("all");
   const [dialogOpen,   setDialogOpen]   = useState(false);
@@ -54,23 +74,9 @@ const PlanoContas = () => {
     is_active:    true,
   });
 
-  useEffect(() => { loadAccounts(); }, []);
-
-  const loadAccounts = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('chart_of_accounts')
-        .select('*, parent:parent_id(name, code)')
-        .order('code');
-      if (error) throw error;
-      setAccounts(data || []);
-    } catch (e: any) {
-      toast.error('Erro ao carregar plano de contas');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    if (isError) toast.error('Erro ao carregar plano de contas');
+  }, [isError]);
 
   const openNew = () => {
     setEditingAcc(null);
@@ -127,7 +133,7 @@ const PlanoContas = () => {
       }
 
       setDialogOpen(false);
-      loadAccounts();
+      refetchAccounts();
     } catch (e: any) {
       toast.error('Erro ao salvar: ' + e.message);
     }
@@ -158,7 +164,7 @@ const PlanoContas = () => {
       if (error) throw error;
       toast.success('Conta excluída');
       setDeleteDialog(false);
-      loadAccounts();
+      refetchAccounts();
     } catch (e: any) {
       toast.error('Erro ao excluir: ' + e.message);
     }
@@ -166,7 +172,7 @@ const PlanoContas = () => {
 
   const handleToggleActive = async (acc: Account) => {
     await supabase.from('chart_of_accounts').update({ is_active: !acc.is_active }).eq('id', acc.id);
-    loadAccounts();
+    refetchAccounts();
   };
 
   // Filtrar

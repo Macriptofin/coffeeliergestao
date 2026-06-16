@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,13 +30,39 @@ interface BankAccount {
   created_at: string;
 }
 
+const EMPTY_ACCOUNTS: BankAccount[] = [];
+
+async function fetchAccounts(): Promise<BankAccount[]> {
+  const { data, error } = await supabase
+    .from('bank_accounts')
+    .select('*')
+    .order('is_default', { ascending: false })
+    .order('name');
+  if (error) throw error;
+  return data || [];
+}
+
 const ContasBancarias = () => {
-  const [accounts, setAccounts] = useState<BankAccount[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  const {
+    data: accounts = EMPTY_ACCOUNTS,
+    isPending: loading,
+    isError: accountsError,
+  } = useQuery({ queryKey: ['bank-accounts'], queryFn: fetchAccounts });
+
+  const showLoader = useDelayedLoading(loading);
+
+  const refetchAccounts = () => queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
   const [saving, setSaving] = useState(false);
-  
+
+  useEffect(() => {
+    if (accountsError) toast.error('Erro ao carregar contas bancárias');
+  }, [accountsError]);
+
   const [formData, setFormData] = useState({
     name: "",
     bank_name: "",
@@ -46,29 +74,6 @@ const ContasBancarias = () => {
     is_default: false,
     notes: ""
   });
-
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
-
-  const fetchAccounts = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('bank_accounts')
-        .select('*')
-        .order('is_default', { ascending: false })
-        .order('name');
-
-      if (error) throw error;
-      setAccounts(data || []);
-    } catch (error) {
-      console.error('Error fetching bank accounts:', error);
-      toast.error('Erro ao carregar contas bancárias');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const resetForm = () => {
     setFormData({
@@ -150,7 +155,7 @@ const ContasBancarias = () => {
 
       setDialogOpen(false);
       resetForm();
-      fetchAccounts();
+      refetchAccounts();
     } catch (error) {
       console.error('Error saving bank account:', error);
       toast.error('Erro ao salvar conta bancária');
@@ -170,7 +175,7 @@ const ContasBancarias = () => {
 
       if (error) throw error;
       toast.success('Conta excluída com sucesso');
-      fetchAccounts();
+      refetchAccounts();
     } catch (error) {
       console.error('Error deleting bank account:', error);
       toast.error('Erro ao excluir conta bancária');
@@ -392,7 +397,7 @@ const ContasBancarias = () => {
           <CardDescription>Gerencie suas contas bancárias e caixas</CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {showLoader ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>

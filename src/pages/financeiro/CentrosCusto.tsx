@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,9 +26,32 @@ interface CostCenter {
   children?: CostCenter[];
 }
 
+const EMPTY_COST_CENTERS: CostCenter[] = [];
+
+async function fetchCostCenters(): Promise<CostCenter[]> {
+  const { data, error } = await supabase
+    .from('cost_centers')
+    .select(`
+      *,
+      parent:cost_centers!parent_id(name)
+    `)
+    .order('code');
+
+  if (error) throw error;
+  return data || [];
+}
+
 const CentrosCusto = () => {
-  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  const {
+    data: costCenters = EMPTY_COST_CENTERS,
+    isPending: loading,
+    isError,
+  } = useQuery({ queryKey: ['cost-centers'], queryFn: fetchCostCenters });
+
+  const refetchCostCenters = () => queryClient.invalidateQueries({ queryKey: ['cost-centers'] });
+
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCenter, setEditingCenter] = useState<CostCenter | null>(null);
@@ -40,29 +64,8 @@ const CentrosCusto = () => {
   });
 
   useEffect(() => {
-    fetchCostCenters();
-  }, []);
-
-  const fetchCostCenters = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('cost_centers')
-        .select(`
-          *,
-          parent:cost_centers!parent_id(name)
-        `)
-        .order('code');
-
-      if (error) throw error;
-
-      setCostCenters(data || []);
-    } catch (error) {
-      console.error('Error fetching cost centers:', error);
-      toast.error('Erro ao carregar centros de custo');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (isError) toast.error('Erro ao carregar centros de custo');
+  }, [isError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +95,7 @@ const CentrosCusto = () => {
       setIsDialogOpen(false);
       setEditingCenter(null);
       resetForm();
-      fetchCostCenters();
+      refetchCostCenters();
     } catch (error) {
       console.error('Error saving cost center:', error);
       toast.error('Erro ao salvar centro de custo');
@@ -123,7 +126,7 @@ const CentrosCusto = () => {
       if (error) throw error;
 
       toast.success('Centro de custo excluído com sucesso!');
-      fetchCostCenters();
+      refetchCostCenters();
     } catch (error) {
       console.error('Error deleting cost center:', error);
       toast.error('Erro ao excluir centro de custo');

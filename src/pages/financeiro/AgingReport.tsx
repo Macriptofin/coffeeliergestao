@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -29,62 +31,46 @@ interface AgingBucket {
   color: string;
 }
 
+interface AgingData {
+  payables: AccountItem[];
+  receivables: AccountItem[];
+}
+
 const COLORS = ['#22c55e', '#84cc16', '#eab308', '#f97316', '#ef4444'];
 
-const AgingReport = () => {
-  const [loading, setLoading] = useState(true);
-  const [payables, setPayables] = useState<AccountItem[]>([]);
-  const [receivables, setReceivables] = useState<AccountItem[]>([]);
-  const [payablesBuckets, setPayablesBuckets] = useState<AgingBucket[]>([]);
-  const [receivablesBuckets, setReceivablesBuckets] = useState<AgingBucket[]>([]);
+const EMPTY_AGING: AgingData = { payables: [], receivables: [] };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+async function fetchAgingData(): Promise<AgingData> {
+  const [payablesRes, receivablesRes] = await Promise.all([
+    supabase
+      .from('accounts_payable')
+      .select(`*, suppliers(company_name)`)
+      .eq('status', 'Pendente')
+      .order('due_date'),
+    supabase
+      .from('accounts_receivable')
+      .select(`*, clients(name)`)
+      .eq('status', 'Pendente')
+      .order('due_date')
+  ]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      
-      const [payablesRes, receivablesRes] = await Promise.all([
-        supabase
-          .from('accounts_payable')
-          .select(`*, suppliers(company_name)`)
-          .eq('status', 'Pendente')
-          .order('due_date'),
-        supabase
-          .from('accounts_receivable')
-          .select(`*, clients(name)`)
-          .eq('status', 'Pendente')
-          .order('due_date')
-      ]);
+  if (payablesRes.error) throw payablesRes.error;
+  if (receivablesRes.error) throw receivablesRes.error;
 
-      if (payablesRes.error) throw payablesRes.error;
-      if (receivablesRes.error) throw receivablesRes.error;
+  const payables = (payablesRes.data || []).map(p => ({
+    ...p,
+    supplier_name: p.suppliers?.company_name
+  }));
 
-      const payablesData = (payablesRes.data || []).map(p => ({
-        ...p,
-        supplier_name: p.suppliers?.company_name
-      }));
+  const receivables = (receivablesRes.data || []).map(r => ({
+    ...r,
+    client_name: r.clients?.name
+  }));
 
-      const receivablesData = (receivablesRes.data || []).map(r => ({
-        ...r,
-        client_name: r.clients?.name
-      }));
+  return { payables, receivables };
+}
 
-      setPayables(payablesData);
-      setReceivables(receivablesData);
-
-      setPayablesBuckets(calculateBuckets(payablesData));
-      setReceivablesBuckets(calculateBuckets(receivablesData));
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const calculateBuckets = (items: AccountItem[]): AgingBucket[] => {
+const calculateBuckets = (items: AccountItem[]): AgingBucket[] => {
     const today = new Date();
     const buckets = [
       { label: 'A Vencer', range: '> 0 dias', min: 1, max: Infinity, count: 0, total: 0, color: COLORS[0] },
@@ -113,6 +99,25 @@ const AgingReport = () => {
       percentage: total > 0 ? (b.total / total) * 100 : 0
     }));
   };
+
+const AgingReport = () => {
+  const {
+    data = EMPTY_AGING,
+    isPending: loading,
+    isError,
+  } = useQuery({
+    queryKey: ['aging'],
+    queryFn: fetchAgingData,
+  });
+
+  useEffect(() => {
+    if (isError) toast.error('Erro ao carregar aging de contas');
+  }, [isError]);
+
+  const { payables, receivables } = data;
+
+  const payablesBuckets = useMemo(() => calculateBuckets(payables), [payables]);
+  const receivablesBuckets = useMemo(() => calculateBuckets(receivables), [receivables]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {

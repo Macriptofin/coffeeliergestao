@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -46,6 +48,162 @@ const sign = (v: number) => v >= 0 ? '+' : '-';
 
 const currentYear  = new Date().getFullYear();
 const currentMonth = new Date().getMonth() + 1;
+
+// ─── Data fetching ───────────────────────────────────────────────────────────
+
+interface APRow {
+  original_amount: string | null;
+  paid_amount:     string | null;
+  status:          string | null;
+  account:         { code: string | null; name: string; account_type: string | null } | null;
+}
+
+interface DRESources {
+  rec:  { gross_amount: string | null; discount_amount: string | null }[];
+  ar:   { original_amount: string | null }[];
+  invo: { total_amount: string | null; discount_total: string | null }[];
+  ap:   APRow[];
+}
+
+const EMPTY_SOURCES: DRESources = { rec: [], ar: [], invo: [], ap: [] };
+
+async function fetchDRESources(dateStart: string, dateEnd: string): Promise<DRESources> {
+  const [
+    recRes,   // receitas recebidas (receipt_transactions)
+    arRes,    // contas a receber emitidas (accounts_receivable)
+    invoRes,  // notas fiscais de compra (custo dos serviços)
+    apRes,    // contas a pagar (despesas)
+  ] = await Promise.all([
+    // Receitas: usar receipt_transactions para recebimentos confirmados
+    supabase
+      .from('receipt_transactions')
+      .select('gross_amount, discount_amount')
+      .gte('receipt_date', dateStart)
+      .lte('receipt_date', dateEnd),
+
+    // Receitas emitidas (AR) para comparação
+    supabase
+      .from('accounts_receivable')
+      .select('original_amount')
+      .gte('issue_date', dateStart)
+      .lte('issue_date', dateEnd),
+
+    // CSP: notas fiscais de compra lançadas no estoque
+    supabase
+      .from('purchase_invoices')
+      .select('total_amount, discount_total')
+      .gte('invoice_date', dateStart)
+      .lte('invoice_date', dateEnd)
+      .eq('stock_posted', true),
+
+    // Despesas: contas a pagar com vencimento no período
+    supabase
+      .from('accounts_payable')
+      .select(`
+        original_amount, paid_amount, status,
+        account:chart_of_accounts!account_id(code, name, account_type)
+      `)
+      .gte('due_date', dateStart)
+      .lte('due_date', dateEnd),
+  ]);
+
+  if (recRes.error)  throw recRes.error;
+  if (arRes.error)   throw arRes.error;
+  if (invoRes.error) throw invoRes.error;
+  if (apRes.error)   throw apRes.error;
+
+  return {
+    rec:  recRes.data  || [],
+    ar:   arRes.data   || [],
+    invo: invoRes.data || [],
+    ap:   apRes.data   || [],
+  };
+}
+
+function computeDRE(sources: DRESources): DREData {
+  // Receita Bruta (recebimentos confirmados)
+  const receitaBruta = sources.rec.reduce((s, r) =>
+    s + parseFloat(r.gross_amount || '0'), 0);
+
+  // Se não há recebimentos, usa as emissões de AR
+  const receitaBrutaAR = sources.ar.reduce((s, r) =>
+    s + parseFloat(r.original_amount || '0'), 0);
+
+  const recBruta = receitaBruta > 0 ? receitaBruta : receitaBrutaAR;
+
+  // ISS estimado (5% sobre serviços de catering)
+  const iss      = recBruta * 0.05;
+  const deducoes = iss;
+  const recLiq   = recBruta - deducoes;
+
+  // CSP: custo direto das matérias-primas
+  const cspTotal = sources.invo.reduce((s, r) => {
+    const bruto    = parseFloat(r.total_amount || '0');
+    const desconto = parseFloat(r.discount_total || '0');
+    return s + (bruto - desconto);
+  }, 0);
+
+  // Despesas: separar operacionais vs financeiras
+  const apAll = sources.ap;
+
+  let despOpTotal  = 0;
+  let despFinTotal = 0;
+  const despOpMap:  Record<string, number> = {};
+  const despFinMap: Record<string, number> = {};
+
+  apAll.forEach((ap: any) => {
+    const valor = parseFloat(ap.original_amount || '0');
+    const conta = ap.account;
+    if (!conta) {
+      despOpTotal += valor;
+      despOpMap['Outras despesas'] = (despOpMap['Outras despesas'] || 0) + valor;
+      return;
+    }
+    const code = conta.code || '';
+    if (code.startsWith('5.3')) {
+      // Despesas financeiras
+      despFinTotal += valor;
+      despFinMap[conta.name] = (despFinMap[conta.name] || 0) + valor;
+    } else {
+      // Despesas operacionais
+      despOpTotal += valor;
+      despOpMap[conta.name] = (despOpMap[conta.name] || 0) + valor;
+    }
+  });
+
+  const lucroBruto   = recLiq - cspTotal;
+  const ebitda       = lucroBruto - despOpTotal;
+  const resAntes     = ebitda - despFinTotal;
+  const resLiquido   = resAntes; // sem IRPJ/CSLL por ora (Simples)
+
+  const margemBruta   = recBruta > 0 ? (lucroBruto / recBruta) * 100 : 0;
+  const margemEbitda  = recBruta > 0 ? (ebitda / recBruta) * 100 : 0;
+  const margemLiquida = recBruta > 0 ? (resLiquido / recBruta) * 100 : 0;
+
+  return {
+    receitaBruta: recBruta, deducoes, receitaLiquida: recLiq,
+    csp: cspTotal, lucroBruto, margemBruta,
+    despesasOp: despOpTotal, ebitda, margemEbitda,
+    despesasFinanceiras: despFinTotal, resultadoAntes: resAntes,
+    resultadoLiquido: resLiquido, margemLiquida,
+    detReceitas: [
+      { label: 'Serviços de catering / coffee break', valor: recBruta * 0.85 },
+      { label: 'Kits personalizados', valor: recBruta * 0.10 },
+      { label: 'Outros serviços', valor: recBruta * 0.05 },
+    ].filter(d => d.valor > 0),
+    detCSP: [
+      { label: 'Matéria-prima e insumos', valor: cspTotal * 0.75 },
+      { label: 'Embalagens e descartáveis', valor: cspTotal * 0.15 },
+      { label: 'Outros custos diretos', valor: cspTotal * 0.10 },
+    ].filter(d => d.valor > 0),
+    detDespesasOp: Object.entries(despOpMap)
+      .map(([label, valor]) => ({ label, valor }))
+      .sort((a, b) => b.valor - a.valor),
+    detDespesasFin: Object.entries(despFinMap)
+      .map(([label, valor]) => ({ label, valor }))
+      .sort((a, b) => b.valor - a.valor),
+  };
+}
 
 // ─── Componentes de linha DRE ──────────────────────────────────────────────────
 
@@ -107,154 +265,34 @@ const DRE = () => {
   const [year,  setYear]  = useState(String(currentYear));
   const [month, setMonth] = useState(String(currentMonth));
   const [mode,  setMode]  = useState<'mensal' | 'anual'>('mensal');
-  const [data,  setData]  = useState<DREData | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => { load(); }, [year, month, mode]);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const y = parseInt(year);
-      const m = parseInt(month);
-      let dateStart: string, dateEnd: string;
-
-      if (mode === 'mensal') {
-        dateStart = `${y}-${String(m).padStart(2,'0')}-01`;
-        const lastDay = new Date(y, m, 0).getDate();
-        dateEnd = `${y}-${String(m).padStart(2,'0')}-${lastDay}`;
-      } else {
-        dateStart = `${y}-01-01`;
-        dateEnd   = `${y}-12-31`;
-      }
-
-      const [
-        recRes,   // receitas recebidas (receipt_transactions)
-        arRes,    // contas a receber emitidas (accounts_receivable)
-        invoRes,  // notas fiscais de compra (custo dos serviços)
-        apRes,    // contas a pagar (despesas)
-      ] = await Promise.all([
-        // Receitas: usar receipt_transactions para recebimentos confirmados
-        supabase
-          .from('receipt_transactions')
-          .select('gross_amount, discount_amount')
-          .gte('receipt_date', dateStart)
-          .lte('receipt_date', dateEnd),
-
-        // Receitas emitidas (AR) para comparação
-        supabase
-          .from('accounts_receivable')
-          .select('original_amount')
-          .gte('issue_date', dateStart)
-          .lte('issue_date', dateEnd),
-
-        // CSP: notas fiscais de compra lançadas no estoque
-        supabase
-          .from('purchase_invoices')
-          .select('total_amount, discount_total')
-          .gte('invoice_date', dateStart)
-          .lte('invoice_date', dateEnd)
-          .eq('stock_posted', true),
-
-        // Despesas: contas a pagar com vencimento no período
-        supabase
-          .from('accounts_payable')
-          .select(`
-            original_amount, paid_amount, status,
-            account:chart_of_accounts!account_id(code, name, account_type)
-          `)
-          .gte('due_date', dateStart)
-          .lte('due_date', dateEnd),
-      ]);
-
-      // Receita Bruta (recebimentos confirmados)
-      const receitaBruta = (recRes.data || []).reduce((s, r) =>
-        s + parseFloat(r.gross_amount || '0'), 0);
-
-      // Se não há recebimentos, usa as emissões de AR
-      const receitaBrutaAR = (arRes.data || []).reduce((s, r) =>
-        s + parseFloat(r.original_amount || '0'), 0);
-
-      const recBruta = receitaBruta > 0 ? receitaBruta : receitaBrutaAR;
-
-      // ISS estimado (5% sobre serviços de catering)
-      const iss      = recBruta * 0.05;
-      const deducoes = iss;
-      const recLiq   = recBruta - deducoes;
-
-      // CSP: custo direto das matérias-primas
-      const cspTotal = (invoRes.data || []).reduce((s, r) => {
-        const bruto    = parseFloat(r.total_amount || '0');
-        const desconto = parseFloat(r.discount_total || '0');
-        return s + (bruto - desconto);
-      }, 0);
-
-      // Despesas: separar operacionais vs financeiras
-      const apAll = apRes.data || [];
-
-      let despOpTotal  = 0;
-      let despFinTotal = 0;
-      const despOpMap:  Record<string, number> = {};
-      const despFinMap: Record<string, number> = {};
-
-      apAll.forEach((ap: any) => {
-        const valor = parseFloat(ap.original_amount || '0');
-        const conta = ap.account;
-        if (!conta) {
-          despOpTotal += valor;
-          despOpMap['Outras despesas'] = (despOpMap['Outras despesas'] || 0) + valor;
-          return;
-        }
-        const code = conta.code || '';
-        if (code.startsWith('5.3')) {
-          // Despesas financeiras
-          despFinTotal += valor;
-          despFinMap[conta.name] = (despFinMap[conta.name] || 0) + valor;
-        } else {
-          // Despesas operacionais
-          despOpTotal += valor;
-          despOpMap[conta.name] = (despOpMap[conta.name] || 0) + valor;
-        }
-      });
-
-      const lucroBruto   = recLiq - cspTotal;
-      const ebitda       = lucroBruto - despOpTotal;
-      const resAntes     = ebitda - despFinTotal;
-      const resLiquido   = resAntes; // sem IRPJ/CSLL por ora (Simples)
-
-      const margemBruta   = recBruta > 0 ? (lucroBruto / recBruta) * 100 : 0;
-      const margemEbitda  = recBruta > 0 ? (ebitda / recBruta) * 100 : 0;
-      const margemLiquida = recBruta > 0 ? (resLiquido / recBruta) * 100 : 0;
-
-      setData({
-        receitaBruta: recBruta, deducoes, receitaLiquida: recLiq,
-        csp: cspTotal, lucroBruto, margemBruta,
-        despesasOp: despOpTotal, ebitda, margemEbitda,
-        despesasFinanceiras: despFinTotal, resultadoAntes: resAntes,
-        resultadoLiquido: resLiquido, margemLiquida,
-        detReceitas: [
-          { label: 'Serviços de catering / coffee break', valor: recBruta * 0.85 },
-          { label: 'Kits personalizados', valor: recBruta * 0.10 },
-          { label: 'Outros serviços', valor: recBruta * 0.05 },
-        ].filter(d => d.valor > 0),
-        detCSP: [
-          { label: 'Matéria-prima e insumos', valor: cspTotal * 0.75 },
-          { label: 'Embalagens e descartáveis', valor: cspTotal * 0.15 },
-          { label: 'Outros custos diretos', valor: cspTotal * 0.10 },
-        ].filter(d => d.valor > 0),
-        detDespesasOp: Object.entries(despOpMap)
-          .map(([label, valor]) => ({ label, valor }))
-          .sort((a, b) => b.valor - a.valor),
-        detDespesasFin: Object.entries(despFinMap)
-          .map(([label, valor]) => ({ label, valor }))
-          .sort((a, b) => b.valor - a.valor),
-      });
-    } catch (e) {
-      console.error('Erro ao carregar DRE:', e);
-    } finally {
-      setLoading(false);
+  const { dateStart, dateEnd } = useMemo(() => {
+    const y = parseInt(year);
+    const m = parseInt(month);
+    if (mode === 'mensal') {
+      const lastDay = new Date(y, m, 0).getDate();
+      return {
+        dateStart: `${y}-${String(m).padStart(2,'0')}-01`,
+        dateEnd:   `${y}-${String(m).padStart(2,'0')}-${lastDay}`,
+      };
     }
-  };
+    return { dateStart: `${y}-01-01`, dateEnd: `${y}-12-31` };
+  }, [year, month, mode]);
+
+  const {
+    data: sources = EMPTY_SOURCES,
+    isPending: loading,
+    isError,
+  } = useQuery({
+    queryKey: ['dre', dateStart, dateEnd],
+    queryFn: () => fetchDRESources(dateStart, dateEnd),
+  });
+
+  useEffect(() => {
+    if (isError) toast.error('Erro ao carregar DRE');
+  }, [isError]);
+
+  const data = useMemo(() => computeDRE(sources), [sources]);
 
   const periodoLabel = mode === 'mensal'
     ? `${MONTHS[parseInt(month) - 1]} de ${year}`
@@ -318,7 +356,7 @@ const DRE = () => {
         <div className="flex justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : data ? (
+      ) : !isError ? (
         <>
           {/* KPIs resumidos */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

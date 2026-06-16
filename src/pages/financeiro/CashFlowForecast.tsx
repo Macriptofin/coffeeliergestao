@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -26,111 +28,96 @@ interface PayableReceivable {
   type: 'entrada' | 'saida';
 }
 
-const CashFlowForecast = () => {
-  const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<'weekly' | 'monthly'>('weekly');
-  const [horizon, setHorizon] = useState<'30' | '60' | '90'>('30');
-  const [forecastData, setForecastData] = useState<ForecastItem[]>([]);
-  const [initialBalance, setInitialBalance] = useState(0);
-  const [items, setItems] = useState<PayableReceivable[]>([]);
+interface ForecastSource {
+  initialBalance: number;
+  items: PayableReceivable[];
+}
 
-  useEffect(() => {
-    fetchData();
-  }, [period, horizon]);
+const EMPTY_SOURCE: ForecastSource = { initialBalance: 0, items: [] };
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      
-      const endDate = addDays(new Date(), parseInt(horizon));
-      const today = new Date();
+async function fetchForecastSource(horizon: '30' | '60' | '90'): Promise<ForecastSource> {
+  const endDate = addDays(new Date(), parseInt(horizon));
+  const today = new Date();
 
-      // Buscar saldo inicial das contas bancárias
-      const { data: bankData } = await supabase
-        .from('bank_accounts')
-        .select('current_balance')
-        .eq('is_active', true);
+  // Buscar saldo inicial das contas bancárias
+  const { data: bankData, error: bankError } = await supabase
+    .from('bank_accounts')
+    .select('current_balance')
+    .eq('is_active', true);
+  if (bankError) throw bankError;
 
-      const totalBalance = (bankData || []).reduce((sum, b) => sum + b.current_balance, 0);
-      setInitialBalance(totalBalance);
+  const totalBalance = (bankData || []).reduce((sum, b) => sum + b.current_balance, 0);
 
-      // Buscar contas a pagar pendentes
-      const { data: payables } = await supabase
-        .from('accounts_payable')
-        .select('id, description, due_date, remaining_amount')
-        .eq('status', 'Pendente')
-        .gte('due_date', format(today, 'yyyy-MM-dd'))
-        .lte('due_date', format(endDate, 'yyyy-MM-dd'));
+  // Buscar contas a pagar pendentes
+  const { data: payables, error: payablesError } = await supabase
+    .from('accounts_payable')
+    .select('id, description, due_date, remaining_amount')
+    .eq('status', 'Pendente')
+    .gte('due_date', format(today, 'yyyy-MM-dd'))
+    .lte('due_date', format(endDate, 'yyyy-MM-dd'));
+  if (payablesError) throw payablesError;
 
-      // Buscar contas a receber pendentes
-      const { data: receivables } = await supabase
-        .from('accounts_receivable')
-        .select('id, description, due_date, remaining_amount')
-        .eq('status', 'Pendente')
-        .gte('due_date', format(today, 'yyyy-MM-dd'))
-        .lte('due_date', format(endDate, 'yyyy-MM-dd'));
+  // Buscar contas a receber pendentes
+  const { data: receivables, error: receivablesError } = await supabase
+    .from('accounts_receivable')
+    .select('id, description, due_date, remaining_amount')
+    .eq('status', 'Pendente')
+    .gte('due_date', format(today, 'yyyy-MM-dd'))
+    .lte('due_date', format(endDate, 'yyyy-MM-dd'));
+  if (receivablesError) throw receivablesError;
 
-      // Buscar transações recorrentes
-      const { data: recurring } = await supabase
-        .from('recurring_transactions')
-        .select('*')
-        .eq('is_active', true)
-        .lte('next_execution', format(endDate, 'yyyy-MM-dd'));
+  // Buscar transações recorrentes
+  const { data: recurring, error: recurringError } = await supabase
+    .from('recurring_transactions')
+    .select('*')
+    .eq('is_active', true)
+    .lte('next_execution', format(endDate, 'yyyy-MM-dd'));
+  if (recurringError) throw recurringError;
 
-      const allItems: PayableReceivable[] = [
-        ...(payables || []).map(p => ({ ...p, type: 'saida' as const })),
-        ...(receivables || []).map(r => ({ ...r, type: 'entrada' as const }))
-      ];
+  const allItems: PayableReceivable[] = [
+    ...(payables || []).map(p => ({ ...p, type: 'saida' as const })),
+    ...(receivables || []).map(r => ({ ...r, type: 'entrada' as const }))
+  ];
 
-      // Adicionar transações recorrentes projetadas
-      (recurring || []).forEach(r => {
-        let nextDate = new Date(r.next_execution);
-        while (nextDate <= endDate) {
-          allItems.push({
-            id: `${r.id}-${format(nextDate, 'yyyy-MM-dd')}`,
-            description: `[Recorrente] ${r.description}`,
-            due_date: format(nextDate, 'yyyy-MM-dd'),
-            remaining_amount: r.amount,
-            type: r.transaction_type === 'Entrada' ? 'entrada' : 'saida'
-          });
-
-          // Calcular próxima data
-          switch (r.frequency) {
-            case 'daily':
-              nextDate = addDays(nextDate, 1);
-              break;
-            case 'weekly':
-              nextDate = addWeeks(nextDate, 1);
-              break;
-            case 'monthly':
-              nextDate = addMonths(nextDate, 1);
-              break;
-            default:
-              nextDate = addMonths(nextDate, 1);
-          }
-        }
+  // Adicionar transações recorrentes projetadas
+  (recurring || []).forEach(r => {
+    let nextDate = new Date(r.next_execution);
+    while (nextDate <= endDate) {
+      allItems.push({
+        id: `${r.id}-${format(nextDate, 'yyyy-MM-dd')}`,
+        description: `[Recorrente] ${r.description}`,
+        due_date: format(nextDate, 'yyyy-MM-dd'),
+        remaining_amount: r.amount,
+        type: r.transaction_type === 'Entrada' ? 'entrada' : 'saida'
       });
 
-      setItems(allItems);
-
-      // Gerar períodos de previsão
-      const forecast = generateForecast(allItems, totalBalance, today, endDate, period);
-      setForecastData(forecast);
-
-    } catch (error) {
-      console.error('Error fetching forecast data:', error);
-    } finally {
-      setLoading(false);
+      // Calcular próxima data
+      switch (r.frequency) {
+        case 'daily':
+          nextDate = addDays(nextDate, 1);
+          break;
+        case 'weekly':
+          nextDate = addWeeks(nextDate, 1);
+          break;
+        case 'monthly':
+          nextDate = addMonths(nextDate, 1);
+          break;
+        default:
+          nextDate = addMonths(nextDate, 1);
+      }
     }
-  };
+  });
 
-  const generateForecast = (
-    items: PayableReceivable[], 
-    initialBalance: number, 
-    start: Date, 
-    end: Date,
-    periodType: 'weekly' | 'monthly'
-  ): ForecastItem[] => {
+  return { initialBalance: totalBalance, items: allItems };
+}
+
+function generateForecast(
+  items: PayableReceivable[],
+  initialBalance: number,
+  start: Date,
+  end: Date,
+  periodType: 'weekly' | 'monthly'
+): ForecastItem[] {
     let periods: { start: Date; end: Date; label: string }[];
 
     if (periodType === 'weekly') {
@@ -177,14 +164,38 @@ const CashFlowForecast = () => {
         saldoAcumulado
       };
     });
-  };
+}
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value);
+}
+
+const CashFlowForecast = () => {
+  const [period, setPeriod] = useState<'weekly' | 'monthly'>('weekly');
+  const [horizon, setHorizon] = useState<'30' | '60' | '90'>('30');
+
+  const {
+    data: source = EMPTY_SOURCE,
+    isPending: loading,
+    isError,
+  } = useQuery({
+    queryKey: ['cash-flow-forecast', horizon],
+    queryFn: () => fetchForecastSource(horizon),
+  });
+
+  useEffect(() => {
+    if (isError) toast.error('Erro ao carregar previsão de fluxo de caixa');
+  }, [isError]);
+
+  const initialBalance = source.initialBalance;
+
+  const forecastData = useMemo(
+    () => generateForecast(source.items, source.initialBalance, new Date(), addDays(new Date(), parseInt(horizon)), period),
+    [source, horizon, period]
+  );
 
   const totalEntradas = forecastData.reduce((sum, f) => sum + f.entradas, 0);
   const totalSaidas = forecastData.reduce((sum, f) => sum + f.saidas, 0);
