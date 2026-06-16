@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,15 +54,60 @@ const materialTypeLabels: Record<string, string> = {
   'resale_product': 'Produto de Revenda'
 };
 
+const EMPTY_ISSUES: MaterialIssue[] = [];
+
+type Discrepancy = {
+  id: string;
+  issues: MaterialIssue['issues'];
+};
+
+/** Carrega os dados completos dos materiais com problemas e combina com os
+ *  diagnósticos do CSV vindos de useMaterialsDiagnostics. */
+async function fetchMaterialIssues(discrepancies: Discrepancy[]): Promise<MaterialIssue[]> {
+  const materialIds = discrepancies.map((d) => d.id);
+  if (materialIds.length === 0) return [];
+
+  const { data: materials, error } = await supabase
+    .from('materials')
+    .select('id, name, code, material_type, category, subcategory')
+    .in('id', materialIds);
+
+  if (error) throw error;
+
+  return (materials || [])
+    .map((material) => {
+      const diag = discrepancies.find((d) => d.id === material.id);
+      if (!diag) return null;
+
+      const csvSuggestions: MaterialIssue['csvSuggestions'] = {};
+
+      diag.issues.forEach((issue) => {
+        if (issue.field === 'material_type') {
+          csvSuggestions.material_type = materialTypeMap[String(issue.expected)] || String(issue.expected);
+        } else if (issue.field === 'category') {
+          csvSuggestions.category = String(issue.expected);
+        } else if (issue.field === 'subcategory') {
+          csvSuggestions.subcategory = String(issue.expected);
+        }
+      });
+
+      return {
+        ...material,
+        issues: diag.issues,
+        csvSuggestions,
+      } as MaterialIssue;
+    })
+    .filter((m): m is MaterialIssue => m !== null && m.issues.length > 0);
+}
+
 const MateriaisProblemas = () => {
+  const queryClient = useQueryClient();
   const { diagnostics, loading: diagLoading, runDiagnostics } = useMaterialsDiagnostics();
-  const [issues, setIssues] = useState<MaterialIssue[]>([]);
-  const [loading, setLoading] = useState(true);
   const [fixing, setFixing] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [editMode, setEditMode] = useState<'list' | 'individual'>('list');
   const { getTermsByTaxonomy } = useTaxonomy();
-  
+
   // Edição individual
   const [editedMaterial, setEditedMaterial] = useState<MaterialIssue | null>(null);
 
@@ -69,60 +115,28 @@ const MateriaisProblemas = () => {
     runDiagnostics();
   }, []);
 
+  const discrepancies = diagnostics?.discrepancies ?? [];
+  const discrepancyKey = discrepancies.map((d) => d.id).join(',');
+
+  const {
+    data: issues = EMPTY_ISSUES,
+    isPending,
+    isError,
+  } = useQuery({
+    queryKey: ['materiais-problemas', discrepancyKey],
+    queryFn: () => fetchMaterialIssues(discrepancies),
+    enabled: diagnostics !== null,
+  });
+
+  // Enquanto o diagnóstico não terminou, a query ainda não foi habilitada:
+  // mantém o gate de loading ativo.
+  const loading = diagnostics === null || isPending;
+
   useEffect(() => {
-    if (diagnostics) {
-      // Carregar dados completos dos materiais com problemas
-      loadMaterialsDetails(diagnostics.discrepancies.map(d => d.id));
-    }
-  }, [diagnostics]);
-
-  const loadMaterialsDetails = async (materialIds: string[]) => {
-    if (materialIds.length === 0) {
-      setIssues([]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const { data: materials, error } = await supabase
-        .from('materials')
-        .select('id, name, code, material_type, category, subcategory')
-        .in('id', materialIds);
-
-      if (error) throw error;
-
-      // Combinar com diagnósticos do CSV
-      const materialIssues: MaterialIssue[] = (materials || []).map(material => {
-        const diag = diagnostics!.discrepancies.find(d => d.id === material.id);
-        if (!diag) return null;
-
-        const csvSuggestions: MaterialIssue['csvSuggestions'] = {};
-        
-        diag.issues.forEach(issue => {
-          if (issue.field === 'material_type') {
-            csvSuggestions.material_type = materialTypeMap[String(issue.expected)] || String(issue.expected);
-          } else if (issue.field === 'category') {
-            csvSuggestions.category = String(issue.expected);
-          } else if (issue.field === 'subcategory') {
-            csvSuggestions.subcategory = String(issue.expected);
-          }
-        });
-
-        return {
-          ...material,
-          issues: diag.issues,
-          csvSuggestions
-        } as MaterialIssue;
-      }).filter(m => m !== null && m.issues.length > 0);
-
-      setIssues(materialIssues);
-    } catch (error) {
-      console.error('Erro ao carregar materiais:', error);
+    if (isError) {
       toast.error('Erro ao carregar materiais');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isError]);
 
   const saveMaterial = async (material: MaterialIssue) => {
     setFixing(material.id);
@@ -139,10 +153,11 @@ const MateriaisProblemas = () => {
       if (error) throw error;
 
       toast.success(`Material "${material.name}" atualizado`);
-      
-      // Recarregar diagnósticos
+
+      // Recarregar diagnósticos e invalidar a lista de materiais com problemas
       await runDiagnostics();
-      
+      queryClient.invalidateQueries({ queryKey: ['materiais-problemas'] });
+
       // Avançar para o próximo material automaticamente
       if (currentIndex < issues.length - 1) {
         setCurrentIndex(currentIndex + 1);

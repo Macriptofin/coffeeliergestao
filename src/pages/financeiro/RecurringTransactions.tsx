@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,12 +54,63 @@ interface BankAccount {
   bank_name: string;
 }
 
+interface RecurringRefs {
+  costCenters: CostCenter[];
+  accounts: Account[];
+  bankAccounts: BankAccount[];
+}
+
+const EMPTY_TRANSACTIONS: RecurringTransaction[] = [];
+const EMPTY_REFS: RecurringRefs = { costCenters: [], accounts: [], bankAccounts: [] };
+
+async function fetchRecurringTransactions(): Promise<RecurringTransaction[]> {
+  const { data, error } = await supabase
+    .from('recurring_transactions')
+    .select(`
+      *,
+      cost_centers(name),
+      chart_of_accounts:account_id(name),
+      bank_accounts(name)
+    `)
+    .order('next_execution');
+  if (error) throw error;
+  return data || [];
+}
+
+/** Dados de referência (mudam raramente) — centros de custo, plano de contas
+ *  e bancos. Cacheados com staleTime alto. */
+async function fetchRecurringRefs(): Promise<RecurringRefs> {
+  const [costRes, accRes, bankRes] = await Promise.all([
+    supabase.from('cost_centers').select('id, name, code').eq('is_active', true),
+    supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true),
+    supabase.from('bank_accounts').select('id, name, bank_name').eq('is_active', true),
+  ]);
+  if (costRes.error) throw costRes.error;
+  return {
+    costCenters:  costRes.data || [],
+    accounts:     accRes.data  || [],
+    bankAccounts: bankRes.data || [],
+  };
+}
+
 const RecurringTransactions = () => {
-  const [transactions, setTransactions] = useState<RecurringTransaction[]>([]);
-  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  const {
+    data: transactions = EMPTY_TRANSACTIONS,
+    isPending: loading,
+    isError: transactionsError,
+  } = useQuery({ queryKey: ['recurring-transactions'], queryFn: fetchRecurringTransactions });
+
+  const { data: refs = EMPTY_REFS, isError: refsError } = useQuery({
+    queryKey: ['recurring-transactions-refs'],
+    queryFn: fetchRecurringRefs,
+    staleTime: 5 * 60_000,
+  });
+  const { costCenters, bankAccounts } = refs;
+
+  const refetchTransactions = () => queryClient.invalidateQueries({ queryKey: ['recurring-transactions'] });
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<RecurringTransaction | null>(null);
   const [saving, setSaving] = useState(false);
@@ -78,40 +130,10 @@ const RecurringTransactions = () => {
     notes: ""
   });
 
+  // Erro de carregamento → toast (uma vez por mudança no estado de erro)
   useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [transRes, costRes, accRes, bankRes] = await Promise.all([
-        supabase
-          .from('recurring_transactions')
-          .select(`
-            *,
-            cost_centers(name),
-            chart_of_accounts:account_id(name),
-            bank_accounts(name)
-          `)
-          .order('next_execution'),
-        supabase.from('cost_centers').select('id, name, code').eq('is_active', true),
-        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true),
-        supabase.from('bank_accounts').select('id, name, bank_name').eq('is_active', true)
-      ]);
-
-      if (transRes.error) throw transRes.error;
-      setTransactions(transRes.data || []);
-      setCostCenters(costRes.data || []);
-      setAccounts(accRes.data || []);
-      setBankAccounts(bankRes.data || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Erro ao carregar dados');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (transactionsError || refsError) toast.error('Erro ao carregar dados');
+  }, [transactionsError, refsError]);
 
   const resetForm = () => {
     setFormData({
@@ -223,7 +245,7 @@ const RecurringTransactions = () => {
 
       setDialogOpen(false);
       resetForm();
-      fetchData();
+      refetchTransactions();
     } catch (error) {
       console.error('Error saving recurring transaction:', error);
       toast.error('Erro ao salvar transação recorrente');
@@ -241,7 +263,7 @@ const RecurringTransactions = () => {
 
       if (error) throw error;
       toast.success(currentState ? 'Transação pausada' : 'Transação ativada');
-      fetchData();
+      refetchTransactions();
     } catch (error) {
       console.error('Error toggling status:', error);
       toast.error('Erro ao alterar status');
@@ -259,7 +281,7 @@ const RecurringTransactions = () => {
 
       if (error) throw error;
       toast.success('Transação excluída');
-      fetchData();
+      refetchTransactions();
     } catch (error) {
       console.error('Error deleting:', error);
       toast.error('Erro ao excluir');

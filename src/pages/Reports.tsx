@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +54,146 @@ const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','A
 const currentYear  = new Date().getFullYear();
 const currentMonth = new Date().getMonth() + 1;
 
+function dateRange(year: string, month: string) {
+  const y = parseInt(year), m = parseInt(month);
+  const start = `${y}-${String(m).padStart(2,'0')}-01`;
+  const end   = `${y}-${String(m).padStart(2,'0')}-${new Date(y, m, 0).getDate()}`;
+  const pm = m === 1 ? 12 : m - 1;
+  const py = m === 1 ? y - 1 : y;
+  const pstart = `${py}-${String(pm).padStart(2,'0')}-01`;
+  const pend   = `${py}-${String(pm).padStart(2,'0')}-${new Date(py, pm, 0).getDate()}`;
+  return { start, end, pstart, pend };
+}
+
+// ── Comercial ──────────────────────────────────────────────────────────────────
+async function loadComercial(year: string, month: string): Promise<ComercialData> {
+  const { start, end, pstart, pend } = dateRange(year, month);
+  const [arRes, arPrev, propRes, evtRes, clientRes] = await Promise.all([
+    supabase.from('accounts_receivable').select('original_amount').gte('issue_date', start).lte('issue_date', end),
+    supabase.from('accounts_receivable').select('original_amount').gte('issue_date', pstart).lte('issue_date', pend),
+    supabase.from('proposals').select('id, status').gte('created_at', start).lte('created_at', end),
+    supabase.from('events').select('id, total_people').gte('event_date', start).lte('event_date', end),
+    supabase.from('accounts_receivable').select('original_amount, clients(name)').gte('issue_date', start).lte('issue_date', end),
+  ]);
+
+  const fat     = (arRes.data  || []).reduce((s, r) => s + parseFloat(r.original_amount || '0'), 0);
+  const fatPrev = (arPrev.data || []).reduce((s, r) => s + parseFloat(r.original_amount || '0'), 0);
+  const props   = propRes.data || [];
+  const evts    = evtRes.data  || [];
+
+  const clientMap: Record<string, { total: number; eventos: number }> = {};
+  (clientRes.data || []).forEach((r) => {
+    const nome = (r as { clients?: { name?: string } }).clients?.name || 'Sem cliente';
+    if (!clientMap[nome]) clientMap[nome] = { total: 0, eventos: 0 };
+    clientMap[nome].total   += parseFloat(r.original_amount || '0');
+    clientMap[nome].eventos += 1;
+  });
+
+  return {
+    faturamentoMes:      fat,
+    faturamentoAnterior: fatPrev,
+    ticketMedio:         evts.length > 0 ? fat / evts.length : 0,
+    propostas:           props.length,
+    propostasAprovadas:  props.filter(p => p.status === 'aprovada').length,
+    eventosMes:          evts.length,
+    totalPessoas:        evts.reduce((s, e) => s + (e.total_people || 0), 0),
+    topClientes:         Object.entries(clientMap).map(([nome, d]) => ({ nome, ...d })).sort((a,b) => b.total - a.total).slice(0,5),
+  };
+}
+
+// ── Estoque / Curva ABC ──────────────────────────────────────────────────────
+async function loadEstoque(): Promise<EstoqueData> {
+  const [stockRes, alertRes] = await Promise.all([
+    supabase.from('stock_items').select('material_id, total_value, minimum_quantity, current_quantity, materials!material_id(name)'),
+    supabase.from('vw_stock_available').select('status_estoque').limit(500),
+  ]);
+
+  const items      = stockRes.data || [];
+  const totalValor = items.reduce((s, i) => s + parseFloat(i.total_value || '0'), 0);
+  const alerts     = alertRes.data || [];
+
+  const sorted = [...items]
+    .filter(i => parseFloat(i.total_value || '0') > 0)
+    .sort((a, b) => parseFloat(b.total_value || '0') - parseFloat(a.total_value || '0'));
+
+  let acum = 0;
+  const curvaABC = sorted.slice(0, 20).map(i => {
+    const val = parseFloat(i.total_value || '0');
+    const p   = totalValor > 0 ? (val / totalValor) * 100 : 0;
+    acum += p;
+    return {
+      material: (i.materials as { name?: string } | null)?.name || '—',
+      valor:    val,
+      percent:  p,
+      classe:   (acum <= 70 ? 'A' : acum <= 90 ? 'B' : 'C') as 'A'|'B'|'C',
+    };
+  });
+
+  return {
+    totalValor,
+    totalItens:   items.length,
+    abaixoMinimo: alerts.filter((a) => ['critico','baixo'].includes((a as { status_estoque?: string }).status_estoque || '')).length,
+    zerados:      alerts.filter((a) => (a as { status_estoque?: string }).status_estoque === 'zerado').length,
+    curvaABC,
+  };
+}
+
+// ── Produção ───────────────────────────────────────────────────────────────────
+async function loadProducao(): Promise<ProducaoData> {
+  const [bomsRes, ordRes] = await Promise.all([
+    supabase.from('recipes_bom').select('cached_total_cost, cost_status, materials!finished_material_id(name, category)').eq('is_archived', false).order('cached_total_cost', { ascending: false }),
+    supabase.from('bom_production_orders').select('total_cost').eq('status', 'Concluído'),
+  ]);
+
+  const boms = bomsRes.data || [];
+  const ords = ordRes.data  || [];
+  const custoTotal = ords.reduce((s, o) => s + parseFloat(o.total_cost || '0'), 0);
+
+  return {
+    totalFichas:      boms.length,
+    fichasComplete:   boms.filter(b => b.cost_status === 'complete').length,
+    fichasIncomplete: boms.filter(b => b.cost_status !== 'complete').length,
+    topFichas:        boms.slice(0, 10).map(b => ({
+      nome:      (b.materials as { name?: string; category?: string } | null)?.name || '—',
+      custo:     parseFloat(b.cached_total_cost || '0'),
+      categoria: (b.materials as { name?: string; category?: string } | null)?.category || '—',
+    })),
+    custoMedioOP: ords.length > 0 ? custoTotal / ords.length : 0,
+  };
+}
+
+// ── Compras ────────────────────────────────────────────────────────────────────
+async function loadCompras(year: string, month: string): Promise<ComprasData> {
+  const { start, end, pstart, pend } = dateRange(year, month);
+  const [invRes, invPrev, supRes, stockRes] = await Promise.all([
+    supabase.from('purchase_invoices').select('total_amount').gte('invoice_date', start).lte('invoice_date', end).eq('stock_posted', true),
+    supabase.from('purchase_invoices').select('total_amount').gte('invoice_date', pstart).lte('invoice_date', pend).eq('stock_posted', true),
+    supabase.from('purchase_invoices').select('total_amount, suppliers(company_name)').gte('invoice_date', start).lte('invoice_date', end).eq('stock_posted', true),
+    supabase.from('stock_items').select('average_price, materials!material_id(name)').gt('average_price', 0).order('average_price', { ascending: false }).limit(10),
+  ]);
+
+  const total     = (invRes.data  || []).reduce((s, r) => s + parseFloat(r.total_amount || '0'), 0);
+  const totalPrev = (invPrev.data || []).reduce((s, r) => s + parseFloat(r.total_amount || '0'), 0);
+
+  const supMap: Record<string, { total: number; nfs: number }> = {};
+  (supRes.data || []).forEach((r) => {
+    const nome = (r as { suppliers?: { company_name?: string } }).suppliers?.company_name || 'Sem fornecedor';
+    if (!supMap[nome]) supMap[nome] = { total: 0, nfs: 0 };
+    supMap[nome].total += parseFloat(r.total_amount || '0');
+    supMap[nome].nfs   += 1;
+  });
+
+  return {
+    totalMes:          total,
+    totalAnterior:     totalPrev,
+    topFornecedores:   Object.entries(supMap).map(([nome, d]) => ({ nome, ...d })).sort((a,b) => b.total - a.total).slice(0, 5),
+    itensMaisCostosos: (stockRes.data || []).map((s) => ({
+      material:   (s.materials as { name?: string } | null)?.name || '—',
+      custo_medio: parseFloat(s.average_price || '0'),
+    })),
+  };
+}
+
 const Variation = ({ value }: { value: number }) => {
   if (Math.abs(value) < 0.01)
     return <span className="text-xs text-muted-foreground flex items-center gap-0.5"><Minus className="h-3 w-3" /> 0%</span>;
@@ -65,7 +206,7 @@ const Variation = ({ value }: { value: number }) => {
   );
 };
 
-const EmptyState = ({ icon: Icon, title, desc }: { icon: any; title: string; desc: string }) => (
+const EmptyState = ({ icon: Icon, title, desc }: { icon: React.ComponentType<{ className?: string }>; title: string; desc: string }) => (
   <div className="flex flex-col items-center justify-center py-10 text-center">
     <div className="p-4 bg-muted rounded-full mb-3">
       <Icon className="h-8 w-8 text-muted-foreground" />
@@ -82,166 +223,31 @@ const Reports = () => {
   const [month, setMonth] = useState(String(currentMonth));
   const [tab,   setTab]   = useState('comercial');
 
-  const [comercial, setComercial] = useState<ComercialData | null>(null);
-  const [estoque,   setEstoque]   = useState<EstoqueData | null>(null);
-  const [producao,  setProducao]  = useState<ProducaoData | null>(null);
-  const [compras,   setCompras]   = useState<ComprasData | null>(null);
-  const [loading,   setLoading]   = useState(false);
-
   const years = Array.from({ length: 5 }, (_, i) => String(currentYear - i));
 
-  useEffect(() => { loadTab(); }, [year, month, tab]);
+  const { data: comercial = null, isLoading: comercialLoading } = useQuery({
+    queryKey: ['reports', 'comercial', year, month],
+    queryFn: () => loadComercial(year, month),
+    enabled: tab === 'comercial',
+  });
 
-  const dateRange = () => {
-    const y = parseInt(year), m = parseInt(month);
-    const start = `${y}-${String(m).padStart(2,'0')}-01`;
-    const end   = `${y}-${String(m).padStart(2,'0')}-${new Date(y, m, 0).getDate()}`;
-    const pm = m === 1 ? 12 : m - 1;
-    const py = m === 1 ? y - 1 : y;
-    const pstart = `${py}-${String(pm).padStart(2,'0')}-01`;
-    const pend   = `${py}-${String(pm).padStart(2,'0')}-${new Date(py, pm, 0).getDate()}`;
-    return { start, end, pstart, pend };
-  };
+  const { data: estoque = null, isLoading: estoqueLoading } = useQuery({
+    queryKey: ['reports', 'estoque'],
+    queryFn: loadEstoque,
+    enabled: tab === 'estoque',
+  });
 
-  const loadTab = async () => {
-    setLoading(true);
-    try {
-      if (tab === 'comercial') await loadComercial();
-      if (tab === 'estoque')   await loadEstoque();
-      if (tab === 'producao')  await loadProducao();
-      if (tab === 'compras')   await loadCompras();
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  };
+  const { data: producao = null, isLoading: producaoLoading } = useQuery({
+    queryKey: ['reports', 'producao'],
+    queryFn: loadProducao,
+    enabled: tab === 'producao',
+  });
 
-  // ── Comercial ──────────────────────────────────────────────────────────────
-  const loadComercial = async () => {
-    const { start, end, pstart, pend } = dateRange();
-    const [arRes, arPrev, propRes, evtRes, clientRes] = await Promise.all([
-      supabase.from('accounts_receivable').select('original_amount').gte('issue_date', start).lte('issue_date', end),
-      supabase.from('accounts_receivable').select('original_amount').gte('issue_date', pstart).lte('issue_date', pend),
-      supabase.from('proposals').select('id, status').gte('created_at', start).lte('created_at', end),
-      supabase.from('events').select('id, total_people').gte('event_date', start).lte('event_date', end),
-      supabase.from('accounts_receivable').select('original_amount, clients(name)').gte('issue_date', start).lte('issue_date', end),
-    ]);
-
-    const fat     = (arRes.data  || []).reduce((s, r) => s + parseFloat(r.original_amount || '0'), 0);
-    const fatPrev = (arPrev.data || []).reduce((s, r) => s + parseFloat(r.original_amount || '0'), 0);
-    const props   = propRes.data || [];
-    const evts    = evtRes.data  || [];
-
-    const clientMap: Record<string, { total: number; eventos: number }> = {};
-    (clientRes.data || []).forEach((r: any) => {
-      const nome = r.clients?.name || 'Sem cliente';
-      if (!clientMap[nome]) clientMap[nome] = { total: 0, eventos: 0 };
-      clientMap[nome].total   += parseFloat(r.original_amount || '0');
-      clientMap[nome].eventos += 1;
-    });
-
-    setComercial({
-      faturamentoMes:      fat,
-      faturamentoAnterior: fatPrev,
-      ticketMedio:         evts.length > 0 ? fat / evts.length : 0,
-      propostas:           props.length,
-      propostasAprovadas:  props.filter(p => p.status === 'aprovada').length,
-      eventosMes:          evts.length,
-      totalPessoas:        evts.reduce((s, e) => s + (e.total_people || 0), 0),
-      topClientes:         Object.entries(clientMap).map(([nome, d]) => ({ nome, ...d })).sort((a,b) => b.total - a.total).slice(0,5),
-    });
-  };
-
-  // ── Estoque / Curva ABC ────────────────────────────────────────────────────
-  const loadEstoque = async () => {
-    const [stockRes, alertRes] = await Promise.all([
-      supabase.from('stock_items').select('material_id, total_value, minimum_quantity, current_quantity, materials!material_id(name)'),
-      supabase.from('vw_stock_available').select('status_estoque').limit(500),
-    ]);
-
-    const items      = stockRes.data || [];
-    const totalValor = items.reduce((s, i) => s + parseFloat(i.total_value || '0'), 0);
-    const alerts     = alertRes.data || [];
-
-    const sorted = [...items]
-      .filter(i => parseFloat(i.total_value || '0') > 0)
-      .sort((a, b) => parseFloat(b.total_value || '0') - parseFloat(a.total_value || '0'));
-
-    let acum = 0;
-    const curvaABC = sorted.slice(0, 20).map(i => {
-      const val = parseFloat(i.total_value || '0');
-      const p   = totalValor > 0 ? (val / totalValor) * 100 : 0;
-      acum += p;
-      return {
-        material: (i.materials as any)?.name || '—',
-        valor:    val,
-        percent:  p,
-        classe:   (acum <= 70 ? 'A' : acum <= 90 ? 'B' : 'C') as 'A'|'B'|'C',
-      };
-    });
-
-    setEstoque({
-      totalValor,
-      totalItens:   items.length,
-      abaixoMinimo: alerts.filter((a: any) => ['critico','baixo'].includes(a.status_estoque)).length,
-      zerados:      alerts.filter((a: any) => a.status_estoque === 'zerado').length,
-      curvaABC,
-    });
-  };
-
-  // ── Produção ───────────────────────────────────────────────────────────────
-  const loadProducao = async () => {
-    const [bomsRes, ordRes] = await Promise.all([
-      supabase.from('recipes_bom').select('cached_total_cost, cost_status, materials!finished_material_id(name, category)').eq('is_archived', false).order('cached_total_cost', { ascending: false }),
-      supabase.from('bom_production_orders').select('total_cost').eq('status', 'Concluído'),
-    ]);
-
-    const boms = bomsRes.data || [];
-    const ords = ordRes.data  || [];
-    const custoTotal = ords.reduce((s, o) => s + parseFloat(o.total_cost || '0'), 0);
-
-    setProducao({
-      totalFichas:      boms.length,
-      fichasComplete:   boms.filter(b => b.cost_status === 'complete').length,
-      fichasIncomplete: boms.filter(b => b.cost_status !== 'complete').length,
-      topFichas:        boms.slice(0, 10).map(b => ({
-        nome:      (b.materials as any)?.name || '—',
-        custo:     parseFloat(b.cached_total_cost || '0'),
-        categoria: (b.materials as any)?.category || '—',
-      })),
-      custoMedioOP: ords.length > 0 ? custoTotal / ords.length : 0,
-    });
-  };
-
-  // ── Compras ────────────────────────────────────────────────────────────────
-  const loadCompras = async () => {
-    const { start, end, pstart, pend } = dateRange();
-    const [invRes, invPrev, supRes, stockRes] = await Promise.all([
-      supabase.from('purchase_invoices').select('total_amount').gte('invoice_date', start).lte('invoice_date', end).eq('stock_posted', true),
-      supabase.from('purchase_invoices').select('total_amount').gte('invoice_date', pstart).lte('invoice_date', pend).eq('stock_posted', true),
-      supabase.from('purchase_invoices').select('total_amount, suppliers(company_name)').gte('invoice_date', start).lte('invoice_date', end).eq('stock_posted', true),
-      supabase.from('stock_items').select('average_price, materials!material_id(name)').gt('average_price', 0).order('average_price', { ascending: false }).limit(10),
-    ]);
-
-    const total     = (invRes.data  || []).reduce((s, r) => s + parseFloat(r.total_amount || '0'), 0);
-    const totalPrev = (invPrev.data || []).reduce((s, r) => s + parseFloat(r.total_amount || '0'), 0);
-
-    const supMap: Record<string, { total: number; nfs: number }> = {};
-    (supRes.data || []).forEach((r: any) => {
-      const nome = r.suppliers?.company_name || 'Sem fornecedor';
-      if (!supMap[nome]) supMap[nome] = { total: 0, nfs: 0 };
-      supMap[nome].total += parseFloat(r.total_amount || '0');
-      supMap[nome].nfs   += 1;
-    });
-
-    setCompras({
-      totalMes:          total,
-      totalAnterior:     totalPrev,
-      topFornecedores:   Object.entries(supMap).map(([nome, d]) => ({ nome, ...d })).sort((a,b) => b.total - a.total).slice(0, 5),
-      itensMaisCostosos: (stockRes.data || []).map((s: any) => ({
-        material:   s.materials?.name || '—',
-        custo_medio: parseFloat(s.average_price || '0'),
-      })),
-    });
-  };
+  const { data: compras = null, isLoading: comprasLoading } = useQuery({
+    queryKey: ['reports', 'compras', year, month],
+    queryFn: () => loadCompras(year, month),
+    enabled: tab === 'compras',
+  });
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const varFat  = comercial && comercial.faturamentoAnterior > 0
@@ -282,7 +288,7 @@ const Reports = () => {
 
         {/* ═══ COMERCIAL ═══════════════════════════════════════════════════ */}
         <TabsContent value="comercial" className="mt-6 space-y-6">
-          {loading
+          {comercialLoading
             ? <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
             : comercial ? (
             <>
@@ -376,7 +382,7 @@ const Reports = () => {
 
         {/* ═══ ESTOQUE ═════════════════════════════════════════════════════ */}
         <TabsContent value="estoque" className="mt-6 space-y-6">
-          {loading
+          {estoqueLoading
             ? <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
             : estoque ? (
             <>
@@ -436,7 +442,7 @@ const Reports = () => {
 
         {/* ═══ PRODUÇÃO ════════════════════════════════════════════════════ */}
         <TabsContent value="producao" className="mt-6 space-y-6">
-          {loading
+          {producaoLoading
             ? <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
             : producao ? (
             <>
@@ -488,7 +494,7 @@ const Reports = () => {
 
         {/* ═══ COMPRAS ═════════════════════════════════════════════════════ */}
         <TabsContent value="compras" className="mt-6 space-y-6">
-          {loading
+          {comprasLoading
             ? <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
             : compras ? (
             <>

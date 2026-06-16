@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,87 +12,93 @@ import { RecipeExtractor } from "@/components/RecipeExtractor";
 import type { Recipe, Ingredient } from "@/types";
 import { calculateIngredientCost, calculateIngredientWeight } from "@/lib/ingredient-utils";
 
+// Defaults estáveis a nível de módulo — evitam recriar arrays vazios a cada render
+const EMPTY_RECIPES: Recipe[] = [];
+const EMPTY_INGREDIENTS: Ingredient[] = [];
+
+async function fetchIngredients(): Promise<Ingredient[]> {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('*')
+    .order('name');
+
+  if (error) throw error;
+
+  return (data || []).map(item => ({
+    id: item.id,
+    name: item.name,
+    purchaseUnit: item.purchase_unit,
+    usageUnit: item.usage_unit,
+    conversionFactor: parseFloat(item.conversion_factor.toString()),
+    pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit.toString()),
+    supplier: item.supplier || undefined,
+    unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined
+  }));
+}
+
+async function fetchRecipes(): Promise<Recipe[]> {
+  const { data: recipesData, error: recipesError } = await supabase
+    .from('recipes')
+    .select(`
+      *,
+      recipe_ingredients (
+        quantity,
+        material_id
+      )
+    `)
+    .order('name');
+
+  if (recipesError) throw recipesError;
+
+  return (recipesData || []).map(item => ({
+    id: item.id,
+    name: item.name,
+    description: item.description || '',
+    category: item.category,
+    instructions: item.instructions || '',
+    preparationTime: item.preparation_time || 0,
+    difficulty: item.difficulty as 'Fácil' | 'Médio' | 'Difícil',
+    yield: item.yield_amount,
+    yieldUnit: item.yield_unit || 'unidade',
+    totalCost: item.total_cost ? parseFloat(item.total_cost.toString()) : undefined,
+    totalWeight: (item as any).total_weight ? parseFloat((item as any).total_weight.toString()) : undefined,
+    suggestedPrice: item.suggested_price ? parseFloat(item.suggested_price.toString()) : undefined,
+    profitMargin: item.profit_margin ? parseFloat(item.profit_margin.toString()) : undefined,
+    ingredients: item.recipe_ingredients.map((ri: any) => ({
+      ingredientId: ri.material_id,
+      quantity: parseFloat(ri.quantity.toString())
+    }))
+  }));
+}
+
 const Recipes = () => {
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const queryClient = useQueryClient();
+
+  const {
+    data: recipes = EMPTY_RECIPES,
+    isPending: loading,
+    isError: recipesError,
+  } = useQuery({ queryKey: ['recipes'], queryFn: fetchRecipes });
+
+  // Ingredientes (materials) mudam raramente — cache com staleTime alto
+  const {
+    data: ingredients = EMPTY_INGREDIENTS,
+    isError: ingredientsError,
+  } = useQuery({ queryKey: ['recipes-ingredients'], queryFn: fetchIngredients, staleTime: 5 * 60_000 });
+
+  const showLoader = useDelayedLoading(loading);
+
   const [showRecipeForm, setShowRecipeForm] = useState(false);
   const [showRecipeExtractor, setShowRecipeExtractor] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
-  const [loading, setLoading] = useState(true);
 
+  // Erro de carregamento → toast (uma vez por mudança no estado de erro)
   useEffect(() => {
-    loadData();
-  }, []);
+    if (recipesError || ingredientsError) toast.error('Erro ao carregar dados');
+  }, [recipesError, ingredientsError]);
 
-  const loadData = async () => {
-    try {
-      await Promise.all([loadRecipes(), loadIngredients()]);
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar dados');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadIngredients = async () => {
-    const { data, error } = await supabase
-      .from('materials')
-      .select('*')
-      .order('name');
-    
-    if (error) throw error;
-    
-    const formattedIngredients = data.map(item => ({
-      id: item.id,
-      name: item.name,
-      purchaseUnit: item.purchase_unit,
-      usageUnit: item.usage_unit,
-      conversionFactor: parseFloat(item.conversion_factor.toString()),
-      pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit.toString()),
-      supplier: item.supplier || undefined,
-      unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined
-    }));
-    
-    setIngredients(formattedIngredients);
-  };
-
-  const loadRecipes = async () => {
-    const { data: recipesData, error: recipesError } = await supabase
-      .from('recipes')
-      .select(`
-        *,
-        recipe_ingredients (
-          quantity,
-          material_id
-        )
-      `)
-      .order('name');
-    
-    if (recipesError) throw recipesError;
-    
-    const formattedRecipes = recipesData.map(item => ({
-      id: item.id,
-      name: item.name,
-      description: item.description || '',
-      category: item.category,
-      instructions: item.instructions || '',
-      preparationTime: item.preparation_time || 0,
-      difficulty: item.difficulty as 'Fácil' | 'Médio' | 'Difícil',
-      yield: item.yield_amount,
-      yieldUnit: item.yield_unit || 'unidade',
-      totalCost: item.total_cost ? parseFloat(item.total_cost.toString()) : undefined,
-      totalWeight: (item as any).total_weight ? parseFloat((item as any).total_weight.toString()) : undefined,
-      suggestedPrice: item.suggested_price ? parseFloat(item.suggested_price.toString()) : undefined,
-      profitMargin: item.profit_margin ? parseFloat(item.profit_margin.toString()) : undefined,
-      ingredients: item.recipe_ingredients.map((ri: any) => ({
-        ingredientId: ri.material_id,
-        quantity: parseFloat(ri.quantity.toString())
-      }))
-    }));
-    
-    setRecipes(formattedRecipes);
-  };
+  // Após mutações, invalida a query de receitas
+  const refetchRecipes = () => queryClient.invalidateQueries({ queryKey: ['recipes'] });
 
   const calculateTotalsWithStockPrices = async (recipeIngredients: { ingredientId: string, quantity: number }[]) => {
     let totalCost = 0;
@@ -160,24 +168,7 @@ const Recipes = () => {
         if (ingredientsError) throw ingredientsError;
       }
 
-      const newRecipe: Recipe = {
-        id: data.id,
-        name: data.name,
-        description: data.description || '',
-        category: data.category,
-        instructions: data.instructions || '',
-        preparationTime: data.preparation_time || 0,
-        difficulty: data.difficulty as 'Fácil' | 'Médio' | 'Difícil',
-        yield: data.yield_amount,
-        yieldUnit: data.yield_unit || 'unidade',
-        totalCost: parseFloat(data.total_cost?.toString() || '0'),
-        totalWeight: parseFloat(data.total_weight?.toString() || '0'),
-        suggestedPrice: data.suggested_price ? parseFloat(data.suggested_price.toString()) : undefined,
-        profitMargin: data.profit_margin ? parseFloat(data.profit_margin.toString()) : undefined,
-        ingredients: recipe.ingredients
-      };
-      
-      setRecipes([...recipes, newRecipe]);
+      refetchRecipes();
       setShowRecipeForm(false);
       toast.success('Receita cadastrada com sucesso!');
     } catch (error) {
@@ -275,14 +266,7 @@ const Recipes = () => {
         }
       }
 
-      // Atualizar receita no estado
-      const updatedRecipe: Recipe = {
-        ...recipe,
-        totalCost,
-        totalWeight
-      };
-      
-      setRecipes(recipes.map(r => r.id === recipe.id ? updatedRecipe : r));
+      refetchRecipes();
       setEditingRecipe(null);
       setShowRecipeForm(false);
       
@@ -303,8 +287,8 @@ const Recipes = () => {
         .eq('id', recipeId);
       
       if (error) throw error;
-      
-      setRecipes(recipes.filter(recipe => recipe.id !== recipeId));
+
+      refetchRecipes();
       toast.success('Receita excluída com sucesso!');
     } catch (error) {
       console.error('Erro ao excluir receita:', error);
@@ -335,7 +319,7 @@ const Recipes = () => {
     setShowRecipeExtractor(false);
   };
 
-  if (loading) {
+  if (showLoader) {
     return (
       <div className="flex justify-center items-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { todayLocalISO } from "@/lib/date-utils";
 import { useReactToPrint } from "react-to-print";
 import { useParams, useNavigate } from "react-router-dom";
@@ -79,12 +80,86 @@ const statusLabels: Record<string, string> = {
   Fechado:       "Fechado",
 };
 
+interface CycleData {
+  cycle: InventoryCycle;
+  adjustments: InventoryAdjustment[];
+}
+
+async function fetchCycle(cycleId: string): Promise<CycleData> {
+  // Carregar dados do ciclo
+  const { data: cycleData, error: cycleError } = await supabase
+    .from('inventory_cycles')
+    .select('*')
+    .eq('id', cycleId)
+    .single();
+
+  if (cycleError) throw cycleError;
+
+  // Carregar ajustes do ciclo
+  const { data: adjustmentsData, error: adjustmentsError } = await supabase
+    .from('inventory_adjustments')
+    .select('id, material_id, system_quantity, physical_quantity, is_draft, adjustment_reason')
+    .eq('cycle_id', cycleId);
+
+  if (adjustmentsError) throw adjustmentsError;
+
+  // Carregar informações dos materiais separadamente
+  const materialIds = (adjustmentsData || []).map(adj => adj.material_id);
+  const { data: materialsData, error: materialsError } = await supabase
+    .from('materials')
+    .select('id, name, code, category, usage_unit')
+    .in('id', materialIds);
+
+  if (materialsError) throw materialsError;
+
+  // Criar mapa de materiais
+  const materialsMap = new Map(
+    (materialsData || []).map(m => [m.id, m])
+  );
+
+  // Transformar dados para a interface
+  const formattedAdjustments: InventoryAdjustment[] = (adjustmentsData || []).map(adj => {
+    const material = materialsMap.get(adj.material_id);
+    return {
+      id: adj.id,
+      material_id: adj.material_id,
+      system_quantity: adj.system_quantity,
+      physical_quantity: adj.physical_quantity,
+      is_draft: adj.is_draft,
+      adjustment_reason: adj.adjustment_reason,
+      material_name: material?.name || 'Material não encontrado',
+      material_code: material?.code,
+      material_category: material?.category || '',
+      material_unit: material?.usage_unit || '',
+      difference: adj.physical_quantity !== null ? adj.physical_quantity - adj.system_quantity : undefined,
+    };
+  });
+
+  return { cycle: cycleData, adjustments: formattedAdjustments };
+}
+
 const InventarioCiclo = () => {
   const { cycleId } = useParams<{ cycleId: string }>();
   const navigate = useNavigate();
-  const [cycle, setCycle] = useState<InventoryCycle | null>(null);
+  const queryClient = useQueryClient();
+
+  const {
+    data,
+    isPending: loading,
+    isError,
+  } = useQuery({
+    queryKey: ['inventory-cycle', cycleId],
+    queryFn: () => fetchCycle(cycleId!),
+    enabled: !!cycleId,
+  });
+
+  const cycle = data?.cycle ?? null;
+
+  // Invalida o ciclo após qualquer ação que altere o servidor.
+  const refetchCycle = () => queryClient.invalidateQueries({ queryKey: ['inventory-cycle', cycleId] });
+
+  // Buffer local de edição das contagens — semeado a partir dos dados da query.
   const [adjustments, setAdjustments] = useState<InventoryAdjustment[]>([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -92,76 +167,21 @@ const InventarioCiclo = () => {
   const [selectedMaterialToAdd, setSelectedMaterialToAdd] = useState<string>("");
   const [addingMaterial, setAddingMaterial] = useState(false);
 
+  // Semeia o buffer local sempre que os dados do servidor chegarem/atualizarem.
   useEffect(() => {
-    if (cycleId) {
-      loadCycleData();
+    if (data?.adjustments) {
+      setAdjustments(data.adjustments);
     }
-  }, [cycleId]);
+  }, [data]);
 
-  const loadCycleData = async () => {
-    if (!cycleId) return;
-    
-    setLoading(true);
-    try {
-      // Carregar dados do ciclo
-      const { data: cycleData, error: cycleError } = await supabase
-        .from('inventory_cycles')
-        .select('*')
-        .eq('id', cycleId)
-        .single();
-
-      if (cycleError) throw cycleError;
-      setCycle(cycleData);
-
-      // Carregar ajustes do ciclo
-      const { data: adjustmentsData, error: adjustmentsError } = await supabase
-        .from('inventory_adjustments')
-        .select('id, material_id, system_quantity, physical_quantity, is_draft, adjustment_reason')
-        .eq('cycle_id', cycleId);
-
-      if (adjustmentsError) throw adjustmentsError;
-
-      // Carregar informações dos materiais separadamente
-      const materialIds = (adjustmentsData || []).map(adj => adj.material_id);
-      const { data: materialsData, error: materialsError } = await supabase
-        .from('materials')
-        .select('id, name, code, category, usage_unit')
-        .in('id', materialIds);
-
-      if (materialsError) throw materialsError;
-
-      // Criar mapa de materiais
-      const materialsMap = new Map(
-        (materialsData || []).map(m => [m.id, m])
-      );
-
-      // Transformar dados para a interface
-      const formattedAdjustments: InventoryAdjustment[] = (adjustmentsData || []).map(adj => {
-        const material = materialsMap.get(adj.material_id);
-        return {
-          id: adj.id,
-          material_id: adj.material_id,
-          system_quantity: adj.system_quantity,
-          physical_quantity: adj.physical_quantity,
-          is_draft: adj.is_draft,
-          adjustment_reason: adj.adjustment_reason,
-          material_name: material?.name || 'Material não encontrado',
-          material_code: material?.code,
-          material_category: material?.category || '',
-          material_unit: material?.usage_unit || '',
-          difference: adj.physical_quantity !== null ? adj.physical_quantity - adj.system_quantity : undefined,
-        };
-      });
-
-      setAdjustments(formattedAdjustments);
-    } catch (error) {
-      console.error('Erro ao carregar dados do ciclo:', error);
+  // Erro de carregamento → toast + volta para a listagem (uma vez por mudança no estado de erro).
+  useEffect(() => {
+    if (isError) {
+      console.error('Erro ao carregar dados do ciclo');
       toast.error('Erro ao carregar dados do ciclo');
       navigate('/materiais/inventario-ajustes');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isError, navigate]);
 
   const updatePhysicalQuantity = (adjustmentId: string, quantity: number) => {
     setAdjustments(prev => prev.map(adj => {
@@ -215,7 +235,7 @@ const InventarioCiclo = () => {
       if (error) throw error;
 
       toast.success(`Status alterado para ${statusLabels[newStatus]}`);
-      loadCycleData();
+      refetchCycle();
     } catch (error) {
       console.error('Erro ao alterar status:', error);
       toast.error('Erro ao alterar status do ciclo');
@@ -243,7 +263,7 @@ const InventarioCiclo = () => {
       const result = data as { materials_affected?: number };
       toast.success(`Ciclo finalizado! ${result.materials_affected || 0} materiais ajustados.`);
       setShowConfirmDialog(false);
-      loadCycleData();
+      refetchCycle();
     } catch (error) {
       console.error('Erro ao finalizar ciclo:', error);
       toast.error('Erro ao finalizar ciclo');
@@ -273,7 +293,7 @@ const InventarioCiclo = () => {
         toast.success('Material adicionado ao ciclo!');
         setShowAddMaterialDialog(false);
         setSelectedMaterialToAdd("");
-        loadCycleData();
+        refetchCycle();
       }
     } catch (error) {
       console.error('Erro ao adicionar material:', error);

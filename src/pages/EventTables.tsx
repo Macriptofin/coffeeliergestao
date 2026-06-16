@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,16 +10,79 @@ import { useToast } from "@/hooks/use-toast";
 import { ConsumptionProfileForm } from "@/components/events/ConsumptionProfileForm";
 import { EventTableForm } from "@/components/events/EventTableForm";
 
+interface EventTablesData {
+  profiles: any[];
+  templates: any[];
+  events: any[];
+}
+
+const EMPTY_DATA: EventTablesData = { profiles: [], templates: [], events: [] };
+
+async function fetchEventTablesData(): Promise<EventTablesData> {
+  // Carregar perfis de consumo
+  const { data: profilesData, error: profilesError } = await supabase
+    .from('consumption_profiles')
+    .select(`
+      *,
+      consumption_profile_mix (
+        category_label,
+        percent
+      )
+    `)
+    .order('created_at', { ascending: false });
+  if (profilesError) throw profilesError;
+
+  // Carregar templates
+  const { data: templatesData, error: templatesError } = await supabase
+    .from('event_table_templates')
+    .select(`
+      *,
+      consumption_profiles (name),
+      event_table_template_items (
+        id,
+        materials (name)
+      )
+    `)
+    .order('created_at', { ascending: false });
+  if (templatesError) throw templatesError;
+
+  // Carregar eventos
+  const { data: eventsData, error: eventsError } = await supabase
+    .from('event_tables')
+    .select(`
+      *,
+      consumption_profiles (name, grams_per_person),
+      event_table_templates (name),
+      clients (name),
+      event_table_items (
+        id,
+        materials (name)
+      )
+    `)
+    .order('created_at', { ascending: false });
+  if (eventsError) throw eventsError;
+
+  return {
+    profiles: profilesData || [],
+    templates: templatesData || [],
+    events: eventsData || [],
+  };
+}
+
 const EventTables = () => {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("events");
-  
-  // Estados para cada seção
-  const [profiles, setProfiles] = useState<any[]>([]);
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-  
+
+  // ── data ──────────────────────────────────────────────────────────────────
+  const {
+    data = EMPTY_DATA,
+    isError,
+  } = useQuery({ queryKey: ['event-tables'], queryFn: fetchEventTablesData });
+  const { profiles, templates, events } = data;
+
+  const refetchEventTables = () => queryClient.invalidateQueries({ queryKey: ['event-tables'] });
+
   // Estados para formulários
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -27,67 +91,16 @@ const EventTables = () => {
   const [editingTemplate, setEditingTemplate] = useState<any>(null);
   const [editingEvent, setEditingEvent] = useState<any>(null);
 
+  // Erro de carregamento → toast (uma vez por mudança no estado de erro)
   useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      // Carregar perfis de consumo
-      const { data: profilesData } = await supabase
-        .from('consumption_profiles')
-        .select(`
-          *,
-          consumption_profile_mix (
-            category_label,
-            percent
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      // Carregar templates
-      const { data: templatesData } = await supabase
-        .from('event_table_templates')
-        .select(`
-          *,
-          consumption_profiles (name),
-          event_table_template_items (
-            id,
-            materials (name)
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      // Carregar eventos
-      const { data: eventsData } = await supabase
-        .from('event_tables')
-        .select(`
-          *,
-          consumption_profiles (name, grams_per_person),
-          event_table_templates (name),
-          clients (name),
-          event_table_items (
-            id,
-            materials (name)
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      setProfiles(profilesData || []);
-      setTemplates(templatesData || []);
-      setEvents(eventsData || []);
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+    if (isError) {
       toast({
         title: "Erro",
         description: "Erro ao carregar dados. Tente novamente.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isError, toast]);
 
   const generateProduction = async (eventId: string) => {
     try {
@@ -102,7 +115,7 @@ const EventTables = () => {
         description: "Ordem de produção gerada com sucesso!",
       });
 
-      loadData();
+      refetchEventTables();
     } catch (error) {
       console.error('Erro ao gerar produção:', error);
       toast({
@@ -153,7 +166,7 @@ const EventTables = () => {
             onSave={() => {
               setShowProfileForm(false);
               setEditingProfile(null);
-              loadData();
+              refetchEventTables();
             }}
             onCancel={() => {
               setShowProfileForm(false);
@@ -170,7 +183,7 @@ const EventTables = () => {
             onSave={() => {
               setShowEventForm(false);
               setEditingEvent(null);
-              loadData();
+              refetchEventTables();
             }}
             onCancel={() => {
               setShowEventForm(false);
