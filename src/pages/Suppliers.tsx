@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { todayLocalISO } from "@/lib/date-utils";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,11 +58,48 @@ const mapRow = (item: any): Supplier => ({
   notes: item.notes ?? undefined,
 });
 
+interface SuppliersData {
+  suppliers: Supplier[];
+  ytdSpend: Record<string, number>;
+}
+
+const EMPTY_SUPPLIERS_DATA: SuppliersData = { suppliers: [], ytdSpend: {} };
+
+async function fetchSuppliersData(): Promise<SuppliersData> {
+  const [suppliersRes, spendRes] = await Promise.all([
+    supabase.from('suppliers').select('*').order('company_name'),
+    supabase
+      .from('accounts_payable')
+      .select('supplier_id, original_amount')
+      .gte('due_date', `${new Date().getFullYear()}-01-01`)
+      .lte('due_date', `${new Date().getFullYear()}-12-31`),
+  ]);
+
+  if (suppliersRes.error) throw suppliersRes.error;
+
+  const spend: Record<string, number> = {};
+  (spendRes.data ?? []).forEach((row: any) => {
+    if (row.supplier_id) {
+      spend[row.supplier_id] = (spend[row.supplier_id] ?? 0) + parseFloat(row.original_amount ?? '0');
+    }
+  });
+
+  return {
+    suppliers: (suppliersRes.data ?? []).map(mapRow),
+    ytdSpend: spend,
+  };
+}
+
 const Suppliers = () => {
   const { isAdminOrManager, loading: roleLoading } = useUserRole();
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [ytdSpend, setYtdSpend] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  const {
+    data: { suppliers, ytdSpend } = EMPTY_SUPPLIERS_DATA,
+    isPending: loading,
+    isError,
+  } = useQuery({ queryKey: ['suppliers'], queryFn: fetchSuppliersData });
+
   const showLoader = useDelayedLoading(loading);
   const [submitting, setSubmitting] = useState(false);
 
@@ -75,43 +113,18 @@ const Suppliers = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState<'name' | 'spend_desc' | 'distance' | 'lead_time'>('name');
 
-  useEffect(() => { loadAll(); }, []);
+  // Erro de carregamento → toast (uma vez por mudança no estado de erro)
+  useEffect(() => {
+    if (isError) toast.error('Erro ao carregar fornecedores');
+  }, [isError]);
 
-  const loadAll = async () => {
-    setLoading(true);
-    try {
-      const [suppliersRes, spendRes] = await Promise.all([
-        supabase.from('suppliers').select('*').order('company_name'),
-        supabase
-          .from('accounts_payable')
-          .select('supplier_id, original_amount')
-          .gte('due_date', `${new Date().getFullYear()}-01-01`)
-          .lte('due_date', `${new Date().getFullYear()}-12-31`),
-      ]);
-
-      if (suppliersRes.error) throw suppliersRes.error;
-
-      const spend: Record<string, number> = {};
-      (spendRes.data ?? []).forEach((row: any) => {
-        if (row.supplier_id) {
-          spend[row.supplier_id] = (spend[row.supplier_id] ?? 0) + parseFloat(row.original_amount ?? '0');
-        }
-      });
-
-      setSuppliers((suppliersRes.data ?? []).map(mapRow));
-      setYtdSpend(spend);
-    } catch (err) {
-      console.error(err);
-      toast.error('Erro ao carregar fornecedores');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Após mutações, invalida a query de fornecedores
+  const refetchSuppliers = () => queryClient.invalidateQueries({ queryKey: ['suppliers'] });
 
   const addSupplier = async (data: Omit<Supplier, 'id' | 'code'>) => {
     try {
       setSubmitting(true);
-      const { data: row, error } = await supabase
+      const { error } = await supabase
         .from('suppliers')
         .insert({
           code: null,
@@ -139,12 +152,10 @@ const Suppliers = () => {
           lead_time_days: data.leadTimeDays ?? null,
           rating: data.rating ?? null,
           notes: data.notes || null,
-        })
-        .select()
-        .single();
+        });
 
       if (error) throw error;
-      setSuppliers(prev => [...prev, mapRow(row)]);
+      refetchSuppliers();
       setShowForm(false);
       toast.success('Fornecedor cadastrado com sucesso!');
     } catch (err: any) {
@@ -189,7 +200,7 @@ const Suppliers = () => {
         .eq('id', updated.id);
 
       if (error) throw error;
-      setSuppliers(prev => prev.map(s => s.id === updated.id ? updated : s));
+      refetchSuppliers();
       setEditingSupplier(null);
       setShowForm(false);
       toast.success('Fornecedor atualizado com sucesso!');
@@ -205,7 +216,7 @@ const Suppliers = () => {
     try {
       const { error } = await supabase.from('suppliers').delete().eq('id', id);
       if (error) throw error;
-      setSuppliers(prev => prev.filter(s => s.id !== id));
+      refetchSuppliers();
       toast.success('Fornecedor excluído com sucesso!');
     } catch (err) {
       console.error(err);

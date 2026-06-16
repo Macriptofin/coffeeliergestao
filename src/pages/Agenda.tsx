@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDelayedLoading } from '@/hooks/useDelayedLoading';
 import { Calendar, Clock, Users, MapPin, Bell, LayoutList } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,89 +42,97 @@ interface Event {
   op_name?: string;
 }
 
+async function fetchEvents(): Promise<Event[]> {
+  // Buscar eventos com dados de cliente
+  const { data: eventsData, error } = await supabase
+    .from('events')
+    .select('*, clients:client_id(name)')
+    .order('event_date', { ascending: true });
+
+  if (error) throw error;
+
+  const evts = eventsData || [];
+
+  // Enriquecer com dados de proposta e OP
+  const proposalIds = [...new Set(evts.filter(e => e.proposal_id).map(e => e.proposal_id as string))];
+
+  const proposalMap: Record<string, { proposal_number: string; status: string; auto_generated_bom_order_id?: string }> = {};
+  const opMap: Record<string, { id: string; status: string; order_name: string }> = {};
+
+  if (proposalIds.length > 0) {
+    const { data: props } = await supabase
+      .from('proposals')
+      .select('id, proposal_number, status, auto_generated_bom_order_id')
+      .in('id', proposalIds);
+
+    (props || []).forEach(p => { proposalMap[p.id] = p; });
+
+    const opIds = [...new Set((props || []).filter(p => p.auto_generated_bom_order_id).map(p => p.auto_generated_bom_order_id as string))];
+    if (opIds.length > 0) {
+      const { data: ops } = await supabase
+        .from('bom_production_orders')
+        .select('id, status, order_name')
+        .in('id', opIds);
+      (ops || []).forEach(o => { opMap[o.id] = o; });
+    }
+  }
+
+  const enriched: Event[] = evts.map(e => {
+    const prop = e.proposal_id ? proposalMap[e.proposal_id] : undefined;
+    const op   = prop?.auto_generated_bom_order_id ? opMap[prop.auto_generated_bom_order_id] : undefined;
+    return {
+      ...e,
+      proposal_number: prop?.proposal_number,
+      proposal_status: prop?.status,
+      op_id:     op?.id,
+      op_status: op?.status,
+      op_name:   op?.order_name,
+    };
+  });
+
+  return enriched;
+}
+
 export default function Agenda() {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
-  const showLoader = useDelayedLoading(loading);
+  const queryClient = useQueryClient();
   const [showEventForm, setShowEventForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [selectedDateForNewEvent, setSelectedDateForNewEvent] = useState<Date | undefined>();
   const [activeTab, setActiveTab] = useState('dashboard');
   const { userRole, isAdminOrManager, loading: roleLoading } = useUserRole();
 
+  const canAccess = isAdminOrManager();
+
+  const {
+    data: events = [],
+    isPending,
+    isError,
+  } = useQuery({
+    queryKey: ['events'],
+    queryFn: fetchEvents,
+    enabled: !roleLoading && canAccess,
+  });
+
+  // Enquanto o papel do usuário carrega (ou se a query está habilitada e pendente),
+  // mantemos o gate de loading. Usuário sem acesso não dispara loading.
+  const loading = roleLoading || (canAccess && isPending);
+  const showLoader = useDelayedLoading(loading);
+
   useEffect(() => {
-    if (!roleLoading && isAdminOrManager()) {
-      loadEvents();
-    } else if (!roleLoading) {
-      setLoading(false);
-    }
-  }, [userRole, roleLoading]);
-
-  const loadEvents = async () => {
-    try {
-      setLoading(true);
-
-      // Buscar eventos com dados de cliente
-      const { data: eventsData, error } = await supabase
-        .from('events')
-        .select('*, clients:client_id(name)')
-        .order('event_date', { ascending: true });
-
-      if (error) throw error;
-
-      const evts = eventsData || [];
-
-      // Enriquecer com dados de proposta e OP
-      const proposalIds = [...new Set(evts.filter(e => e.proposal_id).map(e => e.proposal_id as string))];
-
-      let proposalMap: Record<string, { proposal_number: string; status: string; auto_generated_bom_order_id?: string }> = {};
-      let opMap: Record<string, { id: string; status: string; order_name: string }> = {};
-
-      if (proposalIds.length > 0) {
-        const { data: props } = await supabase
-          .from('proposals')
-          .select('id, proposal_number, status, auto_generated_bom_order_id')
-          .in('id', proposalIds);
-
-        (props || []).forEach(p => { proposalMap[p.id] = p; });
-
-        const opIds = [...new Set((props || []).filter(p => p.auto_generated_bom_order_id).map(p => p.auto_generated_bom_order_id as string))];
-        if (opIds.length > 0) {
-          const { data: ops } = await supabase
-            .from('bom_production_orders')
-            .select('id, status, order_name')
-            .in('id', opIds);
-          (ops || []).forEach(o => { opMap[o.id] = o; });
-        }
-      }
-
-      const enriched: Event[] = evts.map(e => {
-        const prop = e.proposal_id ? proposalMap[e.proposal_id] : undefined;
-        const op   = prop?.auto_generated_bom_order_id ? opMap[prop.auto_generated_bom_order_id] : undefined;
-        return {
-          ...e,
-          proposal_number: prop?.proposal_number,
-          proposal_status: prop?.status,
-          op_id:     op?.id,
-          op_status: op?.status,
-          op_name:   op?.order_name,
-        };
-      });
-
-      setEvents(enriched);
-    } catch (error: any) {
-      console.error('Erro ao carregar eventos:', error);
+    if (isError) {
+      console.error('Erro ao carregar eventos');
       toast.error('Erro ao carregar eventos');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isError]);
+
+  // Após mutações (criar/editar/excluir/mudar status), invalida a query de eventos
+  const refetchEvents = () => queryClient.invalidateQueries({ queryKey: ['events'] });
 
   const handleEventSuccess = () => {
     setShowEventForm(false);
     setEditingEvent(null);
     setSelectedDateForNewEvent(undefined);
-    loadEvents();
+    refetchEvents();
     toast.success(editingEvent ? 'Evento atualizado!' : 'Evento criado!');
   };
 
@@ -142,8 +151,8 @@ export default function Agenda() {
         .eq('id', eventId);
 
       if (error) throw error;
-      
-      loadEvents();
+
+      refetchEvents();
       toast.success('Evento excluído com sucesso!');
     } catch (error: any) {
       console.error('Erro ao excluir evento:', error);
@@ -328,7 +337,7 @@ export default function Agenda() {
                     key={event.id}
                     event={{ ...event, client_name: event.clients?.name }}
                     onEdit={() => handleEditEvent(event)}
-                    onRefresh={loadEvents}
+                    onRefresh={refetchEvents}
                   />
                 ))}
               </div>
@@ -352,7 +361,7 @@ export default function Agenda() {
                     key={event.id}
                     event={{ ...event, client_name: event.clients?.name }}
                     onEdit={() => handleEditEvent(event)}
-                    onRefresh={loadEvents}
+                    onRefresh={refetchEvents}
                   />
                 ))}
             </div>
@@ -375,7 +384,7 @@ export default function Agenda() {
             events={events}
             onEdit={handleEditEvent}
             onDelete={handleDeleteEvent}
-            onRefresh={loadEvents}
+            onRefresh={refetchEvents}
           />
         </TabsContent>
 

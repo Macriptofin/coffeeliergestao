@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { todayLocalISO } from "@/lib/date-utils";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { useNavigate } from "react-router-dom";
@@ -25,16 +26,104 @@ type GeneratedMaterialsExport = {
   generatedAt: string;
 };
 
+async function fetchMaterials(): Promise<Material[]> {
+  const { data, error } = await supabase
+    .from('materials')
+    .select(`
+      id,
+      name,
+      description,
+      purchase_unit,
+      usage_unit,
+      conversion_factor,
+      price_per_purchase_unit,
+      allowed_brands,
+      category,
+      subcategory,
+      type_term_id,
+      category_term_id,
+      subcategory_term_id,
+      code,
+      material_type,
+      unit_weight,
+      is_sellable,
+      ncm,
+      cfop,
+      cst,
+      origem,
+      tracks_inventory
+    `)
+    .eq('is_archived', false)
+    .order('name');
+
+  if (error) throw error;
+  if (!data || data.length === 0) return [];
+
+  return data.map((item, index) => {
+    try {
+      return {
+        id: item.id || '',
+        name: item.name || 'Material sem nome',
+        description: item.description || undefined,
+        purchaseUnit: item.purchase_unit || 'unidade',
+        usageUnit: item.usage_unit || 'unidade',
+        conversionFactor: parseFloat(item.conversion_factor?.toString() || '1'),
+        pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit?.toString() || '0'),
+        supplier: undefined,
+        allowedBrands: item.allowed_brands || undefined,
+        category: item.category || 'Alimentos & Ingredientes',
+        subcategory: item.subcategory || undefined,
+        typeTermId: item.type_term_id || undefined,
+        categoryTermId: item.category_term_id || undefined,
+        subcategoryTermId: item.subcategory_term_id || undefined,
+        code: item.code || `MAT-${Date.now()}-${index}`,
+        materialType: (item.material_type || 'ingredient') as Material['materialType'],
+        unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
+        isSellable: Boolean(item.is_sellable),
+        ncm: item.ncm || undefined,
+        cfop: item.cfop || undefined,
+        cst: item.cst || undefined,
+        origem: item.origem != null ? item.origem : undefined,
+        tracksInventory: item.tracks_inventory !== false, // default true
+      } as Material;
+    } catch (itemError) {
+      console.error(`❌ Erro ao processar item ${index + 1}:`, itemError, item);
+      return {
+        id: item.id || `error-${Date.now()}-${index}`,
+        name: item.name || 'Material com erro',
+        description: undefined,
+        purchaseUnit: 'unidade',
+        usageUnit: 'unidade',
+        conversionFactor: 1,
+        pricePerPurchaseUnit: 0,
+        supplier: undefined,
+        allowedBrands: undefined,
+        category: 'Alimentos & Ingredientes',
+        subcategory: undefined,
+        code: `ERR-${Date.now()}-${index}`,
+        materialType: 'ingredient' as Material['materialType'],
+        unitWeight: undefined,
+        isSellable: false,
+      } as Material;
+    }
+  });
+}
+
 const Materials = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { terms, getTermsByTaxonomy } = useTaxonomy();
-  const [materials, setMaterials] = useState<Material[]>([]);
+  const queryClient = useQueryClient();
+  const {
+    data: materials = [],
+    isPending: loading,
+    isError,
+  } = useQuery({ queryKey: ['materials'], queryFn: fetchMaterials });
+  const refetchMaterials = () => queryClient.invalidateQueries({ queryKey: ['materials'] });
   const [filteredMaterials, setFilteredMaterials] = useState<Material[]>([]);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
   const [showMaterialEditor, setShowMaterialEditor] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
-  const [loading, setLoading] = useState(true);
   const showLoader = useDelayedLoading(loading);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>("all");
@@ -73,8 +162,8 @@ const Materials = () => {
   ];
 
   useEffect(() => {
-    loadMaterials();
-  }, []);
+    if (isError) toast.error('Erro ao carregar materiais');
+  }, [isError]);
 
   useEffect(() => {
     filterMaterials();
@@ -198,127 +287,10 @@ const Materials = () => {
     setGeneratedExport(null);
   };
 
-  const loadMaterials = async () => {
-    try {
-      console.log('🔄 Iniciando carregamento de materiais...');
-      
-      const { data, error } = await supabase
-        .from('materials')
-        .select(`
-          id,
-          name,
-          description,
-          purchase_unit,
-          usage_unit,
-          conversion_factor,
-          price_per_purchase_unit,
-          allowed_brands,
-          category,
-          subcategory,
-          type_term_id,
-          category_term_id,
-          subcategory_term_id,
-          code,
-          material_type,
-          unit_weight,
-          is_sellable,
-          ncm,
-          cfop,
-          cst,
-          origem,
-          tracks_inventory
-        `)
-        .eq('is_archived', false)
-        .order('name');
-      
-      if (error) {
-        console.error('❌ Erro na consulta:', error);
-        throw error;
-      }
-      
-      console.log('📊 Dados recebidos:', data?.length, 'materiais');
-      
-      if (!data || data.length === 0) {
-        console.log('📭 Nenhum material encontrado');
-        setMaterials([]);
-        return;
-      }
-      
-      const formattedMaterials = data.map((item, index) => {
-        try {
-          console.log(`🔧 Processando item ${index + 1}:`, item.name);
-          
-          const formatted = {
-            id: item.id || '',
-            name: item.name || 'Material sem nome',
-            description: item.description || undefined,
-            purchaseUnit: item.purchase_unit || 'unidade',
-            usageUnit: item.usage_unit || 'unidade',
-            conversionFactor: parseFloat(item.conversion_factor?.toString() || '1'),
-            pricePerPurchaseUnit: parseFloat(item.price_per_purchase_unit?.toString() || '0'),
-            supplier: undefined,
-            allowedBrands: item.allowed_brands || undefined,
-            category: item.category || 'Alimentos & Ingredientes',
-            subcategory: item.subcategory || undefined,
-            typeTermId: item.type_term_id || undefined,
-            categoryTermId: item.category_term_id || undefined,
-            subcategoryTermId: item.subcategory_term_id || undefined,
-            code: item.code || `MAT-${Date.now()}-${index}`,
-            materialType: (item.material_type || 'ingredient') as Material['materialType'],
-            unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
-            isSellable: Boolean(item.is_sellable),
-            ncm: item.ncm || undefined,
-            cfop: item.cfop || undefined,
-            cst: item.cst || undefined,
-            origem: item.origem != null ? item.origem : undefined,
-            tracksInventory: item.tracks_inventory !== false, // default true
-          };
-          
-          return formatted;
-        } catch (itemError) {
-          console.error(`❌ Erro ao processar item ${index + 1}:`, itemError, item);
-          return {
-            id: item.id || `error-${Date.now()}-${index}`,
-            name: item.name || 'Material com erro',
-            description: undefined,
-            purchaseUnit: 'unidade',
-            usageUnit: 'unidade',
-            conversionFactor: 1,
-            pricePerPurchaseUnit: 0,
-            supplier: undefined,
-            allowedBrands: undefined,
-            category: 'Alimentos & Ingredientes',
-            subcategory: undefined,
-            code: `ERR-${Date.now()}-${index}`,
-            materialType: 'ingredient' as Material['materialType'],
-            unitWeight: undefined,
-            isSellable: false,
-          };
-        }
-      });
-      
-      console.log('✅ Materiais formatados com sucesso:', formattedMaterials.length);
-      setMaterials(formattedMaterials);
-      
-    } catch (error) {
-      console.error('💥 Erro crítico ao carregar materiais:', error);
-      setMaterials([]);
-      
-      if (error instanceof Error) {
-        toast.error(`Erro ao carregar materiais: ${error.message}`);
-      } else {
-        toast.error('Erro desconhecido ao carregar materiais');  
-      }
-    } finally {
-      console.log('🏁 Finalizando carregamento de materiais');
-      setLoading(false);
-    }
-  };
-
   const addMaterial = async (material: Omit<Material, 'id' | 'code'>) => {
     try {
       console.log('Adicionando material:', material);
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('materials')
         .insert({
           name: material.name,
@@ -344,40 +316,14 @@ const Materials = () => {
           cst: material.cst,
           origem: material.origem,
           tracks_inventory: material.tracksInventory !== false,
-        })
-        .select()
-        .single();
-      
+        });
+
       if (error) {
         console.error('Erro ao inserir material:', error);
         throw error;
       }
-      
-      const newMaterial: Material = {
-        id: data.id,
-        name: data.name,
-        description: data.description || undefined,
-        purchaseUnit: data.purchase_unit,
-        usageUnit: data.usage_unit,
-        conversionFactor: parseFloat(data.conversion_factor?.toString() || '1'),
-        pricePerPurchaseUnit: parseFloat(data.price_per_purchase_unit?.toString() || '0'),
-        allowedBrands: data.allowed_brands || undefined,
-        category: data.category || 'Alimentos & Ingredientes',
-        subcategory: data.subcategory || undefined,
-        typeTermId: data.type_term_id || undefined,
-        categoryTermId: data.category_term_id || undefined,
-        subcategoryTermId: data.subcategory_term_id || undefined,
-        code: data.code || '',
-        materialType: (data.material_type || 'ingredient') as Material['materialType'],
-        unitWeight: data.unit_weight ? parseFloat(data.unit_weight.toString()) : undefined,
-        isSellable: data.is_sellable || false,
-        ncm: data.ncm || undefined,
-        cfop: data.cfop || undefined,
-        cst: data.cst || undefined,
-        origem: data.origem != null ? data.origem : undefined,
-      };
-      
-      setMaterials([...materials, newMaterial]);
+
+      refetchMaterials();
       setShowMaterialForm(false);
       toast.success('Material cadastrado com sucesso!');
     } catch (error) {
@@ -421,9 +367,7 @@ const Materials = () => {
         throw error;
       }
       
-      setMaterials(materials.map(mat => 
-        mat.id === updatedMaterial.id ? updatedMaterial : mat
-      ));
+      refetchMaterials();
       setEditingMaterial(null);
       setShowMaterialForm(false);
       setShowMaterialEditor(false);
@@ -443,7 +387,7 @@ const Materials = () => {
       
       if (error) throw error;
       
-      setMaterials(materials.filter(mat => mat.id !== materialId));
+      refetchMaterials();
       toast.success('Material excluído com sucesso!');
     } catch (error) {
       console.error('Erro ao excluir material:', error);
@@ -535,7 +479,7 @@ const Materials = () => {
       
       if (error) throw error;
       
-      setMaterials(materials.filter(mat => !selectedMaterials.includes(mat.id)));
+      refetchMaterials();
       setSelectedMaterials([]);
       toast.success(`${selectedMaterials.length} materiais excluídos com sucesso!`);
     } catch (error) {
@@ -554,7 +498,7 @@ const Materials = () => {
       if (error) throw error;
       
       // Reload materials to reflect changes
-      await loadMaterials();
+      refetchMaterials();
       setSelectedMaterials([]);
       toast.success(`${selectedMaterials.length} ${selectedMaterials.length === 1 ? 'material arquivado' : 'materiais arquivados'} com sucesso!`);
     } catch (error) {
@@ -850,7 +794,7 @@ const Materials = () => {
               onBulkDelete={handleBulkDelete}
               onBulkArchive={handleBulkArchive}
               onClearSelection={() => setSelectedMaterials([])}
-              onRefresh={loadMaterials}
+              onRefresh={refetchMaterials}
             />
           </div>
 

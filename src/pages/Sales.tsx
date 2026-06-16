@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -15,8 +16,6 @@ import SalesReports from '@/components/sales/SalesReports';
 import SalesDashboard from '@/components/sales/SalesDashboard';
 
 const Sales = () => {
-  const [loading, setLoading] = useState(true);
-  const showLoader = useDelayedLoading(loading);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showProposalEditor, setShowProposalEditor] = useState(false);
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
@@ -24,11 +23,6 @@ const Sales = () => {
   const [pdfProposalId, setPdfProposalId] = useState<string | null>(null);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [viewingClientId, setViewingClientId] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Just check auth and set loading to false
-    setLoading(false);
-  }, []);
 
   const handleNewProposal = () => {
     setEditingProposalId(null);
@@ -101,14 +95,6 @@ const Sales = () => {
       setShowClientForm(true);
     }
   };
-
-  if (showLoader) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -212,33 +198,45 @@ const Sales = () => {
   );
 };
 
+interface Product {
+  id: string;
+  name: string;
+  code: string;
+  category: string;
+  unit_weight: number;
+  selling_price: number | null;
+}
+
+const EMPTY_PRODUCTS: Product[] = [];
+
+// Produtos ativos (mudam raramente) — cacheados com staleTime alto.
+async function fetchActiveProducts(): Promise<Product[]> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('is_active', true)
+    .order('category', { ascending: true });
+  if (error) throw error;
+  return (data || []) as Product[];
+}
+
 // Componente separado para a aba de produtos para evitar carregar dados desnecessários
 const ProductsTab = () => {
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: products = EMPTY_PRODUCTS,
+    isPending: loading,
+    isError,
+  } = useQuery({
+    queryKey: ['sales-products'],
+    queryFn: fetchActiveProducts,
+    staleTime: 5 * 60_000,
+  });
 
   const showLoader = useDelayedLoading(loading);
+
   useEffect(() => {
-    loadProducts();
-  }, []);
-
-  const loadProducts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .order('category', { ascending: true });
-
-      if (error) throw error;
-      setProducts(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar produtos:', error);
-      toast.error('Erro ao carregar produtos');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (isError) toast.error('Erro ao carregar produtos');
+  }, [isError]);
 
   if (showLoader) {
     return (
