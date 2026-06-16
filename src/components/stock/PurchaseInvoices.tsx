@@ -19,6 +19,7 @@ import type { PurchaseInvoice } from "@/pages/Stock";
 import { useUserRole } from "@/hooks/useUserRole";
 import { InvoiceEditDialog } from "../purchase/InvoiceEditDialog";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
+import { todayLocalISO, addDaysLocalISO } from "@/lib/date-utils";
 
 interface Supplier {
   id: string;
@@ -60,13 +61,13 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [paymentData, setPaymentData] = useState({
     paymentMethod: 'Dinheiro',
     responsiblePerson: '',
-    paymentDate: new Date().toISOString().split('T')[0],
+    paymentDate: todayLocalISO(),
     createPayable: true
   });
   const [retroactivePaymentData, setRetroactivePaymentData] = useState({
     paymentMethod: 'Dinheiro',
     responsiblePerson: '',
-    paymentDate: new Date().toISOString().split('T')[0]
+    paymentDate: todayLocalISO()
   });
   const [showRetroactiveDialog, setShowRetroactiveDialog] = useState(false);
   const [selectedInvoiceForRetroactive, setSelectedInvoiceForRetroactive] = useState<any>(null);
@@ -76,8 +77,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [paymentCondition, setPaymentCondition] = useState<'pago' | 'a_pagar'>('pago');
   const [launchPaymentData, setLaunchPaymentData] = useState({
     paymentStatus: 'pago' as 'pago' | 'a_pagar',
-    paymentDate:   new Date().toISOString().split('T')[0],
-    dueDate:       new Date().toISOString().split('T')[0],
+    paymentDate:   todayLocalISO(),
+    dueDate:       todayLocalISO(),
     paymentMethod: 'PIX',
     bankAccountId: '',
     notes:         '',
@@ -162,7 +163,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     // Abrir diálogo vazio para nova nota fiscal
     const emptyInvoiceData = {
       fornecedor: '',
-      data: new Date().toISOString().split('T')[0],
+      data: todayLocalISO(),
       numero_nota: '',
       itens: []
     };
@@ -457,8 +458,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     setInvoiceToLaunch(invoiceId);
     setLaunchPaymentData({
       paymentStatus: 'pago',
-      paymentDate:   new Date().toISOString().split('T')[0],
-      dueDate:       new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+      paymentDate:   todayLocalISO(),
+      dueDate:       addDaysLocalISO(30),
       paymentMethod: 'PIX',
       bankAccountId: '',
       notes:         '',
@@ -500,7 +501,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       const statusMatch = notesText.match(/Status Pagamento:\s*(pago|a_vencer)/i);
       const dateMatch   = notesText.match(/Data Pagamento:\s*(\d{4}-\d{2}-\d{2})/i);
       const invoicePaymentStatus = statusMatch?.[1] || 'a_vencer';
-      const invoicePaymentDate   = dateMatch?.[1] || new Date().toISOString().split('T')[0];
+      const invoicePaymentDate   = dateMatch?.[1] || todayLocalISO();
 
       if (checkError) throw checkError;
 
@@ -598,7 +599,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
       // Criar contas a pagar com condição de pagamento definida pelo usuário
       if (paymentData.createPayable) {
-        const currentDate = new Date().toISOString().split('T')[0];
+        const currentDate = todayLocalISO();
         // Usar dados salvos no formulário da NF (status e data de pagamento)
         const isPaid  = invoicePaymentStatus === 'pago';
         const dueDate = invoicePaymentDate;
@@ -686,7 +687,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               source_type: 'purchase_invoice_freight',
               source_id: invoiceId,
               account_id: freightAccount?.id || null,
-              notes: `Frete/Tele-entrega da nota fiscal ${invoice.invoice_number}. Método: ${paymentData.paymentMethod}${isPaid ? ' - Pago automaticamente' : ''}`
+              notes: `Frete/Tele-entrega da nota fiscal ${invoice.invoice_number}. Método: ${launchPaymentData.paymentMethod}${isPaid ? ' - Pago automaticamente' : ''}`
             })
             .select()
             .single();
@@ -765,7 +766,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     setRetroactivePaymentData({
       paymentMethod: 'Dinheiro',
       responsiblePerson: '',
-      paymentDate: new Date().toISOString().split('T')[0]
+      paymentDate: todayLocalISO()
     });
   };
 
@@ -774,7 +775,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
     try {
       setLoading(true);
-      const currentDate = new Date().toISOString().split('T')[0];
+      const currentDate = todayLocalISO();
       const dueDate = retroactivePaymentData.paymentDate;
       const invoiceAmount = parseFloat(selectedInvoiceForRetroactive.totalAmount?.toString() || '0');
       
@@ -1351,7 +1352,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                 onChange={(e) => setRetroactivePaymentData(prev => ({ ...prev, paymentDate: e.target.value }))}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                {retroactivePaymentData.paymentDate <= new Date().toISOString().split('T')[0] 
+                {retroactivePaymentData.paymentDate <= todayLocalISO() 
                   ? '✅ Será criada como PAGA (vencimento hoje ou anterior)'
                   : '⏳ Será criada como PENDENTE (vencimento futuro)'
                 }
