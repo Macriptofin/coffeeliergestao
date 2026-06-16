@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 interface FeatureFlags {
@@ -17,44 +17,48 @@ const defaultFlags: FeatureFlags = {
   FF_HIDE_LEGACY_RECIPES: false,
 };
 
+const FEATURE_FLAGS_QUERY_KEY = ['feature-flags'] as const;
+
+/**
+ * Busca os feature flags. Usado como queryFn única e compartilhada via
+ * react-query: antes cada consumidor (hub de Produção, redirect, relatórios)
+ * refazia a busca e iniciava com os flags em `false`, causando troca de
+ * conteúdo visível (ex.: card "Receitas" piscando antes de "Fichas Técnicas").
+ */
+async function fetchFeatureFlags(): Promise<FeatureFlags> {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('key, value')
+    .in('key', Object.keys(defaultFlags));
+
+  if (error) {
+    console.error('Error loading feature flags:', error);
+    return defaultFlags;
+  }
+
+  const flagsData: Partial<FeatureFlags> = {};
+  data?.forEach(item => {
+    flagsData[item.key as keyof FeatureFlags] = item.value === 'true';
+  });
+
+  return { ...defaultFlags, ...flagsData };
+}
+
 export const useFeatureFlags = () => {
-  const [flags, setFlags] = useState<FeatureFlags>(defaultFlags);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const loadFlags = async () => {
-    try {
-      console.info('🚩 Loading feature flags...');
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('key, value')
-        .in('key', Object.keys(defaultFlags));
-      
-      if (error) {
-        console.error('Error loading feature flags:', error);
-        return;
-      }
+  const { data: flags = defaultFlags, isPending: loading } = useQuery({
+    queryKey: FEATURE_FLAGS_QUERY_KEY,
+    queryFn: fetchFeatureFlags,
+    staleTime: 5 * 60_000,    // flags raramente mudam — 5min frescos
+    gcTime: 30 * 60_000,
+  });
 
-      const flagsData: Partial<FeatureFlags> = {};
-      data?.forEach(item => {
-        flagsData[item.key as keyof FeatureFlags] = item.value === 'true';
-      });
-
-      const updatedFlags = { ...defaultFlags, ...flagsData };
-      setFlags(updatedFlags);
-      
-      console.info('🚩 Feature flags loaded:', updatedFlags);
-    } catch (error) {
-      console.error('Failed to load feature flags:', error);
-    } finally {
-      setLoading(false);
-    }
+  return {
+    flags,
+    loading,
+    reload: () => queryClient.invalidateQueries({ queryKey: FEATURE_FLAGS_QUERY_KEY }),
   };
-
-  useEffect(() => {
-    loadFlags();
-  }, []);
-
-  return { flags, loading, reload: loadFlags };
 };
 
 export const logFeatureFlagEvent = (event: string, flagName?: string) => {

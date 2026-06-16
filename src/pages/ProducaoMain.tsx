@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChefHat, ClipboardList, FileText, Settings, Calendar, Package2, AlertTriangle, ChevronRight } from "lucide-react";
@@ -17,7 +16,6 @@ interface BomAlert {
 const ProducaoMain = () => {
   const navigate = useNavigate();
   const { flags, loading } = useFeatureFlags();
-  const showLoader = useDelayedLoading(loading);
   const [bomAlerts, setBomAlerts] = useState<BomAlert[]>([]);
 
   useEffect(() => { loadBomAlerts(); }, []);
@@ -130,8 +128,11 @@ const ProducaoMain = () => {
     navigate(module.href);
   };
 
-  // Mostrar loading enquanto os feature flags carregam para evitar "pulo" na interface
-  if (showLoader) {
+  // Bloquear a renderização dos cards até os flags carregarem — evita que os
+  // módulos legados (ex.: "Receitas") pisquem antes de virarem os unificados
+  // (ex.: "Fichas Técnicas"). Com o cache do react-query, isto só ocorre na 1ª
+  // carga da sessão; revisitas são instantâneas e já com os flags corretos.
+  if (loading) {
     return (
       <div>
         <div className="mb-8">
