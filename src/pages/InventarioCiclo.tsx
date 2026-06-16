@@ -65,17 +65,17 @@ interface InventoryAdjustment {
 }
 
 const statusColors: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-800",
-  counting: "bg-blue-100 text-blue-800",
-  reconciling: "bg-yellow-100 text-yellow-800",
-  closed: "bg-green-100 text-green-800",
+  Rascunho:      "bg-gray-100 text-gray-800",
+  Contagem:      "bg-blue-100 text-blue-800",
+  Reconciliando: "bg-yellow-100 text-yellow-800",
+  Fechado:       "bg-green-100 text-green-800",
 };
 
 const statusLabels: Record<string, string> = {
-  draft: "Rascunho",
-  counting: "Em Contagem",
-  reconciling: "Em Reconciliação",
-  closed: "Fechado",
+  Rascunho:      "Rascunho",
+  Contagem:      "Em Contagem",
+  Reconciliando: "Em Reconciliação",
+  Fechado:       "Fechado",
 };
 
 const InventarioCiclo = () => {
@@ -404,7 +404,7 @@ const InventarioCiclo = () => {
       </div>
 
       {/* Alertas */}
-      {cycle.status === 'draft' && adjustments.length === 0 && (
+      {cycle.status === 'Rascunho' && adjustments.length === 0 && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Ciclo vazio</AlertTitle>
@@ -414,7 +414,7 @@ const InventarioCiclo = () => {
         </Alert>
       )}
 
-      {hasChanges && cycle.status === 'counting' && (
+      {hasChanges && cycle.status === 'Contagem' && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Diferenças encontradas</AlertTitle>
@@ -426,7 +426,7 @@ const InventarioCiclo = () => {
 
       {/* Ações */}
       <div className="flex flex-wrap gap-2">
-        {cycle.status === 'draft' && (
+        {cycle.status === 'Rascunho' && (
           <Dialog open={showAddMaterialDialog} onOpenChange={setShowAddMaterialDialog}>
             <DialogTrigger asChild>
               <Button variant="outline">
@@ -473,14 +473,14 @@ const InventarioCiclo = () => {
           Exportar CSV
         </Button>
         
-        {cycle.status === 'draft' && (
-          <Button onClick={() => changeStatus('counting')}>
+        {cycle.status === 'Rascunho' && (
+          <Button onClick={() => changeStatus('Contagem')}>
             <Play className="h-4 w-4 mr-2" />
             Iniciar Contagem
           </Button>
         )}
-        
-        {cycle.status === 'counting' && (
+
+        {cycle.status === 'Contagem' && (
           <>
             <Button onClick={saveAdjustments} disabled={saving}>
               <Save className="h-4 w-4 mr-2" />
@@ -559,7 +559,7 @@ const InventarioCiclo = () => {
                         {adj.system_quantity.toFixed(2)} {adj.material_unit}
                       </TableCell>
                       <TableCell className="text-right">
-                        {cycle.status === 'counting' ? (
+                        {cycle.status === 'Contagem' ? (
                           <Input
                             type="number"
                             step="0.01"

@@ -122,11 +122,11 @@ const Dashboard = () => {
 
       // OPs pendentes
       supabase.from("bom_production_orders").select("id", { count: "exact", head: true })
-        .eq("status", "pending"),
+        .eq("status", "Planejado"),
 
       // OPs em andamento
       supabase.from("bom_production_orders").select("id", { count: "exact", head: true })
-        .eq("status", "in_progress"),
+        .eq("status", "Em Produção"),
 
       // Materiais abaixo do mínimo
       supabase.from("vw_stock_available").select("material_id", { count: "exact", head: true })

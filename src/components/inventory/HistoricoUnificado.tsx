@@ -32,7 +32,7 @@ const MOVEMENT_CONFIGS: Record<string, { label: string; color: string; dot: stri
   "Entrada":    { label: "Entrada",             color: "bg-green-100 text-green-800", dot: "bg-green-500", sign:  1 },
   "Devolução":  { label: "Devolução",           color: "bg-green-100 text-green-700", dot: "bg-green-400", sign:  1 },
   "Produção":   { label: "Saída — Produção",    color: "bg-red-100 text-red-800",     dot: "bg-red-500",   sign: -1 },
-  "Saida":      { label: "Saída",               color: "bg-red-100 text-red-800",     dot: "bg-red-500",   sign: -1 },
+  "Saída":      { label: "Saída",               color: "bg-red-100 text-red-800",     dot: "bg-red-500",   sign: -1 },
   "Venda":      { label: "Saída — Venda",       color: "bg-red-100 text-red-800",     dot: "bg-red-500",   sign: -1 },
   "Perda":      { label: "Perda / Quebra",      color: "bg-red-100 text-red-800",     dot: "bg-red-500",   sign: -1 },
   "Ajuste":     { label: "Ajuste",              color: "bg-amber-100 text-amber-800", dot: "bg-amber-500", sign:  0 },

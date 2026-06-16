@@ -12,10 +12,10 @@ interface StockMovement {
     name: string;
     usageUnit: string;
   };
-  movementType: 'Entrada' | 'Saida' | 'Ajuste';
+  movementType: 'Entrada' | 'Saída' | 'Ajuste';
   quantity: number;
   unitPrice?: number;
-  referenceType?: 'Compra' | 'Producao' | 'Ajuste' | 'Perda' | 'ProducaoOrdem';
+  referenceType?: 'Compra' | 'Produção' | 'Ajuste' | 'Perda' | 'Ordem de Produção';
   notes?: string;
   movementDate: string;
 }
@@ -62,10 +62,10 @@ export function StockMovements({ onRefresh }: StockMovementsProps) {
           name: item.materials.name,
           usageUnit: item.materials.usage_unit
         },
-        movementType: item.movement_type as 'Entrada' | 'Saida' | 'Ajuste',
+        movementType: item.movement_type as 'Entrada' | 'Saída' | 'Ajuste',
         quantity: parseFloat(item.quantity?.toString() || '0'),
         unitPrice: item.unit_price ? parseFloat(item.unit_price?.toString() || '0') : undefined,
-        referenceType: item.reference_type as 'Compra' | 'Producao' | 'Ajuste' | 'Perda' | 'ProducaoOrdem' | undefined,
+        referenceType: item.reference_type as 'Compra' | 'Produção' | 'Ajuste' | 'Perda' | 'Ordem de Produção' | undefined,
         notes: item.notes,
         movementDate: item.movement_date
       }));
@@ -82,7 +82,7 @@ export function StockMovements({ onRefresh }: StockMovementsProps) {
   const getMovementIcon = (type: StockMovement['movementType']) => {
     switch (type) {
       case 'Entrada': return <ArrowUp className="h-4 w-4 text-green-600" />;
-      case 'Saida': return <ArrowDown className="h-4 w-4 text-red-600" />;
+      case 'Saída': return <ArrowDown className="h-4 w-4 text-red-600" />;
       case 'Ajuste': return <Settings className="h-4 w-4 text-blue-600" />;
     }
   };
@@ -90,7 +90,7 @@ export function StockMovements({ onRefresh }: StockMovementsProps) {
   const getMovementColor = (type: StockMovement['movementType']) => {
     switch (type) {
       case 'Entrada': return 'default';
-      case 'Saida': return 'secondary';
+      case 'Saída': return 'secondary';
       case 'Ajuste': return 'outline';
     }
   };
@@ -98,8 +98,8 @@ export function StockMovements({ onRefresh }: StockMovementsProps) {
   const getReferenceTypeLabel = (type?: StockMovement['referenceType']) => {
     switch (type) {
       case 'Compra': return 'Compra';
-      case 'Producao': return 'Produção';
-      case 'ProducaoOrdem': return 'Ordem de Produção';
+      case 'Produção': return 'Produção';
+      case 'Ordem de Produção': return 'Ordem de Produção';
       case 'Ajuste': return 'Ajuste';
       case 'Perda': return 'Perda';
       default: return 'Outros';
@@ -135,7 +135,7 @@ export function StockMovements({ onRefresh }: StockMovementsProps) {
               <SelectContent>
                 <SelectItem value="all">Todas as movimentações</SelectItem>
                 <SelectItem value="Entrada">Apenas Entradas</SelectItem>
-                <SelectItem value="Saida">Apenas Saídas</SelectItem>
+                <SelectItem value="Saída">Apenas Saídas</SelectItem>
                 <SelectItem value="Ajuste">Apenas Ajustes</SelectItem>
               </SelectContent>
             </Select>

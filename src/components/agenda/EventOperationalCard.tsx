@@ -47,15 +47,15 @@ interface Props {
 
 const PIPELINE = [
   { key: 'proposta',  label: 'Proposta',   statuses: ['rascunho','enviada','aprovada'] },
-  { key: 'op',        label: 'Produção',   statuses: ['pending','in_progress'] },
+  { key: 'op',        label: 'Produção',   statuses: ['Planejado','Em Produção'] },
   { key: 'evento',    label: 'Evento',     statuses: ['Agendado','Em Preparação','Em Andamento'] },
-  { key: 'concluido', label: 'Concluído',  statuses: ['completed','Concluído'] },
+  { key: 'concluido', label: 'Concluído',  statuses: ['Concluído'] },
 ];
 
 const getActiveStep = (event: EventOPCard): number => {
-  if (['Concluído','completed'].includes(event.status)) return 3;
+  if (['Concluído'].includes(event.status)) return 3;
   if (['Em Andamento','Em Preparação'].includes(event.status)) return 2;
-  if (event.op_status && ['in_progress','completed'].includes(event.op_status)) return 1;
+  if (event.op_status && ['Em Produção','Concluído'].includes(event.op_status)) return 1;
   if (event.proposal_status === 'aprovada' || event.op_id) return 1;
   return 0;
 };
@@ -69,10 +69,10 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const OP_STATUS_LABELS: Record<string, string> = {
-  pending:     'Pendente',
-  in_progress: 'Em produção',
-  completed:   'Concluída',
-  cancelled:   'Cancelada',
+  Planejado:    'Pendente',
+  'Em Produção': 'Em produção',
+  Concluído:    'Concluída',
+  Cancelado:    'Cancelada',
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -219,8 +219,8 @@ export function EventOperationalCard({ event, onEdit, onRefresh }: Props) {
             <Package className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-muted-foreground">OP:</span>
             <span className={`font-medium ${
-              event.op_status === 'completed' ? 'text-green-600' :
-              event.op_status === 'in_progress' ? 'text-orange-600' : 'text-muted-foreground'
+              event.op_status === 'Concluído' ? 'text-green-600' :
+              event.op_status === 'Em Produção' ? 'text-orange-600' : 'text-muted-foreground'
             }`}>
               {OP_STATUS_LABELS[event.op_status || ''] || event.op_status}
             </span>

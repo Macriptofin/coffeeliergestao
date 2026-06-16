@@ -343,13 +343,13 @@ export const BOMProductionOrdersList = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'planned':
+      case 'Planejado':
         return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'in_progress':
+      case 'Em Produção':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'completed':
+      case 'Concluído':
         return 'bg-green-100 text-green-800 border-green-200';
-      case 'cancelled':
+      case 'Cancelado':
         return 'bg-red-100 text-red-800 border-red-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -358,40 +358,30 @@ export const BOMProductionOrdersList = () => {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'planned':
-        return 'Planejada';
-      case 'in_progress':
-        return 'Em Produção';
-      case 'completed':
-        return 'Concluída';
-      case 'cancelled':
-        return 'Cancelada';
-      default:
-        return status;
+      case 'Planejado':   return 'Planejada';
+      case 'Em Produção': return 'Em Produção';
+      case 'Concluído':   return 'Concluída';
+      case 'Cancelado':   return 'Cancelada';
+      default:            return status;
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'planned':
-        return <Clock className="h-4 w-4" />;
-      case 'in_progress':
-        return <Play className="h-4 w-4" />;
-      case 'completed':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'cancelled':
-        return <AlertCircle className="h-4 w-4" />;
-      default:
-        return <Clock className="h-4 w-4" />;
+      case 'Planejado':   return <Clock className="h-4 w-4" />;
+      case 'Em Produção': return <Play className="h-4 w-4" />;
+      case 'Concluído':   return <CheckCircle className="h-4 w-4" />;
+      case 'Cancelado':   return <AlertCircle className="h-4 w-4" />;
+      default:            return <Clock className="h-4 w-4" />;
     }
   };
 
   const canTransitionTo = (currentStatus: string, targetStatus: string): boolean => {
     const validTransitions: Record<string, string[]> = {
-      'planned': ['in_progress', 'cancelled'],
-      'in_progress': ['completed', 'cancelled'],
-      'completed': [],
-      'cancelled': []
+      'Planejado':   ['Em Produção', 'Cancelado'],
+      'Em Produção': ['Concluído', 'Cancelado'],
+      'Concluído':   [],
+      'Cancelado':   []
     };
     return validTransitions[currentStatus]?.includes(targetStatus) || false;
   };
@@ -568,9 +558,9 @@ export const BOMProductionOrdersList = () => {
                   Imprimir Ordem
                 </Button>
 
-                {canTransitionTo(order.status, 'in_progress') && (
+                {canTransitionTo(order.status, 'Em Produção') && (
                   <Button
-                    onClick={() => updateOrderStatus(order.id, 'in_progress')}
+                    onClick={() => updateOrderStatus(order.id, 'Em Produção')}
                     disabled={processingOrder === order.id}
                     className="bg-yellow-600 hover:bg-yellow-700"
                     size="sm"
@@ -584,7 +574,7 @@ export const BOMProductionOrdersList = () => {
                   </Button>
                 )}
 
-                {canTransitionTo(order.status, 'completed') && (
+                {canTransitionTo(order.status, 'Concluído') && (
                   <Button
                     onClick={() => setFinalizingOrder(order)}
                     disabled={processingOrder === order.id}
@@ -596,9 +586,9 @@ export const BOMProductionOrdersList = () => {
                   </Button>
                 )}
 
-                {canTransitionTo(order.status, 'cancelled') && (
+                {canTransitionTo(order.status, 'Cancelado') && (
                   <Button
-                    onClick={() => updateOrderStatus(order.id, 'cancelled')}
+                    onClick={() => updateOrderStatus(order.id, 'Cancelado')}
                     disabled={processingOrder === order.id}
                     variant="destructive"
                     size="sm"

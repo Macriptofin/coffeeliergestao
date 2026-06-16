@@ -191,7 +191,7 @@ const Reports = () => {
   const loadProducao = async () => {
     const [bomsRes, ordRes] = await Promise.all([
       supabase.from('recipes_bom').select('cached_total_cost, cost_status, materials!finished_material_id(name, category)').eq('is_archived', false).order('cached_total_cost', { ascending: false }),
-      supabase.from('bom_production_orders').select('total_cost').eq('status', 'completed'),
+      supabase.from('bom_production_orders').select('total_cost').eq('status', 'Concluído'),
     ]);
 
     const boms = bomsRes.data || [];

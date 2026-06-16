@@ -87,10 +87,10 @@ export const ProductionOrdersList = () => {
       const order = productionOrders.find(o => o.id === orderId);
       if (!order) throw new Error('Ordem não encontrada');
 
-      // Atualizar status da ordem para "in_progress" primeiro
+      // Atualizar status da ordem para "Em Produção" primeiro
       const { error: updateError } = await supabase
         .from('event_production_orders')
-        .update({ status: 'in_progress' })
+        .update({ status: 'Em Produção' })
         .eq('id', orderId);
 
       if (updateError) throw updateError;
@@ -128,7 +128,7 @@ export const ProductionOrdersList = () => {
       // Finalizar ordem
       const { error: finalError } = await supabase
         .from('event_production_orders')
-        .update({ status: 'done' })
+        .update({ status: 'Concluído' })
         .eq('id', orderId);
 
       if (finalError) throw finalError;
@@ -155,27 +155,19 @@ export const ProductionOrdersList = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'planned':
-        return 'bg-blue-100 text-blue-800';
-      case 'in_progress':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'done':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'Planejado':   return 'bg-blue-100 text-blue-800';
+      case 'Em Produção': return 'bg-yellow-100 text-yellow-800';
+      case 'Concluído':   return 'bg-green-100 text-green-800';
+      default:            return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'planned':
-        return 'Planejado';
-      case 'in_progress':
-        return 'Em Andamento';
-      case 'done':
-        return 'Concluído';
-      default:
-        return status;
+      case 'Planejado':   return 'Planejado';
+      case 'Em Produção': return 'Em Andamento';
+      case 'Concluído':   return 'Concluído';
+      default:            return status;
     }
   };
 
@@ -313,7 +305,7 @@ export const ProductionOrdersList = () => {
                 </CollapsibleContent>
               </Collapsible>
 
-              {order.status === 'planned' && (
+              {order.status === 'Planejado' && (
                 <Button
                   onClick={() => executeManualProduction(order.id)}
                   disabled={executingOrder === order.id}
@@ -333,7 +325,7 @@ export const ProductionOrdersList = () => {
                 </Button>
               )}
 
-              {order.status === 'done' && (
+              {order.status === 'Concluído' && (
                 <div className="flex items-center justify-center gap-2 text-green-600 font-medium">
                   <CheckCircle className="h-4 w-4" />
                   Lançamento Concluído

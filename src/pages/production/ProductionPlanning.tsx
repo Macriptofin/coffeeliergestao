@@ -72,9 +72,9 @@ const ProductionPlanning = () => {
 
       const newSummary = {
         today: allOrders.filter(o => o.isToday).length,
-        inProgress: allOrders.filter(o => o.status === 'in_progress').length,
-        delayed: allOrders.filter(o => o.date < today && ['planned', 'in_progress'].includes(o.status)).length,
-        completed: allOrders.filter(o => ['completed', 'done'].includes(o.status)).length
+        inProgress: allOrders.filter(o => o.status === 'Em Produção').length,
+        delayed: allOrders.filter(o => o.date < today && ['Planejado', 'Em Produção'].includes(o.status)).length,
+        completed: allOrders.filter(o => ['Concluído', 'Cancelado'].includes(o.status)).length
       };
 
       setSummary(newSummary);
