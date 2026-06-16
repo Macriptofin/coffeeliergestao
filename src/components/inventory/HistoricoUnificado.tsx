@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -43,10 +44,53 @@ const getConfig = (type: string) => MOVEMENT_CONFIGS[type] || { label: type, col
 const today = format(new Date(), "yyyy-MM-dd");
 const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
+interface HistoricoData {
+  movements: Movement[];
+  materials: { id: string; name: string }[];
+}
+
+const EMPTY_HISTORICO: HistoricoData = { movements: [], materials: [] };
+
+async function fetchHistorico(): Promise<HistoricoData> {
+  const [movRes, matRes] = await Promise.all([
+    supabase
+      .from("stock_movements")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(1000),
+    supabase
+      .from("materials")
+      .select("id, name, usage_unit")
+      .eq("tracks_inventory", true)
+      .order("name"),
+  ]);
+  if (movRes.error) throw movRes.error;
+
+  const matMap = new Map((matRes.data || []).map((m: any) => [m.id, m]));
+  const movements = (movRes.data || []).map((m: any) => ({
+    ...m,
+    material_name: matMap.get(m.material_id)?.name    || "—",
+    material_unit: matMap.get(m.material_id)?.usage_unit || "",
+  }));
+
+  return { movements, materials: matRes.data || [] };
+}
+
 export const HistoricoUnificado = () => {
-  const [movements, setMovements] = useState<Movement[]>([]);
-  const [materials,  setMaterials]  = useState<{ id: string; name: string }[]>([]);
-  const [loading,    setLoading]    = useState(true);
+  const {
+    data = EMPTY_HISTORICO,
+    isPending: loading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ["historico-unificado"],
+    queryFn: fetchHistorico,
+  });
+  const { movements, materials } = data;
+
+  useEffect(() => {
+    if (isError) toast.error("Erro ao carregar histórico");
+  }, [isError]);
 
   // filters
   const [search,       setSearch]       = useState("");
@@ -55,42 +99,6 @@ export const HistoricoUnificado = () => {
   const [dateStart,    setDateStart]    = useState(monthStart);
   const [dateEnd,      setDateEnd]      = useState(today);
   const [monthQuick,   setMonthQuick]   = useState("current");
-
-  useEffect(() => { fetchData(); }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [movRes, matRes] = await Promise.all([
-        supabase
-          .from("stock_movements")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(1000),
-        supabase
-          .from("materials")
-          .select("id, name, usage_unit")
-          .eq("tracks_inventory", true)
-          .order("name"),
-      ]);
-      if (movRes.error) throw movRes.error;
-
-      const matMap = new Map((matRes.data || []).map((m: any) => [m.id, m]));
-      setMaterials(matRes.data || []);
-      setMovements(
-        (movRes.data || []).map((m: any) => ({
-          ...m,
-          material_name: matMap.get(m.material_id)?.name    || "—",
-          material_unit: matMap.get(m.material_id)?.usage_unit || "",
-        }))
-      );
-    } catch (e) {
-      console.error(e);
-      toast.error("Erro ao carregar histórico");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const applyQuick = (q: string) => {
     setMonthQuick(q);
@@ -221,7 +229,7 @@ export const HistoricoUnificado = () => {
                 onChange={e => { setDateEnd(e.target.value); setMonthQuick(""); }} />
             </div>
             <div className="ml-auto">
-              <Button variant="outline" size="sm" onClick={fetchData}>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
                 <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Atualizar
               </Button>
             </div>

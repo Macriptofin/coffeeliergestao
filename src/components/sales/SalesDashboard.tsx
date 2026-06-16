@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -57,33 +59,24 @@ interface DashboardData {
   }>;
 }
 
-export default function SalesDashboard() {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<DashboardData>({
-    monthlyRevenue: 0,
-    previousMonthRevenue: 0,
-    yearlyRevenue: 0,
-    totalClients: 0,
-    activeClients: 0,
-    totalProposals: 0,
-    pendingProposals: 0,
-    approvedProposals: 0,
-    totalOrders: 0,
-    pendingOrders: 0,
-    recentProposals: [],
-    recentOrders: [],
-    topClients: []
-  });
+const EMPTY_DASHBOARD: DashboardData = {
+  monthlyRevenue: 0,
+  previousMonthRevenue: 0,
+  yearlyRevenue: 0,
+  totalClients: 0,
+  activeClients: 0,
+  totalProposals: 0,
+  pendingProposals: 0,
+  approvedProposals: 0,
+  totalOrders: 0,
+  pendingOrders: 0,
+  recentProposals: [],
+  recentOrders: [],
+  topClients: []
+};
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      
-      const now = new Date();
+async function fetchSalesDashboard(): Promise<DashboardData> {
+  const now = new Date();
       const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
       const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
       const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString();
@@ -125,6 +118,18 @@ export default function SalesDashboard() {
           .order('order_date', { ascending: false })
           .limit(5)
       ]);
+
+      const firstError = [
+        clientsRes,
+        proposalsRes,
+        ordersRes,
+        currentMonthOrdersRes,
+        previousMonthOrdersRes,
+        yearOrdersRes,
+        recentProposalsRes,
+        recentOrdersRes
+      ].find(res => res.error)?.error;
+      if (firstError) throw firstError;
 
       // Calculate metrics
       const clients = clientsRes.data || [];
@@ -180,7 +185,7 @@ export default function SalesDashboard() {
           orderCount: c.count
         }));
 
-      setData({
+      return {
         monthlyRevenue,
         previousMonthRevenue,
         yearlyRevenue,
@@ -208,13 +213,22 @@ export default function SalesDashboard() {
           event_date: o.event_date
         })),
         topClients
-      });
-    } catch (error) {
-      console.error('Erro ao carregar dashboard:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      };
+}
+
+export default function SalesDashboard() {
+  const {
+    data = EMPTY_DASHBOARD,
+    isPending: loading,
+    isError,
+  } = useQuery({
+    queryKey: ['sales-dashboard'],
+    queryFn: fetchSalesDashboard,
+  });
+
+  useEffect(() => {
+    if (isError) toast.error('Erro ao carregar dashboard');
+  }, [isError]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {

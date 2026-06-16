@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,60 +26,62 @@ interface StockMovementsProps {
   onRefresh: () => void;
 }
 
+const EMPTY_MOVEMENTS: StockMovement[] = [];
+
+async function fetchStockMovements(filter: string): Promise<StockMovement[]> {
+  let query = supabase
+    .from('stock_movements')
+    .select(`
+      *,
+      materials:material_id (
+        name,
+        usage_unit
+      )
+    `)
+    .order('movement_date', { ascending: false })
+    .limit(50);
+
+  if (filter !== 'all') {
+    query = query.eq('movement_type', filter);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+
+  return (data || []).map(item => ({
+    id: item.id,
+    ingredient: {
+      name: item.materials.name,
+      usageUnit: item.materials.usage_unit
+    },
+    movementType: item.movement_type as 'Entrada' | 'Saída' | 'Ajuste',
+    quantity: parseFloat(item.quantity?.toString() || '0'),
+    unitPrice: item.unit_price ? parseFloat(item.unit_price?.toString() || '0') : undefined,
+    referenceType: item.reference_type as 'Compra' | 'Produção' | 'Ajuste' | 'Perda' | 'Ordem de Produção' | undefined,
+    notes: item.notes,
+    movementDate: item.movement_date
+  }));
+}
+
 export function StockMovements({ onRefresh }: StockMovementsProps) {
-  const [movements, setMovements] = useState<StockMovement[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
 
+  const {
+    data: movements = EMPTY_MOVEMENTS,
+    isPending: loading,
+    isError,
+  } = useQuery({
+    queryKey: ['stock-movements', filter],
+    queryFn: () => fetchStockMovements(filter),
+  });
+
+  const showLoader = useDelayedLoading(loading);
+
+  // Erro de carregamento → toast (uma vez por mudança no estado de erro)
   useEffect(() => {
-    loadMovements();
-  }, [filter]);
-
-  const loadMovements = async () => {
-    setLoading(true);
-    try {
-      let query = supabase
-        .from('stock_movements')
-        .select(`
-          *,
-          materials:material_id (
-            name,
-            usage_unit
-          )
-        `)
-        .order('movement_date', { ascending: false })
-        .limit(50);
-
-      if (filter !== 'all') {
-        query = query.eq('movement_type', filter);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      const formattedMovements: StockMovement[] = data.map(item => ({
-        id: item.id,
-        ingredient: {
-          name: item.materials.name,
-          usageUnit: item.materials.usage_unit
-        },
-        movementType: item.movement_type as 'Entrada' | 'Saída' | 'Ajuste',
-        quantity: parseFloat(item.quantity?.toString() || '0'),
-        unitPrice: item.unit_price ? parseFloat(item.unit_price?.toString() || '0') : undefined,
-        referenceType: item.reference_type as 'Compra' | 'Produção' | 'Ajuste' | 'Perda' | 'Ordem de Produção' | undefined,
-        notes: item.notes,
-        movementDate: item.movement_date
-      }));
-
-      setMovements(formattedMovements);
-    } catch (error) {
-      console.error('Erro ao carregar movimentações:', error);
-      toast.error('Erro ao carregar movimentações');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (isError) toast.error('Erro ao carregar movimentações');
+  }, [isError]);
 
   const getMovementIcon = (type: StockMovement['movementType']) => {
     switch (type) {
@@ -106,7 +110,7 @@ export function StockMovements({ onRefresh }: StockMovementsProps) {
     }
   };
 
-  if (loading) {
+  if (showLoader) {
     return (
       <div className="flex justify-center items-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

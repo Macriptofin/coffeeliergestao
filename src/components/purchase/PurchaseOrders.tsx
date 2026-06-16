@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,44 +22,55 @@ interface PurchaseOrder {
   created_at: string;
 }
 
+const EMPTY_ORDERS: PurchaseOrder[] = [];
+
+async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
+  const { data, error } = await supabase
+    .from('purchase_orders')
+    .select(`
+      *,
+      suppliers (
+        company_name
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data?.map(order => ({
+    ...order,
+    supplier_name: order.suppliers?.company_name || 'N/A'
+  })) || []) as PurchaseOrder[];
+}
+
 export function PurchaseOrders() {
-  const [orders, setOrders] = useState<PurchaseOrder[]>([]);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  const {
+    data: orders = EMPTY_ORDERS,
+    isPending: loading,
+    isError,
+  } = useQuery({ queryKey: ['purchase-orders'], queryFn: fetchPurchaseOrders });
+
+  const showLoader = useDelayedLoading(loading);
+
+  // NOTA: este componente ainda não possui mutações (os botões de ação são
+  // placeholders). Quando forem implementadas (criar / receber pedido), use:
+  //   const queryClient = useQueryClient();
+  //   const refetchOrders = () => queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+  // e chame refetchOrders() após cada mutação.
+
+  // Erro de carregamento → toast (uma vez por mudança no estado de erro)
   useEffect(() => {
-    loadOrders();
-  }, []);
-
-  const loadOrders = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('purchase_orders')
-        .select(`
-          *,
-          suppliers (
-            company_name
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      setOrders(data?.map(order => ({
-        ...order,
-        supplier_name: order.suppliers?.company_name || 'N/A'
-      })) || []);
-    } catch (error) {
-      console.error('Erro ao carregar pedidos:', error);
+    if (isError) {
+      console.error('Erro ao carregar pedidos');
       toast({
         title: "Erro",
         description: "Não foi possível carregar os pedidos de compra",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isError, toast]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -82,7 +95,7 @@ export function PurchaseOrders() {
     }
   };
 
-  if (loading) return <div className="text-center py-8">Carregando...</div>;
+  if (showLoader) return <div className="text-center py-8">Carregando...</div>;
 
   return (
     <div className="space-y-4">

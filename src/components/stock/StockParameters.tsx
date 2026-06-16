@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,46 +26,51 @@ interface StockParameter {
   notes?: string;
 }
 
+const EMPTY_PARAMETERS: StockParameter[] = [];
+
+async function fetchStockParameters(): Promise<StockParameter[]> {
+  const { data: params, error } = await supabase
+    .from('stock_parameters')
+    .select(`
+      *,
+      materials (
+        name
+      )
+    `)
+    .order('abc_classification', { ascending: true });
+
+  if (error) throw error;
+
+  return params?.map(p => ({
+    ...p,
+    material_name: p.materials?.name || 'N/A'
+  })) || [];
+}
+
 export function StockParameters() {
-  const [parameters, setParameters] = useState<StockParameter[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  const {
+    data: parameters = EMPTY_PARAMETERS,
+    isPending: loading,
+    isError,
+  } = useQuery({ queryKey: ['stock-parameters'], queryFn: fetchStockParameters });
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<StockParameter>>({});
   const { toast } = useToast();
 
   useEffect(() => {
-    loadParameters();
-  }, []);
-
-  const loadParameters = async () => {
-    try {
-      const { data: params, error } = await supabase
-        .from('stock_parameters')
-        .select(`
-          *,
-          materials (
-            name
-          )
-        `)
-        .order('abc_classification', { ascending: true });
-
-      if (error) throw error;
-
-      setParameters(params?.map(p => ({
-        ...p,
-        material_name: p.materials?.name || 'N/A'
-      })) || []);
-    } catch (error) {
-      console.error('Erro ao carregar parâmetros:', error);
+    if (isError) {
       toast({
         title: "Erro",
         description: "Não foi possível carregar os parâmetros de estoque",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isError, toast]);
+
+  const refetchParameters = () => queryClient.invalidateQueries({ queryKey: ['stock-parameters'] });
 
   const startEdit = (param: StockParameter) => {
     setEditingId(param.id);
@@ -102,7 +108,7 @@ export function StockParameters() {
         description: "Parâmetros atualizados com sucesso"
       });
 
-      loadParameters();
+      refetchParameters();
       cancelEdit();
     } catch (error) {
       console.error('Erro ao salvar:', error);

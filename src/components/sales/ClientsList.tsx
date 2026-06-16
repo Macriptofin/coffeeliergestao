@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useDelayedLoading } from '@/hooks/useDelayedLoading';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -68,72 +70,73 @@ const statusOptions = [
   { value: 'Suspenso', label: 'Suspenso', variant: 'destructive' }
 ];
 
+const EMPTY_CLIENTS: Client[] = [];
+
+async function fetchClients(): Promise<Client[]> {
+  // Load clients with counts
+  const { data: clientsData, error: clientsError } = await supabase
+    .from('clients')
+    .select('*')
+    .order('name');
+
+  if (clientsError) throw clientsError;
+
+  // Load counts for departments, contacts, and units
+  const clientIds = clientsData?.map(c => c.id) || [];
+
+  if (clientIds.length > 0) {
+    const [deptsRes, contactsRes, unitsRes] = await Promise.all([
+      supabase.from('client_departments').select('client_id'),
+      supabase.from('client_contacts').select('client_id'),
+      supabase.from('client_units').select('client_id')
+    ]);
+
+    const deptCounts = (deptsRes.data || []).reduce((acc, d) => {
+      acc[d.client_id] = (acc[d.client_id] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const contactCounts = (contactsRes.data || []).reduce((acc, c) => {
+      acc[c.client_id] = (acc[c.client_id] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const unitCounts = (unitsRes.data || []).reduce((acc, u) => {
+      acc[u.client_id] = (acc[u.client_id] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return clientsData?.map(client => ({
+      ...client,
+      client_type: client.client_type as 'PF' | 'PJ' | undefined,
+      _departments_count: deptCounts[client.id] || 0,
+      _contacts_count: contactCounts[client.id] || 0,
+      _units_count: unitCounts[client.id] || 0
+    })) || [];
+  }
+
+  return [];
+}
+
 export default function ClientsList({ onNewClient, onEditClient, onViewClient }: Props) {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const {
+    data: clients = EMPTY_CLIENTS,
+    isPending: loading,
+    isError,
+  } = useQuery({ queryKey: ['clients'], queryFn: fetchClients });
+  const showLoader = useDelayedLoading(loading);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
+  // Erro de carregamento → toast (uma vez por mudança no estado de erro)
   useEffect(() => {
-    loadClients();
-  }, []);
+    if (isError) toast.error('Erro ao carregar clientes');
+  }, [isError]);
 
-  const loadClients = async () => {
-    try {
-      setLoading(true);
-      
-      // Load clients with counts
-      const { data: clientsData, error: clientsError } = await supabase
-        .from('clients')
-        .select('*')
-        .order('name');
-
-      if (clientsError) throw clientsError;
-
-      // Load counts for departments, contacts, and units
-      const clientIds = clientsData?.map(c => c.id) || [];
-      
-      if (clientIds.length > 0) {
-        const [deptsRes, contactsRes, unitsRes] = await Promise.all([
-          supabase.from('client_departments').select('client_id'),
-          supabase.from('client_contacts').select('client_id'),
-          supabase.from('client_units').select('client_id')
-        ]);
-
-        const deptCounts = (deptsRes.data || []).reduce((acc, d) => {
-          acc[d.client_id] = (acc[d.client_id] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-
-        const contactCounts = (contactsRes.data || []).reduce((acc, c) => {
-          acc[c.client_id] = (acc[c.client_id] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-
-        const unitCounts = (unitsRes.data || []).reduce((acc, u) => {
-          acc[u.client_id] = (acc[u.client_id] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-
-        const enrichedClients = clientsData?.map(client => ({
-          ...client,
-          client_type: client.client_type as 'PF' | 'PJ' | undefined,
-          _departments_count: deptCounts[client.id] || 0,
-          _contacts_count: contactCounts[client.id] || 0,
-          _units_count: unitCounts[client.id] || 0
-        })) || [];
-
-        setClients(enrichedClients);
-      } else {
-        setClients([]);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar clientes:', error);
-      toast.error('Erro ao carregar clientes');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Após mutações, invalida a query de clientes
+  const refetchClients = () => queryClient.invalidateQueries({ queryKey: ['clients'] });
 
   const handleDelete = async (id: string, name: string) => {
     try {
@@ -145,7 +148,7 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
       if (error) throw error;
 
       toast.success(`Cliente "${name}" excluído com sucesso!`);
-      loadClients();
+      refetchClients();
     } catch (error) {
       console.error('Erro ao excluir cliente:', error);
       toast.error('Erro ao excluir cliente');
@@ -178,7 +181,7 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
   // Helper to get display name (fantasy_name if available, otherwise name)
   const getDisplayName = (client: Client) => client.fantasy_name || client.name;
 
-  if (loading) {
+  if (showLoader) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-8">
@@ -227,7 +230,7 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
               </SelectContent>
             </Select>
 
-            <Button variant="outline" onClick={loadClients}>
+            <Button variant="outline" onClick={refetchClients}>
               Atualizar
             </Button>
           </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,42 +66,44 @@ interface Props {
   onViewOrder?: (id: string) => void;
 }
 
+const EMPTY_ORDERS: SalesOrder[] = [];
+
+async function fetchOrders(): Promise<SalesOrder[]> {
+  const { data, error } = await supabase
+    .from('sales_orders')
+    .select(`
+      *,
+      clients (
+        name,
+        client_code
+      ),
+      proposals (
+        proposal_number
+      )
+    `)
+    .order('order_date', { ascending: false });
+
+  if (error) throw error;
+  return (data as SalesOrder[]) || [];
+}
+
 export default function OrdersList({ onViewOrder }: Props) {
-  const [orders, setOrders] = useState<SalesOrder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  const {
+    data: orders = EMPTY_ORDERS,
+    isPending: loading,
+    isError,
+  } = useQuery({ queryKey: ['orders'], queryFn: fetchOrders });
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
-    loadOrders();
-  }, []);
+    if (isError) toast.error('Erro ao carregar pedidos');
+  }, [isError]);
 
-  const loadOrders = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('sales_orders')
-        .select(`
-          *,
-          clients (
-            name,
-            client_code
-          ),
-          proposals (
-            proposal_number
-          )
-        `)
-        .order('order_date', { ascending: false });
-
-      if (error) throw error;
-      setOrders(data as SalesOrder[] || []);
-    } catch (error) {
-      console.error('Erro ao carregar pedidos:', error);
-      toast.error('Erro ao carregar pedidos');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const refetchOrders = () => queryClient.invalidateQueries({ queryKey: ['orders'] });
 
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     try {
@@ -120,7 +123,7 @@ export default function OrdersList({ onViewOrder }: Props) {
       if (error) throw error;
 
       toast.success('Status atualizado com sucesso!');
-      loadOrders();
+      refetchOrders();
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
       toast.error('Erro ao atualizar status');
@@ -261,7 +264,7 @@ export default function OrdersList({ onViewOrder }: Props) {
               </SelectContent>
             </Select>
 
-            <Button variant="outline" onClick={loadOrders}>
+            <Button variant="outline" onClick={refetchOrders}>
               Atualizar
             </Button>
           </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,9 +56,38 @@ const statusOptions = [
   { value: 'Aprovada', label: 'Aprovada', variant: 'success' },
 ];
 
+const EMPTY_PROPOSALS: Proposal[] = [];
+
+async function fetchProposals(): Promise<Proposal[]> {
+  const { data, error } = await supabase
+    .from('proposals')
+    .select(`
+      *,
+      clients (
+        name
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data as any) || [];
+}
+
 export default function ProposalsList({ onNewProposal, onEditProposal, onViewProposal, onPdfProposal }: Props) {
-  const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  const {
+    data: proposals = EMPTY_PROPOSALS,
+    isPending: loading,
+    isError,
+  } = useQuery({ queryKey: ['proposals'], queryFn: fetchProposals });
+
+  const refetchProposals = () => queryClient.invalidateQueries({ queryKey: ['proposals'] });
+
+  useEffect(() => {
+    if (isError) toast.error('Erro ao carregar propostas');
+  }, [isError]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [eventCategoryFilter, setEventCategoryFilter] = useState('');
@@ -73,33 +103,6 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
     'Reuniao Corporativa'
   ];
 
-  useEffect(() => {
-    loadProposals();
-  }, []);
-
-  const loadProposals = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('proposals')
-        .select(`
-          *,
-          clients (
-            name
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setProposals(data as any || []);
-    } catch (error) {
-      console.error('Erro ao carregar propostas:', error);
-      toast.error('Erro ao carregar propostas');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir esta proposta?')) return;
 
@@ -112,7 +115,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
       if (error) throw error;
 
       toast.success('Proposta excluída com sucesso!');
-      loadProposals();
+      refetchProposals();
     } catch (error) {
       console.error('Erro ao excluir proposta:', error);
       toast.error('Erro ao excluir proposta');
@@ -128,7 +131,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
       if (error) throw error;
 
       toast.success('Produção gerada com sucesso!');
-      loadProposals();
+      refetchProposals();
     } catch (error: any) {
       console.error('Erro ao gerar produção:', error);
       toast.error(error.message || 'Erro ao gerar produção');
@@ -144,7 +147,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
       if (error) throw error;
 
       toast.success('Proposta convertida em pedido com sucesso!');
-      loadProposals();
+      refetchProposals();
     } catch (error: any) {
       console.error('Erro ao converter proposta:', error);
       toast.error(error.message || 'Erro ao converter proposta em pedido');
@@ -174,7 +177,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
         description: url,
       });
 
-      loadProposals();
+      refetchProposals();
     } catch (e: any) {
       toast.error('Erro ao gerar link: ' + e.message);
     }
@@ -188,7 +191,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
       if (evtErr)  console.warn('create_event_from_proposal:',      evtErr.message);
       if (prodErr) console.warn('generate_production_from_proposal:', prodErr.message);
       toast.success('Proposta aprovada! Evento e OP criados automaticamente.');
-      loadProposals();
+      refetchProposals();
     } catch (e: any) {
       toast.error(e.message || 'Erro ao aprovar proposta');
     }
@@ -245,7 +248,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
       }
 
       toast.success('Proposta duplicada com sucesso!');
-      loadProposals();
+      refetchProposals();
     } catch (error) {
       console.error('Erro ao duplicar proposta:', error);
       toast.error('Erro ao duplicar proposta');
@@ -335,7 +338,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
               </SelectContent>
             </Select>
 
-            <Button variant="outline" onClick={loadProposals}>
+            <Button variant="outline" onClick={refetchProposals}>
               Atualizar
             </Button>
           </div>
