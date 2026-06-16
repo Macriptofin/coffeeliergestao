@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { todayLocalISO } from "@/lib/date-utils";
 import { useReactToPrint } from "react-to-print";
 import { useParams, useNavigate } from "react-router-dom";
 import { InventarioPrintLayout } from "@/components/inventory/InventarioPrintLayout";
@@ -330,7 +331,7 @@ const InventarioCiclo = () => {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `inventario_${cycle?.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `inventario_${cycle?.name.replace(/[^a-zA-Z0-9]/g, '_')}_${todayLocalISO()}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

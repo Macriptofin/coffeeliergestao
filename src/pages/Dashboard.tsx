@@ -12,6 +12,7 @@ import {
   CheckCircle2, XCircle, Loader2
 } from "lucide-react";
 import { EventCalendar } from "@/components/agenda/EventCalendar";
+import { todayLocalISO, addDaysLocalISO } from "@/lib/date-utils";
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -53,12 +54,8 @@ const EMPTY_KPI: KpiData = {
 const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-const today = () => new Date().toISOString().split("T")[0];
-const inDays = (d: number) => {
-  const dt = new Date();
-  dt.setDate(dt.getDate() + d);
-  return dt.toISOString().split("T")[0];
-};
+const today = () => todayLocalISO();
+const inDays = (d: number) => addDaysLocalISO(d);
 
 // ─── Componente ─────────────────────────────────────────────────────────────
 

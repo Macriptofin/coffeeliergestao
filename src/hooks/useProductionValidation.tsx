@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { addDaysLocalISO } from '@/lib/date-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -78,7 +79,7 @@ export function useProductionValidation() {
                 source_type: 'production_order',
                 source_id: productionOrderId,
                 priority: 'high',
-                required_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                required_date: addDaysLocalISO(7),
                 notes: `Necessidade automática para ordem de produção BOM ${productionOrderId}`
               });
           }
@@ -143,7 +144,7 @@ export function useProductionValidation() {
                 source_type: 'production_order',
                 source_id: productionOrderId,
                 priority: 'high',
-                required_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                required_date: addDaysLocalISO(7),
                 notes: `Necessidade automática para ordem de produção Evento ${productionOrderId}`
               });
           }

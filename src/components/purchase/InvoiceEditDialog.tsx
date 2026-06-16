@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { todayLocalISO, addDaysLocalISO } from '@/lib/date-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -106,9 +107,9 @@ export const InvoiceEditDialog = ({
   const [supplierId, setSupplierId] = useState<string | null>(initialSupplierId || null);
   const [formaPagamento, setFormaPagamento] = useState(initialFormaPagamento || '');
   const [statusPagamento, setStatusPagamento] = useState<'pago' | 'a_vencer'>('a_vencer');
-  const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().split('T')[0]);
+  const [dataPagamento, setDataPagamento] = useState(todayLocalISO());
   const [dataVencimento, setDataVencimento] = useState(
-    new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
+    addDaysLocalISO(30)
   );
   const [numeroParcelas, setNumeroParcelas] = useState(initialNumeroParcelas || 1);
   const [prazoPagamentoDias, setPrazoPagamentoDias] = useState(initialPrazoPagamentoDias || 30);
@@ -817,7 +818,7 @@ export const InvoiceEditDialog = ({
       const invoicePayload = {
         invoice_number: editedData.numero_nota || `RASCUNHO-${Date.now()}`,
         supplier_id: supplierId,
-        invoice_date: editedData.data ? new Date(editedData.data).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        invoice_date: editedData.data ? new Date(editedData.data).toISOString().split('T')[0] : todayLocalISO(),
         total_amount: totalWithFreight,
         discount_total: discountValue,
         discount_type: discountType,

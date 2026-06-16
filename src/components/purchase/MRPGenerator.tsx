@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { todayLocalISO, addDaysLocalISO } from '@/lib/date-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -42,10 +43,8 @@ export function MRPGenerator({ onGenerated }: Props) {
       setResults([]);
       setDone(false);
 
-      const today = new Date().toISOString().split('T')[0];
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + horizon);
-      const end = endDate.toISOString().split('T')[0];
+      const today = todayLocalISO();
+      const end = addDaysLocalISO(horizon);
 
       // 1. Buscar eventos nos próximos N dias
       const { data: events } = await supabase
@@ -135,10 +134,8 @@ export function MRPGenerator({ onGenerated }: Props) {
     try {
       setCreating(true);
 
-      const today = new Date().toISOString().split('T')[0];
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 7);
-      const due = dueDate.toISOString().split('T')[0];
+      const today = todayLocalISO();
+      const due = addDaysLocalISO(7);
 
       const rows = results.map(r => ({
         material_id:       r.material_id,

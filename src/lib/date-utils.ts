@@ -30,20 +30,24 @@ export const getTodayMidnight = (): Date => {
 };
 
 /**
- * Returns today's date in the local timezone as a YYYY-MM-DD string.
+ * Formats a Date object as a YYYY-MM-DD string in the LOCAL timezone.
  *
- * Use this instead of `new Date().toISOString().split('T')[0]` — `toISOString()`
+ * Use this instead of `someDate.toISOString().split('T')[0]` — `toISOString()`
  * converts to UTC, which in BRT (UTC-3) rolls over to the next day after 21:00
  * local time, gravando datas um dia adiantadas.
  */
-export const todayLocalISO = (): string => dateFnsFormat(new Date(), 'yyyy-MM-dd');
+export const formatDateLocalISO = (date: Date): string => dateFnsFormat(date, 'yyyy-MM-dd');
+
+/**
+ * Returns today's date in the local timezone as a YYYY-MM-DD string.
+ */
+export const todayLocalISO = (): string => formatDateLocalISO(new Date());
 
 /**
  * Returns today's date offset by `days`, in the local timezone, as YYYY-MM-DD.
- * Same timezone-safety rationale as `todayLocalISO`.
+ * Same timezone-safety rationale as `formatDateLocalISO`.
  */
-export const addDaysLocalISO = (days: number): string =>
-  dateFnsFormat(addDays(new Date(), days), 'yyyy-MM-dd');
+export const addDaysLocalISO = (days: number): string => formatDateLocalISO(addDays(new Date(), days));
 
 /**
  * Compares a date string with today to check if it's overdue

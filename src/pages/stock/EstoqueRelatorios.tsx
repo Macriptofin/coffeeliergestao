@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { todayLocalISO } from "@/lib/date-utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileBarChart, PackageX, TrendingDown, Download, AlertTriangle, DollarSign, ListChecks, TrendingUp, TriangleAlert } from "lucide-react";
@@ -246,7 +247,7 @@ const EstoqueRelatorios = () => {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `itens_zerados_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `itens_zerados_${todayLocalISO()}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

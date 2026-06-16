@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { todayLocalISO } from "@/lib/date-utils";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -632,7 +633,7 @@ const Materials = () => {
       // BOM + Blob for proper UTF-8 with accents
       const BOM = '\uFEFF';
       const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const filename = `materiais_completo_${new Date().toISOString().split('T')[0]}.csv`;
+      const filename = `materiais_completo_${todayLocalISO()}.csv`;
 
       setGeneratedExport({
         filename,

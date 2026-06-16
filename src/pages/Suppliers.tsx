@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { todayLocalISO } from "@/lib/date-utils";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -238,7 +239,7 @@ const Suppliers = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `fornecedores_${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `fornecedores_${todayLocalISO()}.csv`;
       link.click();
       toast.success(`CSV exportado com ${suppliers.length} fornecedores`);
     } catch {

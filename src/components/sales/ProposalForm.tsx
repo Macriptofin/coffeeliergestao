@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
+import { todayLocalISO } from '@/lib/date-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,7 +84,7 @@ export default function ProposalForm({ onSuccess, onCancel }: Props) {
     defaultValues: {
       target_weight_per_person: 200,
       proposal_kind: 'event_table',
-      proposal_date: new Date().toISOString().split('T')[0]
+      proposal_date: todayLocalISO()
     }
   });
 

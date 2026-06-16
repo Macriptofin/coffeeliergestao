@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { todayLocalISO } from '@/lib/date-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -81,7 +82,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   const [clientId, setClientId]             = useState('');
   const [eventCategory, setEventCategory]   = useState('');
   const [eventDate, setEventDate]           = useState('');
-  const [proposalDate, setProposalDate]     = useState(new Date().toISOString().split('T')[0]);
+  const [proposalDate, setProposalDate]     = useState(todayLocalISO());
   const [numberOfPeople, setNumberOfPeople] = useState<number>(0);
   const [notes, setNotes]                   = useState('');
   const [departmentId, setDepartmentId]     = useState('');
@@ -174,7 +175,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     setClientId(prop.client_id || '');
     setEventCategory(prop.event_category || '');
     setEventDate(prop.event_date || '');
-    setProposalDate(prop.proposal_date || new Date().toISOString().split('T')[0]);
+    setProposalDate(prop.proposal_date || todayLocalISO());
     setNumberOfPeople(prop.number_of_people || 0);
     setNotes(prop.notes || '');
     setDepartmentId(prop.department_id || '');

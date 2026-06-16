@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { todayLocalISO } from "@/lib/date-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,7 @@ export const ProductionOrder = ({ recipes, ingredients, onClose }: ProductionOrd
   const [quantity, setQuantity] = useState('1');
   const [multiplier, setMultiplier] = useState('1');
   const [orderName, setOrderName] = useState('');
-  const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
+  const [orderDate, setOrderDate] = useState(todayLocalISO());
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = useReactToPrint({

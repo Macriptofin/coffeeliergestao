@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatDateLocalISO } from "@/lib/date-utils";
 
 export interface TimeRecord {
   id: string;
@@ -25,7 +26,7 @@ export interface TimeRecord {
 export const useTimeClock = (date?: Date) => {
   const queryClient = useQueryClient();
   const today = date || new Date();
-  const dateString = today.toISOString().split("T")[0];
+  const dateString = formatDateLocalISO(today);
 
   // Query para buscar registros do dia
   const { data: records, isLoading } = useQuery({
@@ -60,7 +61,7 @@ export const useTimeClock = (date?: Date) => {
       notes?: string;
     }) => {
       const now = new Date();
-      const recordDate = now.toISOString().split("T")[0];
+      const recordDate = formatDateLocalISO(now);
       const recordTime = now.toTimeString().split(" ")[0];
 
       // Obter geolocalização se disponível

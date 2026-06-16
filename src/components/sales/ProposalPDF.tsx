@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { todayLocalISO } from '@/lib/date-utils';
 import { useReactToPrint } from 'react-to-print';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -55,7 +56,7 @@ const fmtDate = (d: string) =>
   d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
 const fmtMoney = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const todayStr = () => new Date().toISOString().split('T')[0];
+const todayStr = () => todayLocalISO();
 
 // ─── Sub-componentes ─────────────────────────────────────────────────────────
 

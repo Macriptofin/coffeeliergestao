@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { todayLocalISO } from "@/lib/date-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -66,7 +67,7 @@ export const InventoryImportCSV = () => {
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `template_inventario_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `template_inventario_${todayLocalISO()}.csv`;
     link.click();
     toast.success('Template baixado com sucesso!');
   };

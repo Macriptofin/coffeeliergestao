@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { todayLocalISO } from "@/lib/date-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,7 +69,7 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
   const [quantity, setQuantity] = useState('1');
   const [multiplier, setMultiplier] = useState('1');
   const [orderName, setOrderName] = useState('');
-  const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
+  const [orderDate, setOrderDate] = useState(todayLocalISO());
   const [loading, setLoading] = useState(true);
   const [stockItems, setStockItems] = useState<any[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
@@ -252,7 +253,7 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
       // Limpar formulário
       setProductionItems([]);
       setOrderName('');
-      setOrderDate(new Date().toISOString().split('T')[0]);
+      setOrderDate(todayLocalISO());
       
     } catch (error) {
       console.error('Erro ao salvar ordem:', error);
