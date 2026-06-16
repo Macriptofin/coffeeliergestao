@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { EventCalendar } from "@/components/agenda/EventCalendar";
 import { todayLocalISO, addDaysLocalISO } from "@/lib/date-utils";
+import { useQuery } from "@tanstack/react-query";
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -59,36 +60,15 @@ const inDays = (d: number) => addDaysLocalISO(d);
 
 // ─── Componente ─────────────────────────────────────────────────────────────
 
-const Dashboard = () => {
-  const navigate = useNavigate();
-  const [kpi, setKpi] = useState<KpiData>(EMPTY_KPI);
-  const [events, setEvents] = useState<DashboardEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const showLoader = useDelayedLoading(loading);
+async function loadCalendarEvents(): Promise<DashboardEvent[]> {
+  const { data } = await supabase
+    .from("events")
+    .select("*, clients(name)")
+    .order("event_date", { ascending: true });
+  return data || [];
+}
 
-  useEffect(() => { loadAll(); }, []);
-
-  const loadAll = async () => {
-    try {
-      setLoading(true);
-      await Promise.all([loadKpis(), loadCalendarEvents()]);
-    } catch (e) {
-      console.error(e);
-      toast.error("Erro ao carregar dashboard");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadCalendarEvents = async () => {
-    const { data } = await supabase
-      .from("events")
-      .select("*, clients(name)")
-      .order("event_date", { ascending: true });
-    setEvents(data || []);
-  };
-
-  const loadKpis = async () => {
+async function loadKpis(): Promise<KpiData> {
     const td = today();
     const in7 = inDays(7);
     const in30 = inDays(30);
@@ -144,7 +124,7 @@ const Dashboard = () => {
 
     const proxEvt = nextEvt.data?.[0];
 
-    setKpi({
+  return {
       eventosProximos7:   evts7.count   ?? 0,
       eventosProximos30:  evts30.count  ?? 0,
       proximoEvento: proxEvt ? {
@@ -162,8 +142,30 @@ const Dashboard = () => {
       contasPagarProximas7:  apProximo.data?.length ?? 0,
       totalReceberVencido:   apVencido.data?.reduce((s, r) => s + parseFloat(r.remaining_amount ?? '0'), 0) ?? 0,
       totalPagarProximas7:   apProximo.data?.reduce((s, r) => s + parseFloat(r.remaining_amount ?? '0'), 0) ?? 0,
-    });
   };
+}
+
+const Dashboard = () => {
+  const navigate = useNavigate();
+
+  const {
+    data: kpi = EMPTY_KPI,
+    isPending: kpiPending,
+    isError: kpiError,
+  } = useQuery({ queryKey: ["dashboard-kpis"], queryFn: loadKpis });
+
+  const {
+    data: events = [],
+    isPending: eventsPending,
+  } = useQuery({ queryKey: ["dashboard-events"], queryFn: loadCalendarEvents });
+
+  // Spinner só na 1ª carga sem cache; revisitas dentro do staleTime são
+  // instantâneas (sem flash). useDelayedLoading suprime flashes < 250ms.
+  const showLoader = useDelayedLoading(kpiPending || eventsPending);
+
+  useEffect(() => {
+    if (kpiError) toast.error("Erro ao carregar dashboard");
+  }, [kpiError]);
 
   if (showLoader) {
     return (
