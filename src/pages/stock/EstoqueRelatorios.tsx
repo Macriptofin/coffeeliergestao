@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { todayLocalISO } from "@/lib/date-utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -104,12 +105,158 @@ interface DeviationAlert {
   direction: "up" | "down";
 }
 
+interface ZeroStockReport {
+  zeroStockItems: ZeroStockItem[];
+  belowMinItems: BelowMinItem[];
+  noPriceItems: NoPriceItem[];
+}
+
+interface ValuationData {
+  items: ValuationItem[];
+  lastPriceMap: Record<string, number>;
+}
+
+// Stable module-level empty defaults (avoid new array identity per render)
+const EMPTY_ZERO_REPORT: ZeroStockReport = {
+  zeroStockItems: [],
+  belowMinItems: [],
+  noPriceItems: [],
+};
+const EMPTY_VALUATION: ValuationData = { items: [], lastPriceMap: {} };
+const EMPTY_PRICE_EVOLUTION: PricePoint[] = [];
+
+const getMaterialTypeLabel = (type: string) => {
+  const labels: Record<string, string> = {
+    'ingredient': 'Insumo',
+    'packaging': 'Embalagem',
+    'intermediate_product': 'Produto Intermediário',
+    'finished_product': 'Produto Acabado',
+    'composite_product': 'Produto Composto'
+  };
+  return labels[type] || type;
+};
+
+// ─── Data fetchers (module-level — no TDZ) ───────────────────────────────────
+
+async function fetchZeroStockReport(): Promise<ZeroStockReport> {
+  // Itens zerados
+  const { data: zeroData, error: zeroError } = await supabase
+    .from('vw_stock_zero')
+    .select('*')
+    .order('name');
+  if (zeroError) throw zeroError;
+
+  // Itens abaixo do mínimo
+  const { data: belowMinData, error: belowMinError } = await supabase
+    .from('vw_stock_below_min')
+    .select('*')
+    .order('deficit_quantity', { ascending: false });
+  if (belowMinError) throw belowMinError;
+
+  // Itens sem preço médio
+  const { data: noPriceData, error: noPriceError } = await supabase
+    .from('vw_stock_no_avg_price')
+    .select('*')
+    .order('current_quantity', { ascending: false });
+  if (noPriceError) throw noPriceError;
+
+  const transformedNoPriceData: NoPriceItem[] = (noPriceData || []).map((item: NoPriceItem) => ({
+    material_id: item.material_id,
+    code: item.code || '',
+    name: item.name,
+    category: item.category || '',
+    material_type: item.material_type,
+    unit: item.unit || 'un',
+    current_quantity: item.current_quantity || 0,
+    average_price: item.average_price || 0,
+    total_value: item.total_value || 0,
+    last_movement_date: item.last_movement_date,
+  }));
+
+  return {
+    zeroStockItems: (zeroData || []) as ZeroStockItem[],
+    belowMinItems: (belowMinData || []) as BelowMinItem[],
+    noPriceItems: transformedNoPriceData,
+  };
+}
+
+async function fetchValuationData(): Promise<ValuationData> {
+  // 1. Posição valorizada
+  const { data: siData, error: siErr } = await supabase
+    .from("stock_items")
+    .select("material_id, current_quantity, average_price, total_value, last_movement_date")
+    .gt("current_quantity", 0)
+    .gt("average_price", 0)
+    .order("total_value", { ascending: false });
+  if (siErr) throw siErr;
+
+  const materialIds = (siData || []).map(si => si.material_id);
+  if (materialIds.length === 0) return { items: [], lastPriceMap: {} };
+
+  const { data: matData, error: matErr } = await supabase
+    .from("materials")
+    .select("id, name, code, category, purchase_unit")
+    .in("id", materialIds);
+  if (matErr) throw matErr;
+
+  const matMap: Record<string, { name: string; code: string; category: string; purchase_unit: string }> = {};
+  (matData || []).forEach(m => { matMap[m.id] = m; });
+
+  const items: ValuationItem[] = (siData || []).map(si => ({
+    material_id: si.material_id,
+    name: matMap[si.material_id]?.name || "—",
+    code: matMap[si.material_id]?.code || "—",
+    category: matMap[si.material_id]?.category || "—",
+    purchase_unit: matMap[si.material_id]?.purchase_unit || "",
+    current_quantity: Number(si.current_quantity) || 0,
+    average_price: Number(si.average_price) || 0,
+    total_value: Number(si.total_value) || Number(si.current_quantity) * Number(si.average_price) || 0,
+    last_movement_date: si.last_movement_date,
+  })).sort((a, b) => b.total_value - a.total_value);
+
+  // 2. Last purchase price per material vs average_price
+  const { data: mvData } = await supabase
+    .from("stock_movements")
+    .select("material_id, unit_price, movement_date")
+    .in("movement_type", ["Entrada", "Compra"])
+    .gt("unit_price", 0)
+    .in("material_id", materialIds)
+    .order("movement_date", { ascending: false })
+    .limit(500);
+
+  const lastPriceMap: Record<string, number> = {};
+  (mvData || []).forEach(mv => {
+    if (!lastPriceMap[mv.material_id]) {
+      lastPriceMap[mv.material_id] = Number(mv.unit_price);
+    }
+  });
+
+  return { items, lastPriceMap };
+}
+
+async function fetchPriceEvolution(materialId: string): Promise<PricePoint[]> {
+  const { data, error } = await supabase
+    .from("stock_movements")
+    .select("movement_date, unit_price")
+    .eq("material_id", materialId)
+    .in("movement_type", ["Entrada", "Compra"])
+    .gt("unit_price", 0)
+    .order("movement_date", { ascending: true })
+    .limit(100);
+  if (error) throw error;
+
+  return (data || []).map(mv => {
+    const d = new Date(mv.movement_date);
+    return {
+      date: mv.movement_date,
+      dateLabel: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" }),
+      price: Number(mv.unit_price),
+    };
+  });
+}
+
 const EstoqueRelatorios = () => {
   const [activeTab, setActiveTab] = useState("zero-stock");
-  const [zeroStockItems, setZeroStockItems] = useState<ZeroStockItem[]>([]);
-  const [belowMinItems, setBelowMinItems] = useState<BelowMinItem[]>([]);
-  const [noPriceItems, setNoPriceItems] = useState<NoPriceItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set());
@@ -118,94 +265,77 @@ const EstoqueRelatorios = () => {
   const [showAdjustPriceDialog, setShowAdjustPriceDialog] = useState(false);
   const [priceAdjustments, setPriceAdjustments] = useState<Record<string, string>>({});
 
-  // Valorização
-  const [valuationItems, setValuationItems] = useState<ValuationItem[]>([]);
-  const [valuationLoading, setValuationLoading] = useState(false);
-  const [priceEvolution, setPriceEvolution] = useState<PricePoint[]>([]);
-  const [priceEvolutionLoading, setPriceEvolutionLoading] = useState(false);
+  // Valorização — filtros/UI
   const [selectedMaterialId, setSelectedMaterialId] = useState<string>("");
   const [deviationThreshold, setDeviationThreshold] = useState<number>(20);
-  const [deviationAlerts, setDeviationAlerts] = useState<DeviationAlert[]>([]);
   const [valuationFilter, setValuationFilter] = useState<string>("all");
 
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // ── Server state via react-query ──────────────────────────────────────────
+  const {
+    data: zeroReport = EMPTY_ZERO_REPORT,
+    isPending: loading,
+    isError: zeroError,
+  } = useQuery({
+    queryKey: ["estoque-relatorios-zero"],
+    queryFn: fetchZeroStockReport,
+  });
+  const { zeroStockItems, belowMinItems, noPriceItems } = zeroReport;
+
+  const {
+    data: valuation = EMPTY_VALUATION,
+    isPending: valuationPending,
+    isError: valuationError,
+  } = useQuery({
+    queryKey: ["estoque-relatorios-valuation"],
+    queryFn: fetchValuationData,
+    enabled: activeTab === "valuation",
+  });
+  const valuationItems = valuation.items;
+  // react-query gives isPending=true while disabled; só é loading de fato na aba ativa
+  const valuationLoading = activeTab === "valuation" && valuationPending;
+
+  const {
+    data: priceEvolution = EMPTY_PRICE_EVOLUTION,
+    isPending: priceEvolutionPendingRaw,
+  } = useQuery({
+    queryKey: ["estoque-relatorios-price-evolution", selectedMaterialId],
+    queryFn: () => fetchPriceEvolution(selectedMaterialId),
+    enabled: !!selectedMaterialId,
+  });
+  const priceEvolutionLoading = !!selectedMaterialId && priceEvolutionPendingRaw;
 
   useEffect(() => {
-    loadAllData();
-  }, []);
+    if (zeroError) toast.error('Erro ao carregar relatórios');
+  }, [zeroError]);
 
   useEffect(() => {
-    if (activeTab === "valuation" && valuationItems.length === 0 && !valuationLoading) {
-      loadValuationData();
-    }
-  }, [activeTab]);
+    if (valuationError) toast.error('Erro ao carregar dados de valorização');
+  }, [valuationError]);
 
-  useEffect(() => {
-    if (selectedMaterialId) loadPriceEvolution(selectedMaterialId);
-  }, [selectedMaterialId]);
-
-  // Recompute alerts when threshold changes (only if data already loaded)
-  const prevThresholdRef = React.useRef(deviationThreshold);
-  useEffect(() => {
-    if (prevThresholdRef.current !== deviationThreshold && valuationItems.length > 0) {
-      prevThresholdRef.current = deviationThreshold;
-      loadValuationData();
-    }
-    prevThresholdRef.current = deviationThreshold;
-  }, [deviationThreshold]);
-
-  const loadAllData = async () => {
-    setLoading(true);
-    try {
-      // Buscar itens zerados usando a view
-      const { data: zeroData, error: zeroError } = await supabase
-        .from('vw_stock_zero')
-        .select('*')
-        .order('name');
-
-      if (zeroError) throw zeroError;
-      setZeroStockItems(zeroData || []);
-
-      // Buscar itens abaixo do mínimo usando a view
-      const { data: belowMinData, error: belowMinError } = await supabase
-        .from('vw_stock_below_min')
-        .select('*')
-        .order('deficit_quantity', { ascending: false });
-
-      if (belowMinError) throw belowMinError;
-      setBelowMinItems(belowMinData || []);
-
-      // Buscar itens sem preço médio usando a view
-      const { data: noPriceData, error: noPriceError } = await supabase
-        .from('vw_stock_no_avg_price')
-        .select('*')
-        .order('current_quantity', { ascending: false });
-
-      if (noPriceError) throw noPriceError;
-      
-      // Transformar dados para corresponder à interface
-      const transformedNoPriceData: NoPriceItem[] = (noPriceData || []).map((item: any) => ({
-        material_id: item.material_id,
-        code: item.code || '',
-        name: item.name,
-        category: item.category || '',
-        material_type: item.material_type,
-        unit: item.unit || 'un',
-        current_quantity: item.current_quantity || 0,
-        average_price: item.average_price || 0,
-        total_value: item.total_value || 0,
-        last_movement_date: item.last_movement_date
-      }));
-      
-      setNoPriceItems(transformedNoPriceData);
-
-    } catch (error) {
-      console.error('Erro ao carregar dados dos relatórios:', error);
-      toast.error('Erro ao carregar relatórios');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Alertas de desvio — derivado client-side (recalcula ao mudar threshold)
+  const deviationAlerts = useMemo<DeviationAlert[]>(() => {
+    const { items, lastPriceMap } = valuation;
+    return items
+      .filter(it => lastPriceMap[it.material_id] !== undefined && it.average_price > 0)
+      .map(it => {
+        const lastPrice = lastPriceMap[it.material_id];
+        const devPct = ((lastPrice - it.average_price) / it.average_price) * 100;
+        return {
+          material_id: it.material_id,
+          name: it.name,
+          code: it.code,
+          avg_price: it.average_price,
+          last_price: lastPrice,
+          deviation_pct: devPct,
+          direction: devPct >= 0 ? "up" : "down",
+        } as DeviationAlert;
+      })
+      .filter(a => Math.abs(a.deviation_pct) >= deviationThreshold)
+      .sort((a, b) => Math.abs(b.deviation_pct) - Math.abs(a.deviation_pct));
+  }, [valuation, deviationThreshold]);
 
   const exportToCSV = () => {
     const filteredItems = getFilteredItems();
@@ -255,135 +385,6 @@ const EstoqueRelatorios = () => {
     
     toast.success('Relatório exportado com sucesso!');
   };
-
-  const getMaterialTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      'ingredient': 'Insumo',
-      'packaging': 'Embalagem',
-      'intermediate_product': 'Produto Intermediário',
-      'finished_product': 'Produto Acabado',
-      'composite_product': 'Produto Composto'
-    };
-    return labels[type] || type;
-  };
-
-  const loadValuationData = useCallback(async () => {
-    setValuationLoading(true);
-    try {
-      // 1. Posição valorizada
-      const { data: siData, error: siErr } = await supabase
-        .from("stock_items")
-        .select("material_id, current_quantity, average_price, total_value, last_movement_date")
-        .gt("current_quantity", 0)
-        .gt("average_price", 0)
-        .order("total_value", { ascending: false });
-
-      if (siErr) throw siErr;
-
-      // Enrich with material info
-      const materialIds = (siData || []).map(si => si.material_id);
-      if (materialIds.length === 0) { setValuationItems([]); setValuationLoading(false); return; }
-
-      const { data: matData, error: matErr } = await supabase
-        .from("materials")
-        .select("id, name, code, category, purchase_unit")
-        .in("id", materialIds);
-
-      if (matErr) throw matErr;
-
-      const matMap: Record<string, any> = {};
-      (matData || []).forEach(m => { matMap[m.id] = m; });
-
-      const items: ValuationItem[] = (siData || []).map(si => ({
-        material_id: si.material_id,
-        name: matMap[si.material_id]?.name || "—",
-        code: matMap[si.material_id]?.code || "—",
-        category: matMap[si.material_id]?.category || "—",
-        purchase_unit: matMap[si.material_id]?.purchase_unit || "",
-        current_quantity: Number(si.current_quantity) || 0,
-        average_price: Number(si.average_price) || 0,
-        total_value: Number(si.total_value) || Number(si.current_quantity) * Number(si.average_price) || 0,
-        last_movement_date: si.last_movement_date,
-      })).sort((a, b) => b.total_value - a.total_value);
-
-      setValuationItems(items);
-
-      // 2. Deviation alerts — last purchase price per material vs average_price
-      const { data: mvData } = await supabase
-        .from("stock_movements")
-        .select("material_id, unit_price, movement_date")
-        .in("movement_type", ["Entrada", "Compra"])
-        .gt("unit_price", 0)
-        .in("material_id", materialIds)
-        .order("movement_date", { ascending: false })
-        .limit(500);
-
-      // Build last-price map
-      const lastPriceMap: Record<string, number> = {};
-      (mvData || []).forEach(mv => {
-        if (!lastPriceMap[mv.material_id]) {
-          lastPriceMap[mv.material_id] = Number(mv.unit_price);
-        }
-      });
-
-      const alerts: DeviationAlert[] = items
-        .filter(it => lastPriceMap[it.material_id] !== undefined && it.average_price > 0)
-        .map(it => {
-          const lastPrice = lastPriceMap[it.material_id];
-          const devPct = ((lastPrice - it.average_price) / it.average_price) * 100;
-          return {
-            material_id: it.material_id,
-            name: it.name,
-            code: it.code,
-            avg_price: it.average_price,
-            last_price: lastPrice,
-            deviation_pct: devPct,
-            direction: devPct >= 0 ? "up" : "down",
-          } as DeviationAlert;
-        })
-        .filter(a => Math.abs(a.deviation_pct) >= deviationThreshold)
-        .sort((a, b) => Math.abs(b.deviation_pct) - Math.abs(a.deviation_pct));
-
-      setDeviationAlerts(alerts);
-    } catch (err) {
-      console.error("Erro ao carregar valorização:", err);
-      toast.error("Erro ao carregar dados de valorização");
-    } finally {
-      setValuationLoading(false);
-    }
-  }, [deviationThreshold]);
-
-  const loadPriceEvolution = useCallback(async (materialId: string) => {
-    if (!materialId) return;
-    setPriceEvolutionLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("stock_movements")
-        .select("movement_date, unit_price")
-        .eq("material_id", materialId)
-        .in("movement_type", ["Entrada", "Compra"])
-        .gt("unit_price", 0)
-        .order("movement_date", { ascending: true })
-        .limit(100);
-
-      if (error) throw error;
-
-      const points: PricePoint[] = (data || []).map(mv => {
-        const d = new Date(mv.movement_date);
-        return {
-          date: mv.movement_date,
-          dateLabel: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" }),
-          price: Number(mv.unit_price),
-        };
-      });
-
-      setPriceEvolution(points);
-    } catch (err) {
-      console.error("Erro ao carregar evolução de preço:", err);
-    } finally {
-      setPriceEvolutionLoading(false);
-    }
-  }, []);
 
   const fmtBRL = (v: number) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -527,7 +528,9 @@ const EstoqueRelatorios = () => {
       setShowAdjustPriceDialog(false);
       setSelectedNoPriceItems(new Set());
       setPriceAdjustments({});
-      loadAllData();
+      queryClient.invalidateQueries({ queryKey: ["estoque-relatorios-zero"] });
+      // Preço médio mudou → valorização também pode ter mudado
+      queryClient.invalidateQueries({ queryKey: ["estoque-relatorios-valuation"] });
     } catch (error) {
       console.error('Erro ao ajustar preços:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao ajustar preços');

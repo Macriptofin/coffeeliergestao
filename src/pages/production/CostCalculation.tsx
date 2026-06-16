@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,57 +7,53 @@ import { Badge } from "@/components/ui/badge";
 import { Calculator, TrendingUp, DollarSign } from "lucide-react";
 import type { Recipe } from "@/types";
 
+const EMPTY_RECIPES: Recipe[] = [];
+
+async function fetchRecipes(): Promise<Recipe[]> {
+  const { data: recipesData, error: recipesError } = await supabase
+    .from('recipes')
+    .select(`
+      *,
+      recipe_ingredients (
+        quantity,
+        material_id
+      )
+    `)
+    .order('name');
+
+  if (recipesError) throw recipesError;
+
+  return (recipesData || []).map(item => ({
+    id: item.id,
+    name: item.name,
+    description: item.description || '',
+    category: item.category,
+    instructions: item.instructions || '',
+    preparationTime: item.preparation_time || 0,
+    difficulty: item.difficulty as 'Fácil' | 'Médio' | 'Difícil',
+    yield: item.yield_amount,
+    yieldUnit: item.yield_unit || 'unidade',
+    totalCost: item.total_cost ? parseFloat(item.total_cost.toString()) : undefined,
+    totalWeight: item.total_weight ? parseFloat(item.total_weight.toString()) : undefined,
+    suggestedPrice: item.suggested_price ? parseFloat(item.suggested_price.toString()) : undefined,
+    profitMargin: item.profit_margin ? parseFloat(item.profit_margin.toString()) : undefined,
+    ingredients: item.recipe_ingredients.map((ri: any) => ({
+      ingredientId: ri.material_id,
+      quantity: parseFloat(ri.quantity.toString())
+    }))
+  }));
+}
+
 const CostCalculation = () => {
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: recipes = EMPTY_RECIPES,
+    isPending: loading,
+    isError,
+  } = useQuery({ queryKey: ['cost-calculation-recipes'], queryFn: fetchRecipes });
 
   useEffect(() => {
-    loadRecipes();
-  }, []);
-
-  const loadRecipes = async () => {
-    try {
-      const { data: recipesData, error: recipesError } = await supabase
-        .from('recipes')
-        .select(`
-          *,
-          recipe_ingredients (
-            quantity,
-            material_id
-          )
-        `)
-        .order('name');
-      
-      if (recipesError) throw recipesError;
-      
-      const formattedRecipes = recipesData.map(item => ({
-        id: item.id,
-        name: item.name,
-        description: item.description || '',
-        category: item.category,
-        instructions: item.instructions || '',
-        preparationTime: item.preparation_time || 0,
-        difficulty: item.difficulty as 'Fácil' | 'Médio' | 'Difícil',
-        yield: item.yield_amount,
-        yieldUnit: item.yield_unit || 'unidade',
-        totalCost: item.total_cost ? parseFloat(item.total_cost.toString()) : undefined,
-        totalWeight: item.total_weight ? parseFloat(item.total_weight.toString()) : undefined,
-        suggestedPrice: item.suggested_price ? parseFloat(item.suggested_price.toString()) : undefined,
-        profitMargin: item.profit_margin ? parseFloat(item.profit_margin.toString()) : undefined,
-        ingredients: item.recipe_ingredients.map((ri: any) => ({
-          ingredientId: ri.material_id,
-          quantity: parseFloat(ri.quantity.toString())
-        }))
-      }));
-      
-      setRecipes(formattedRecipes);
-    } catch (error) {
-      console.error('Erro ao carregar receitas:', error);
-      toast.error('Erro ao carregar receitas');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (isError) toast.error('Erro ao carregar receitas');
+  }, [isError]);
 
   const calculateCostPerUnit = (recipe: Recipe) => {
     if (!recipe.totalCost || recipe.yield === 0) return 0;

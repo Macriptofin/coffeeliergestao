@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -31,60 +32,58 @@ export interface PurchaseInvoice {
   itemsLocked?: boolean;
 }
 
+const EMPTY_INVOICES: PurchaseInvoice[] = [];
+
+async function fetchPurchaseInvoices(): Promise<PurchaseInvoice[]> {
+  const { data, error } = await supabase
+    .from('purchase_invoices')
+    .select(`
+      *,
+      suppliers (
+        id,
+        company_name
+      )
+    `)
+    .order('invoice_date', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map(item => ({
+    id: item.id,
+    invoiceNumber: item.invoice_number,
+    supplier: item.suppliers ? {
+      id: item.suppliers.id,
+      companyName: item.suppliers.company_name
+    } : undefined,
+    invoiceDate: item.invoice_date,
+    totalAmount: parseFloat(item.total_amount?.toString() || '0'),
+    status: item.status as 'Pendente' | 'Pago' | 'Vencido' | 'Cancelado',
+    stockPosted: item.stock_posted || false,
+    stockPostedAt: item.stock_posted_at || undefined,
+    workflowStatus: (item.workflow_status || 'pendente') as 'rascunho' | 'pendente' | 'lancada',
+    discountTotal: parseFloat(item.discount_total?.toString() || '0'),
+    itemsLocked: item.items_locked || false
+  }));
+}
+
 const Purchases = () => {
-  const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseInvoice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const showLoader = useDelayedLoading(loading);
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('requirements');
 
+  const {
+    data: purchaseInvoices = EMPTY_INVOICES,
+    isPending: loading,
+    isError,
+  } = useQuery({ queryKey: ['purchase-invoices'], queryFn: fetchPurchaseInvoices });
+
+  const showLoader = useDelayedLoading(loading);
+
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isError) toast.error('Erro ao carregar dados de compras');
+  }, [isError]);
 
-  const loadData = async () => {
-    try {
-      await loadPurchaseInvoices();
-    } catch (error) {
-      console.error('Erro ao carregar dados de compras:', error);
-      toast.error('Erro ao carregar dados de compras');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadPurchaseInvoices = async () => {
-    const { data, error } = await supabase
-      .from('purchase_invoices')
-      .select(`
-        *,
-        suppliers (
-          id,
-          company_name
-        )
-      `)
-      .order('invoice_date', { ascending: false });
-
-    if (error) throw error;
-
-    const formattedInvoices: PurchaseInvoice[] = data.map(item => ({
-      id: item.id,
-      invoiceNumber: item.invoice_number,
-      supplier: item.suppliers ? {
-        id: item.suppliers.id,
-        companyName: item.suppliers.company_name
-      } : undefined,
-      invoiceDate: item.invoice_date,
-      totalAmount: parseFloat(item.total_amount?.toString() || '0'),
-      status: item.status as 'Pendente' | 'Pago' | 'Vencido' | 'Cancelado',
-      stockPosted: item.stock_posted || false,
-      stockPostedAt: item.stock_posted_at || undefined,
-      workflowStatus: (item.workflow_status || 'pendente') as 'rascunho' | 'pendente' | 'lancada',
-      discountTotal: parseFloat(item.discount_total?.toString() || '0'),
-      itemsLocked: item.items_locked || false
-    }));
-
-    setPurchaseInvoices(formattedInvoices);
-  };
+  const loadData = () => queryClient.invalidateQueries({ queryKey: ['purchase-invoices'] });
+  const loadPurchaseInvoices = () => queryClient.invalidateQueries({ queryKey: ['purchase-invoices'] });
 
   // Cálculos para resumo
   const pendingInvoices = purchaseInvoices.filter(invoice => invoice.status === 'Pendente');

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,73 +19,73 @@ interface ProductionSummary {
   completed: number;
 }
 
+const EMPTY_SUMMARY: ProductionSummary = {
+  today: 0,
+  inProgress: 0,
+  delayed: 0,
+  completed: 0,
+};
+
+async function fetchProductionSummary(): Promise<ProductionSummary> {
+  // Carregar dados das ordens BOM
+  const { data: bomOrders, error: bomError } = await supabase
+    .from('bom_production_orders')
+    .select('status, order_date, created_at');
+
+  if (bomError) throw bomError;
+
+  // Carregar dados das ordens de eventos
+  const { data: eventOrders, error: eventError } = await supabase
+    .from('event_production_orders')
+    .select(`
+      status,
+      created_at,
+      event_table:event_tables!inner (date_start)
+    `);
+
+  if (eventError) throw eventError;
+
+  // Calcular métricas
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const allOrders = [
+    ...(bomOrders || []).map(o => ({
+      status: o.status,
+      date: new Date(o.order_date),
+      isToday: new Date(o.order_date).toDateString() === today.toDateString()
+    })),
+    ...(eventOrders || []).map(o => ({
+      status: o.status,
+      date: new Date(o.event_table.date_start),
+      isToday: new Date(o.event_table.date_start).toDateString() === today.toDateString()
+    }))
+  ];
+
+  return {
+    today: allOrders.filter(o => o.isToday).length,
+    inProgress: allOrders.filter(o => o.status === 'Em Produção').length,
+    delayed: allOrders.filter(o => o.date < today && ['Planejado', 'Em Produção'].includes(o.status)).length,
+    completed: allOrders.filter(o => ['Concluído', 'Cancelado'].includes(o.status)).length
+  };
+}
+
 const ProductionPlanning = () => {
+  const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<'dashboard' | 'weekly' | 'monthly'>('dashboard');
   const [showNewOrder, setShowNewOrder] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState<ProductionSummary>({
-    today: 0,
-    inProgress: 0,
-    delayed: 0,
-    completed: 0
-  });
+
+  const {
+    data: summary = EMPTY_SUMMARY,
+    isPending: loading,
+    isError,
+  } = useQuery({ queryKey: ['production-summary'], queryFn: fetchProductionSummary });
 
   useEffect(() => {
-    loadSummaryData();
-  }, []);
+    if (isError) toast.error('Erro ao carregar dados do resumo');
+  }, [isError]);
 
-  const loadSummaryData = async () => {
-    try {
-      // Carregar dados das ordens BOM
-      const { data: bomOrders, error: bomError } = await supabase
-        .from('bom_production_orders')
-        .select('status, order_date, created_at');
-      
-      if (bomError) throw bomError;
-
-      // Carregar dados das ordens de eventos
-      const { data: eventOrders, error: eventError } = await supabase
-        .from('event_production_orders')
-        .select(`
-          status, 
-          created_at,
-          event_table:event_tables!inner (date_start)
-        `);
-      
-      if (eventError) throw eventError;
-
-      // Calcular métricas
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const allOrders = [
-        ...(bomOrders || []).map(o => ({ 
-          status: o.status, 
-          date: new Date(o.order_date),
-          isToday: new Date(o.order_date).toDateString() === today.toDateString()
-        })),
-        ...(eventOrders || []).map(o => ({ 
-          status: o.status, 
-          date: new Date(o.event_table.date_start),
-          isToday: new Date(o.event_table.date_start).toDateString() === today.toDateString()
-        }))
-      ];
-
-      const newSummary = {
-        today: allOrders.filter(o => o.isToday).length,
-        inProgress: allOrders.filter(o => o.status === 'Em Produção').length,
-        delayed: allOrders.filter(o => o.date < today && ['Planejado', 'Em Produção'].includes(o.status)).length,
-        completed: allOrders.filter(o => ['Concluído', 'Cancelado'].includes(o.status)).length
-      };
-
-      setSummary(newSummary);
-    } catch (error) {
-      console.error('Erro ao carregar resumo:', error);
-      toast.error('Erro ao carregar dados do resumo');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const refetchSummary = () => queryClient.invalidateQueries({ queryKey: ['production-summary'] });
 
   if (loading) {
     return (
@@ -102,15 +103,15 @@ const ProductionPlanning = () => {
           <p className="text-muted-foreground">Gestão unificada de ordens de produção e recursos</p>
         </div>
         <div className="flex gap-3">
-          <Button 
-            onClick={loadSummaryData}
+          <Button
+            onClick={refetchSummary}
             variant="outline"
             disabled={loading}
           >
             <RefreshCcw className="h-4 w-4 mr-2" />
             Atualizar
           </Button>
-          <Button 
+          <Button
             onClick={() => setShowNewOrder(true)}
             className="bg-gradient-primary hover:bg-primary/90 shadow-soft"
           >
@@ -177,7 +178,7 @@ const ProductionPlanning = () => {
           <ProductionOrderBOM
             onClose={() => {
               setShowNewOrder(false);
-              loadSummaryData(); // Atualizar métricas após criar ordem
+              refetchSummary(); // Atualizar métricas após criar ordem
             }}
           />
         </div>
@@ -190,15 +191,15 @@ const ProductionPlanning = () => {
           <TabsTrigger value="event-orders">Ordens de Eventos</TabsTrigger>
           <TabsTrigger value="event-integration">Gerar de Eventos</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="bom-orders" className="mt-6">
           <BOMProductionOrdersList />
         </TabsContent>
-        
+
         <TabsContent value="event-orders" className="mt-6">
           <ProductionOrdersList />
         </TabsContent>
-        
+
         <TabsContent value="event-integration" className="mt-6">
           <EventProductionIntegration />
         </TabsContent>

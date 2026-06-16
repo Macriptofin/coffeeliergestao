@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDelayedLoading } from '@/hooks/useDelayedLoading';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -40,11 +41,121 @@ interface BOMSummary {
   cost_status?: string;
 }
 
+const EMPTY_BOM_SUMMARIES: BOMSummary[] = [];
+
+async function fetchFinishedProducts(): Promise<BOMSummary[]> {
+  const { data, error } = await supabase
+    .from('materials')
+    .select(`
+      id, name, code, material_type, category, usage_unit, is_sellable,
+      recipes_bom (
+        id,
+        cached_total_cost,
+        cached_unit_cost,
+        yield_quantity,
+        yield_unit,
+        cost_status,
+        cost_last_calculated_at,
+        recipe_bom_items (id)
+      )
+    `)
+    .in('material_type', ['finished_product', 'intermediate_product'])
+    .order('name');
+
+  if (error) throw error;
+
+  return (data || []).map((material: any) => {
+    const bom = material.recipes_bom?.[0];
+
+    return {
+      material: {
+        id: material.id,
+        name: material.name,
+        code: material.code,
+        material_type: material.material_type,
+        category: material.category,
+        usage_unit: material.usage_unit
+      },
+      has_bom: bom != null,
+      items_count: bom?.recipe_bom_items?.length || 0,
+      bom_id: bom?.id,
+      total_cost: bom?.cached_total_cost ? parseFloat(bom.cached_total_cost) : undefined,
+      unit_cost: bom?.cached_unit_cost ? parseFloat(bom.cached_unit_cost) : undefined,
+      yield_quantity: bom?.yield_quantity ? parseFloat(bom.yield_quantity) : undefined,
+      yield_unit: bom?.yield_unit,
+      cost_status: bom?.cost_status,
+      cost_calculated_at: bom?.cost_last_calculated_at
+    };
+  });
+}
+
+async function fetchCompositeProducts(): Promise<BOMSummary[]> {
+  const { data, error } = await supabase
+    .from('materials')
+    .select(`
+      id, name, code, material_type, category, usage_unit,
+      composites_bom (
+        id,
+        cached_total_cost,
+        cost_last_calculated_at,
+        composite_bom_items (id)
+      )
+    `)
+    .eq('material_type', 'composite_product')
+    .order('name');
+
+  if (error) throw error;
+
+  return (data || []).map((material: any) => {
+    const bom = material.composites_bom?.[0];
+
+    return {
+      material: {
+        id: material.id,
+        name: material.name,
+        code: material.code,
+        material_type: material.material_type,
+        category: material.category,
+        usage_unit: material.usage_unit
+      },
+      has_bom: bom != null,
+      items_count: bom?.composite_bom_items?.length || 0,
+      bom_id: bom?.id,
+      total_cost: bom?.cached_total_cost ? parseFloat(bom.cached_total_cost) : undefined,
+      cost_calculated_at: bom?.cost_last_calculated_at
+    };
+  });
+}
+
 const BOMManagement = () => {
-  const [finishedProducts, setFinishedProducts] = useState<BOMSummary[]>([]);
-  const [compositeProducts, setCompositeProducts] = useState<BOMSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const {
+    data: finishedProducts = EMPTY_BOM_SUMMARIES,
+    isPending: loadingFinished,
+    isError: finishedError,
+  } = useQuery({ queryKey: ['bom-finished-products'], queryFn: fetchFinishedProducts });
+  const {
+    data: compositeProducts = EMPTY_BOM_SUMMARIES,
+    isPending: loadingComposite,
+    isError: compositeError,
+  } = useQuery({ queryKey: ['bom-composite-products'], queryFn: fetchCompositeProducts });
+
+  const loading = loadingFinished || loadingComposite;
   const showLoader = useDelayedLoading(loading);
+
+  const refetchFinished = () => queryClient.invalidateQueries({ queryKey: ['bom-finished-products'] });
+  const refetchComposite = () => queryClient.invalidateQueries({ queryKey: ['bom-composite-products'] });
+  const refetchAll = () => {
+    refetchFinished();
+    refetchComposite();
+  };
+
+  useEffect(() => {
+    if (finishedError || compositeError) {
+      toast.error('Erro ao carregar dados');
+    }
+  }, [finishedError, compositeError]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [showRecipeBOMForm, setShowRecipeBOMForm] = useState(false);
   const [showCompositeBOMForm, setShowCompositeBOMForm] = useState(false);
@@ -56,118 +167,6 @@ const BOMManagement = () => {
   const [lastRecalculatedAt, setLastRecalculatedAt] = useState<Date | null>(null);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([loadFinishedProducts(), loadCompositeProducts()]);
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar dados');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadFinishedProducts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('materials')
-        .select(`
-          id, name, code, material_type, category, usage_unit, is_sellable,
-          recipes_bom (
-            id,
-            cached_total_cost,
-            cached_unit_cost,
-            yield_quantity,
-            yield_unit,
-            cost_status,
-            cost_last_calculated_at,
-            recipe_bom_items (id)
-          )
-        `)
-        .in('material_type', ['finished_product', 'intermediate_product'])
-        .order('name');
-
-      if (error) throw error;
-
-      const summary: BOMSummary[] = data.map((material: any) => {
-        const bom = material.recipes_bom?.[0];
-        
-        return {
-          material: {
-            id: material.id,
-            name: material.name,
-            code: material.code,
-            material_type: material.material_type,
-            category: material.category,
-            usage_unit: material.usage_unit
-          },
-          has_bom: bom != null,
-          items_count: bom?.recipe_bom_items?.length || 0,
-          bom_id: bom?.id,
-          total_cost: bom?.cached_total_cost ? parseFloat(bom.cached_total_cost) : undefined,
-          unit_cost: bom?.cached_unit_cost ? parseFloat(bom.cached_unit_cost) : undefined,
-          yield_quantity: bom?.yield_quantity ? parseFloat(bom.yield_quantity) : undefined,
-          yield_unit: bom?.yield_unit,
-          cost_status: bom?.cost_status,
-          cost_calculated_at: bom?.cost_last_calculated_at
-        };
-      });
-
-      setFinishedProducts(summary);
-    } catch (error) {
-      console.error('Erro ao carregar produtos acabados:', error);
-    }
-  };
-
-  const loadCompositeProducts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('materials')
-        .select(`
-          id, name, code, material_type, category, usage_unit,
-          composites_bom (
-            id,
-            cached_total_cost,
-            cost_last_calculated_at,
-            composite_bom_items (id)
-          )
-        `)
-        .eq('material_type', 'composite_product')
-        .order('name');
-
-      if (error) throw error;
-
-      const summary: BOMSummary[] = data.map((material: any) => {
-        const bom = material.composites_bom?.[0];
-        
-        return {
-          material: {
-            id: material.id,
-            name: material.name,
-            code: material.code,
-            material_type: material.material_type,
-            category: material.category,
-            usage_unit: material.usage_unit
-          },
-          has_bom: bom != null,
-          items_count: bom?.composite_bom_items?.length || 0,
-          bom_id: bom?.id,
-          total_cost: bom?.cached_total_cost ? parseFloat(bom.cached_total_cost) : undefined,
-          cost_calculated_at: bom?.cost_last_calculated_at
-        };
-      });
-
-      setCompositeProducts(summary);
-    } catch (error) {
-      console.error('Erro ao carregar produtos compostos:', error);
-    }
-  };
 
   const filterMaterials = (materials: BOMSummary[]) => {
     if (!searchTerm.trim()) return materials;
@@ -189,7 +188,7 @@ const BOMManagement = () => {
   };
 
   const handleFormSuccess = () => {
-    loadData();
+    refetchAll();
     setShowRecipeBOMForm(false);
     setShowCompositeBOMForm(false);
     setSelectedMaterial(null);
@@ -242,7 +241,7 @@ const BOMManagement = () => {
       }
       toast.success('Fichas técnicas excluídas com sucesso');
       clearSelectionFinished();
-      await loadFinishedProducts();
+      refetchFinished();
     } catch (err) {
       console.error('Erro ao excluir fichas técnicas:', err);
       toast.error('Falha ao excluir fichas técnicas');
@@ -274,7 +273,7 @@ const BOMManagement = () => {
       }
       
       // Recarregar dados com cache atualizado
-      await Promise.all([loadFinishedProducts(), loadCompositeProducts()]);
+      refetchAll();
       setLastRecalculatedAt(new Date());
       toast.success('Custos recalculados e atualizados com sucesso!');
     } catch (error) {
@@ -634,7 +633,7 @@ const BOMManagement = () => {
             </p>
           </div>
           
-          <ProductionExecutor onSuccess={loadData} />
+          <ProductionExecutor onSuccess={refetchAll} />
         </TabsContent>
       </Tabs>
 

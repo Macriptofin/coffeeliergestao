@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -45,73 +46,68 @@ export interface PurchaseInvoice {
   itemsLocked?: boolean;
 }
 
+const EMPTY_STOCK_ITEMS: StockItem[] = [];
+
+async function fetchStockItems(): Promise<StockItem[]> {
+  const { data, error } = await supabase
+    .from('stock_items')
+    .select(`
+      *,
+      materials:material_id (
+        id,
+        name,
+        code,
+        usage_unit,
+        material_type,
+        category
+      )
+    `)
+    .order('last_movement_date', { ascending: false, nullsFirst: false });
+
+  if (error) throw error;
+
+  return (data || []).map(item => {
+    const current  = parseFloat(item.current_quantity?.toString() || '0');
+    const reserved = parseFloat((item as any).reserved_qty?.toString() || '0');
+    const committed = parseFloat((item as any).committed_qty?.toString() || '0');
+    return {
+      id: item.id,
+      ingredient: {
+        id: item.materials.id,
+        name: item.materials.name,
+        code: item.materials.code,
+        usageUnit: item.materials.usage_unit,
+        materialType: item.materials.material_type || '',
+        category: item.materials.category || ''
+      },
+      currentQuantity: current,
+      minimumQuantity: parseFloat(item.minimum_quantity?.toString() || '0'),
+      idealQty: parseFloat((item as any).ideal_qty?.toString() || '0'),
+      reservedQty: reserved,
+      committedQty: committed,
+      availableQty: Math.max(0, current - reserved - committed),
+      averagePrice: parseFloat(item.average_price?.toString() || '0'),
+      totalValue: parseFloat(item.total_value?.toString() || '0'),
+      lastMovementDate: item.last_movement_date
+    };
+  });
+}
+
 const Stock = () => {
-  const [stockItems, setStockItems] = useState<StockItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const {
+    data: stockItems = EMPTY_STOCK_ITEMS,
+    isPending: loading,
+    isError,
+  } = useQuery({ queryKey: ['stock-items'], queryFn: fetchStockItems });
   const showLoader = useDelayedLoading(loading);
   const [filterType, setFilterType] = useState<'all' | 'low' | 'zero'>('all');
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isError) toast.error('Erro ao carregar dados do estoque');
+  }, [isError]);
 
-  const loadData = async () => {
-    try {
-      await loadStockItems();
-    } catch (error) {
-      console.error('Erro ao carregar dados do estoque:', error);
-      toast.error('Erro ao carregar dados do estoque');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadStockItems = async () => {
-    const { data, error } = await supabase
-      .from('stock_items')
-      .select(`
-        *,
-        materials:material_id (
-          id,
-          name,
-          code,
-          usage_unit,
-          material_type,
-          category
-        )
-      `)
-      .order('last_movement_date', { ascending: false, nullsFirst: false });
-
-    if (error) throw error;
-
-    const formattedItems: StockItem[] = data.map(item => {
-      const current  = parseFloat(item.current_quantity?.toString() || '0');
-      const reserved = parseFloat((item as any).reserved_qty?.toString() || '0');
-      const committed = parseFloat((item as any).committed_qty?.toString() || '0');
-      return {
-        id: item.id,
-        ingredient: {
-          id: item.materials.id,
-          name: item.materials.name,
-          code: item.materials.code,
-          usageUnit: item.materials.usage_unit,
-          materialType: item.materials.material_type || '',
-          category: item.materials.category || ''
-        },
-        currentQuantity: current,
-        minimumQuantity: parseFloat(item.minimum_quantity?.toString() || '0'),
-        idealQty: parseFloat((item as any).ideal_qty?.toString() || '0'),
-        reservedQty: reserved,
-        committedQty: committed,
-        availableQty: Math.max(0, current - reserved - committed),
-        averagePrice: parseFloat(item.average_price?.toString() || '0'),
-        totalValue: parseFloat(item.total_value?.toString() || '0'),
-        lastMovementDate: item.last_movement_date
-      };
-    });
-
-    setStockItems(formattedItems);
-  };
+  const refetchStockItems = () => queryClient.invalidateQueries({ queryKey: ['stock-items'] });
 
   // Cálculos para resumo
   const totalStockValue = stockItems.reduce((sum, item) => sum + item.totalValue, 0);
@@ -267,7 +263,7 @@ const Stock = () => {
       <div className="w-full">
         <StockOverview 
           stockItems={filteredStockItems} 
-          onRefresh={loadStockItems}
+          onRefresh={refetchStockItems}
         />
       </div>
     </div>
