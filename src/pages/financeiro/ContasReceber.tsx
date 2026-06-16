@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -71,16 +72,87 @@ interface BankAccount {
   bank_name: string;
 }
 
+interface ContasReceberRefs {
+  clients: Client[];
+  proposals: Proposal[];
+  costCenters: CostCenter[];
+  chartAccounts: Account[];
+  bankAccounts: BankAccount[];
+}
+
+const EMPTY_REFS: ContasReceberRefs = {
+  clients: [],
+  proposals: [],
+  costCenters: [],
+  chartAccounts: [],
+  bankAccounts: [],
+};
+
+async function fetchAccountsReceivable(): Promise<AccountReceivable[]> {
+  const { data, error } = await supabase
+    .from('accounts_receivable')
+    .select(`
+      *,
+      clients(name),
+      proposals(proposal_number),
+      cost_centers(name),
+      chart_of_accounts(name)
+    `)
+    .order('due_date', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+/** Dados de referência (mudam raramente) — clientes, propostas, centros de
+ *  custo, plano de contas e bancos. Cacheados com staleTime alto. */
+async function fetchContasReceberRefs(): Promise<ContasReceberRefs> {
+  const [clientsRes, proposalsRes, costCentersRes, chartAccountsRes, bankAccountsRes] = await Promise.all([
+    supabase.from('clients').select('id, name').eq('status', 'Ativo'),
+    supabase.from('proposals').select('id, proposal_number').order('proposal_number', { ascending: false }),
+    supabase.from('cost_centers').select('id, name, code').eq('is_active', true).order('code'),
+    supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Receitas').order('code'),
+    supabase.from('bank_accounts').select('id, name, bank_name').eq('is_active', true).order('name'),
+  ]);
+  if (clientsRes.error) throw clientsRes.error;
+  if (proposalsRes.error) throw proposalsRes.error;
+  if (costCentersRes.error) throw costCentersRes.error;
+  if (chartAccountsRes.error) throw chartAccountsRes.error;
+  if (bankAccountsRes.error) throw bankAccountsRes.error;
+  return {
+    clients:       clientsRes.data       || [],
+    proposals:     proposalsRes.data     || [],
+    costCenters:   costCentersRes.data   || [],
+    chartAccounts: chartAccountsRes.data || [],
+    bankAccounts:  bankAccountsRes.data  || [],
+  };
+}
+
 const ContasReceber = () => {
   const { methodNames: paymentMethodNames } = usePaymentMethods();
-  const [accounts, setAccounts] = useState<AccountReceivable[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [chartAccounts, setChartAccounts] = useState<Account[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  const {
+    data: accounts = [],
+    isPending: loading,
+    isError: accountsError,
+  } = useQuery({ queryKey: ['accounts-receivable'], queryFn: fetchAccountsReceivable });
+
+  const { data: refs = EMPTY_REFS, isError: refsError } = useQuery({
+    queryKey: ['contas-receber-refs'],
+    queryFn: fetchContasReceberRefs,
+    staleTime: 5 * 60_000,
+  });
+  const { clients, proposals, costCenters, chartAccounts, bankAccounts } = refs;
+
   const showLoader = useDelayedLoading(loading);
+
+  // Erro de carregamento → toast (uma vez por mudança no estado de erro)
+  useEffect(() => {
+    if (accountsError || refsError) toast.error('Erro ao carregar dados');
+  }, [accountsError, refsError]);
+
+  // Após mutações, invalida a query de contas (dados de referência não mudam aqui)
+  const refetchReceivables = () => queryClient.invalidateQueries({ queryKey: ['accounts-receivable'] });
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -134,51 +206,6 @@ const ContasReceber = () => {
     status: ""
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      const [accountsRes, clientsRes, proposalsRes, costCentersRes, chartAccountsRes, bankAccountsRes] = await Promise.all([
-        supabase
-          .from('accounts_receivable')
-          .select(`
-            *,
-            clients(name),
-            proposals(proposal_number),
-            cost_centers(name),
-            chart_of_accounts(name)
-          `)
-          .order('due_date', { ascending: false }),
-        supabase.from('clients').select('id, name').eq('status', 'Ativo'),
-        supabase.from('proposals').select('id, proposal_number').order('proposal_number', { ascending: false }),
-        supabase.from('cost_centers').select('id, name, code').eq('is_active', true).order('code'),
-        supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Receitas').order('code'),
-        supabase.from('bank_accounts').select('id, name, bank_name').eq('is_active', true).order('name')
-      ]);
-
-      if (accountsRes.error) throw accountsRes.error;
-      if (clientsRes.error) throw clientsRes.error;
-      if (proposalsRes.error) throw proposalsRes.error;
-      if (costCentersRes.error) throw costCentersRes.error;
-      if (chartAccountsRes.error) throw chartAccountsRes.error;
-      if (bankAccountsRes.error) throw bankAccountsRes.error;
-
-      setAccounts(accountsRes.data || []);
-      setClients(clientsRes.data || []);
-      setProposals(proposalsRes.data || []);
-      setCostCenters(costCentersRes.data || []);
-      setChartAccounts(chartAccountsRes.data || []);
-      setBankAccounts(bankAccountsRes.data || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Erro ao carregar dados');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -206,7 +233,7 @@ const ContasReceber = () => {
       toast.success('Conta a receber cadastrada com sucesso!');
       setIsDialogOpen(false);
       resetForm();
-      fetchData();
+      refetchReceivables();
     } catch (error) {
       console.error('Error creating account receivable:', error);
       toast.error('Erro ao cadastrar conta a receber');
@@ -292,7 +319,7 @@ const ContasReceber = () => {
       toast.success('Conta a receber atualizada com sucesso!');
       setEditDialogOpen(false);
       setEditingAccount(null);
-      fetchData();
+      refetchReceivables();
     } catch (error) {
       console.error('Error updating account receivable:', error);
       toast.error('Erro ao atualizar conta a receber');
@@ -323,7 +350,7 @@ const ContasReceber = () => {
       toast.success('Conta a receber excluída com sucesso!');
       setDeleteDialogOpen(false);
       setDeletingAccount(null);
-      fetchData();
+      refetchReceivables();
     } catch (error) {
       console.error('Error deleting account receivable:', error);
       toast.error('Erro ao excluir conta a receber');
@@ -340,7 +367,7 @@ const ContasReceber = () => {
       if (error) throw error;
 
       toast.success('Conta cancelada com sucesso!');
-      fetchData();
+      refetchReceivables();
     } catch (error) {
       console.error('Error canceling account receivable:', error);
       toast.error('Erro ao cancelar conta');
@@ -445,7 +472,7 @@ const ContasReceber = () => {
         bank_account_id: '',
         notes: ''
       });
-      fetchData();
+      refetchReceivables();
     } catch (error) {
       console.error('Error processing receipt:', error);
       toast.error('Erro ao registrar recebimento');

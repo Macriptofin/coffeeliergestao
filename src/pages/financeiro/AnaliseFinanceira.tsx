@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,174 +34,162 @@ interface CostCenterData {
   percentage: number;
 }
 
+interface CashTransaction {
+  transaction_date: string;
+  transaction_type: string;
+  category: string;
+  amount: number;
+  cost_centers: { name: string } | null;
+}
+
+const EMPTY_TRANSACTIONS: CashTransaction[] = [];
+
+async function fetchCashTransactions(start: string, end: string): Promise<CashTransaction[]> {
+  const { data, error } = await supabase
+    .from('cash_transactions')
+    .select(`
+      transaction_date,
+      transaction_type,
+      category,
+      amount,
+      cost_centers(name)
+    `)
+    .gte('transaction_date', start)
+    .lte('transaction_date', end)
+    .order('transaction_date');
+
+  if (error) throw error;
+  return (data as unknown as CashTransaction[]) || [];
+}
+
+function processMonthlyData(transactions: any[]): FinancialData[] {
+  const monthlyMap = new Map<string, { entradas: number; saidas: number }>();
+
+  transactions.forEach(transaction => {
+    const monthKey = format(new Date(transaction.transaction_date), 'yyyy-MM');
+
+    if (!monthlyMap.has(monthKey)) {
+      monthlyMap.set(monthKey, { entradas: 0, saidas: 0 });
+    }
+
+    const monthData = monthlyMap.get(monthKey)!;
+
+    if (transaction.transaction_type === 'Entrada') {
+      monthData.entradas += transaction.amount;
+    } else {
+      monthData.saidas += transaction.amount;
+    }
+  });
+
+  return Array.from(monthlyMap.entries()).map(([monthKey, data]) => ({
+    periodo: format(new Date(monthKey + '-01'), 'MMM/yyyy', { locale: ptBR }),
+    entradas: data.entradas,
+    saidas: data.saidas,
+    saldo: data.entradas - data.saidas
+  })).sort((a, b) => a.periodo.localeCompare(b.periodo));
+}
+
+function processCategoryData(transactions: any[]): CategoryData[] {
+  const categoryMap = new Map<string, number>();
+  let totalExpenses = 0;
+
+  transactions
+    .filter(t => t.transaction_type === 'Saída')
+    .forEach(transaction => {
+      const current = categoryMap.get(transaction.category) || 0;
+      categoryMap.set(transaction.category, current + transaction.amount);
+      totalExpenses += transaction.amount;
+    });
+
+  return Array.from(categoryMap.entries())
+    .map(([category, amount]) => ({
+      category,
+      amount,
+      percentage: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0
+    }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 10); // Top 10 categorias
+}
+
+function processCostCenterData(transactions: any[]): CostCenterData[] {
+  const costCenterMap = new Map<string, number>();
+  let totalExpenses = 0;
+
+  transactions
+    .filter(t => t.transaction_type === 'Saída' && t.cost_centers?.name)
+    .forEach(transaction => {
+      const centerName = transaction.cost_centers.name;
+      const current = costCenterMap.get(centerName) || 0;
+      costCenterMap.set(centerName, current + transaction.amount);
+      totalExpenses += transaction.amount;
+    });
+
+  return Array.from(costCenterMap.entries())
+    .map(([name, amount]) => ({
+      name,
+      amount,
+      percentage: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0
+    }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
+function calculateTotalMetrics(transactions: any[]) {
+  const totalEntradas = transactions
+    .filter(t => t.transaction_type === 'Entrada')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const totalSaidas = transactions
+    .filter(t => t.transaction_type === 'Saída')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const saldoLiquido = totalEntradas - totalSaidas;
+  const margem = totalEntradas > 0 ? (saldoLiquido / totalEntradas) * 100 : 0;
+
+  return {
+    totalEntradas,
+    totalSaidas,
+    saldoLiquido,
+    margem
+  };
+}
+
 const AnaliseFinanceira = () => {
   const { hasAnyFinancialAccess, canViewAllFinancial, loading: permissionsLoading } = useFinancialPermissions();
-  const [loading, setLoading] = useState(true);
-  const showLoader = useDelayedLoading(loading);
   const [period, setPeriod] = useState("3"); // Últimos 3 meses
   const [dateFilter, setDateFilter] = useState({
     start: format(subMonths(startOfMonth(new Date()), 2), 'yyyy-MM-dd'),
     end: format(endOfMonth(new Date()), 'yyyy-MM-dd')
   });
-  
-  const [financialEvolution, setFinancialEvolution] = useState<FinancialData[]>([]);
-  const [expensesByCategory, setExpensesByCategory] = useState<CategoryData[]>([]);
-  const [expensesByCostCenter, setExpensesByCostCenter] = useState<CostCenterData[]>([]);
-  const [totalMetrics, setTotalMetrics] = useState({
-    totalEntradas: 0,
-    totalSaidas: 0,
-    saldoLiquido: 0,
-    margem: 0
+
+  const {
+    data: cashTransactions = EMPTY_TRANSACTIONS,
+    isPending: loading,
+    isError,
+  } = useQuery({
+    queryKey: ['analise-financeira', dateFilter.start, dateFilter.end],
+    queryFn: () => fetchCashTransactions(dateFilter.start, dateFilter.end),
   });
+  const showLoader = useDelayedLoading(loading);
 
   useEffect(() => {
-    fetchFinancialData();
-  }, [dateFilter]);
+    if (isError) toast.error('Erro ao carregar dados financeiros');
+  }, [isError]);
 
   useEffect(() => {
     const months = parseInt(period);
     const startDate = startOfMonth(subMonths(new Date(), months - 1));
     const endDate = endOfMonth(new Date());
-    
+
     setDateFilter({
       start: format(startDate, 'yyyy-MM-dd'),
       end: format(endDate, 'yyyy-MM-dd')
     });
   }, [period]);
 
-  const fetchFinancialData = async () => {
-    try {
-      setLoading(true);
-      
-      // Buscar dados de movimentações de caixa
-      const { data: cashTransactions, error: cashError } = await supabase
-        .from('cash_transactions')
-        .select(`
-          transaction_date,
-          transaction_type,
-          category,
-          amount,
-          cost_centers(name)
-        `)
-        .gte('transaction_date', dateFilter.start)
-        .lte('transaction_date', dateFilter.end)
-        .order('transaction_date');
-
-      if (cashError) throw cashError;
-
-      // Processar dados para evolução financeira mensal
-      const monthlyData = processMonthlyData(cashTransactions || []);
-      setFinancialEvolution(monthlyData);
-
-      // Processar dados de despesas por categoria
-      const categoryData = processCategoryData(cashTransactions || []);
-      setExpensesByCategory(categoryData);
-
-      // Processar dados de despesas por centro de custo
-      const costCenterData = processCostCenterData(cashTransactions || []);
-      setExpensesByCostCenter(costCenterData);
-
-      // Calcular métricas totais
-      const metrics = calculateTotalMetrics(cashTransactions || []);
-      setTotalMetrics(metrics);
-
-    } catch (error) {
-      console.error('Error fetching financial data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const processMonthlyData = (transactions: any[]): FinancialData[] => {
-    const monthlyMap = new Map<string, { entradas: number; saidas: number }>();
-
-    transactions.forEach(transaction => {
-      const monthKey = format(new Date(transaction.transaction_date), 'yyyy-MM');
-      
-      if (!monthlyMap.has(monthKey)) {
-        monthlyMap.set(monthKey, { entradas: 0, saidas: 0 });
-      }
-
-      const monthData = monthlyMap.get(monthKey)!;
-      
-      if (transaction.transaction_type === 'Entrada') {
-        monthData.entradas += transaction.amount;
-      } else {
-        monthData.saidas += transaction.amount;
-      }
-    });
-
-    return Array.from(monthlyMap.entries()).map(([monthKey, data]) => ({
-      periodo: format(new Date(monthKey + '-01'), 'MMM/yyyy', { locale: ptBR }),
-      entradas: data.entradas,
-      saidas: data.saidas,
-      saldo: data.entradas - data.saidas
-    })).sort((a, b) => a.periodo.localeCompare(b.periodo));
-  };
-
-  const processCategoryData = (transactions: any[]): CategoryData[] => {
-    const categoryMap = new Map<string, number>();
-    let totalExpenses = 0;
-
-    transactions
-      .filter(t => t.transaction_type === 'Saída')
-      .forEach(transaction => {
-        const current = categoryMap.get(transaction.category) || 0;
-        categoryMap.set(transaction.category, current + transaction.amount);
-        totalExpenses += transaction.amount;
-      });
-
-    return Array.from(categoryMap.entries())
-      .map(([category, amount]) => ({
-        category,
-        amount,
-        percentage: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0
-      }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 10); // Top 10 categorias
-  };
-
-  const processCostCenterData = (transactions: any[]): CostCenterData[] => {
-    const costCenterMap = new Map<string, number>();
-    let totalExpenses = 0;
-
-    transactions
-      .filter(t => t.transaction_type === 'Saída' && t.cost_centers?.name)
-      .forEach(transaction => {
-        const centerName = transaction.cost_centers.name;
-        const current = costCenterMap.get(centerName) || 0;
-        costCenterMap.set(centerName, current + transaction.amount);
-        totalExpenses += transaction.amount;
-      });
-
-    return Array.from(costCenterMap.entries())
-      .map(([name, amount]) => ({
-        name,
-        amount,
-        percentage: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0
-      }))
-      .sort((a, b) => b.amount - a.amount);
-  };
-
-  const calculateTotalMetrics = (transactions: any[]) => {
-    const totalEntradas = transactions
-      .filter(t => t.transaction_type === 'Entrada')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const totalSaidas = transactions
-      .filter(t => t.transaction_type === 'Saída')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const saldoLiquido = totalEntradas - totalSaidas;
-    const margem = totalEntradas > 0 ? (saldoLiquido / totalEntradas) * 100 : 0;
-
-    return {
-      totalEntradas,
-      totalSaidas,
-      saldoLiquido,
-      margem
-    };
-  };
+  const financialEvolution = useMemo(() => processMonthlyData(cashTransactions), [cashTransactions]);
+  const expensesByCategory = useMemo(() => processCategoryData(cashTransactions), [cashTransactions]);
+  const expensesByCostCenter = useMemo(() => processCostCenterData(cashTransactions), [cashTransactions]);
+  const totalMetrics = useMemo(() => calculateTotalMetrics(cashTransactions), [cashTransactions]);
 
   const chartConfig = {
     entradas: {

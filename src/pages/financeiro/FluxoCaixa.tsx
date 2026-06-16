@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,62 +45,56 @@ const getOriginLabel = (referenceType?: string) => {
   return originLabels[referenceType] || "Sistema";
 };
 
+async function fetchCashTransactions(start: string, end: string): Promise<CashTransaction[]> {
+  const { data, error } = await supabase
+    .from("cash_transactions")
+    .select(`
+      *,
+      cost_centers(name),
+      chart_of_accounts(name),
+      bank_accounts(name, bank_name)
+    `)
+    .gte("transaction_date", start)
+    .lte("transaction_date", end)
+    .order("transaction_date", { ascending: false });
+
+  if (error) throw error;
+  return (data || []) as CashTransaction[];
+}
+
+const EMPTY_TRANSACTIONS: CashTransaction[] = [];
+
 const FluxoCaixa = () => {
-  const [transactions, setTransactions] = useState<CashTransaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const showLoader = useDelayedLoading(loading);
-  const [fetching, setFetching] = useState(false); // refetch silencioso (sem blankar a tela)
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState({
     start: format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), "yyyy-MM-dd"),
     end: format(new Date(), "yyyy-MM-dd"),
   });
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Só busca quando ambas as datas forem completas (10 chars: yyyy-mm-dd)
+  const validDates = dateFilter.start.length === 10 && dateFilter.end.length === 10;
+
+  const {
+    data: transactions = EMPTY_TRANSACTIONS,
+    isPending,
+    isFetching,
+    isError,
+  } = useQuery({
+    queryKey: ["fluxo-caixa", dateFilter.start, dateFilter.end],
+    queryFn: () => fetchCashTransactions(dateFilter.start, dateFilter.end),
+    enabled: validDates,
+  });
+
+  // Com `enabled: false` (datas incompletas) isPending continua true; só blanqueia
+  // a tela na carga inicial quando as datas são válidas.
+  const loading = isPending && validDates;
+  const showLoader = useDelayedLoading(loading);
+  const fetching = isFetching && !loading; // refetch silencioso (sem blankar a tela)
 
   useEffect(() => {
-    // Debounce de 600ms para evitar flash a cada tecla digitada na data
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      // Só busca se ambas as datas forem datas válidas completas (10 chars: yyyy-mm-dd)
-      if (dateFilter.start.length === 10 && dateFilter.end.length === 10) {
-        fetchData(false);
-      }
-    }, 600);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [dateFilter]);
-
-  const fetchData = async (initial = true) => {
-    try {
-      if (initial) setLoading(true);
-      else setFetching(true);
-
-      const { data, error } = await supabase
-        .from("cash_transactions")
-        .select(`
-          *,
-          cost_centers(name),
-          chart_of_accounts(name),
-          bank_accounts(name, bank_name)
-        `)
-        .gte("transaction_date", dateFilter.start)
-        .lte("transaction_date", dateFilter.end)
-        .order("transaction_date", { ascending: false });
-
-      if (error) throw error;
-
-      setTransactions((data || []) as CashTransaction[]);
-    } catch (error) {
-      console.error("Error fetching cash flow data:", error);
-      toast.error("Erro ao carregar fluxo de caixa");
-    } finally {
-      setLoading(false);
-      setFetching(false);
-    }
-  };
-
-  // Carga inicial
-  useEffect(() => { fetchData(true); }, []);
+    if (isError) toast.error("Erro ao carregar fluxo de caixa");
+  }, [isError]);
 
   const filteredTransactions = transactions.filter((transaction) => {
     const matchesSearch =
