@@ -16,7 +16,31 @@ interface SimplifiedMaterialsTableProps {
   onRowClick?: (material: Material) => void;
 }
 
-type SortField = 'name' | 'code' | 'category' | 'subcategory' | 'purchaseUnit' | 'usageUnit' | 'conversionFactor';
+// Rótulos PT dos tipos de material (comportamentais). Mantém alinhado com a
+// taxonomia de Tipo e permite bater Tipo x Categoria x Subcategoria na listagem.
+const MATERIAL_TYPE_LABELS: Record<string, string> = {
+  ingredient: 'Insumo',
+  packaging: 'Embalagem',
+  intermediate_product: 'Intermediário',
+  finished_product: 'Acabado',
+  composite_product: 'Composto',
+  resale_product: 'Revenda',
+  equipment: 'Equipamento',
+  supply: 'Consumo',
+};
+
+const MATERIAL_TYPE_COLORS: Record<string, string> = {
+  ingredient: 'bg-blue-100 text-blue-800 border-blue-200',
+  packaging: 'bg-amber-100 text-amber-800 border-amber-200',
+  intermediate_product: 'bg-purple-100 text-purple-800 border-purple-200',
+  finished_product: 'bg-green-100 text-green-800 border-green-200',
+  composite_product: 'bg-pink-100 text-pink-800 border-pink-200',
+  resale_product: 'bg-teal-100 text-teal-800 border-teal-200',
+  equipment: 'bg-slate-200 text-slate-800 border-slate-300',
+  supply: 'bg-orange-100 text-orange-800 border-orange-200',
+};
+
+type SortField = 'name' | 'code' | 'materialType' | 'category' | 'subcategory' | 'purchaseUnit' | 'usageUnit' | 'conversionFactor';
 type SortDirection = 'asc' | 'desc';
 
 export const SimplifiedMaterialsTable = ({
@@ -136,7 +160,17 @@ export const SimplifiedMaterialsTable = ({
                 {getSortIcon('name')}
               </div>
             </TableHead>
-            <TableHead 
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50 min-w-[130px]"
+              onClick={() => handleSort('materialType')}
+            >
+              <div className="flex items-center gap-1">
+                Tipo
+                <HelpTooltip content="Tipo do material no sistema (Insumo, Acabado, Intermediário, Revenda, Equipamento, Consumo...). Define o comportamento — ex.: o que aparece nas Fichas Técnicas e no seletor de ingredientes." />
+                {getSortIcon('materialType')}
+              </div>
+            </TableHead>
+            <TableHead
               className="cursor-pointer hover:bg-muted/50 min-w-[150px]"
               onClick={() => handleSort('category')}
             >
@@ -224,7 +258,12 @@ export const SimplifiedMaterialsTable = ({
                 </div>
               </TableCell>
               <TableCell>
-                <Badge 
+                <Badge className={`text-xs whitespace-nowrap border ${MATERIAL_TYPE_COLORS[material.materialType] || 'bg-muted text-muted-foreground'}`}>
+                  {MATERIAL_TYPE_LABELS[material.materialType] || material.materialType}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Badge
                   className={`text-xs flex items-center w-fit whitespace-nowrap ${getCategoryStyles(material.category, 'primary')}`}
                 >
                   {getCategoryIcon(material.category)}

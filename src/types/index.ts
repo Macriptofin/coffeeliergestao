@@ -32,7 +32,7 @@ export interface Material {
   categoryTermId?: string; // Reference to material_category taxonomy term
   subcategoryTermId?: string; // Reference to material_subcategory taxonomy term
   code: string;
-  materialType: 'ingredient' | 'packaging' | 'intermediate_product' | 'finished_product' | 'composite_product';
+  materialType: 'ingredient' | 'packaging' | 'intermediate_product' | 'finished_product' | 'composite_product' | 'resale_product' | 'equipment' | 'supply';
   unitWeight?: number;
   isSellable?: boolean;
   costSource?: 'purchase' | 'production' | 'manual';
