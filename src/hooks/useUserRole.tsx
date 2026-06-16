@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export type UserRole = 'admin' | 'manager' | 'financial' | 'user' | null;
@@ -9,80 +10,79 @@ export type AppModule =
   | 'financeiro' | 'rh' | 'agenda' | 'fornecedores' | 'config';
 export type ModuleAction = 'view' | 'create' | 'edit' | 'delete' | 'approve';
 
+interface RoleData {
+  userRole: UserRole;
+  userId: string | null;
+  modulePerms: { module: string; action: string }[];
+}
+
+const USER_ROLE_QUERY_KEY = ['user-role'] as const;
+
+/**
+ * Busca role + permissões do usuário atual. Usado como queryFn única e
+ * compartilhada via react-query — antes era refeita em cada um dos ~21
+ * componentes que chamam useUserRole, causando flash de spinner e dezenas de
+ * requests redundantes a cada navegação.
+ */
+async function fetchUserRole(): Promise<RoleData> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  if (!user) return { userRole: null, userId: null, modulePerms: [] };
+
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Erro ao verificar role:', error);
+    return { userRole: null, userId: user.id, modulePerms: [] };
+  }
+
+  const role = (data?.[0]?.role as UserRole) ?? 'user';
+
+  // Permissões granulares só para roles não-admin/manager (esses têm tudo)
+  let modulePerms: { module: string; action: string }[] = [];
+  if (!['admin', 'manager'].includes(role as string)) {
+    const { data: perms } = await supabase
+      .from('module_permissions')
+      .select('module, action')
+      .eq('user_id', user.id);
+    modulePerms = perms || [];
+  }
+
+  return { userRole: role, userId: user.id, modulePerms };
+}
+
 export function useUserRole() {
-  const [userRole,    setUserRole]    = useState<UserRole>(null);
-  const [userId,      setUserId]      = useState<string | null>(null);
-  const [modulePerms, setModulePerms] = useState<{ module: string; action: string }[]>([]);
-  const [loading,     setLoading]     = useState(true);
+  const queryClient = useQueryClient();
 
-  const lastCheckRef = useRef(0);
-  const inFlightRef  = useRef<Promise<void> | null>(null);
+  const { data, isPending } = useQuery({
+    queryKey: USER_ROLE_QUERY_KEY,
+    queryFn: fetchUserRole,
+    staleTime: 5 * 60_000,   // 5min frescos — navegação não refaz a busca
+    gcTime: 10 * 60_000,
+  });
 
+  // Invalida o cache quando o estado de autenticação muda (login/logout/update)
   useEffect(() => {
-    checkUserRole();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED'].includes(event)) {
-        checkUserRole();
+        queryClient.invalidateQueries({ queryKey: USER_ROLE_QUERY_KEY });
       }
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [queryClient]);
 
-  const checkUserRole = async () => {
-    try {
-      const now = Date.now();
-      if (now - lastCheckRef.current < 5000 && userRole !== null) return;
-      if (inFlightRef.current) { await inFlightRef.current; return; }
-
-      setLoading(true);
-      inFlightRef.current = (async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user;
-        if (!user) {
-          setUserRole(null); setUserId(null); setModulePerms([]);
-          return;
-        }
-
-        setUserId(user.id);
-
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (error && error.code !== 'PGRST116') {
-          console.error('Erro ao verificar role:', error);
-          setUserRole(null);
-          return;
-        }
-
-        const role = (data?.[0]?.role as UserRole) ?? 'user';
-        setUserRole(role);
-
-        // Buscar permissões granulares (só para roles não-admin)
-        if (!['admin', 'manager'].includes(role)) {
-          const { data: perms } = await supabase
-            .from('module_permissions')
-            .select('module, action')
-            .eq('user_id', user.id);
-          setModulePerms(perms || []);
-        } else {
-          setModulePerms([]); // admin/manager têm tudo
-        }
-
-        lastCheckRef.current = now;
-      })();
-      await inFlightRef.current;
-    } catch (error) {
-      console.error('Erro ao verificar role do usuário:', error);
-      setUserRole(null);
-    } finally {
-      inFlightRef.current = null;
-      setLoading(false);
-    }
-  };
+  const userRole    = data?.userRole ?? null;
+  const userId      = data?.userId ?? null;
+  // Estabiliza a referência para não recriar o callback `can` a cada render
+  const modulePerms = useMemo(() => data?.modulePerms ?? [], [data?.modulePerms]);
+  // `loading` só é true enquanto não houver dado em cache; após a 1ª carga,
+  // todos os consumidores compartilham o cache e não há mais flash.
+  const loading     = isPending;
 
   const hasRole = (requiredRole: UserRole | UserRole[]): boolean => {
     if (!userRole) return false;
@@ -113,6 +113,6 @@ export function useUserRole() {
     hasRole, isAdmin, isAdminOrManager,
     can, canView, canCreate, canEdit, canDelete, canApprove,
     modulePerms,
-    refetch: checkUserRole,
+    refetch: () => queryClient.invalidateQueries({ queryKey: USER_ROLE_QUERY_KEY }),
   };
 }

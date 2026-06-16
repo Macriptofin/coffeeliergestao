@@ -55,7 +55,16 @@ import MateriaisProblemas from "./pages/stock/MateriaisProblemas";
 import MateriaisDiagnostico from "./pages/stock/MateriaisDiagnostico";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,            // dados frescos por 30s — navegar não refaz busca
+      gcTime: 5 * 60_000,           // mantém cache por 5min após sair da tela
+      refetchOnWindowFocus: false,  // evita flash ao voltar o foco da janela/aba
+      retry: 1,
+    },
+  },
+});
 
 function App() {
   return (
