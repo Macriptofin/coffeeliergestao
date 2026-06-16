@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -58,14 +59,59 @@ const DOCUMENT_TYPES = [
 
 const today = format(new Date(), 'yyyy-MM-dd');
 
+interface ContasPagarRefs {
+  suppliers: Supplier[];
+  costCenters: CostCenter[];
+  chartAccounts: Account[];
+  bankAccounts: BankAccount[];
+}
+
+const EMPTY_REFS: ContasPagarRefs = { suppliers: [], costCenters: [], chartAccounts: [], bankAccounts: [] };
+
+async function fetchAccountsPayable(): Promise<AccountPayable[]> {
+  const { data, error } = await supabase
+    .from('accounts_payable')
+    .select(`*, suppliers(company_name), cost_centers(name), chart_of_accounts(name)`)
+    .order('due_date', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+/** Dados de referência (mudam raramente) — fornecedores, centros de custo,
+ *  plano de contas e bancos. Cacheados com staleTime alto. */
+async function fetchContasPagarRefs(): Promise<ContasPagarRefs> {
+  const [suppliersRes, costCentersRes, chartRes, bankRes] = await Promise.all([
+    supabase.from('suppliers').select('id, company_name').eq('status', 'Ativo').order('company_name'),
+    supabase.from('cost_centers').select('id, name, code').eq('is_active', true).order('code'),
+    supabase.from('chart_of_accounts').select('id, name, code, level, is_postable')
+      .eq('is_active', true).eq('account_type', 'Despesas').order('code'),
+    supabase.from('bank_accounts').select('id, name, bank_name').eq('is_active', true).order('name'),
+  ]);
+  if (suppliersRes.error) throw suppliersRes.error;
+  return {
+    suppliers:    suppliersRes.data   || [],
+    costCenters:  costCentersRes.data || [],
+    chartAccounts: chartRes.data      || [],
+    bankAccounts: bankRes.data        || [],
+  };
+}
+
 const ContasPagar = () => {
   // ── data ──────────────────────────────────────────────────────────────────
-  const [accounts,      setAccounts]      = useState<AccountPayable[]>([]);
-  const [suppliers,     setSuppliers]     = useState<Supplier[]>([]);
-  const [costCenters,   setCostCenters]   = useState<CostCenter[]>([]);
-  const [chartAccounts, setChartAccounts] = useState<Account[]>([]);
-  const [bankAccounts,  setBankAccounts]  = useState<BankAccount[]>([]);
-  const [loading,       setLoading]       = useState(true);
+  const queryClient = useQueryClient();
+
+  const {
+    data: accounts = [],
+    isPending: loading,
+    isError: accountsError,
+  } = useQuery({ queryKey: ['accounts-payable'], queryFn: fetchAccountsPayable });
+
+  const { data: refs = EMPTY_REFS, isError: refsError } = useQuery({
+    queryKey: ['contas-pagar-refs'],
+    queryFn: fetchContasPagarRefs,
+    staleTime: 5 * 60_000,
+  });
+  const { suppliers, costCenters, chartAccounts, bankAccounts } = refs;
   const showLoader = useDelayedLoading(loading);
 
   // ── filters ───────────────────────────────────────────────────────────────
@@ -134,34 +180,13 @@ const ContasPagar = () => {
   const { methodNames: paymentMethodNames } = usePaymentMethods();
 
   // ── fetch ─────────────────────────────────────────────────────────────────
-  useEffect(() => { fetchData(); }, []);
+  // Erro de carregamento → toast (uma vez por mudança no estado de erro)
+  useEffect(() => {
+    if (accountsError || refsError) toast.error('Erro ao carregar dados');
+  }, [accountsError, refsError]);
 
-  const fetchData = async () => {
-    try {
-      const [accountsRes, suppliersRes, costCentersRes, chartRes, bankRes] = await Promise.all([
-        supabase.from('accounts_payable')
-          .select(`*, suppliers(company_name), cost_centers(name), chart_of_accounts(name)`)
-          .order('due_date', { ascending: false }),
-        supabase.from('suppliers').select('id, company_name').eq('status', 'Ativo').order('company_name'),
-        supabase.from('cost_centers').select('id, name, code').eq('is_active', true).order('code'),
-        supabase.from('chart_of_accounts').select('id, name, code, level, is_postable')
-          .eq('is_active', true).eq('account_type', 'Despesas').order('code'),
-        supabase.from('bank_accounts').select('id, name, bank_name').eq('is_active', true).order('name'),
-      ]);
-      if (accountsRes.error)   throw accountsRes.error;
-      if (suppliersRes.error)  throw suppliersRes.error;
-      setAccounts(accountsRes.data     || []);
-      setSuppliers(suppliersRes.data   || []);
-      setCostCenters(costCentersRes.data || []);
-      setChartAccounts(chartRes.data   || []);
-      setBankAccounts(bankRes.data     || []);
-    } catch (err) {
-      console.error(err);
-      toast.error('Erro ao carregar dados');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Após mutações, invalida a query de contas (dados de referência não mudam aqui)
+  const refetchAccounts = () => queryClient.invalidateQueries({ queryKey: ['accounts-payable'] });
 
   // ── helpers ───────────────────────────────────────────────────────────────
   const getEffectiveStatus = (a: AccountPayable) => {
@@ -304,7 +329,7 @@ const ContasPagar = () => {
         : 'Conta a pagar cadastrada com sucesso!');
       setNewDialogOpen(false);
       setFormData(emptyForm);
-      fetchData();
+      refetchAccounts();
     } catch (err) {
       console.error(err);
       toast.error('Erro ao cadastrar conta a pagar');
@@ -369,7 +394,7 @@ const ContasPagar = () => {
       toast.success('Conta atualizada com sucesso!');
       setEditDialogOpen(false);
       setEditingAccount(null);
-      fetchData();
+      refetchAccounts();
     } catch (err) {
       console.error(err);
       toast.error('Erro ao atualizar conta a pagar');
@@ -440,7 +465,7 @@ const ContasPagar = () => {
 
       setPaymentDialogOpen(false);
       setSelectedAccount(null);
-      fetchData();
+      refetchAccounts();
     } catch (err) {
       console.error(err);
       toast.error('Erro ao registrar pagamento');
@@ -452,7 +477,7 @@ const ContasPagar = () => {
     try {
       await supabase.from('accounts_payable').update({ status: 'Cancelado' }).eq('id', account.id);
       toast.success('Conta cancelada.');
-      fetchData();
+      refetchAccounts();
     } catch { toast.error('Erro ao cancelar conta'); }
   };
 
@@ -463,7 +488,7 @@ const ContasPagar = () => {
       toast.success('Conta excluída.');
       setDeleteDialogOpen(false);
       setDeletingAccount(null);
-      fetchData();
+      refetchAccounts();
     } catch { toast.error('Erro ao excluir conta'); }
   };
 
