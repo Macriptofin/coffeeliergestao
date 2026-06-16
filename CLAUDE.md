@@ -226,12 +226,13 @@ import { Button } from '@/components/ui/button';
 | ID | Descrição | Prioridade |
 |---|---|---|
 | #73 | Filtros em Contas a Pagar (período, status, fornecedor) | Alta |
-| #74 | Fix datas: frete e handleMarkPaid | Alta |
+| ~~#74~~ | ~~Fix datas: frete e handleMarkPaid~~ — ✅ Concluído (jun/2026, fuso local centralizado) | — |
 | #75 | Lançamento sem NF: despesas diretas | Alta |
 | #70 | Revisão completa fichas técnicas e ordens de produção | Média |
 | #91 | Frontend: seção fiscal por item + IPI no custo unitário | Média |
 | #64 | Fluxo de caixa: usar data de pagamento | Média |
 | #65 | Suporte a lançamentos sem nota fiscal | Média |
+| #102 | Concluir migração react-query: ~53 componentes menores + hooks de dados restantes (forms/dialogs/listas; padrão em ContasPagar/Dashboard). Páginas e sub-páginas já migradas. Migrar ao tocar em cada área. Ver memória `react-query-data-fetching-standard`. | Média |
 | #34 | Geocodificação precisa via Google Maps API | Baixa |
 
 ---
