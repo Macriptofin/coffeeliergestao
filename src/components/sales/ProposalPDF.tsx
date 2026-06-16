@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { todayLocalISO } from '@/lib/date-utils';
+import { todayLocalISO, formatLocalDate } from '@/lib/date-utils';
 import { useReactToPrint } from 'react-to-print';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -41,9 +41,27 @@ interface ProposalData {
   contact_phone: string;
 }
 
-interface CategoryItem {
-  category_label: string;
-  items: { name: string; qty_per_person: number; fixed_qty: number; unit: string }[];
+interface MenuItem {
+  name: string;
+  qty_per_person: number;
+  fixed_qty: number;
+  unit: string;
+}
+
+interface MenuSection {
+  label: string;
+  items: MenuItem[];
+}
+
+interface Composition {
+  id: string;
+  name: string;
+  scheduled_date: string | null;
+  scheduled_time: string | null;
+  location: string | null;
+  price_per_person: number;
+  number_of_people: number;
+  sections: MenuSection[];
 }
 
 interface Props {
@@ -51,12 +69,27 @@ interface Props {
   onClose: () => void;
 }
 
+// Ordem canônica + mapa KEY -> LABEL das seções do cardápio
+const SECTION_ORDER = ['salgados', 'doces', 'bebidas', 'frutas', 'sobremesas', 'lowfat'];
+const SECTION_LABELS: Record<string, string> = {
+  salgados:   'Salgados',
+  doces:      'Doces',
+  bebidas:    'Bebidas',
+  frutas:     'Frutas',
+  sobremesas: 'Sobremesas',
+  lowfat:     'Low Fat / Fitness',
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const fmtDate = (d: string) =>
   d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
 const fmtMoney = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const todayStr = () => todayLocalISO();
+// Data curta DD/MM via helper do projeto (evita offset de timezone)
+const fmtDateShort = (d: string | null) => (d ? formatLocalDate(d, 'dd/MM') : '');
+// Horário HH:MM (campo time chega como "HH:MM:SS")
+const fmtTime = (t: string | null) => (t ? t.slice(0, 5) : '');
 
 // ─── Sub-componentes ─────────────────────────────────────────────────────────
 
@@ -112,16 +145,16 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export function ProposalPDF({ proposalId, onClose }: Props) {
-  const [proposal,   setProposal]   = useState<ProposalData | null>(null);
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [loading,    setLoading]    = useState(true);
+  const [proposal,     setProposal]     = useState<ProposalData | null>(null);
+  const [compositions, setCompositions] = useState<Composition[]>([]);
+  const [loading,      setLoading]      = useState(true);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { loadData(); }, [proposalId]);
 
   const loadData = async () => {
     try {
-      const [propRes, catsRes] = await Promise.all([
+      const [propRes, compsRes, catsRes] = await Promise.all([
         supabase
           .from('proposals')
           .select(`
@@ -136,9 +169,17 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
           .eq('id', proposalId)
           .single(),
         supabase
+          .from('proposal_compositions')
+          .select(`
+            id, name, scheduled_date, scheduled_time, location,
+            sort_order, price_per_person, number_of_people
+          `)
+          .eq('proposal_id', proposalId)
+          .order('sort_order'),
+        supabase
           .from('proposal_categories')
           .select(`
-            category_label, sort_order,
+            category_label, sort_order, composition_id,
             proposal_category_items(qty_per_person, fixed_qty, materials(name, usage_unit))
           `)
           .eq('proposal_id', proposalId)
@@ -168,17 +209,91 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
         });
       }
 
-      if (catsRes.data) {
-        setCategories(catsRes.data.map((c: any) => ({
-          category_label: c.category_label,
-          items: (c.proposal_category_items || []).map((it: any) => ({
-            name: it.materials?.name || '—',
-            qty_per_person: parseFloat(it.qty_per_person || 0),
-            fixed_qty: parseFloat(it.fixed_qty || 0),
-            unit: it.materials?.usage_unit || 'un',
-          })),
-        })));
+      // ── Agrupa categorias por composição (momento) → seção → itens ──────────
+      const rawCats: any[] = catsRes.data || [];
+      const rawComps: any[] = compsRes.data || [];
+
+      // Converte uma linha de categoria em MenuSection (apenas se tiver itens).
+      const toSection = (c: any): MenuSection | null => {
+        const items: MenuItem[] = (c.proposal_category_items || []).map((it: any) => ({
+          name: it.materials?.name || '—',
+          qty_per_person: parseFloat(it.qty_per_person || 0),
+          fixed_qty: parseFloat(it.fixed_qty || 0),
+          unit: it.materials?.usage_unit || 'un',
+        }));
+        if (items.length === 0) return null;
+        const key = (c.category_label || '').toLowerCase();
+        // KEY conhecida → label canônica; legado/desconhecida → label cru.
+        const label = SECTION_LABELS[key] || c.category_label || '—';
+        return { label, items };
+      };
+
+      // Ordena seções de uma composição pela ordem canônica; desconhecidas no fim.
+      const orderSections = (cats: any[]): MenuSection[] => {
+        const sorted = [...cats].sort((a, b) => {
+          const ka = (a.category_label || '').toLowerCase();
+          const kb = (b.category_label || '').toLowerCase();
+          const ia = SECTION_ORDER.indexOf(ka);
+          const ib = SECTION_ORDER.indexOf(kb);
+          const ra = ia === -1 ? SECTION_ORDER.length : ia;
+          const rb = ib === -1 ? SECTION_ORDER.length : ib;
+          if (ra !== rb) return ra - rb;
+          return (a.sort_order || 0) - (b.sort_order || 0);
+        });
+        return sorted.map(toSection).filter(Boolean) as MenuSection[];
+      };
+
+      let comps: Composition[];
+
+      if (rawComps.length > 0) {
+        // Caso normal: múltiplas composições (momentos).
+        comps = rawComps.map((cp: any) => ({
+          id: cp.id,
+          name: cp.name || '',
+          scheduled_date: cp.scheduled_date || null,
+          scheduled_time: cp.scheduled_time || null,
+          location: cp.location || null,
+          price_per_person: parseFloat(cp.price_per_person || 0),
+          number_of_people: cp.number_of_people || 0,
+          sections: orderSections(rawCats.filter((c) => c.composition_id === cp.id)),
+        }));
+
+        // Categorias órfãs (composition_id NULL) viram uma composição implícita.
+        const orphanCats = rawCats.filter((c) => !c.composition_id);
+        const orphanSections = orderSections(orphanCats);
+        if (orphanSections.length > 0) {
+          comps.push({
+            id: '__legacy__',
+            name: '',
+            scheduled_date: null,
+            scheduled_time: null,
+            location: null,
+            price_per_person: 0,
+            number_of_people: 0,
+            sections: orphanSections,
+          });
+        }
+
+        // Remove composições sem nenhuma seção com itens.
+        comps = comps.filter((c) => c.sections.length > 0);
+      } else {
+        // Legado: nenhuma composição — uma composição implícita com todas as categorias.
+        const sections = orderSections(rawCats);
+        comps = sections.length > 0
+          ? [{
+              id: '__legacy__',
+              name: '',
+              scheduled_date: null,
+              scheduled_time: null,
+              location: null,
+              price_per_person: 0,
+              number_of_people: 0,
+              sections,
+            }]
+          : [];
       }
+
+      setCompositions(comps);
     } catch (e) {
       console.error(e);
     } finally {
@@ -224,10 +339,9 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
     flex: 1,
   };
 
-  // ── Categorias: grade adaptativa ─────────────────────────────────────────
-  const catCols = categories.length <= 2 ? '1fr 1fr'
-    : categories.length === 3 ? '1fr 1fr 1fr'
-    : '1fr 1fr';
+  // ── Seções: grade adaptativa (por composição) ────────────────────────────
+  const sectionCols = (n: number) =>
+    n <= 2 ? '1fr 1fr' : n === 3 ? '1fr 1fr 1fr' : '1fr 1fr';
 
   return (
     <div>
@@ -318,48 +432,86 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
                 </div>
               </div>
 
-              {/* Composição */}
+              {/* Composição — agrupada por momento (composição) → seção → itens */}
               <div style={{ marginBottom: 12 }}>
                 <SectionTitle>Composição</SectionTitle>
-                <div style={{ display: 'grid', gridTemplateColumns: catCols, gap: 6 }}>
-                  {(categories.length > 0 ? categories : [
-                    { category_label: 'Salgados', items: [] },
-                    { category_label: 'Doces',    items: [] },
-                    { category_label: 'Low Fat',  items: [] },
-                    { category_label: 'Bebidas',  items: [] },
-                  ]).map(cat => (
-                    <div key={cat.category_label} style={{ background: C.oliva, borderRadius: 5, overflow: 'hidden' }}>
-                      <div style={{
-                        background: 'rgba(0,0,0,0.22)', padding: '5px 10px',
-                        fontSize: 7, fontWeight: 800, color: C.cremedark,
-                        textTransform: 'uppercase', letterSpacing: 0.8,
-                      }}>
-                        {cat.category_label}
-                      </div>
-                      <div style={{ padding: '6px 10px' }}>
-                        {cat.items.length > 0 ? cat.items.map((it, i) => {
-                          const qty  = it.qty_per_person > 0 ? it.qty_per_person : it.fixed_qty;
-                          const label = it.qty_per_person > 0 ? `${qty} ${it.unit}/pp` : `${qty} ${it.unit}`;
-                          return (
-                            <div key={i} style={{
-                              fontSize: 8, color: 'rgba(252,232,208,0.85)',
-                              padding: '2px 0',
-                              borderBottom: i < cat.items.length - 1 ? '0.5px solid rgba(255,255,255,0.1)' : 'none',
-                              display: 'flex', justifyContent: 'space-between',
-                            }}>
-                              <span>{it.name}</span>
-                              <span style={{ opacity: 0.55, fontSize: 7, marginLeft: 4 }}>{label}</span>
-                            </div>
-                          );
-                        }) : (
-                          <div style={{ fontSize: 8, color: 'rgba(252,232,208,0.35)', fontStyle: 'italic' }}>
-                            A compor
+
+                {compositions.length === 0 && (
+                  <div style={{ fontSize: 8, color: C.textMuted, fontStyle: 'italic' }}>
+                    A compor
+                  </div>
+                )}
+
+                {compositions.map((comp, ci) => {
+                  // Linha-cabeçalho do momento: nome · DD/MM · HH:MM · local
+                  const meta = [
+                    fmtDateShort(comp.scheduled_date),
+                    fmtTime(comp.scheduled_time),
+                    comp.location || '',
+                  ].filter(Boolean).join(' · ');
+                  const showMomentHeader = !!comp.name || !!meta || comp.price_per_person > 0;
+
+                  return (
+                    <div key={comp.id} style={{ marginBottom: ci < compositions.length - 1 ? 12 : 0 }}>
+                      {showMomentHeader && (
+                        <div style={{
+                          display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+                          gap: 8, marginBottom: 6,
+                          borderLeft: `3px solid ${C.oliva}`, paddingLeft: 8,
+                        }}>
+                          <div>
+                            {comp.name && (
+                              <div style={{ fontSize: 9.5, fontWeight: 800, color: C.oliva, lineHeight: 1.2 }}>
+                                {comp.name}
+                              </div>
+                            )}
+                            {meta && (
+                              <div style={{ fontSize: 7.5, color: C.textMuted, marginTop: 1 }}>
+                                {meta}
+                              </div>
+                            )}
                           </div>
-                        )}
+                          {comp.price_per_person > 0 && (
+                            <div style={{ fontSize: 8.5, fontWeight: 700, color: C.oliva, whiteSpace: 'nowrap' }}>
+                              {fmtMoney(comp.price_per_person)} por pessoa
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div style={{ display: 'grid', gridTemplateColumns: sectionCols(comp.sections.length), gap: 6 }}>
+                        {comp.sections.map(sec => (
+                          <div key={sec.label} style={{ background: C.oliva, borderRadius: 5, overflow: 'hidden' }}>
+                            <div style={{
+                              background: 'rgba(0,0,0,0.22)', padding: '5px 10px',
+                              fontSize: 7, fontWeight: 800, color: C.cremedark,
+                              textTransform: 'uppercase', letterSpacing: 0.8,
+                            }}>
+                              {sec.label}
+                            </div>
+                            <div style={{ padding: '6px 10px' }}>
+                              {sec.items.map((it, i) => {
+                                const qty  = it.qty_per_person > 0 ? it.qty_per_person : it.fixed_qty;
+                                const label = it.qty_per_person > 0 ? `${qty} ${it.unit}/pp` : `${qty} ${it.unit}`;
+                                return (
+                                  <div key={i} style={{
+                                    fontSize: 8, color: 'rgba(252,232,208,0.85)',
+                                    padding: '2px 0',
+                                    borderBottom: i < sec.items.length - 1 ? '0.5px solid rgba(255,255,255,0.1)' : 'none',
+                                    display: 'flex', justifyContent: 'space-between',
+                                  }}>
+                                    <span>{it.name}</span>
+                                    <span style={{ opacity: 0.55, fontSize: 7, marginLeft: 4 }}>{label}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
 
               {/* Nota */}
