@@ -33,6 +33,7 @@ export const ThermalPrintableOrder = forwardRef<HTMLDivElement, ThermalPrintable
           padding: '2mm',
           fontFamily: 'monospace',
           fontSize: '12px',
+          fontWeight: 700, // impressão toda em negrito p/ melhor leitura na térmica
           color: '#000',
           background: '#fff',
           boxSizing: 'border-box',
