@@ -46,6 +46,8 @@ export interface Material {
   origem?: number; // 0=Nacional, 1=Estrangeira direta, 2=Estrangeira mercado interno
   // Controle de estoque
   tracksInventory?: boolean; // false = não gera movimentação de estoque na NF (ex: combustível, descartáveis)
+  // Restrições & características (tags do tipo material_restriction, via material_tags)
+  restrictionTagIds?: string[];
 }
 
 export interface Recipe {

@@ -290,7 +290,7 @@ const Materials = () => {
   const addMaterial = async (material: Omit<Material, 'id' | 'code'>) => {
     try {
       console.log('Adicionando material:', material);
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from('materials')
         .insert({
           name: material.name,
@@ -316,11 +316,27 @@ const Materials = () => {
           cst: material.cst,
           origem: material.origem,
           tracks_inventory: material.tracksInventory !== false,
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) {
         console.error('Erro ao inserir material:', error);
         throw error;
+      }
+
+      // Persistir tags de restrição/característica (material_tags)
+      const newId = inserted?.id;
+      if (newId && material.restrictionTagIds?.length) {
+        const { error: tagsError } = await supabase
+          .from('material_tags' as any)
+          .insert(material.restrictionTagIds.map(termId => ({
+            material_id: newId,
+            term_id: termId,
+          })));
+        if (tagsError) {
+          console.error('Erro ao inserir tags do material:', tagsError);
+        }
       }
 
       refetchMaterials();
@@ -366,7 +382,30 @@ const Materials = () => {
         console.error('Erro ao atualizar material:', error);
         throw error;
       }
-      
+
+      // Sincronizar tags de restrição/característica (só se fornecido — evita apagar
+      // em saves parciais; os formulários sempre enviam o array).
+      if (updatedMaterial.restrictionTagIds !== undefined) {
+        const { error: delError } = await supabase
+          .from('material_tags' as any)
+          .delete()
+          .eq('material_id', updatedMaterial.id);
+        if (delError) {
+          console.error('Erro ao limpar tags do material:', delError);
+        }
+        if (updatedMaterial.restrictionTagIds.length) {
+          const { error: insError } = await supabase
+            .from('material_tags' as any)
+            .insert(updatedMaterial.restrictionTagIds.map(termId => ({
+              material_id: updatedMaterial.id,
+              term_id: termId,
+            })));
+          if (insError) {
+            console.error('Erro ao inserir tags do material:', insError);
+          }
+        }
+      }
+
       refetchMaterials();
       setEditingMaterial(null);
       setShowMaterialForm(false);
@@ -403,8 +442,21 @@ const Materials = () => {
     }
   };
 
-  const startEditingMaterial = (material: Material) => {
-    setEditingMaterial(material);
+  const startEditingMaterial = async (material: Material) => {
+    // Carregar tags de restrição/característica atuais para iniciar os checkboxes marcados
+    let restrictionTagIds: string[] = [];
+    try {
+      const { data, error } = await supabase
+        .from('material_tags' as any)
+        .select('term_id')
+        .eq('material_id', material.id);
+      if (error) throw error;
+      restrictionTagIds = (data || []).map((row: any) => row.term_id);
+    } catch (err) {
+      console.error('Erro ao carregar tags do material:', err);
+    }
+
+    setEditingMaterial({ ...material, restrictionTagIds });
     if (isMobile) {
       navigate(`/materiais/${material.id}/editar`);
     } else {
@@ -445,7 +497,7 @@ const Materials = () => {
     
     if (newIndex >= 0 && newIndex < filteredMaterials.length) {
       const newMaterial = filteredMaterials[newIndex];
-      setEditingMaterial(newMaterial);
+      startEditingMaterial(newMaterial);
     }
   };
 

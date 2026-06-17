@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { Textarea } from "@/components/ui/textarea";
-import { X, AlertTriangle, Package, Tag, Layers, Receipt } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { X, AlertTriangle, Package, Tag, Layers, Receipt, Leaf } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Material } from "@/types";
 import { useTaxonomy } from "@/hooks/useConfig";
@@ -26,6 +27,9 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   const materialTypesFromTaxonomy = getTermsByTaxonomy('material_type').filter(term => term.is_active);
   const allCategories = getTermsByTaxonomy('material_category').filter(term => term.is_active);
   const allSubcategories = getTermsByTaxonomy('material_subcategory').filter(term => term.is_active);
+  const restrictionTerms = getTermsByTaxonomy('material_restriction')
+    .filter(term => term.is_active)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name));
 
   const getInitialTypeTermId = () => {
     if (!material) return '';
@@ -62,6 +66,14 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     origem: material?.origem?.toString() || '0',
   });
 
+  const [restrictionTagIds, setRestrictionTagIds] = useState<string[]>(material?.restrictionTagIds ?? []);
+
+  const toggleRestriction = (termId: string) => {
+    setRestrictionTagIds(prev =>
+      prev.includes(termId) ? prev.filter(id => id !== termId) : [...prev, termId]
+    );
+  };
+
   const [duplicateError, setDuplicateError] = useState('');
   const originalName = material?.name || '';
 
@@ -82,18 +94,20 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     ? allSubcategories.filter(sub => sub.parent_id === selectedCategoryTerm.id)
     : [];
 
-  const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => {
+  const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Material['materialType'] => {
+    // Override por categoria: Equipamentos sempre mapeia para 'equipment'
+    if (categoryName === 'Equipamentos') return 'equipment';
     const term = materialTypesFromTaxonomy.find(t => t.id === typeTermId);
     if (!term) return 'ingredient';
     const map: Record<string, Material['materialType']> = {
       'Insumo': 'ingredient',
       'Embalagem': 'packaging',
-      'Produto Acabado': 'finished_product',
       'Produto Intermediário': 'intermediate_product',
+      'Produto Acabado': 'finished_product',
       'Produto Composto': 'composite_product',
-      'Produto de Revenda': 'finished_product',
-      'Material de Limpeza': 'ingredient',
-      'Material de Consumo': 'ingredient',
+      'Produto de Revenda': 'resale_product',
+      'Material de Limpeza': 'supply',
+      'Material de Consumo': 'supply',
     };
     return map[term.name] || 'ingredient';
   };
@@ -123,7 +137,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   const isBOMProduct = material && ['intermediate_product', 'finished_product'].includes(material.materialType);
 
   // Tipo atualmente selecionado no formulário (pode diferir do material salvo ao trocar o tipo)
-  const currentLegacyType = formData.typeTermId ? getLegacyMaterialType(formData.typeTermId) : (material?.materialType || 'ingredient');
+  const currentLegacyType = formData.typeTermId ? getLegacyMaterialType(formData.typeTermId, formData.category) : (material?.materialType || 'ingredient');
   // Produto produzido = intermediário ou acabado. Não é comprado, portanto não tem
   // unidade de compra nem fator de conversão — esses campos são preenchidos automaticamente.
   const isProducedType = ['intermediate_product', 'finished_product'].includes(currentLegacyType);
@@ -185,13 +199,15 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       typeTermId: formData.typeTermId,
       categoryTermId: categoryTerm?.id,
       subcategoryTermId: subcategoryTerm?.id,
-      materialType: getLegacyMaterialType(formData.typeTermId),
+      materialType: getLegacyMaterialType(formData.typeTermId, formData.category),
       unitWeight: formData.unitWeight ? parseFloat(formData.unitWeight) : undefined,
       // Fiscal
       ncm: formData.ncm || undefined,
       cfop: formData.cfop || undefined,
       cst: formData.cst || undefined,
       origem: formData.origem !== '' ? parseInt(formData.origem) : undefined,
+      // Restrições & características
+      restrictionTagIds,
     });
   };
 
@@ -318,6 +334,36 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
               </div>
             </div>
           </div>
+
+          {restrictionTerms.length > 0 && (
+            <>
+              <div className="border-t border-border" />
+
+              {/* ── SEÇÃO: RESTRIÇÕES & CARACTERÍSTICAS ── */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  <Leaf className="h-4 w-4" />
+                  <span>Restrições & Características</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {restrictionTerms.map((term) => (
+                    <label
+                      key={term.id}
+                      htmlFor={`restriction-${term.id}`}
+                      className="flex items-center gap-2 text-sm cursor-pointer"
+                    >
+                      <Checkbox
+                        id={`restriction-${term.id}`}
+                        checked={restrictionTagIds.includes(term.id)}
+                        onCheckedChange={() => toggleRestriction(term.id)}
+                      />
+                      <span>{term.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="border-t border-border" />
 

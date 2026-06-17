@@ -12,9 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   X,
   Save,
+  Leaf,
   ArrowLeft,
   ArrowRight,
   Package,
@@ -88,6 +90,14 @@ export const MaterialEditor = ({
     origem: material?.origem?.toString() || '0',
   });
 
+  const [restrictionTagIds, setRestrictionTagIds] = useState<string[]>(material?.restrictionTagIds ?? []);
+
+  const toggleRestriction = (termId: string) => {
+    setRestrictionTagIds(prev =>
+      prev.includes(termId) ? prev.filter(id => id !== termId) : [...prev, termId]
+    );
+  };
+
   // Track which material has been initialized to prevent formData reset on taxonomy re-renders
   const initializedMaterialId = useRef<string | null>(null);
 
@@ -107,6 +117,9 @@ const materialTypesFromTaxonomy = getTermsByTaxonomy('material_type').filter(ter
 // Get all categories and subcategories
 const allCategories = getTermsByTaxonomy('material_category').filter(t => t.is_active);
 const allSubcategories = getTermsByTaxonomy('material_subcategory').filter(t => t.is_active);
+const restrictionTerms = getTermsByTaxonomy('material_restriction')
+  .filter(t => t.is_active)
+  .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name));
 
 // Filter categories based on selected type
 // Categories have parent_id pointing to the material_type term
@@ -121,19 +134,21 @@ const availableSubcategories = selectedCategoryTerm
   : [];
 
 // Map type term to legacy materialType for database
-const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => {
+const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Material['materialType'] => {
+  // Override por categoria: Equipamentos sempre mapeia para 'equipment'
+  if (categoryName === 'Equipamentos') return 'equipment';
   const typeTerm = materialTypesFromTaxonomy.find(t => t.id === typeTermId);
   if (!typeTerm) return 'ingredient';
-  
+
   const nameToType: Record<string, Material['materialType']> = {
     'Insumo': 'ingredient',
     'Embalagem': 'packaging',
-    'Produto Acabado': 'finished_product',
     'Produto Intermediário': 'intermediate_product',
+    'Produto Acabado': 'finished_product',
     'Produto Composto': 'composite_product',
-    'Produto de Revenda': 'ingredient', // fallback
-    'Material de Limpeza': 'ingredient', // fallback
-    'Material de Consumo': 'ingredient', // fallback
+    'Produto de Revenda': 'resale_product',
+    'Material de Limpeza': 'supply',
+    'Material de Consumo': 'supply',
   };
   return nameToType[typeTerm.name] || 'ingredient';
 };
@@ -147,12 +162,14 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
     }
     
     // Fallback: try to find type term based on materialType
-    const typeMapping: Record<Material['materialType'], string> = {
+    const typeMapping: Partial<Record<Material['materialType'], string>> = {
       'ingredient': 'Insumo',
       'packaging': 'Embalagem',
       'finished_product': 'Produto Acabado',
       'intermediate_product': 'Produto Intermediário',
       'composite_product': 'Produto Composto',
+      'resale_product': 'Produto de Revenda',
+      'supply': 'Material de Consumo',
     };
     
     const typeName = typeMapping[mat.materialType];
@@ -187,6 +204,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
         cst: material.cst || '',
         origem: material.origem?.toString() || '0',
       });
+      setRestrictionTagIds(material.restrictionTagIds ?? []);
     }
   }, [material, materialTypesFromTaxonomy]);
 
@@ -212,10 +230,15 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
         formData.cfop !== (material.cfop || '') ||
         formData.cst !== (material.cst || '') ||
         formData.origem !== (material.origem?.toString() || '0');
-      
-      setHasUnsavedChanges(hasChanges);
+
+      const initialTags = material.restrictionTagIds ?? [];
+      const tagsChanged =
+        restrictionTagIds.length !== initialTags.length ||
+        restrictionTagIds.some(id => !initialTags.includes(id));
+
+      setHasUnsavedChanges(hasChanges || tagsChanged);
     }
-  }, [formData, material, materialTypesFromTaxonomy]);
+  }, [formData, restrictionTagIds, material, materialTypesFromTaxonomy]);
 
   // Load BOM data for produced materials
   useEffect(() => {
@@ -278,8 +301,8 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
 
     setDuplicateError('');
 
-    // Get legacy materialType from type term
-    const legacyMaterialType = getLegacyMaterialType(formData.typeTermId);
+    // Get legacy materialType from type term (com override de categoria Equipamentos)
+    const legacyMaterialType = getLegacyMaterialType(formData.typeTermId, formData.category);
     
     // Find taxonomy term IDs for the selected category and subcategory
     const categoryTerm = allCategories.find(cat => cat.name === formData.category);
@@ -314,6 +337,7 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
       cfop: formData.cfop || undefined,
       cst: formData.cst || undefined,
       origem: formData.origem ? parseInt(formData.origem) : undefined,
+      restrictionTagIds,
     };
 
     onSave(updatedMaterial);
@@ -678,6 +702,31 @@ const getLegacyMaterialType = (typeTermId: string): Material['materialType'] => 
                   placeholder="Ex: Fleischmann, Fermipan, Itaiquara (separar por vírgulas)"
                 />
               </div>
+
+              {restrictionTerms.length > 0 && (
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2">
+                    <Leaf className="h-4 w-4" />
+                    Restrições & Características
+                  </Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {restrictionTerms.map((term) => (
+                      <label
+                        key={term.id}
+                        htmlFor={`restriction-${term.id}`}
+                        className="flex items-center gap-2 text-sm cursor-pointer"
+                      >
+                        <Checkbox
+                          id={`restriction-${term.id}`}
+                          checked={restrictionTagIds.includes(term.id)}
+                          onCheckedChange={() => toggleRestriction(term.id)}
+                        />
+                        <span>{term.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="stock" className="mt-0">
