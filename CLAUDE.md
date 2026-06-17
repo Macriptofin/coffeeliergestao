@@ -107,7 +107,8 @@ supabase/migrations/AAAAMMDDHHMMSS_nome_snake_case.sql
   - `bom_production_orders.status`: `'Planejado'`, `'Em Produção'`, `'Concluído'`, `'Cancelado'`
   - `event_production_orders.status`: `'Planejado'`, `'Em Produção'`, `'Concluído'`, `'Cancelado'`
   - `inventory_cycles.status`: `'Rascunho'`, `'Contagem'`, `'Reconciliando'`, `'Fechado'`
-  - `proposals.status`: `'Rascunho'`, `'Enviada'`, `'Aprovada'`, `'Rejeitada'`
+  - `proposals.status`: `'Rascunho'` → `'Enviada'` → `'Aprovada pelo Cliente'` → `'Aprovada'` (+ `'Rejeitada'`, `'Cancelada'`). Fluxo: cliente **aceita** (`Aprovada pelo Cliente`, não gera nada) → equipe **revisa e aprova** (`Aprovada` → gera evento + ordens)
+  - `materials.material_type` (chave **comportamental**, em inglês — exceção à regra PT-BR; define onde o item aparece): `'ingredient'`, `'packaging'`, `'intermediate_product'`, `'finished_product'`, `'composite_product'`, `'resale_product'`, `'equipment'`, `'supply'`
 - Todas as funções SECURITY DEFINER devem ter `SET search_path = public`
 - Constraints CHECK estão ativas nas tabelas — sempre verificar antes de inserir valores novos
 
@@ -121,6 +122,16 @@ supabase/migrations/AAAAMMDDHHMMSS_nome_snake_case.sql
 | `rpc_inventory_finalize` | Fecha ciclo e aplica todos os ajustes |
 | `finalize_production_order` | Finaliza OP BOM com rendimento real |
 | `reserve_stock_for_production_order` | Reserva estoque para OP |
+| `create_event_from_proposal(uuid)` | Gera **1 evento na agenda por composição** da proposta (idempotente) |
+| `generate_production_from_proposal(uuid)` | Gera **Ordem de Evento** (separação, `event_production_orders`) por composição + **Ordem de Produção** (`bom_production_orders`) só do **déficit vs estoque** |
+| `approve_proposal_by_token(text)` | Cliente aceita pela página pública → status `'Aprovada pelo Cliente'` (NÃO gera; geração é na aprovação final da equipe) |
+
+### Taxonomia de materiais (3 eixos independentes) e motor de proposta
+
+- **Taxonomia** em `taxonomy_definitions` (keys: `material_type`, `material_category`, `material_subcategory`, `material_restriction`) + `taxonomy_terms` (hierárquico por `parent_id`). `term_id` é a **fonte da verdade**; as colunas texto `materials.category/subcategory` são sincronizadas a partir do termo.
+  - **Tipo** = papel no sistema (`material_type`, 8 valores acima). **Categoria → Subcategoria** = domínio de negócio (9 categorias canônicas: Alimentos & Ingredientes, Doces & Confeitaria, Salgados, Bebidas, Embalagem, Higiene e Limpeza, Equipamentos, Operacionais, Kits & Mesas).
+  - **Tags de restrição/característica** = eixo transversal (Low Fat, Vegano, Sem Glúten…) — taxonomia `material_restriction` + tabela de ligação `material_tags (material_id, term_id)` (many-to-many). Um produto pode ter várias.
+- **Proposta** = `proposals` → **`proposal_compositions`** (momentos: nome, `scheduled_date/time`, local, preço/pessoa) → `proposal_categories` (seções, com `composition_id`) → `proposal_category_items`. O compositor (`ProposalEditor.tsx`) monta seções por categoria + Low Fat por tag. PDF (`ProposalPDF.tsx`) e geração de evento/ordens são **por composição**.
 
 ### Triggers importantes
 
