@@ -107,6 +107,7 @@ export type Database = {
           description: string
           discount_amount: number | null
           document_number: string | null
+          document_type: string | null
           due_date: string
           id: string
           interest_amount: number | null
@@ -131,6 +132,7 @@ export type Database = {
           description: string
           discount_amount?: number | null
           document_number?: string | null
+          document_type?: string | null
           due_date: string
           id?: string
           interest_amount?: number | null
@@ -155,6 +157,7 @@ export type Database = {
           description?: string
           discount_amount?: number | null
           document_number?: string | null
+          document_type?: string | null
           due_date?: string
           id?: string
           interest_amount?: number | null
@@ -2547,6 +2550,7 @@ export type Database = {
           id: string
           notes: string | null
           profile_id: string | null
+          proposal_id: string | null
           room_id: string | null
           status: string
           template_id: string | null
@@ -2566,6 +2570,7 @@ export type Database = {
           id?: string
           notes?: string | null
           profile_id?: string | null
+          proposal_id?: string | null
           room_id?: string | null
           status?: string
           template_id?: string | null
@@ -2585,6 +2590,7 @@ export type Database = {
           id?: string
           notes?: string | null
           profile_id?: string | null
+          proposal_id?: string | null
           room_id?: string | null
           status?: string
           template_id?: string | null
@@ -2618,6 +2624,13 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "consumption_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_tables_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
             referencedColumns: ["id"]
           },
           {
@@ -2830,7 +2843,9 @@ export type Database = {
           notes: string | null
           physical_quantity: number | null
           quantity_difference: number | null
+          reason_code: string | null
           reference_document: string | null
+          responsible_person: string | null
           responsible_user_id: string | null
           system_quantity: number
           updated_at: string
@@ -2847,7 +2862,9 @@ export type Database = {
           notes?: string | null
           physical_quantity?: number | null
           quantity_difference?: number | null
+          reason_code?: string | null
           reference_document?: string | null
+          responsible_person?: string | null
           responsible_user_id?: string | null
           system_quantity?: number
           updated_at?: string
@@ -2864,7 +2881,9 @@ export type Database = {
           notes?: string | null
           physical_quantity?: number | null
           quantity_difference?: number | null
+          reason_code?: string | null
           reference_document?: string | null
+          responsible_person?: string | null
           responsible_user_id?: string | null
           system_quantity?: number
           updated_at?: string
@@ -2917,51 +2936,81 @@ export type Database = {
       }
       invoice_items: {
         Row: {
+          cfop: string | null
           conversion_factor: number | null
           converted_quantity: number | null
           converted_unit_price: number | null
           created_at: string
+          cst: string | null
           description: string | null
           discount_amount: number | null
           discount_percent: number | null
           final_price: number | null
+          icms_aliquota: number | null
+          icms_base: number | null
+          icms_st_base: number | null
+          icms_st_valor: number | null
+          icms_valor: number | null
           id: string
           invoice_id: string
+          ipi_aliquota: number | null
+          ipi_valor: number | null
           material_id: string
+          ncm: string | null
           quantity: number
           total_price: number
           unit: string | null
           unit_price: number
         }
         Insert: {
+          cfop?: string | null
           conversion_factor?: number | null
           converted_quantity?: number | null
           converted_unit_price?: number | null
           created_at?: string
+          cst?: string | null
           description?: string | null
           discount_amount?: number | null
           discount_percent?: number | null
           final_price?: number | null
+          icms_aliquota?: number | null
+          icms_base?: number | null
+          icms_st_base?: number | null
+          icms_st_valor?: number | null
+          icms_valor?: number | null
           id?: string
           invoice_id: string
+          ipi_aliquota?: number | null
+          ipi_valor?: number | null
           material_id: string
+          ncm?: string | null
           quantity: number
           total_price: number
           unit?: string | null
           unit_price: number
         }
         Update: {
+          cfop?: string | null
           conversion_factor?: number | null
           converted_quantity?: number | null
           converted_unit_price?: number | null
           created_at?: string
+          cst?: string | null
           description?: string | null
           discount_amount?: number | null
           discount_percent?: number | null
           final_price?: number | null
+          icms_aliquota?: number | null
+          icms_base?: number | null
+          icms_st_base?: number | null
+          icms_st_valor?: number | null
+          icms_valor?: number | null
           id?: string
           invoice_id?: string
+          ipi_aliquota?: number | null
+          ipi_valor?: number | null
           material_id?: string
+          ncm?: string | null
           quantity?: number
           total_price?: number
           unit?: string | null
@@ -3352,6 +3401,77 @@ export type Database = {
           },
         ]
       }
+      material_tags: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string
+          term_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id: string
+          term_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string
+          term_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_tags_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_tags_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_tags_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_tags_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_tags_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_tags_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_tags_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "taxonomy_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       materials: {
         Row: {
           allowed_brands: string[] | null
@@ -3375,11 +3495,17 @@ export type Database = {
           name: string
           ncm: string | null
           origem: number | null
+          overhead_pct: number | null
+          overhead_value: number | null
+          practiced_price: number | null
           price_per_purchase_unit: number
+          pricing_updated_at: string | null
           purchase_unit: string
           subcategory: string | null
           subcategory_term_id: string | null
+          suggested_price: number | null
           supplier_id: string | null
+          target_margin_pct: number | null
           tracks_inventory: boolean
           type_term_id: string | null
           unit_weight: number | null
@@ -3408,11 +3534,17 @@ export type Database = {
           name: string
           ncm?: string | null
           origem?: number | null
+          overhead_pct?: number | null
+          overhead_value?: number | null
+          practiced_price?: number | null
           price_per_purchase_unit: number
+          pricing_updated_at?: string | null
           purchase_unit: string
           subcategory?: string | null
           subcategory_term_id?: string | null
+          suggested_price?: number | null
           supplier_id?: string | null
+          target_margin_pct?: number | null
           tracks_inventory?: boolean
           type_term_id?: string | null
           unit_weight?: number | null
@@ -3441,11 +3573,17 @@ export type Database = {
           name?: string
           ncm?: string | null
           origem?: number | null
+          overhead_pct?: number | null
+          overhead_value?: number | null
+          practiced_price?: number | null
           price_per_purchase_unit?: number
+          pricing_updated_at?: string | null
           purchase_unit?: string
           subcategory?: string | null
           subcategory_term_id?: string | null
+          suggested_price?: number | null
           supplier_id?: string | null
+          target_margin_pct?: number | null
           tracks_inventory?: boolean
           type_term_id?: string | null
           unit_weight?: number | null
@@ -3666,6 +3804,30 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_methods: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
       payment_transactions: {
         Row: {
           account_payable_id: string
@@ -3806,6 +3968,47 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_rules: {
+        Row: {
+          id: string
+          overhead_pct: number | null
+          overhead_value: number | null
+          scope_type: string
+          target_margin_pct: number | null
+          term_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          overhead_pct?: number | null
+          overhead_value?: number | null
+          scope_type?: string
+          target_margin_pct?: number | null
+          term_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          overhead_pct?: number | null
+          overhead_value?: number | null
+          scope_type?: string
+          target_margin_pct?: number | null
+          term_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_rules_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "taxonomy_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       production_stock_validations: {
         Row: {
           id: string
@@ -3874,6 +4077,7 @@ export type Database = {
       proposal_categories: {
         Row: {
           category_label: string
+          composition_id: string | null
           created_at: string | null
           id: string
           proposal_id: string
@@ -3881,6 +4085,7 @@ export type Database = {
         }
         Insert: {
           category_label: string
+          composition_id?: string | null
           created_at?: string | null
           id?: string
           proposal_id: string
@@ -3888,12 +4093,20 @@ export type Database = {
         }
         Update: {
           category_label?: string
+          composition_id?: string | null
           created_at?: string | null
           id?: string
           proposal_id?: string
           sort_order?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "proposal_categories_composition_id_fkey"
+            columns: ["composition_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_compositions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "proposal_categories_proposal_id_fkey"
             columns: ["proposal_id"]
@@ -3990,6 +4203,59 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_stock_zero"
             referencedColumns: ["material_id"]
+          },
+        ]
+      }
+      proposal_compositions: {
+        Row: {
+          created_at: string
+          id: string
+          location: string | null
+          name: string
+          notes: string | null
+          number_of_people: number | null
+          price_per_person: number | null
+          proposal_id: string
+          scheduled_date: string | null
+          scheduled_time: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location?: string | null
+          name: string
+          notes?: string | null
+          number_of_people?: number | null
+          price_per_person?: number | null
+          proposal_id: string
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location?: string | null
+          name?: string
+          notes?: string | null
+          number_of_people?: number | null
+          price_per_person?: number | null
+          proposal_id?: string
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_compositions_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -4287,10 +4553,14 @@ export type Database = {
           edit_approved_by: string | null
           freight_amount: number | null
           freight_cost_center_id: string | null
+          icms_st_total: number | null
+          icms_total: number | null
           id: string
           invoice_date: string
           invoice_number: string
+          ipi_total: number | null
           items_locked: boolean
+          natureza_operacao: string | null
           notes: string | null
           payment_due_date: string | null
           payment_terms: string | null
@@ -4300,6 +4570,8 @@ export type Database = {
           stock_posted_at: string | null
           supplier_id: string | null
           total_amount: number
+          tributos_aprox_percent: number | null
+          tributos_aprox_valor: number | null
           updated_at: string
           workflow_status: string
         }
@@ -4314,10 +4586,14 @@ export type Database = {
           edit_approved_by?: string | null
           freight_amount?: number | null
           freight_cost_center_id?: string | null
+          icms_st_total?: number | null
+          icms_total?: number | null
           id?: string
           invoice_date?: string
           invoice_number: string
+          ipi_total?: number | null
           items_locked?: boolean
+          natureza_operacao?: string | null
           notes?: string | null
           payment_due_date?: string | null
           payment_terms?: string | null
@@ -4327,6 +4603,8 @@ export type Database = {
           stock_posted_at?: string | null
           supplier_id?: string | null
           total_amount?: number
+          tributos_aprox_percent?: number | null
+          tributos_aprox_valor?: number | null
           updated_at?: string
           workflow_status?: string
         }
@@ -4341,10 +4619,14 @@ export type Database = {
           edit_approved_by?: string | null
           freight_amount?: number | null
           freight_cost_center_id?: string | null
+          icms_st_total?: number | null
+          icms_total?: number | null
           id?: string
           invoice_date?: string
           invoice_number?: string
+          ipi_total?: number | null
           items_locked?: boolean
+          natureza_operacao?: string | null
           notes?: string | null
           payment_due_date?: string | null
           payment_terms?: string | null
@@ -4354,6 +4636,8 @@ export type Database = {
           stock_posted_at?: string | null
           supplier_id?: string | null
           total_amount?: number
+          tributos_aprox_percent?: number | null
+          tributos_aprox_valor?: number | null
           updated_at?: string
           workflow_status?: string
         }
@@ -6983,10 +7267,6 @@ export type Database = {
         Args: { p_bom_id: string; p_should_archive: boolean }
         Returns: Json
       }
-      assemble_composite: {
-        Args: { p_material_id: string; p_quantity: number }
-        Returns: Json
-      }
       calculate_bom_cost_recursive: {
         Args: { p_material_id: string; p_material_type: string }
         Returns: number
@@ -7035,6 +7315,10 @@ export type Database = {
           planned_unit: string
         }[]
       }
+      compute_product_pricing: {
+        Args: { p_material_id: string }
+        Returns: Json
+      }
       consume_materials_for_production: {
         Args: { p_production_order_id: string }
         Returns: undefined
@@ -7058,6 +7342,10 @@ export type Database = {
           p_lockout_duration_minutes?: number
         }
         Returns: undefined
+      }
+      create_event_from_proposal: {
+        Args: { p_proposal_id: string }
+        Returns: Json
       }
       create_event_notifications: {
         Args: { p_event_id: string }
@@ -7226,6 +7514,7 @@ export type Database = {
       }
       get_security_summary: { Args: never; Returns: Json }
       get_user_email_safe: { Args: { p_user_id: string }; Returns: string }
+      has_financial_access: { Args: { uid: string }; Returns: boolean }
       has_financial_permission: {
         Args: {
           p_department?: string
@@ -7349,6 +7638,10 @@ export type Database = {
           removed_recipes: number
         }[]
       }
+      pricing_global_default: {
+        Args: { p_fallback: number; p_key: string }
+        Returns: number
+      }
       process_component_consumption: {
         Args: {
           p_material_id: string
@@ -7359,16 +7652,34 @@ export type Database = {
         }
         Returns: undefined
       }
-      process_cost_adjustment: {
-        Args: {
-          p_adjustment_reason: string
-          p_material_id: string
-          p_new_unit_cost: number
-          p_notes?: string
-          p_reference_document?: string
-        }
-        Returns: Json
-      }
+      process_cost_adjustment:
+        | {
+            Args: {
+              p_adjustment_reason: string
+              p_material_id: string
+              p_new_unit_cost: number
+              p_notes?: string
+              p_occurred_at?: string
+              p_reason_code?: string
+              p_reference_document?: string
+              p_responsible_person?: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_adjustment_reason: string
+              p_cycle_id?: string
+              p_material_id: string
+              p_new_unit_cost: number
+              p_notes?: string
+              p_occurred_at?: string
+              p_reason_code?: string
+              p_reference_document?: string
+              p_responsible_person?: string
+            }
+            Returns: string
+          }
       process_finish_input: {
         Args: {
           p_material_id: string
@@ -7395,16 +7706,34 @@ export type Database = {
             }
             Returns: undefined
           }
-      process_inventory_adjustment: {
-        Args: {
-          p_adjustment_reason: string
-          p_material_id: string
-          p_notes?: string
-          p_physical_quantity: number
-          p_reference_document?: string
-        }
-        Returns: string
-      }
+      process_inventory_adjustment:
+        | {
+            Args: {
+              p_adjustment_reason: string
+              p_material_id: string
+              p_notes?: string
+              p_occurred_at?: string
+              p_physical_quantity: number
+              p_reason_code?: string
+              p_reference_document?: string
+              p_responsible_person?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_adjustment_reason: string
+              p_cycle_id?: string
+              p_material_id: string
+              p_notes?: string
+              p_occurred_at?: string
+              p_physical_quantity: number
+              p_reason_code?: string
+              p_reference_document?: string
+              p_responsible_person?: string
+            }
+            Returns: string
+          }
       process_order_component_consumption: {
         Args: {
           p_material_id: string
@@ -7468,18 +7797,6 @@ export type Database = {
         }
         Returns: string
       }
-      produce_finished_product: {
-        Args: { p_material_id: string; p_quantity: number }
-        Returns: Json
-      }
-      produce_finished_product_with_correct_cost: {
-        Args: { p_finished_material: string; p_output_qty: number }
-        Returns: undefined
-      }
-      produce_finished_products_for_order: {
-        Args: { p_production_order_id: string }
-        Returns: undefined
-      }
       produce_product: {
         Args: { p_material_id: string; p_output_qty: number }
         Returns: undefined
@@ -7493,9 +7810,14 @@ export type Database = {
         Returns: Json
       }
       recalculate_stock_total_values: { Args: never; Returns: undefined }
+      recompute_all_pricing: { Args: never; Returns: undefined }
       refresh_bom_costs_for_material: {
         Args: { p_material_id: string }
         Returns: Json
+      }
+      refresh_material_pricing: {
+        Args: { p_material_id: string }
+        Returns: undefined
       }
       reserve_materials_for_production: {
         Args: { p_production_order_id: string }
