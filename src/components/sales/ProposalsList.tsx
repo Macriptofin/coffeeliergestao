@@ -44,16 +44,15 @@ interface Props {
   onPdfProposal?: (id: string) => void;
 }
 
+// Conjunto canônico de status (PT, capitalizado).
+// 'Aprovada pelo Cliente' = aceite comercial do cliente, aguardando revisão final da equipe (destaque âmbar).
 const statusOptions = [
-  { value: 'rascunho', label: 'Rascunho', variant: 'secondary' },
-  { value: 'enviada',  label: 'Enviada',  variant: 'default' },
-  { value: 'aprovada', label: 'Aprovada', variant: 'success' },
-  { value: 'recusada', label: 'Recusada', variant: 'destructive' },
-  { value: 'cancelada',label: 'Cancelada',variant: 'outline' },
-  // compatibilidade com valores capitalizados legado
-  { value: 'Rascunho', label: 'Rascunho', variant: 'secondary' },
-  { value: 'Enviada',  label: 'Enviada',  variant: 'default' },
-  { value: 'Aprovada', label: 'Aprovada', variant: 'success' },
+  { value: 'Rascunho',              label: 'Rascunho',              variant: 'secondary',   className: '' },
+  { value: 'Enviada',               label: 'Enviada',               variant: 'default',     className: '' },
+  { value: 'Aprovada pelo Cliente', label: 'Aprovada pelo Cliente', variant: 'outline',     className: 'border-amber-300 bg-amber-100 text-amber-800' },
+  { value: 'Aprovada',              label: 'Aprovada',              variant: 'success',      className: '' },
+  { value: 'Rejeitada',             label: 'Rejeitada',             variant: 'destructive',  className: '' },
+  { value: 'Cancelada',             label: 'Cancelada',             variant: 'outline',      className: '' },
 ];
 
 const EMPTY_PROPOSALS: Proposal[] = [];
@@ -166,7 +165,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
       if (error) throw error;
 
       // Marcar proposta como enviada
-      await supabase.from('proposals').update({ status: 'enviada' }).eq('id', proposalId);
+      await supabase.from('proposals').update({ status: 'Enviada' }).eq('id', proposalId);
 
       // Copiar link para o clipboard
       const url = `${window.location.origin}/aprovar/${data.token}`;
@@ -185,7 +184,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
 
   const handleApprove = async (proposalId: string) => {
     try {
-      await supabase.from('proposals').update({ status: 'aprovada' }).eq('id', proposalId);
+      await supabase.from('proposals').update({ status: 'Aprovada' }).eq('id', proposalId);
       const { error: evtErr }  = await (supabase.rpc as any)('create_event_from_proposal',      { p_proposal_id: proposalId });
       const { error: prodErr } = await supabase.rpc('generate_production_from_proposal', { p_proposal_id: proposalId });
       if (evtErr)  console.warn('create_event_from_proposal:',      evtErr.message);
@@ -216,7 +215,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
           target_weight_per_person: orig.target_weight_per_person,
           total_weight:            orig.total_weight,
           total_amount:            orig.total_amount,
-          status:                  'rascunho',
+          status:                  'Rascunho',
           proposal_kind:           (orig as any).proposal_kind,
           department_id:           orig.department_id,
           contact_id:              orig.contact_id,
@@ -258,7 +257,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
   const getStatusBadge = (status: string) => {
     const statusOption = statusOptions.find(opt => opt.value === status);
     return (
-      <Badge variant={statusOption?.variant as any || 'secondary'}>
+      <Badge variant={statusOption?.variant as any || 'secondary'} className={statusOption?.className || ''}>
         {statusOption?.label || status}
       </Badge>
     );
@@ -402,20 +401,30 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                               <FileDown size={13} />
                             </Button>
                           )}
-                          {/* Enviar para aprovação do cliente */}
-                          {!['aprovada', 'Aprovada', 'cancelada'].includes(proposal.status) && (
+                          {/* Enviar para aprovação do cliente — disponível enquanto ainda em rascunho/enviada */}
+                          {['Rascunho', 'Enviada'].includes(proposal.status) && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600 hover:text-blue-800"
                               onClick={() => handleSendForApproval(proposal.id)}
                               title="Gerar link de aprovação para o cliente">
                               <Send size={13} />
                             </Button>
                           )}
-                          {/* Botão Aprovar */}
-                          {!['aprovada', 'Aprovada', 'cancelada'].includes(proposal.status) && (
+                          {/* Aprovação final da equipe.
+                              'Aprovada pelo Cliente' = aceite do cliente aguardando revisão → "Revisar e aprovar". */}
+                          {['Rascunho', 'Enviada', 'Aprovada pelo Cliente'].includes(proposal.status) && (
                             <Button
-                              size="icon" className="h-7 w-7 bg-green-600 hover:bg-green-700 text-white"
+                              size="icon"
+                              className={
+                                proposal.status === 'Aprovada pelo Cliente'
+                                  ? 'h-7 w-7 bg-amber-500 hover:bg-amber-600 text-white'
+                                  : 'h-7 w-7 bg-green-600 hover:bg-green-700 text-white'
+                              }
                               onClick={() => handleApprove(proposal.id)}
-                              title="Aprovar proposta (cria evento + OP automaticamente)"
+                              title={
+                                proposal.status === 'Aprovada pelo Cliente'
+                                  ? 'Revisar e aprovar (aprovação final da equipe — cria evento + OP)'
+                                  : 'Aprovar proposta (cria evento + OP automaticamente)'
+                              }
                             >
                               <CheckCircle2 size={13} />
                             </Button>

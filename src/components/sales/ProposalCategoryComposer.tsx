@@ -507,8 +507,8 @@ export default function ProposalCategoryComposer({ proposalId, onComplete, onCan
       // 1. Salvar itens
       await persistItems();
 
-      // 2. Marcar como aprovada
-      await supabase.from('proposals').update({ status: 'aprovada' }).eq('id', proposalId);
+      // 2. Marcar como aprovada (aprovação final da equipe)
+      await supabase.from('proposals').update({ status: 'Aprovada' }).eq('id', proposalId);
 
       // 3. Criar evento automaticamente
       const { error: evtErr } = await (supabase.rpc as any)('create_event_from_proposal', { p_proposal_id: proposalId });

@@ -611,7 +611,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   const handleSave = async () => {
     try {
       setSaving(true);
-      await persistAll('rascunho');
+      await persistAll('Rascunho');
       toast.success('Proposta salva!');
       onComplete();
     } catch (e: any) {
@@ -625,7 +625,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     if (calc.grand.totalItemCount === 0) { toast.error('Adicione pelo menos um item'); return; }
     try {
       setApproving(true);
-      const pid = await persistAll('aprovada');
+      const pid = await persistAll('Aprovada');
       if (!pid) return;
 
       const { error: evtErr } = await (supabase.rpc as any)('create_event_from_proposal', { p_proposal_id: pid });
@@ -647,8 +647,8 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     if (calc.grand.totalItemCount === 0) { toast.error('Adicione pelo menos um item'); return; }
     try {
       setSending(true);
-      // Salva a proposta como 'enviada'
-      const pid = await persistAll('enviada');
+      // Salva a proposta como 'Enviada'
+      const pid = await persistAll('Enviada');
       if (!pid) return;
 
       // Gera o token de aprovação e monta o link público

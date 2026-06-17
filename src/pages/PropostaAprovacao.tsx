@@ -45,9 +45,10 @@ type PageState = 'loading' | 'loaded' | 'approved' | 'already_approved' | 'error
 
 export default function PropostaAprovacao() {
   const { token } = useParams<{ token: string }>();
-  const [proposal, setProposal] = useState<ProposalPublic | null>(null);
-  const [state,    setState]    = useState<PageState>('loading');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [proposal,    setProposal]    = useState<ProposalPublic | null>(null);
+  const [state,       setState]       = useState<PageState>('loading');
+  const [errorMsg,    setErrorMsg]    = useState('');
+  const [successMsg,  setSuccessMsg]  = useState('');
 
   useEffect(() => {
     if (token) loadProposal();
@@ -62,7 +63,8 @@ export default function PropostaAprovacao() {
         setErrorMsg(data?.error || 'Não foi possível carregar a proposta.');
         return;
       }
-      if (data.status === 'aprovada') {
+      // Tanto o aceite do cliente quanto a aprovação final da equipe contam como "já aceita".
+      if (data.status === 'Aprovada pelo Cliente' || data.status === 'Aprovada') {
         setProposal(data);
         setState('already_approved');
         return;
@@ -79,11 +81,14 @@ export default function PropostaAprovacao() {
     setState('approving');
     try {
       const { data, error } = await supabase.rpc('approve_proposal_by_token', { p_token: token });
-      if (error || !data?.success) {
+      const result = data as any;
+      if (error || !result?.success) {
         setState('error');
-        setErrorMsg(data?.error || 'Erro ao aprovar a proposta.');
+        setErrorMsg(result?.error || 'Erro ao aprovar a proposta.');
         return;
       }
+      // O RPC registra o aceite comercial (status 'Aprovada pelo Cliente') — a equipe fará a revisão final.
+      setSuccessMsg(result?.message || 'Proposta aceita! Nossa equipe fará a revisão final e a confirmação.');
       setState('approved');
     } catch {
       setState('error');
@@ -124,11 +129,11 @@ export default function PropostaAprovacao() {
       <div style={{ textAlign: 'center', maxWidth: 480 }}>
         <CheckCircle2 style={{ width: 80, height: 80, color: C.oliva, margin: '0 auto 20px' }} />
         <h2 style={{ fontSize: 28, fontWeight: 900, color: C.oliva, marginBottom: 12, fontFamily: 'Arial, sans-serif' }}>
-          Proposta Aprovada!
+          Proposta Aceita!
         </h2>
         <p style={{ color: C.textMuted, fontFamily: 'Arial, sans-serif', lineHeight: 1.7, marginBottom: 20 }}>
-          Obrigado! Sua aprovação foi registrada com sucesso.<br />
-          Nosso time entrará em contato em breve para alinhar os detalhes do evento.
+          {successMsg || 'Proposta aceita! Nossa equipe fará a revisão final e a confirmação.'}<br />
+          Em breve entraremos em contato para alinhar os detalhes do evento.
         </p>
         <div style={{ background: C.oliva, color: C.creme, borderRadius: 8, padding: '12px 24px', fontFamily: 'Arial, sans-serif', fontSize: 13 }}>
           Proposta <strong>{proposal?.proposal_number}</strong> — {proposal?.event_category}
@@ -145,10 +150,10 @@ export default function PropostaAprovacao() {
       <div style={{ textAlign: 'center', maxWidth: 400 }}>
         <CheckCircle2 style={{ width: 64, height: 64, color: C.oliva, margin: '0 auto 16px' }} />
         <h2 style={{ fontSize: 20, fontWeight: 700, color: C.text, marginBottom: 8, fontFamily: 'Arial, sans-serif' }}>
-          Proposta já aprovada
+          Proposta já aceita
         </h2>
         <p style={{ color: C.textMuted, fontFamily: 'Arial, sans-serif' }}>
-          Esta proposta ({proposal?.proposal_number}) já foi aprovada anteriormente. Nosso time está cuidando de tudo!
+          Esta proposta ({proposal?.proposal_number}) já foi aceita anteriormente. Nosso time está cuidando de tudo!
         </p>
       </div>
     </div>
