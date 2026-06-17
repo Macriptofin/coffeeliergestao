@@ -15,7 +15,6 @@ import { BOMCostAlerts } from '@/components/BOMCostAlerts';
 import { BOMCostHistory } from '@/components/BOMCostHistory';
 import { RecipeBOMForm } from '@/components/bom/RecipeBOMForm';
 import { CompositeBOMForm } from '@/components/bom/CompositeBOMForm';
-import { ProductionExecutor } from '@/components/bom/ProductionExecutor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { TechnicalSheetActions } from '@/components/TechnicalSheetActions';
 
@@ -486,7 +485,7 @@ const BOMManagement = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="finished" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             Produtos Acabados e Intermediários
@@ -494,10 +493,6 @@ const BOMManagement = () => {
           <TabsTrigger value="composite" className="flex items-center gap-2">
             <Wrench className="h-4 w-4" />
             Produtos Compostos
-          </TabsTrigger>
-          <TabsTrigger value="production" className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Executar Produção
           </TabsTrigger>
         </TabsList>
 
@@ -624,16 +619,6 @@ const BOMManagement = () => {
               </Table>
             </div>
           )}
-        </TabsContent>
-
-        <TabsContent value="production" className="mt-6">
-          <div className="mb-4">
-            <p className="text-muted-foreground">
-              Execute produção de produtos acabados ou montagem de produtos compostos
-            </p>
-          </div>
-          
-          <ProductionExecutor onSuccess={refetchAll} />
         </TabsContent>
       </Tabs>
 
