@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel
 } from '@/components/ui/select';
 import { CheckCircle, Plus, Trash2, AlertTriangle, TrendingDown } from 'lucide-react';
 import { NumericInput } from '@/components/ui/numeric-input';
@@ -108,6 +108,23 @@ export function ProductionFinalizationDialog({ order, open, onClose, onFinalized
 
   const [saving, setSaving] = useState(false);
 
+  // Opções de perda: PRODUTOS produzidos (receita pronta) + INGREDIENTES consumidos.
+  // Permite justificar perda tanto no acabado/intermediário quanto no ingrediente.
+  const lossOptionsMap = new Map<string, { id: string; name: string; unit: string; group: 'produto' | 'ingrediente' }>();
+  order.items.forEach(i => {
+    const fm = i.bom?.finished_material;
+    if (fm && !lossOptionsMap.has(fm.id)) {
+      lossOptionsMap.set(fm.id, { id: fm.id, name: fm.name, unit: i.yield_unit, group: 'produto' });
+    }
+  });
+  order.consolidated_materials.forEach(m => {
+    if (!lossOptionsMap.has(m.material_id)) {
+      lossOptionsMap.set(m.material_id, { id: m.material_id, name: m.material.name, unit: m.unit, group: 'ingrediente' });
+    }
+  });
+  const lossProdutos = [...lossOptionsMap.values()].filter(o => o.group === 'produto');
+  const lossIngredientes = [...lossOptionsMap.values()].filter(o => o.group === 'ingrediente');
+
   // --- Yield handlers ---
   const updateYield = (index: number, field: keyof YieldEntry, value: string) => {
     setYields(prev => prev.map((y, i) => i === index ? { ...y, [field]: value } : y));
@@ -115,11 +132,11 @@ export function ProductionFinalizationDialog({ order, open, onClose, onFinalized
 
   // --- Loss handlers ---
   const addLoss = () => {
-    const firstMaterial = order.consolidated_materials[0];
+    const first = lossProdutos[0] || lossIngredientes[0];
     setLosses(prev => [...prev, {
-      material_id: firstMaterial?.material_id || '',
+      material_id: first?.id || '',
       loss_quantity: '',
-      loss_unit: firstMaterial?.unit || 'g',
+      loss_unit: first?.unit || 'g',
       loss_reason: 'processo',
       notes: '',
     }]);
@@ -131,8 +148,8 @@ export function ProductionFinalizationDialog({ order, open, onClose, onFinalized
       const updated = { ...l, [field]: value };
       // Auto-fill unit when material changes
       if (field === 'material_id') {
-        const mat = order.consolidated_materials.find(m => m.material_id === value);
-        if (mat) updated.loss_unit = mat.unit;
+        const opt = lossOptionsMap.get(value);
+        if (opt) updated.loss_unit = opt.unit;
       }
       return updated;
     }));
@@ -313,9 +330,9 @@ export function ProductionFinalizationDialog({ order, open, onClose, onFinalized
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
-                    {/* Ingrediente */}
+                    {/* Item perdido: produto produzido OU ingrediente */}
                     <div className="col-span-2">
-                      <Label className="text-xs">Ingrediente</Label>
+                      <Label className="text-xs">Item perdido (produto pronto ou ingrediente)</Label>
                       <Select
                         value={loss.material_id}
                         onValueChange={val => updateLoss(idx, 'material_id', val)}
@@ -324,14 +341,22 @@ export function ProductionFinalizationDialog({ order, open, onClose, onFinalized
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {order.consolidated_materials.map(m => (
-                            <SelectItem key={m.material_id} value={m.material_id}>
-                              {m.material.name}
-                              <span className="ml-2 text-muted-foreground text-xs">
-                                ({m.total_quantity.toFixed(2)} {m.unit} usados)
-                              </span>
-                            </SelectItem>
-                          ))}
+                          {lossProdutos.length > 0 && (
+                            <SelectGroup>
+                              <SelectLabel>Produtos produzidos (receita pronta)</SelectLabel>
+                              {lossProdutos.map(o => (
+                                <SelectItem key={`p-${o.id}`} value={o.id}>{o.name}</SelectItem>
+                              ))}
+                            </SelectGroup>
+                          )}
+                          {lossIngredientes.length > 0 && (
+                            <SelectGroup>
+                              <SelectLabel>Ingredientes</SelectLabel>
+                              {lossIngredientes.map(o => (
+                                <SelectItem key={`i-${o.id}`} value={o.id}>{o.name}</SelectItem>
+                              ))}
+                            </SelectGroup>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
