@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useReactToPrint } from 'react-to-print';
 import { PrintableBOMProductionOrder } from './PrintableBOMProductionOrder';
+import { ThermalPrintableOrder } from './ThermalPrintableOrder';
 import { ProductionChecklist } from './production/ProductionChecklist';
 import { ProductionFinalizationDialog } from './production/ProductionFinalizationDialog';
 
@@ -81,7 +82,9 @@ export const BOMProductionOrdersList = () => {
   const [checklistOrderId, setChecklistOrderId] = useState<string | null>(null);
   const [finalizingOrder, setFinalizingOrder] = useState<ProductionOrder | null>(null);
   const [stockItems, setStockItems] = useState<Array<{ material_id: string; current_quantity: number; average_price: number }>>([]);
+  const [thermalOrder, setThermalOrder] = useState<ProductionOrder | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
+  const thermalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadProductionOrders();
@@ -229,6 +232,17 @@ export const BOMProductionOrdersList = () => {
     setIncludeTechnicalSheets(false);
     setTechnicalSheetsData([]);
     setShowPrintDialog(true);
+  };
+
+  const handleThermalPrint = useReactToPrint({
+    contentRef: thermalRef,
+    documentTitle: `Ordem_Producao_Termica_${thermalOrder?.order_name.replace(/\s+/g, '_') || 'Sem_Nome'}`,
+    pageStyle: '@page { size: 80mm auto; margin: 3mm; } body { margin: 0; }',
+  });
+
+  const printThermal = (order: ProductionOrder) => {
+    setThermalOrder(order);
+    setTimeout(() => handleThermalPrint(), 100);
   };
 
   const loadTechnicalSheetRecursive = async (materialId: string, processedIds: Set<string> = new Set()): Promise<any[]> => {
@@ -558,6 +572,16 @@ export const BOMProductionOrdersList = () => {
                   Imprimir Ordem
                 </Button>
 
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => printThermal(order)}
+                  className="bg-slate-50 hover:bg-slate-100 border-slate-200"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Imprimir (térmica)
+                </Button>
+
                 {canTransitionTo(order.status, 'Em Produção') && (
                   <Button
                     onClick={() => updateOrderStatus(order.id, 'Em Produção')}
@@ -809,6 +833,34 @@ export const BOMProductionOrdersList = () => {
           </div>
         </div>
       )}
+
+      {/* Impressão Térmica (Oculto) */}
+      <div style={{ display: 'none' }}>
+        <div ref={thermalRef}>
+          {thermalOrder && (
+            <ThermalPrintableOrder
+              kind="producao"
+              orderCode={thermalOrder.order_name}
+              meta={[
+                {
+                  label: 'Data',
+                  value: new Date(thermalOrder.order_date).toLocaleDateString('pt-BR'),
+                },
+                { label: 'Status', value: getStatusLabel(thermalOrder.status) },
+              ]}
+              items={thermalOrder.items.map((item) => ({
+                qty: item.quantity.toLocaleString('pt-BR'),
+                unit: item.quantity > 1 ? 'lotes' : 'lote',
+                name: item.bom.finished_material.name,
+                note: item.total_yield_quantity
+                  ? `Rende: ${item.total_yield_quantity.toLocaleString('pt-BR')} ${item.yield_unit}`
+                  : undefined,
+              }))}
+              footerNote="Coffeelier - Ordem de Produção"
+            />
+          )}
+        </div>
+      </div>
 
       {/* Dialog de Finalização */}
       {finalizingOrder && (

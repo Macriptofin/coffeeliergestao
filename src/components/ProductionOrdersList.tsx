@@ -1,12 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Users, Package, Play, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Calendar, Users, Package, Play, Eye, EyeOff, CheckCircle, Printer } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useReactToPrint } from 'react-to-print';
+import { ThermalPrintableOrder } from './ThermalPrintableOrder';
+
+const THERMAL_PAGE_STYLE = '@page { size: 80mm auto; margin: 3mm; } body { margin: 0; }';
 
 interface ProductionOrder {
   id: string;
@@ -40,10 +44,23 @@ export const ProductionOrdersList = () => {
   const [loading, setLoading] = useState(true);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [executingOrder, setExecutingOrder] = useState<string | null>(null);
+  const [printing, setPrinting] = useState<ProductionOrder | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadProductionOrders();
   }, []);
+
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Ordem_Evento_${printing?.order_code || 'Sem_Codigo'}`,
+    pageStyle: THERMAL_PAGE_STYLE,
+  });
+
+  const printOrder = (order: ProductionOrder) => {
+    setPrinting(order);
+    setTimeout(() => handlePrint(), 100);
+  };
 
   const loadProductionOrders = async () => {
     try {
@@ -241,9 +258,19 @@ export const ProductionOrdersList = () => {
                     {order.event_table.event_code} - {order.event_table.client_name}
                   </CardDescription>
                 </div>
-                <Badge className={getStatusColor(order.status)}>
-                  {getStatusLabel(order.status)}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge className={getStatusColor(order.status)}>
+                    {getStatusLabel(order.status)}
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => printOrder(order)}
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    Imprimir
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -334,6 +361,45 @@ export const ProductionOrdersList = () => {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Impressão Térmica (Oculto) */}
+      <div style={{ display: 'none' }}>
+        <div ref={printRef}>
+          {printing && (
+            <ThermalPrintableOrder
+              kind="evento"
+              orderCode={printing.order_code}
+              meta={[
+                {
+                  label: 'Evento',
+                  value: `${printing.event_table.event_code} - ${printing.event_table.client_name}`,
+                },
+                {
+                  label: 'Data/Hora',
+                  value: printing.event_table.date_start
+                    ? new Date(printing.event_table.date_start).toLocaleString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : '-',
+                },
+                { label: 'Nº pessoas', value: String(printing.event_table.attendees ?? '-') },
+                { label: 'Status', value: getStatusLabel(printing.status) },
+              ]}
+              items={printing.items.map((item) => ({
+                qty: item.planned_qty.toLocaleString('pt-BR'),
+                unit: item.planned_unit,
+                name: item.material.name,
+                note: getKindLabel(item.kind),
+              }))}
+              footerNote="Coffeelier - Ordem de Evento"
+            />
+          )}
+        </div>
       </div>
     </div>
   );
