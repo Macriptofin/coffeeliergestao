@@ -52,12 +52,17 @@ export const ConfigEstoque = () => {
               showParent={true}
               parentTaxonomyKey="material_type"
             />
-            <TaxonomyManager 
-              taxonomyKey="material_subcategory" 
+            <TaxonomyManager
+              taxonomyKey="material_subcategory"
               title="Subcategorias de Material"
               description="Gerencie as subcategorias de materiais (vinculadas às categorias)"
               showParent={true}
               parentTaxonomyKey="material_category"
+            />
+            <TaxonomyManager
+              taxonomyKey="material_restriction"
+              title="Restrições & Características"
+              description="Tags transversais dos produtos (Low Fat, Vegano, Sem Glúten...) — independentes da categoria, usadas para montar seções nas propostas"
             />
           </div>
         </TabsContent>
