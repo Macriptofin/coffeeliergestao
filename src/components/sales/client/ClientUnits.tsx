@@ -68,6 +68,10 @@ export default function ClientUnits({ clientId }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const originalUnitZip = useRef(''); // CEP carregado, p/ recalcular distância só quando mudar
+  // Endereço da matriz (cliente), usado para pré-preencher novas unidades
+  const clientAddress = useRef<{ address: string; city: string; state: string; zip_code: string }>({
+    address: '', city: '', state: '', zip_code: ''
+  });
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -81,7 +85,45 @@ export default function ClientUnits({ clientId }: Props) {
 
   useEffect(() => {
     loadUnits();
+    loadClientAddress();
   }, [clientId]);
+
+  const loadClientAddress = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('address, city, state, zip_code')
+        .eq('id', clientId)
+        .single();
+
+      if (error) throw error;
+      clientAddress.current = {
+        address: data?.address || '',
+        city: data?.city || '',
+        state: data?.state || '',
+        zip_code: data?.zip_code || ''
+      };
+    } catch (error) {
+      console.error('Erro ao carregar endereço da matriz:', error);
+    }
+  };
+
+  // Abre o formulário de NOVA unidade, herdando o endereço da matriz (cliente)
+  const handleNew = () => {
+    setEditingId(null);
+    originalUnitZip.current = '';
+    setFormData({
+      name: '',
+      address: clientAddress.current.address,
+      city: clientAddress.current.city,
+      state: clientAddress.current.state,
+      zip_code: clientAddress.current.zip_code,
+      distance_km: null,
+      notes: '',
+      is_active: true
+    });
+    setShowForm(true);
+  };
 
   const loadUnits = async () => {
     try {
@@ -90,6 +132,7 @@ export default function ClientUnits({ clientId }: Props) {
         .from('client_units')
         .select('*')
         .eq('client_id', clientId)
+        .eq('is_active', true)
         .order('name');
 
       if (error) throw error;
@@ -183,15 +226,15 @@ export default function ClientUnits({ clientId }: Props) {
     try {
       const { error } = await supabase
         .from('client_units')
-        .delete()
+        .update({ is_active: false })
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('Unidade excluída!');
+      toast.success('Unidade desativada!');
       loadUnits();
     } catch (error) {
-      console.error('Erro ao excluir unidade:', error);
-      toast.error('Erro ao excluir unidade. Verifique se não há salas vinculadas.');
+      console.error('Erro ao desativar unidade:', error);
+      toast.error('Erro ao desativar unidade.');
     }
   };
 
@@ -223,7 +266,7 @@ export default function ClientUnits({ clientId }: Props) {
           <h3 className="font-semibold">Unidades / Prédios</h3>
           <Badge variant="secondary">{units.length}</Badge>
         </div>
-        <Button size="sm" onClick={() => setShowForm(true)}>
+        <Button size="sm" onClick={handleNew}>
           <Plus className="h-4 w-4 mr-1" />
           Adicionar
         </Button>
@@ -276,15 +319,15 @@ export default function ClientUnits({ clientId }: Props) {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                            <AlertDialogTitle>Confirmar Desativação</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Excluir a unidade "{unit.name}"? Todas as salas vinculadas também serão excluídas.
+                              Desativar a unidade "{unit.name}"? Ela deixará de aparecer nas listagens, mas o histórico é preservado.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction onClick={() => handleDelete(unit.id)}>
-                              Excluir
+                              Desativar
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

@@ -55,9 +55,11 @@ const Sales = () => {
   };
 
   const handleEditClient = (id: string) => {
-    setEditingClientId(id);
-    setViewingClientId(null);
-    setShowClientForm(true);
+    // Edição agora abre o Cliente 360 (ClientDetails), cujo conteúdo da aba "Dados"
+    // é o ClientForm embutido. Mesmo caminho do Visualizar.
+    setViewingClientId(id);
+    setShowClientForm(false);
+    setEditingClientId(null);
   };
 
   const handleViewClient = (id: string) => {

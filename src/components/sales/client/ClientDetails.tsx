@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Building2, Building, DoorOpen, UserCircle, Edit, Mail, Phone, MapPin, FileText, User } from 'lucide-react';
+import { ArrowLeft, Building2, Building, DoorOpen, UserCircle, Edit, Mail, Phone, MapPin, FileText, User, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
+import ClientForm from '../ClientForm';
 import ClientDepartments from './ClientDepartments';
 import ClientUnits from './ClientUnits';
 import ClientRooms from './ClientRooms';
@@ -47,7 +48,7 @@ export default function ClientDetails({ clientId, onBack, onEdit }: Props) {
   const [client, setClient] = useState<Client | null>(null);
   const [stats, setStats] = useState<Stats>({ departments: 0, units: 0, rooms: 0, contacts: 0 });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('departments');
+  const [activeTab, setActiveTab] = useState('dados');
 
   useEffect(() => {
     loadClientData();
@@ -138,7 +139,7 @@ export default function ClientDetails({ clientId, onBack, onEdit }: Props) {
             {client.status}
           </Badge>
         </div>
-        <Button onClick={onEdit}>
+        <Button onClick={() => setActiveTab('dados')}>
           <Edit className="h-4 w-4 mr-2" />
           Editar Dados
         </Button>
@@ -279,7 +280,11 @@ export default function ClientDetails({ clientId, onBack, onEdit }: Props) {
       <Card>
         <CardContent className="p-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsList className="grid w-full grid-cols-5 mb-6">
+              <TabsTrigger value="dados" className="flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" />
+                <span className="hidden sm:inline">Dados</span>
+              </TabsTrigger>
               <TabsTrigger value="departments" className="flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
                 <span className="hidden sm:inline">Departamentos</span>
@@ -297,6 +302,15 @@ export default function ClientDetails({ clientId, onBack, onEdit }: Props) {
                 <span className="hidden sm:inline">Contatos</span>
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="dados">
+              <ClientForm
+                clientId={clientId}
+                embedded
+                onSuccess={() => loadClientData()}
+                onCancel={() => {}}
+              />
+            </TabsContent>
 
             <TabsContent value="departments">
               <ClientDepartments clientId={clientId} />

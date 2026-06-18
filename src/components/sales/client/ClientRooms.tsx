@@ -85,6 +85,7 @@ export default function ClientRooms({ clientId }: Props) {
           .from('client_rooms')
           .select('*')
           .eq('client_id', clientId)
+          .eq('is_active', true)
           .order('name'),
         supabase
           .from('client_units')
@@ -173,15 +174,15 @@ export default function ClientRooms({ clientId }: Props) {
     try {
       const { error } = await supabase
         .from('client_rooms')
-        .delete()
+        .update({ is_active: false })
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('Sala excluída!');
+      toast.success('Sala desativada!');
       loadData();
     } catch (error) {
-      console.error('Erro ao excluir sala:', error);
-      toast.error('Erro ao excluir sala');
+      console.error('Erro ao desativar sala:', error);
+      toast.error('Erro ao desativar sala');
     }
   };
 
@@ -283,15 +284,15 @@ export default function ClientRooms({ clientId }: Props) {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                            <AlertDialogTitle>Confirmar Desativação</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Excluir a sala "{room.name}"? Esta ação não pode ser desfeita.
+                              Desativar a sala "{room.name}"? Ela deixará de aparecer nas listagens, mas o histórico é preservado.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction onClick={() => handleDelete(room.id)}>
-                              Excluir
+                              Desativar
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

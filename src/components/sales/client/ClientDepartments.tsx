@@ -71,6 +71,7 @@ export default function ClientDepartments({ clientId }: Props) {
         .from('client_departments')
         .select('*')
         .eq('client_id', clientId)
+        .eq('is_active', true)
         .order('name');
 
       if (error) throw error;
@@ -144,15 +145,15 @@ export default function ClientDepartments({ clientId }: Props) {
     try {
       const { error } = await supabase
         .from('client_departments')
-        .delete()
+        .update({ is_active: false })
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('Departamento excluído!');
+      toast.success('Departamento desativado!');
       loadDepartments();
     } catch (error) {
-      console.error('Erro ao excluir departamento:', error);
-      toast.error('Erro ao excluir departamento');
+      console.error('Erro ao desativar departamento:', error);
+      toast.error('Erro ao desativar departamento');
     }
   };
 
@@ -220,15 +221,15 @@ export default function ClientDepartments({ clientId }: Props) {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                            <AlertDialogTitle>Confirmar Desativação</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Excluir o departamento "{dept.name}"? Esta ação não pode ser desfeita.
+                              Desativar o departamento "{dept.name}"? Ele deixará de aparecer nas listagens, mas o histórico é preservado.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction onClick={() => handleDelete(dept.id)}>
-                              Excluir
+                              Desativar
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

@@ -19,18 +19,31 @@ interface ClientFormData {
   phone?: string;
   contact_person?: string;
   address?: string;
+  address_number?: string;
+  neighborhood?: string;
+  address_complement?: string;
   city?: string;
   state?: string;
   zip_code?: string;
   distance_km?: number;
   status: string;
   notes?: string;
+  // CRM
+  lifecycle_stage?: string;
+  lead_source?: string;
+  segment?: string;
+  classification?: string;
+  // Faturamento
+  state_registration?: string;
+  billing_email?: string;
+  payment_terms?: string;
 }
 
 interface Props {
   clientId?: string;
   onSuccess: () => void;
   onCancel: () => void;
+  embedded?: boolean;
 }
 
 const brazilianStates = [
@@ -39,7 +52,7 @@ const brazilianStates = [
   'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
-export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
+export default function ClientForm({ clientId, onSuccess, onCancel, embedded = false }: Props) {
   const [loading, setLoading] = useState(false);
   // Guarda CEP/distância carregados para detectar mudança de endereço (preserva ajuste manual)
   const originalGeo = useRef<{ zip?: string; distance?: number | null }>({});
@@ -102,12 +115,24 @@ export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
         phone: data.phone || null,
         contact_person: data.contact_person || null,
         address: data.address || null,
+        address_number: data.address_number || null,
+        neighborhood: data.neighborhood || null,
+        address_complement: data.address_complement || null,
         city: data.city || null,
         state: data.state || null,
         zip_code: data.zip_code || null,
         distance_km,
         status: data.status,
-        notes: data.notes || null
+        notes: data.notes || null,
+        // CRM
+        lifecycle_stage: data.lifecycle_stage || null,
+        lead_source: data.lead_source || null,
+        segment: data.segment || null,
+        classification: data.classification || null,
+        // Faturamento
+        state_registration: data.state_registration || null,
+        billing_email: data.billing_email || null,
+        payment_terms: data.payment_terms || null
       };
 
       if (clientId) {
@@ -182,13 +207,8 @@ export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
     return numbers.replace(/(\d{5})(\d{1,3})$/, '$1-$2');
   };
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{clientId ? 'Editar Cliente' : 'Novo Cliente'}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+  const formContent = (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Informações Básicas */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Informações Básicas</h3>
@@ -292,16 +312,145 @@ export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
             </div>
           </div>
 
+          {/* Comercial / CRM */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Comercial / CRM</h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <Label htmlFor="lifecycle_stage">Estágio</Label>
+                <Select
+                  value={watch('lifecycle_stage') || ''}
+                  onValueChange={(value) => setValue('lifecycle_stage', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Lead">Lead</SelectItem>
+                    <SelectItem value="Prospect">Prospect</SelectItem>
+                    <SelectItem value="Ativo">Ativo</SelectItem>
+                    <SelectItem value="Recorrente">Recorrente</SelectItem>
+                    <SelectItem value="Inativo">Inativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="lead_source">Origem</Label>
+                <Select
+                  value={watch('lead_source') || ''}
+                  onValueChange={(value) => setValue('lead_source', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Indicação">Indicação</SelectItem>
+                    <SelectItem value="Site">Site</SelectItem>
+                    <SelectItem value="Evento">Evento</SelectItem>
+                    <SelectItem value="Prospecção">Prospecção</SelectItem>
+                    <SelectItem value="Outro">Outro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="segment">Segmento</Label>
+                <Input
+                  {...register('segment')}
+                  placeholder="Ex: Corporativo, Educação..."
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="classification">Classificação</Label>
+                <Select
+                  value={watch('classification') || ''}
+                  onValueChange={(value) => setValue('classification', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="VIP">VIP</SelectItem>
+                    <SelectItem value="A">A</SelectItem>
+                    <SelectItem value="B">B</SelectItem>
+                    <SelectItem value="C">C</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Faturamento */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Faturamento</h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {watch('client_type') === 'PJ' && (
+                <div>
+                  <Label htmlFor="state_registration">Inscrição Estadual</Label>
+                  <Input
+                    {...register('state_registration')}
+                    placeholder="IE ou Isento"
+                  />
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="billing_email">E-mail de Faturamento</Label>
+                <Input
+                  type="email"
+                  {...register('billing_email')}
+                  placeholder="financeiro@cliente.com"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="payment_terms">Condições de Pagamento</Label>
+                <Input
+                  {...register('payment_terms')}
+                  placeholder="Ex: 30 dias, à vista..."
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Endereço */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Endereço</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="lg:col-span-2">
                 <Label htmlFor="address">Endereço</Label>
                 <Input
                   {...register('address')}
-                  placeholder="Rua, número, complemento"
+                  placeholder="Rua / Logradouro"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="address_number">Número</Label>
+                <Input
+                  {...register('address_number')}
+                  placeholder="Nº"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="neighborhood">Bairro</Label>
+                <Input
+                  {...register('neighborhood')}
+                  placeholder="Bairro"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="address_complement">Complemento</Label>
+                <Input
+                  {...register('address_complement')}
+                  placeholder="Sala, andar, bloco..."
                 />
               </div>
 
@@ -372,14 +521,29 @@ export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
 
           {/* Botões */}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Cancelar
-            </Button>
+            {!embedded && (
+              <Button type="button" variant="outline" onClick={onCancel}>
+                Cancelar
+              </Button>
+            )}
             <Button type="submit" disabled={loading}>
               {loading ? 'Salvando...' : (clientId ? 'Atualizar' : 'Cadastrar')}
             </Button>
           </div>
         </form>
+  );
+
+  if (embedded) {
+    return formContent;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{clientId ? 'Editar Cliente' : 'Novo Cliente'}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {formContent}
       </CardContent>
     </Card>
   );

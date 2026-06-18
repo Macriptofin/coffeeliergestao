@@ -89,6 +89,7 @@ export default function ClientContacts({ clientId }: Props) {
           .from('client_contacts')
           .select('*')
           .eq('client_id', clientId)
+          .eq('is_active', true)
           .order('name'),
         supabase
           .from('client_departments')
@@ -186,15 +187,15 @@ export default function ClientContacts({ clientId }: Props) {
     try {
       const { error } = await supabase
         .from('client_contacts')
-        .delete()
+        .update({ is_active: false })
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('Contato excluído!');
+      toast.success('Contato desativado!');
       loadData();
     } catch (error) {
-      console.error('Erro ao excluir contato:', error);
-      toast.error('Erro ao excluir contato');
+      console.error('Erro ao desativar contato:', error);
+      toast.error('Erro ao desativar contato');
     }
   };
 
@@ -307,15 +308,15 @@ export default function ClientContacts({ clientId }: Props) {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                            <AlertDialogTitle>Confirmar Desativação</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Excluir o contato "{contact.name}"? Esta ação não pode ser desfeita.
+                              Desativar o contato "{contact.name}"? Ele deixará de aparecer nas listagens, mas o histórico é preservado.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction onClick={() => handleDelete(contact.id)}>
-                              Excluir
+                              Desativar
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
