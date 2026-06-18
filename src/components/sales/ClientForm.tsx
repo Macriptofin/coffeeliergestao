@@ -22,6 +22,7 @@ interface ClientFormData {
   city?: string;
   state?: string;
   zip_code?: string;
+  distance_km?: number;
   status: string;
   notes?: string;
 }
@@ -341,6 +342,20 @@ export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="distance_km">Distância da sede (km)</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={watch('distance_km') ?? ''}
+                  onChange={(e) => setValue('distance_km', e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                  placeholder="Calculada pelo CEP"
+                />
+                <span className="text-xs text-muted-foreground">
+                  Calculada automaticamente pelo CEP ao salvar. Usada no frete da proposta.
+                </span>
               </div>
             </div>
           </div>
