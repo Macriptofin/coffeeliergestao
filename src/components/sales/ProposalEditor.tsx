@@ -19,7 +19,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Client { id: string; name: string; fantasy_name?: string | null; }
+interface Client { id: string; name: string; fantasy_name?: string | null; distance_km?: number | null; }
 interface Department { id: string; name: string; }
 interface Unit { id: string; name: string; }
 interface Room { id: string; name: string; unit_id: string; }
@@ -119,6 +119,8 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
 
   // ── Reference data ─────────────────────────────────────────────────────────
   const [clients, setClients]         = useState<Client[]>([]);
+  const [deliveryTrips, setDeliveryTrips] = useState(4);     // nº trajetos (logística)
+  const [costPerKm, setCostPerKm]         = useState(1.5);   // R$/km (logística)
   const [departments, setDepartments] = useState<Department[]>([]);
   const [units, setUnits]             = useState<Unit[]>([]);
   const [rooms, setRooms]             = useState<Room[]>([]);
@@ -154,7 +156,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   const bootstrap = async () => {
     setLoading(true);
     try {
-      await Promise.all([loadClients(), loadMaterials()]);
+      await Promise.all([loadClients(), loadMaterials(), loadLogisticsParams()]);
 
       if (proposalId) {
         await loadExistingProposal(proposalId);
@@ -180,10 +182,21 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   const loadClients = async () => {
     const { data } = await supabase
       .from('clients')
-      .select('id, name, fantasy_name')
+      .select('id, name, fantasy_name, distance_km')
       .eq('status', 'Ativo')
       .order('name');
     setClients(data || []);
+  };
+
+  // Parâmetros de logística (frete por evento) — globais em app_settings
+  const loadLogisticsParams = async () => {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', ['logistics.delivery_trips', 'logistics.cost_per_km']);
+    const map = new Map((data || []).map((r: any) => [r.key, r.value]));
+    setDeliveryTrips(parseFloat(map.get('logistics.delivery_trips') ?? '4') || 0);
+    setCostPerKm(parseFloat(map.get('logistics.cost_per_km') ?? '1.50') || 0);
   };
 
   const loadMaterials = async () => {
@@ -459,10 +472,15 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     const peopleFor = (c: Composition) =>
       (c.number_of_people && c.number_of_people > 0) ? c.number_of_people : numPeople;
 
+    // Frete por composição (delivery) = distância do cliente × nº trajetos × R$/km.
+    // Repasse: soma igual a custo e receita (neutro à margem; embutido no preço).
+    const clientDistance = clients.find(c => c.id === clientId)?.distance_km ?? 0;
+    const freightPerComp = (clientDistance || 0) * deliveryTrips * costPerKm;
+
     const perComp: Record<string, {
       totalWeightG: number; totalCost: number; totalItemCount: number;
       weightPerPerson: number; costPerPerson: number; suggestedPrice: number; pricePerPerson: number;
-      profit: number; marginPct: number;
+      profit: number; marginPct: number; freight: number;
       people: number;
     }> = {};
 
@@ -470,6 +488,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     let grandCost = 0;
     let grandItemCount = 0;
     let grandRevenue = 0;
+    let grandFreight = 0;
 
     compositions.forEach(c => {
       const people = peopleFor(c);
@@ -486,7 +505,9 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
           itemCount += effectiveQty;
         });
       });
-      // Preço da composição = soma dos preços de venda dos itens. Lucratividade real.
+      // Frete embutido (repasse): entra no custo E na receita → preço sobe, margem da comida intacta.
+      cost    += freightPerComp;
+      revenue += freightPerComp;
       const profit = revenue - cost;
       perComp[c.localId] = {
         totalWeightG: weightG,
@@ -498,12 +519,14 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         pricePerPerson: revenue / people,
         profit,
         marginPct: revenue > 0 ? profit / revenue : 0,
+        freight: freightPerComp,
         people,
       };
       grandWeightG   += weightG;
       grandCost      += cost;
       grandItemCount += itemCount;
       grandRevenue   += revenue;
+      grandFreight   += freightPerComp;
     });
 
     const grandProfit = grandRevenue - grandCost;
@@ -516,13 +539,14 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         suggestedPrice: grandRevenue,
         profit: grandProfit,
         marginPct: grandRevenue > 0 ? grandProfit / grandRevenue : 0,
+        freight: grandFreight,
         // peso/pessoa de referência usa nº de pessoas da proposta
         weightPerPerson: grandWeightG / numPeople,
         costPerPerson: grandCost / numPeople,
         pricePerPerson: grandRevenue / numPeople,
       },
     };
-  }, [items, materials, compositions, numPeople]);
+  }, [items, materials, compositions, numPeople, clientId, clients, deliveryTrips, costPerKm]);
 
   // ── Persistence ────────────────────────────────────────────────────────────
 
@@ -1112,6 +1136,12 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                       <span className="text-muted-foreground">Custo total</span>
                       <span className="font-medium">{fmt(calc.grand.totalCost)}</span>
                     </div>
+                    {calc.grand.freight > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">↳ Frete/logística (embutido, interno)</span>
+                        <span className="text-muted-foreground">{fmt(calc.grand.freight)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
+import { computeDistanceKmFromCep } from '@/lib/geo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,8 @@ const brazilianStates = [
 
 export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
   const [loading, setLoading] = useState(false);
+  // Guarda CEP/distância carregados para detectar mudança de endereço (preserva ajuste manual)
+  const originalGeo = useRef<{ zip?: string; distance?: number | null }>({});
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ClientFormData>({
     defaultValues: {
@@ -67,6 +70,8 @@ export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
       Object.keys(data).forEach(key => {
         setValue(key as keyof ClientFormData, data[key]);
       });
+      // Guarda referência de endereço/distância para recálculo só quando o CEP mudar
+      originalGeo.current = { zip: data.zip_code ?? '', distance: data.distance_km ?? null };
     } catch (error) {
       console.error('Erro ao carregar cliente:', error);
       toast.error('Erro ao carregar dados do cliente');
@@ -76,6 +81,16 @@ export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
   const onSubmit = async (data: ClientFormData) => {
     try {
       setLoading(true);
+
+      // Distância automática pelo CEP: recalcula quando o CEP foi informado e mudou
+      // (ou ainda não há distância). Ajuste manual preservado se o CEP não mudou.
+      const cep = (data.zip_code ?? '').replace(/\D/g, '');
+      const origCep = (originalGeo.current.zip ?? '').replace(/\D/g, '');
+      let distance_km: number | null = originalGeo.current.distance ?? null;
+      if (cep.length === 8 && (cep !== origCep || distance_km == null)) {
+        const d = await computeDistanceKmFromCep(cep);
+        if (d != null) distance_km = d;
+      }
 
       const clientData = {
         name: data.name,
@@ -89,6 +104,7 @@ export default function ClientForm({ clientId, onSuccess, onCancel }: Props) {
         city: data.city || null,
         state: data.state || null,
         zip_code: data.zip_code || null,
+        distance_km,
         status: data.status,
         notes: data.notes || null
       };

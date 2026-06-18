@@ -13,6 +13,9 @@ import { toast } from "sonner";
 const SETTING_MARGIN = "pricing.default_margin_pct";
 const SETTING_OH_PCT = "pricing.default_overhead_pct";
 const SETTING_OH_VAL = "pricing.default_overhead_value";
+// Logística (frete por evento) — valores diretos (não-fração)
+const SETTING_TRIPS = "logistics.delivery_trips";
+const SETTING_COST_KM = "logistics.cost_per_km";
 
 // % (UI) → fração string (banco); vazio mantém atual ('0')
 const pctToFracStr = (pct: string): string => {
@@ -49,6 +52,8 @@ export const ConfigPrecificacao = () => {
   const [globalMargin, setGlobalMargin] = useState(""); // %
   const [globalOhPct, setGlobalOhPct] = useState(""); // %
   const [globalOhVal, setGlobalOhVal] = useState(""); // R$
+  const [logisticsTrips, setLogisticsTrips] = useState(""); // nº de trajetos
+  const [logisticsCostKm, setLogisticsCostKm] = useState(""); // R$/km
   const [savingGlobal, setSavingGlobal] = useState(false);
   const [loadingGlobal, setLoadingGlobal] = useState(true);
 
@@ -67,13 +72,15 @@ export const ConfigPrecificacao = () => {
         const { data, error } = await supabase
           .from("app_settings")
           .select("key,value")
-          .in("key", [SETTING_MARGIN, SETTING_OH_PCT, SETTING_OH_VAL]);
+          .in("key", [SETTING_MARGIN, SETTING_OH_PCT, SETTING_OH_VAL, SETTING_TRIPS, SETTING_COST_KM]);
         if (error) throw error;
         const map = new Map((data || []).map((r) => [r.key, r.value]));
         setGlobalMargin(fracStrToPct(map.get(SETTING_MARGIN)));
         setGlobalOhPct(fracStrToPct(map.get(SETTING_OH_PCT)));
         const ohVal = map.get(SETTING_OH_VAL);
         setGlobalOhVal(ohVal != null && ohVal !== "" && parseFloat(ohVal) !== 0 ? ohVal : "");
+        setLogisticsTrips(map.get(SETTING_TRIPS) ?? "4");
+        setLogisticsCostKm(map.get(SETTING_COST_KM) ?? "1.50");
       } catch (err) {
         console.error("Erro ao carregar parâmetros de precificação:", err);
         toast.error("Não foi possível carregar os parâmetros globais.");
@@ -125,6 +132,8 @@ export const ConfigPrecificacao = () => {
         { key: SETTING_MARGIN, value: pctToFracStr(globalMargin) },
         { key: SETTING_OH_PCT, value: pctToFracStr(globalOhPct) },
         { key: SETTING_OH_VAL, value: globalOhVal.trim() !== "" ? parseFloat(globalOhVal).toString() : "0" },
+        { key: SETTING_TRIPS, value: logisticsTrips.trim() !== "" ? parseFloat(logisticsTrips).toString() : "4" },
+        { key: SETTING_COST_KM, value: logisticsCostKm.trim() !== "" ? parseFloat(logisticsCostKm).toString() : "1.50" },
       ];
       const { error } = await supabase.from("app_settings").upsert(rows, { onConflict: "key" });
       if (error) throw error;
@@ -228,6 +237,36 @@ export const ConfigPrecificacao = () => {
                   />
                 </div>
               </div>
+
+              {/* Logística — frete por evento */}
+              <div className="pt-2 border-t">
+                <p className="text-sm font-medium mb-1">Logística (frete por evento)</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Frete = distância do cliente × nº de trajetos × custo/km, rateado pelo nº de pessoas.
+                  Entra embutido no preço (repasse, sem margem); o cliente vê só o valor por pessoa.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Nº de trajetos por evento</Label>
+                    <NumericInput
+                      step="1"
+                      value={logisticsTrips}
+                      onChange={(e) => setLogisticsTrips(e.target.value)}
+                      placeholder="Ex: 4 (2 idas + 2 voltas)"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Custo por km (R$)</Label>
+                    <NumericInput
+                      step="0.01"
+                      value={logisticsCostKm}
+                      onChange={(e) => setLogisticsCostKm(e.target.value)}
+                      placeholder="Ex: 1,50"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="flex justify-end">
                 <Button onClick={handleSaveGlobal} disabled={savingGlobal}>
                   <Save className="h-4 w-4 mr-2" />

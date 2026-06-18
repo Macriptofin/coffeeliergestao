@@ -8,17 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Building2, User, MapPin, DollarSign, Star, Loader2, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-// Haversine — distância em km entre dois pontos (lat/lng)
-const haversine = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const R = 6371;
-  const toRad = (v: number) => v * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
+import { computeDistanceKmFromCep } from "@/lib/geo";
 
 export interface Supplier {
   id: string;
@@ -114,7 +104,6 @@ export const SupplierForm = ({ supplier, onSubmit, onCancel, isSubmitting = fals
   const set = (field: keyof typeof formData, value: string | number) =>
     setFormData(prev => ({ ...prev, [field]: value }));
 
-  const [calculatingDistance, setCalculatingDistance] = useState(false);
   const [fetchingCnpj, setFetchingCnpj] = useState(false);
 
   const handleFetchCnpj = async () => {
@@ -161,80 +150,24 @@ export const SupplierForm = ({ supplier, onSubmit, onCancel, isSubmitting = fals
     }
   };
 
-  const handleCalculateDistance = async () => {
-    const cep = (formData.zipCode ?? '').replace(/\D/g, '');
-    if (cep.length !== 8) {
-      toast.error('Informe o CEP do fornecedor (8 dígitos) antes de calcular');
-      return;
-    }
-    setCalculatingDistance(true);
-    try {
-      // Buscar CEP da sede nas configurações
-      const { data: nsRow } = await supabase
-        .from('config_namespaces')
-        .select('id')
-        .eq('key', 'gerais')
-        .single();
-
-      const { data: cepRow } = await supabase
-        .from('config_values')
-        .select('value_jsonb')
-        .eq('namespace_id', nsRow?.id)
-        .eq('key', 'empresa_cep')
-        .single();
-
-      const hqCep = (cepRow?.value_jsonb as string ?? '').replace(/\D/g, '');
-      if (!hqCep) throw new Error('CEP da sede não encontrado nas configurações');
-
-      // Chamar BrasilAPI para os dois CEPs em paralelo
-      const [hqRes, supRes] = await Promise.all([
-        fetch(`https://brasilapi.com.br/api/cep/v2/${hqCep}`),
-        fetch(`https://brasilapi.com.br/api/cep/v2/${cep}`),
-      ]);
-
-      if (!hqRes.ok) throw new Error('Não foi possível geocodificar o CEP da sede');
-      if (!supRes.ok) throw new Error('CEP do fornecedor não encontrado');
-
-      const [hqData, supData] = await Promise.all([hqRes.json(), supRes.json()]);
-
-      // BrasilAPI retorna location.coordinates = { longitude: string, latitude: string }
-      const hqCoords = hqData?.location?.coordinates;
-      const supCoords = supData?.location?.coordinates;
-
-      // Fallback: coordenadas do centro de Guaíba RS caso o CEP da sede não tenha cobertura
-      const HQ_FALLBACK = { lat: -30.1126, lon: -51.3243 };
-
-      let hqLat = parseFloat(hqCoords?.latitude);
-      let hqLon = parseFloat(hqCoords?.longitude);
-      if (isNaN(hqLat) || isNaN(hqLon)) {
-        hqLat = HQ_FALLBACK.lat;
-        hqLon = HQ_FALLBACK.lon;
-      }
-
-      const supLat = parseFloat(supCoords?.latitude);
-      const supLon = parseFloat(supCoords?.longitude);
-      if (isNaN(supLat) || isNaN(supLon)) throw new Error('Coordenadas do fornecedor indisponíveis para este CEP');
-
-      const km = haversine(hqLat, hqLon, supLat, supLon);
-      const rounded = Math.round(km * 10) / 10;
-      set('distanceKm', rounded);
-      toast.success(`Distância calculada: ${rounded} km`);
-    } catch (err: any) {
-      toast.error(err.message ?? 'Erro ao calcular distância');
-    } finally {
-      setCalculatingDistance(false);
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.companyName.trim()) {
       alert('Razão Social é obrigatória');
       return;
     }
+    // Distância automática pelo CEP: recalcula quando o CEP foi informado e mudou
+    // (ou ainda não há distância). Edição manual é preservada se o CEP não mudou.
+    let distanceKm = formData.distanceKm === '' ? undefined : Number(formData.distanceKm);
+    const cep = (formData.zipCode ?? '').replace(/\D/g, '');
+    const originalCep = (supplier?.zipCode ?? '').replace(/\D/g, '');
+    if (cep.length === 8 && (cep !== originalCep || distanceKm === undefined)) {
+      const d = await computeDistanceKmFromCep(cep);
+      if (d != null) distanceKm = d;
+    }
     onSubmit({
       ...formData,
-      distanceKm: formData.distanceKm === '' ? undefined : Number(formData.distanceKm),
+      distanceKm,
       rating: formData.rating === '' ? undefined : Number(formData.rating),
     });
   };
@@ -440,30 +373,16 @@ export const SupplierForm = ({ supplier, onSubmit, onCancel, isSubmitting = fals
             </div>
             <div className="mt-4 space-y-2 max-w-xs">
               <Label>Distância da sede (km)</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={formData.distanceKm}
-                  onChange={e => set('distanceKm', e.target.value === '' ? '' : parseFloat(e.target.value))}
-                  placeholder="Ex: 12.5"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={handleCalculateDistance}
-                  disabled={calculatingDistance}
-                  title="Calcular distância automaticamente via CEP"
-                >
-                  {calculatingDistance
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <MapPin className="h-4 w-4" />}
-                </Button>
-              </div>
+              <Input
+                type="number"
+                min="0"
+                step="0.1"
+                value={formData.distanceKm}
+                onChange={e => set('distanceKm', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                placeholder="Calculada pelo CEP"
+              />
               <p className="text-xs text-muted-foreground">
-                Preencha o CEP acima e clique em 📍 para calcular automaticamente
+                Calculada automaticamente pelo CEP ao salvar. Você pode ajustar manualmente se necessário.
               </p>
             </div>
           </section>

@@ -1351,6 +1351,7 @@ export type Database = {
           cnpj_cpf: string | null
           contact_person: string | null
           created_at: string
+          distance_km: number | null
           email: string | null
           fantasy_name: string | null
           id: string
@@ -1370,6 +1371,7 @@ export type Database = {
           cnpj_cpf?: string | null
           contact_person?: string | null
           created_at?: string
+          distance_km?: number | null
           email?: string | null
           fantasy_name?: string | null
           id?: string
@@ -1389,6 +1391,7 @@ export type Database = {
           cnpj_cpf?: string | null
           contact_person?: string | null
           created_at?: string
+          distance_km?: number | null
           email?: string | null
           fantasy_name?: string | null
           id?: string
