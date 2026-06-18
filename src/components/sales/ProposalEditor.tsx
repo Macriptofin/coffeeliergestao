@@ -83,12 +83,10 @@ interface SectionDef {
 }
 
 const SECTIONS: SectionDef[] = [
-  { key: 'salgados',   label: 'Salgados',          color: 'bg-red-100 text-red-800 border-red-200',          match: { category: 'Salgados' } },
-  { key: 'doces',      label: 'Doces',             color: 'bg-pink-100 text-pink-800 border-pink-200',       match: { category: 'Doces & Confeitaria' } },
-  { key: 'bebidas',    label: 'Bebidas',           color: 'bg-blue-100 text-blue-800 border-blue-200',       match: { category: 'Bebidas' } },
-  { key: 'frutas',     label: 'Frutas',            color: 'bg-orange-100 text-orange-800 border-orange-200', match: { subcategory: 'Hortifruti' } },
-  { key: 'sobremesas', label: 'Sobremesas',        color: 'bg-purple-100 text-purple-800 border-purple-200', match: { subcategory: 'Sobremesas' } },
-  { key: 'lowfat',     label: 'Low Fat / Fitness', color: 'bg-green-100 text-green-800 border-green-200',    match: { tagCode: 'REST_LOWFAT' } },
+  { key: 'salgados',   label: 'Salgados', color: 'bg-red-100 text-red-800 border-red-200',          match: { category: 'Salgados' } },
+  { key: 'doces',      label: 'Doces',    color: 'bg-pink-100 text-pink-800 border-pink-200',       match: { category: 'Doces & Confeitaria' } },
+  { key: 'frutas',     label: 'Frutas',   color: 'bg-orange-100 text-orange-800 border-orange-200', match: { subcategory: 'Hortifruti' } },
+  { key: 'bebidas',    label: 'Bebidas',  color: 'bg-blue-100 text-blue-800 border-blue-200',       match: { category: 'Bebidas' } },
 ];
 
 const EVENT_CATEGORIES = [
