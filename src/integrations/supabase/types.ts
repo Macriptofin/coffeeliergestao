@@ -3491,6 +3491,7 @@ export type Database = {
           is_archived: boolean | null
           is_sellable: boolean | null
           is_system_generated: boolean | null
+          legacy_code: string | null
           material_type: string
           name: string
           ncm: string | null
@@ -3530,6 +3531,7 @@ export type Database = {
           is_archived?: boolean | null
           is_sellable?: boolean | null
           is_system_generated?: boolean | null
+          legacy_code?: string | null
           material_type?: string
           name: string
           ncm?: string | null
@@ -3569,6 +3571,7 @@ export type Database = {
           is_archived?: boolean | null
           is_sellable?: boolean | null
           is_system_generated?: boolean | null
+          legacy_code?: string | null
           material_type?: string
           name?: string
           ncm?: string | null
