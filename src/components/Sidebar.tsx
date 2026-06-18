@@ -104,7 +104,6 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       children: [
         { name: "Propostas", href: "/vendas#propostas" },
         { name: "Clientes", href: "/vendas#clientes" },
-        { name: "Pedidos", href: "/vendas#pedidos" },
       ]
     },
     {
