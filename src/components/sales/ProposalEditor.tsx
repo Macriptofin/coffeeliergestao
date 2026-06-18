@@ -10,6 +10,8 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
+import { Switch } from '@/components/ui/switch';
+import { computeDistanceKmFromCep } from '@/lib/geo';
 import { toast } from 'sonner';
 import {
   Plus, Minus, Save, ArrowLeft, X, Scale, DollarSign,
@@ -116,6 +118,12 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   const [unitId, setUnitId]                 = useState('');
   const [roomId, setRoomId]                 = useState('');
   const [contactId, setContactId]           = useState('');
+  // Local avulso (evento em endereço que não é unidade do cliente — ex.: salão alugado)
+  const [useAdhocLocation, setUseAdhocLocation] = useState(false);
+  const [adhocName, setAdhocName]               = useState('');
+  const [adhocZip, setAdhocZip]                 = useState('');
+  const [adhocDistance, setAdhocDistance]       = useState<number | null>(null);
+  const [adhocCalculating, setAdhocCalculating] = useState(false);
 
   // ── Reference data ─────────────────────────────────────────────────────────
   const [clients, setClients]         = useState<Client[]>([]);
@@ -270,6 +278,12 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     setUnitId(prop.unit_id || '');
     setRoomId(prop.room_id || '');
     setContactId(prop.contact_id || '');
+    // Local avulso (se a proposta tiver CEP de local avulso gravado)
+    const hasAdhoc = !!prop.event_location_zip || prop.event_location_distance_km != null;
+    setUseAdhocLocation(hasAdhoc);
+    setAdhocName(prop.event_location_name || '');
+    setAdhocZip(prop.event_location_zip || '');
+    setAdhocDistance(prop.event_location_distance_km ?? null);
 
     if (prop.client_id) loadClientStructure(prop.client_id);
 
@@ -477,7 +491,8 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     // CMPC Guaíba ≠ Porto Alegre ≠ Barra do Ribeiro); fallback na distância do cliente.
     const unitDistance = units.find(u => u.id === unitId)?.distance_km ?? null;
     const clientDistance = clients.find(c => c.id === clientId)?.distance_km ?? null;
-    const distanceForFreight = unitDistance ?? clientDistance ?? 0;
+    // Local avulso (quando ativo) tem prioridade; senão unidade; fallback cliente.
+    const distanceForFreight = (useAdhocLocation ? adhocDistance : unitDistance) ?? clientDistance ?? 0;
     const freightPerComp = (distanceForFreight || 0) * deliveryTrips * costPerKm;
 
     const perComp: Record<string, {
@@ -549,7 +564,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         pricePerPerson: grandRevenue / numPeople,
       },
     };
-  }, [items, materials, compositions, numPeople, clientId, clients, unitId, units, deliveryTrips, costPerKm]);
+  }, [items, materials, compositions, numPeople, clientId, clients, unitId, units, useAdhocLocation, adhocDistance, deliveryTrips, costPerKm]);
 
   // ── Persistence ────────────────────────────────────────────────────────────
 
@@ -566,9 +581,13 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     const proposalPayload: any = {
       client_id:                clientId,
       department_id:            departmentId || null,
-      unit_id:                  unitId       || null,
-      room_id:                  roomId       || null,
+      unit_id:                  useAdhocLocation ? null : (unitId || null),
+      room_id:                  useAdhocLocation ? null : (roomId || null),
       contact_id:               contactId    || null,
+      // Local avulso (quando ativo)
+      event_location_name:        useAdhocLocation ? (adhocName || null) : null,
+      event_location_zip:         useAdhocLocation ? (adhocZip || null)  : null,
+      event_location_distance_km: useAdhocLocation ? adhocDistance       : null,
       event_category:           eventCategory,
       event_date:               eventDate    || null,
       proposal_date:            proposalDate,
@@ -880,6 +899,52 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+
+                  {/* Local avulso — evento em endereço que não é unidade do cliente */}
+                  <div className="pt-3 border-t space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={useAdhocLocation}
+                        onCheckedChange={(v) => {
+                          setUseAdhocLocation(v);
+                          if (v) { setUnitId(''); setRoomId(''); }  // avulso substitui unidade/sala
+                          else { setAdhocDistance(null); }
+                        }}
+                      />
+                      <Label className="text-xs">
+                        Local avulso (salão alugado / endereço fora das unidades do cliente)
+                      </Label>
+                    </div>
+                    {useAdhocLocation && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="space-y-1.5 md:col-span-2">
+                          <Label className="text-xs">Nome do local</Label>
+                          <Input className="h-8 text-sm" value={adhocName}
+                            onChange={(e) => setAdhocName(e.target.value)}
+                            placeholder="Ex: Salão de Festas Recanto" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">CEP do local</Label>
+                          <Input className="h-8 text-sm" value={adhocZip}
+                            onChange={(e) => setAdhocZip(e.target.value)}
+                            onBlur={async () => {
+                              const cep = adhocZip.replace(/\D/g, '');
+                              if (cep.length !== 8) return;
+                              setAdhocCalculating(true);
+                              const d = await computeDistanceKmFromCep(cep);
+                              setAdhocCalculating(false);
+                              if (d != null) setAdhocDistance(d);
+                            }}
+                            placeholder="00000-000" />
+                          <span className="text-[10px] text-muted-foreground">
+                            {adhocCalculating ? 'calculando distância…'
+                              : adhocDistance != null ? `Distância: ${adhocDistance} km (estimada)`
+                              : 'distância calculada pelo CEP'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

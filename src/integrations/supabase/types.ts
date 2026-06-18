@@ -4430,6 +4430,9 @@ export type Database = {
           department_id: string | null
           event_category: string | null
           event_date: string | null
+          event_location_distance_km: number | null
+          event_location_name: string | null
+          event_location_zip: string | null
           generated_order_id: string | null
           id: string
           notes: string | null
@@ -4459,6 +4462,9 @@ export type Database = {
           department_id?: string | null
           event_category?: string | null
           event_date?: string | null
+          event_location_distance_km?: number | null
+          event_location_name?: string | null
+          event_location_zip?: string | null
           generated_order_id?: string | null
           id?: string
           notes?: string | null
@@ -4488,6 +4494,9 @@ export type Database = {
           department_id?: string | null
           event_category?: string | null
           event_date?: string | null
+          event_location_distance_km?: number | null
+          event_location_name?: string | null
+          event_location_zip?: string | null
           generated_order_id?: string | null
           id?: string
           notes?: string | null
