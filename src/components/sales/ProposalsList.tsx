@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Eye, Edit, Copy, Trash2, Factory, ShoppingCart, CheckCircle2, FileDown, Send, Link } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Copy, Trash2, CheckCircle2, FileDown, Send, MoreHorizontal, FileText, CheckSquare, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Table,
@@ -16,6 +16,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { formatCurrency } from '@/lib/formatters';
+import { formatLocalDate } from '@/lib/date-utils';
 
 interface Proposal {
   id: string;
@@ -274,6 +283,16 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
+  // KPIs comerciais (refletem o filtro atual)
+  const kpiTotal = filteredProposals.length;
+  const kpiAprovadas = filteredProposals.filter(p => p.status === 'Aprovada').length;
+  const kpiEmAberto = filteredProposals.filter(p => ['Rascunho', 'Enviada', 'Aprovada pelo Cliente'].includes(p.status)).length;
+  const kpiValorAprovado = filteredProposals
+    .filter(p => p.status === 'Aprovada')
+    .reduce((sum, p) => sum + (p.total_amount || 0), 0);
+
+  const proposalKindLabel = (kind: string) => (kind === 'event_table' ? 'Evento' : 'Produto');
+
   if (loading) {
     return (
       <Card>
@@ -297,6 +316,38 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
           </div>
         </CardHeader>
         <CardContent>
+          {/* KPIs comerciais */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            <div className="rounded-lg border bg-muted/30 p-3 flex items-center gap-3">
+              <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+              <div>
+                <p className="text-xl font-bold leading-none">{kpiTotal}</p>
+                <p className="text-xs text-muted-foreground mt-1">Propostas</p>
+              </div>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3 flex items-center gap-3">
+              <CheckSquare className="h-5 w-5 text-emerald-600 shrink-0" />
+              <div>
+                <p className="text-xl font-bold leading-none">{kpiAprovadas}</p>
+                <p className="text-xs text-muted-foreground mt-1">Aprovadas</p>
+              </div>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3 flex items-center gap-3">
+              <Send className="h-5 w-5 text-blue-600 shrink-0" />
+              <div>
+                <p className="text-xl font-bold leading-none">{kpiEmAberto}</p>
+                <p className="text-xs text-muted-foreground mt-1">Em aberto</p>
+              </div>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3 flex items-center gap-3">
+              <Wallet className="h-5 w-5 text-emerald-600 shrink-0" />
+              <div>
+                <p className="text-xl font-bold leading-none">{formatCurrency(kpiValorAprovado)}</p>
+                <p className="text-xs text-muted-foreground mt-1">Valor aprovado</p>
+              </div>
+            </div>
+          </div>
+
           {/* Filtros */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="relative">
@@ -347,16 +398,15 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[130px] whitespace-nowrap">Número</TableHead>
+                  <TableHead className="whitespace-nowrap">Número</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Data Evento</TableHead>
-                  <TableHead>Pessoas</TableHead>
-                  <TableHead>Peso Total</TableHead>
-                  <TableHead>Valor Total</TableHead>
+                  <TableHead>Evento</TableHead>
+                  <TableHead className="whitespace-nowrap">Data</TableHead>
+                  <TableHead className="text-right">Pessoas</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Ações</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -367,83 +417,74 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                         {proposal.proposal_number}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">
-                          {proposal.proposal_kind === 'event_table' ? 'Evento/Mesa' : 'SKU'}
-                        </Badge>
+                        <Badge variant="secondary">{proposalKindLabel(proposal.proposal_kind)}</Badge>
                       </TableCell>
-                      <TableCell>{proposal.clients?.name || '-'}</TableCell>
+                      <TableCell>{proposal.clients?.name || '—'}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{proposal.event_category}</Badge>
+                        {proposal.event_category
+                          ? <Badge variant="outline">{proposal.event_category}</Badge>
+                          : <span className="text-muted-foreground">—</span>}
                       </TableCell>
-                      <TableCell>
-                        {proposal.event_date 
-                          ? new Date(proposal.event_date).toLocaleDateString('pt-BR')
-                          : '-'
-                        }
+                      <TableCell className="whitespace-nowrap">
+                        {proposal.event_date ? formatLocalDate(proposal.event_date) : '—'}
                       </TableCell>
-                      <TableCell>{proposal.number_of_people}</TableCell>
-                      <TableCell>{proposal.total_weight}g</TableCell>
-                      <TableCell>R$ {proposal.total_amount.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{proposal.number_of_people}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        <div className="font-medium">{formatCurrency(proposal.total_amount)}</div>
+                        {proposal.number_of_people > 0 && (
+                          <div className="text-xs text-muted-foreground">
+                            {formatCurrency(proposal.total_amount / proposal.number_of_people)}/pessoa
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>{getStatusBadge(proposal.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 flex-wrap">
-                          <Button variant="ghost" size="icon" className="h-7 w-7"
-                            onClick={() => onViewProposal(proposal.id)} title="Visualizar / Compor">
-                            <Eye size={13} />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7"
-                            onClick={() => onEditProposal(proposal.id)} title="Editar">
-                            <Edit size={13} />
-                          </Button>
-                          {onPdfProposal && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-green-700 hover:text-green-900"
-                              onClick={() => onPdfProposal(proposal.id)} title="Gerar PDF da proposta">
-                              <FileDown size={13} />
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal size={16} />
                             </Button>
-                          )}
-                          {/* Enviar para aprovação do cliente — disponível enquanto ainda em rascunho/enviada */}
-                          {['Rascunho', 'Enviada'].includes(proposal.status) && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600 hover:text-blue-800"
-                              onClick={() => handleSendForApproval(proposal.id)}
-                              title="Gerar link de aprovação para o cliente">
-                              <Send size={13} />
-                            </Button>
-                          )}
-                          {/* Aprovação final da equipe.
-                              'Aprovada pelo Cliente' = aceite do cliente aguardando revisão → "Revisar e aprovar". */}
-                          {['Rascunho', 'Enviada', 'Aprovada pelo Cliente'].includes(proposal.status) && (
-                            <Button
-                              size="icon"
-                              className={
-                                proposal.status === 'Aprovada pelo Cliente'
-                                  ? 'h-7 w-7 bg-amber-500 hover:bg-amber-600 text-white'
-                                  : 'h-7 w-7 bg-green-600 hover:bg-green-700 text-white'
-                              }
-                              onClick={() => handleApprove(proposal.id)}
-                              title={
-                                proposal.status === 'Aprovada pelo Cliente'
-                                  ? 'Revisar e aprovar (aprovação final da equipe — cria evento + OP)'
-                                  : 'Aprovar proposta (cria evento + OP automaticamente)'
-                              }
-                            >
-                              <CheckCircle2 size={13} />
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="icon" className="h-7 w-7"
-                            onClick={() => handleDuplicate(proposal.id)} title="Duplicar">
-                            <Copy size={13} />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDelete(proposal.id)} title="Excluir">
-                            <Trash2 size={13} />
-                          </Button>
-                        </div>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuItem onClick={() => onViewProposal(proposal.id)}>
+                              <Eye size={14} className="mr-2" /> Visualizar / Compor
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onEditProposal(proposal.id)}>
+                              <Edit size={14} className="mr-2" /> Editar
+                            </DropdownMenuItem>
+                            {onPdfProposal && (
+                              <DropdownMenuItem onClick={() => onPdfProposal(proposal.id)}>
+                                <FileDown size={14} className="mr-2" /> Gerar PDF
+                              </DropdownMenuItem>
+                            )}
+                            {['Rascunho', 'Enviada'].includes(proposal.status) && (
+                              <DropdownMenuItem onClick={() => handleSendForApproval(proposal.id)}>
+                                <Send size={14} className="mr-2" /> Link de aprovação
+                              </DropdownMenuItem>
+                            )}
+                            {['Rascunho', 'Enviada', 'Aprovada pelo Cliente'].includes(proposal.status) && (
+                              <DropdownMenuItem onClick={() => handleApprove(proposal.id)}>
+                                <CheckCircle2 size={14} className="mr-2" />
+                                {proposal.status === 'Aprovada pelo Cliente' ? 'Revisar e aprovar' : 'Aprovar proposta'}
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={() => handleDuplicate(proposal.id)}>
+                              <Copy size={14} className="mr-2" /> Duplicar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(proposal.id)}
+                              className="text-destructive focus:text-destructive">
+                              <Trash2 size={14} className="mr-2" /> Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       {searchTerm || statusFilter || eventCategoryFilter
                         ? 'Nenhuma proposta encontrada com os filtros aplicados.'
                         : 'Nenhuma proposta cadastrada ainda.'}
