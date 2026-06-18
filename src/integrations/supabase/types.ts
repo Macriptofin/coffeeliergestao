@@ -1298,6 +1298,7 @@ export type Database = {
           city: string | null
           client_id: string
           created_at: string
+          distance_km: number | null
           id: string
           is_active: boolean
           name: string
@@ -1311,6 +1312,7 @@ export type Database = {
           city?: string | null
           client_id: string
           created_at?: string
+          distance_km?: number | null
           id?: string
           is_active?: boolean
           name: string
@@ -1324,6 +1326,7 @@ export type Database = {
           city?: string | null
           client_id?: string
           created_at?: string
+          distance_km?: number | null
           id?: string
           is_active?: boolean
           name?: string
@@ -1345,7 +1348,11 @@ export type Database = {
       clients: {
         Row: {
           address: string | null
+          address_complement: string | null
+          address_number: string | null
+          billing_email: string | null
           city: string | null
+          classification: string | null
           client_code: string | null
           client_type: string
           cnpj_cpf: string | null
@@ -1355,17 +1362,27 @@ export type Database = {
           email: string | null
           fantasy_name: string | null
           id: string
+          lead_source: string | null
+          lifecycle_stage: string | null
           name: string
+          neighborhood: string | null
           notes: string | null
+          payment_terms: string | null
           phone: string | null
+          segment: string | null
           state: string | null
+          state_registration: string | null
           status: string
           updated_at: string
           zip_code: string | null
         }
         Insert: {
           address?: string | null
+          address_complement?: string | null
+          address_number?: string | null
+          billing_email?: string | null
           city?: string | null
+          classification?: string | null
           client_code?: string | null
           client_type?: string
           cnpj_cpf?: string | null
@@ -1375,17 +1392,27 @@ export type Database = {
           email?: string | null
           fantasy_name?: string | null
           id?: string
+          lead_source?: string | null
+          lifecycle_stage?: string | null
           name: string
+          neighborhood?: string | null
           notes?: string | null
+          payment_terms?: string | null
           phone?: string | null
+          segment?: string | null
           state?: string | null
+          state_registration?: string | null
           status?: string
           updated_at?: string
           zip_code?: string | null
         }
         Update: {
           address?: string | null
+          address_complement?: string | null
+          address_number?: string | null
+          billing_email?: string | null
           city?: string | null
+          classification?: string | null
           client_code?: string | null
           client_type?: string
           cnpj_cpf?: string | null
@@ -1395,10 +1422,16 @@ export type Database = {
           email?: string | null
           fantasy_name?: string | null
           id?: string
+          lead_source?: string | null
+          lifecycle_stage?: string | null
           name?: string
+          neighborhood?: string | null
           notes?: string | null
+          payment_terms?: string | null
           phone?: string | null
+          segment?: string | null
           state?: string | null
+          state_registration?: string | null
           status?: string
           updated_at?: string
           zip_code?: string | null

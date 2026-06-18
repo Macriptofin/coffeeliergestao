@@ -21,7 +21,7 @@ import {
 
 interface Client { id: string; name: string; fantasy_name?: string | null; distance_km?: number | null; }
 interface Department { id: string; name: string; }
-interface Unit { id: string; name: string; }
+interface Unit { id: string; name: string; distance_km?: number | null; }
 interface Room { id: string; name: string; unit_id: string; }
 interface Contact { id: string; name: string; department_id?: string | null; }
 
@@ -354,7 +354,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     try {
       const [deptR, unitR, roomR, contactR] = await Promise.all([
         supabase.from('client_departments').select('id, name').eq('client_id', id).eq('is_active', true).order('name'),
-        supabase.from('client_units').select('id, name').eq('client_id', id).eq('is_active', true).order('name'),
+        supabase.from('client_units').select('id, name, distance_km').eq('client_id', id).eq('is_active', true).order('name'),
         supabase.from('client_rooms').select('id, name, unit_id').eq('client_id', id).eq('is_active', true).order('name'),
         supabase.from('client_contacts').select('id, name, department_id').eq('client_id', id).eq('is_active', true).order('name'),
       ]);
@@ -472,10 +472,13 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     const peopleFor = (c: Composition) =>
       (c.number_of_people && c.number_of_people > 0) ? c.number_of_people : numPeople;
 
-    // Frete por composição (delivery) = distância do cliente × nº trajetos × R$/km.
-    // Repasse: soma igual a custo e receita (neutro à margem; embutido no preço).
-    const clientDistance = clients.find(c => c.id === clientId)?.distance_km ?? 0;
-    const freightPerComp = (clientDistance || 0) * deliveryTrips * costPerKm;
+    // Frete por composição (delivery) = distância × nº trajetos × R$/km.
+    // Distância vem da UNIDADE selecionada (cada local tem distância própria — ex.:
+    // CMPC Guaíba ≠ Porto Alegre ≠ Barra do Ribeiro); fallback na distância do cliente.
+    const unitDistance = units.find(u => u.id === unitId)?.distance_km ?? null;
+    const clientDistance = clients.find(c => c.id === clientId)?.distance_km ?? null;
+    const distanceForFreight = unitDistance ?? clientDistance ?? 0;
+    const freightPerComp = (distanceForFreight || 0) * deliveryTrips * costPerKm;
 
     const perComp: Record<string, {
       totalWeightG: number; totalCost: number; totalItemCount: number;
@@ -546,7 +549,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         pricePerPerson: grandRevenue / numPeople,
       },
     };
-  }, [items, materials, compositions, numPeople, clientId, clients, deliveryTrips, costPerKm]);
+  }, [items, materials, compositions, numPeople, clientId, clients, unitId, units, deliveryTrips, costPerKm]);
 
   // ── Persistence ────────────────────────────────────────────────────────────
 

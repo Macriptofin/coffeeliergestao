@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { computeDistanceKmFromCep } from '@/lib/geo';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ interface Unit {
   city: string | null;
   state: string | null;
   zip_code: string | null;
+  distance_km: number | null;
   notes: string | null;
   is_active: boolean;
   created_at: string;
@@ -65,12 +67,14 @@ export default function ClientUnits({ clientId }: Props) {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const originalUnitZip = useRef(''); // CEP carregado, p/ recalcular distância só quando mudar
   const [formData, setFormData] = useState({
     name: '',
     address: '',
     city: '',
     state: '',
     zip_code: '',
+    distance_km: null as number | null,
     notes: '',
     is_active: true
   });
@@ -110,12 +114,22 @@ export default function ClientUnits({ clientId }: Props) {
     }
 
     try {
+      // Distância automática pelo CEP (recalcula só quando o CEP mudou ou não há valor)
+      const cep = (formData.zip_code ?? '').replace(/\D/g, '');
+      const origCep = (originalUnitZip.current ?? '').replace(/\D/g, '');
+      let distance_km: number | null = formData.distance_km;
+      if (cep.length === 8 && (cep !== origCep || distance_km == null)) {
+        const d = await computeDistanceKmFromCep(cep);
+        if (d != null) distance_km = d;
+      }
+
       const payload = {
         name: formData.name,
         address: formData.address || null,
         city: formData.city || null,
         state: formData.state || null,
         zip_code: formData.zip_code || null,
+        distance_km,
         notes: formData.notes || null,
         is_active: formData.is_active
       };
@@ -151,12 +165,14 @@ export default function ClientUnits({ clientId }: Props) {
 
   const handleEdit = (unit: Unit) => {
     setEditingId(unit.id);
+    originalUnitZip.current = unit.zip_code || '';
     setFormData({
       name: unit.name,
       address: unit.address || '',
       city: unit.city || '',
       state: unit.state || '',
       zip_code: unit.zip_code || '',
+      distance_km: unit.distance_km ?? null,
       notes: unit.notes || '',
       is_active: unit.is_active
     });
@@ -182,12 +198,14 @@ export default function ClientUnits({ clientId }: Props) {
   const handleCancel = () => {
     setShowForm(false);
     setEditingId(null);
+    originalUnitZip.current = '';
     setFormData({
       name: '',
       address: '',
       city: '',
       state: '',
       zip_code: '',
+      distance_km: null,
       notes: '',
       is_active: true
     });
@@ -352,6 +370,20 @@ export default function ClientUnits({ clientId }: Props) {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div>
+              <Label htmlFor="unit-distance">Distância até a base (km)</Label>
+              <Input
+                id="unit-distance"
+                type="number"
+                step="0.1"
+                value={formData.distance_km ?? ''}
+                onChange={(e) => setFormData({ ...formData, distance_km: e.target.value === '' ? null : parseFloat(e.target.value) })}
+                placeholder="Calculada pelo CEP"
+              />
+              <span className="text-xs text-muted-foreground">
+                Estimada automaticamente pelo CEP ao salvar (linha reta). Usada no frete da proposta deste local.
+              </span>
             </div>
             <div>
               <Label htmlFor="unit-notes">Observações</Label>
