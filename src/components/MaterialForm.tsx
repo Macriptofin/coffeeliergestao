@@ -8,7 +8,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { X, AlertTriangle, Package, Tag, Layers, Receipt, Leaf } from "lucide-react";
+import { NumericInput } from "@/components/ui/numeric-input";
+import { X, AlertTriangle, Package, Tag, Layers, Receipt, Leaf, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Material } from "@/types";
 import { useTaxonomy } from "@/hooks/useConfig";
@@ -64,6 +65,11 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     cfop: material?.cfop || '',
     cst: material?.cst || '',
     origem: material?.origem?.toString() || '0',
+    // Precificação (exibida em PERCENTUAL; convertida p/ fração no save)
+    targetMarginPct: material?.targetMarginPct != null ? (material.targetMarginPct * 100).toString() : '',
+    overheadPct: material?.overheadPct != null ? (material.overheadPct * 100).toString() : '',
+    overheadValue: material?.overheadValue != null ? material.overheadValue.toString() : '',
+    practicedPrice: material?.practicedPrice != null ? material.practicedPrice.toString() : '',
   });
 
   const [restrictionTagIds, setRestrictionTagIds] = useState<string[]>(material?.restrictionTagIds ?? []);
@@ -208,6 +214,11 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       origem: formData.origem !== '' ? parseInt(formData.origem) : undefined,
       // Restrições & características
       restrictionTagIds,
+      // Precificação: percentual → fração; vazio → undefined (salva null = herda)
+      targetMarginPct: formData.targetMarginPct.trim() !== '' ? parseFloat(formData.targetMarginPct) / 100 : undefined,
+      overheadPct: formData.overheadPct.trim() !== '' ? parseFloat(formData.overheadPct) / 100 : undefined,
+      overheadValue: formData.overheadValue.trim() !== '' ? parseFloat(formData.overheadValue) : undefined,
+      practicedPrice: formData.practicedPrice.trim() !== '' ? parseFloat(formData.practicedPrice) : undefined,
     });
   };
 
@@ -563,6 +574,67 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
                 </div>
               </>
             )}
+          </div>
+
+          <div className="border-t border-border" />
+
+          {/* ── SEÇÃO: PRECIFICAÇÃO ── */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              <DollarSign className="h-4 w-4" />
+              <span>Precificação <span className="font-normal normal-case text-xs">(opcional)</span></span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  Margem alvo (%)
+                  <HelpTooltip content="Margem sobre o preço de venda. Vazio = herda da categoria ou do parâmetro global." />
+                </Label>
+                <NumericInput
+                  step="0.1"
+                  value={formData.targetMarginPct}
+                  onChange={(e) => setFormData({ ...formData, targetMarginPct: e.target.value })}
+                  placeholder="Ex: 40"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  Overhead (%)
+                  <HelpTooltip content="Custos indiretos como % do custo direto. Vazio = herda." />
+                </Label>
+                <NumericInput
+                  step="0.1"
+                  value={formData.overheadPct}
+                  onChange={(e) => setFormData({ ...formData, overheadPct: e.target.value })}
+                  placeholder="Ex: 10"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  Overhead (R$/un)
+                  <HelpTooltip content="Custo indireto fixo por unidade. Vazio = herda." />
+                </Label>
+                <NumericInput
+                  step="0.01"
+                  value={formData.overheadValue}
+                  onChange={(e) => setFormData({ ...formData, overheadValue: e.target.value })}
+                  placeholder="0,00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  Preço praticado (R$)
+                  <HelpTooltip content="Preço de venda efetivamente cobrado." />
+                </Label>
+                <NumericInput
+                  step="0.01"
+                  value={formData.practicedPrice}
+                  onChange={(e) => setFormData({ ...formData, practicedPrice: e.target.value })}
+                  placeholder="0,00"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="border-t border-border" />

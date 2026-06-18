@@ -51,7 +51,12 @@ async function fetchMaterials(): Promise<Material[]> {
       cfop,
       cst,
       origem,
-      tracks_inventory
+      tracks_inventory,
+      target_margin_pct,
+      overhead_pct,
+      overhead_value,
+      practiced_price,
+      suggested_price
     `)
     .eq('is_archived', false)
     .order('name');
@@ -85,6 +90,11 @@ async function fetchMaterials(): Promise<Material[]> {
         cst: item.cst || undefined,
         origem: item.origem != null ? item.origem : undefined,
         tracksInventory: item.tracks_inventory !== false, // default true
+        targetMarginPct: item.target_margin_pct != null ? parseFloat(item.target_margin_pct.toString()) : undefined,
+        overheadPct: item.overhead_pct != null ? parseFloat(item.overhead_pct.toString()) : undefined,
+        overheadValue: item.overhead_value != null ? parseFloat(item.overhead_value.toString()) : undefined,
+        practicedPrice: item.practiced_price != null ? parseFloat(item.practiced_price.toString()) : undefined,
+        suggestedPrice: item.suggested_price != null ? parseFloat(item.suggested_price.toString()) : undefined,
       } as Material;
     } catch (itemError) {
       console.error(`❌ Erro ao processar item ${index + 1}:`, itemError, item);
@@ -316,6 +326,10 @@ const Materials = () => {
           cst: material.cst,
           origem: material.origem,
           tracks_inventory: material.tracksInventory !== false,
+          target_margin_pct: material.targetMarginPct ?? null,
+          overhead_pct: material.overheadPct ?? null,
+          overhead_value: material.overheadValue ?? null,
+          practiced_price: material.practicedPrice ?? null,
         })
         .select('id')
         .single();
@@ -375,6 +389,10 @@ const Materials = () => {
           cst: updatedMaterial.cst,
           origem: updatedMaterial.origem,
           tracks_inventory: updatedMaterial.tracksInventory !== false,
+          target_margin_pct: updatedMaterial.targetMarginPct ?? null,
+          overhead_pct: updatedMaterial.overheadPct ?? null,
+          overhead_value: updatedMaterial.overheadValue ?? null,
+          practiced_price: updatedMaterial.practicedPrice ?? null,
         })
         .eq('id', updatedMaterial.id);
       

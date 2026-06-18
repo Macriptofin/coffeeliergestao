@@ -16,6 +16,7 @@ import { ConfigVendas } from "@/components/config/ConfigVendas";
 import { ConfigFinanceiro } from "@/components/config/ConfigFinanceiro";
 import { ConfigEventos } from "@/components/config/ConfigEventos";
 import { ConfigRH } from "@/components/config/ConfigRH";
+import { ConfigPrecificacao } from "@/components/config/ConfigPrecificacao";
 import { useConfig } from "@/hooks/useConfig";
 import { UserRoleManager } from "@/components/UserRoleManager";
 import { ModulePermissionsManager } from "@/components/ModulePermissionsManager";
@@ -36,6 +37,7 @@ const NAV_GROUPS = [
       { id: 'estoque',    label: 'Materiais',  icon: Package,      description: 'Categorias, unidades e importação' },
       { id: 'producao',   label: 'Produção',   icon: Wrench,       description: 'Parâmetros de produção' },
       { id: 'vendas',     label: 'Vendas',     icon: ShoppingCart, description: 'Categorias e parâmetros de vendas' },
+      { id: 'precificacao', label: 'Precificação', icon: DollarSign, description: 'Margem, overhead e regras por categoria' },
       { id: 'financeiro', label: 'Financeiro', icon: DollarSign,   description: 'Contas e regras financeiras' },
       { id: 'eventos',    label: 'Eventos',    icon: Calendar,     description: 'Configurações de eventos' },
       { id: 'rh',         label: 'RH',         icon: Users,        description: 'Recursos humanos' },
@@ -61,6 +63,7 @@ function ConfigContent({ section }: { section: string }) {
     case 'estoque':    return <ConfigEstoque />;
     case 'producao':   return <ConfigProducao />;
     case 'vendas':     return <ConfigVendas />;
+    case 'precificacao': return <ConfigPrecificacao />;
     case 'financeiro': return <ConfigFinanceiro />;
     case 'eventos':    return <ConfigEventos />;
     case 'rh':         return <ConfigRH />;

@@ -35,9 +35,11 @@ import {
   Pencil
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { NumericInput } from "@/components/ui/numeric-input";
 import type { Material } from "@/types";
 import { useTaxonomy } from "@/hooks/useConfig";
 import { supabase } from "@/integrations/supabase/client";
+import { formatCurrency } from "@/lib/formatters";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
@@ -88,7 +90,16 @@ export const MaterialEditor = ({
     cfop: material?.cfop || '',
     cst: material?.cst || '',
     origem: material?.origem?.toString() || '0',
+    // Precificação (exibida/editada em PERCENTUAL; convertida p/ fração no save)
+    targetMarginPct: material?.targetMarginPct != null ? (material.targetMarginPct * 100).toString() : '',
+    overheadPct: material?.overheadPct != null ? (material.overheadPct * 100).toString() : '',
+    overheadValue: material?.overheadValue != null ? material.overheadValue.toString() : '',
+    practicedPrice: material?.practicedPrice != null ? material.practicedPrice.toString() : '',
   });
+
+  // Breakdown calculado pelo banco (compute_product_pricing) — base p/ preview ao vivo
+  const [pricing, setPricing] = useState<any>(null);
+  const [pricingLoading, setPricingLoading] = useState(false);
 
   const [restrictionTagIds, setRestrictionTagIds] = useState<string[]>(material?.restrictionTagIds ?? []);
 
@@ -203,6 +214,10 @@ const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Mater
         cfop: material.cfop || '',
         cst: material.cst || '',
         origem: material.origem?.toString() || '0',
+        targetMarginPct: material.targetMarginPct != null ? (material.targetMarginPct * 100).toString() : '',
+        overheadPct: material.overheadPct != null ? (material.overheadPct * 100).toString() : '',
+        overheadValue: material.overheadValue != null ? material.overheadValue.toString() : '',
+        practicedPrice: material.practicedPrice != null ? material.practicedPrice.toString() : '',
       });
       setRestrictionTagIds(material.restrictionTagIds ?? []);
     }
@@ -229,7 +244,11 @@ const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Mater
         formData.ncm !== (material.ncm || '') ||
         formData.cfop !== (material.cfop || '') ||
         formData.cst !== (material.cst || '') ||
-        formData.origem !== (material.origem?.toString() || '0');
+        formData.origem !== (material.origem?.toString() || '0') ||
+        formData.targetMarginPct !== (material.targetMarginPct != null ? (material.targetMarginPct * 100).toString() : '') ||
+        formData.overheadPct !== (material.overheadPct != null ? (material.overheadPct * 100).toString() : '') ||
+        formData.overheadValue !== (material.overheadValue != null ? material.overheadValue.toString() : '') ||
+        formData.practicedPrice !== (material.practicedPrice != null ? material.practicedPrice.toString() : '');
 
       const initialTags = material.restrictionTagIds ?? [];
       const tagsChanged =
@@ -246,6 +265,25 @@ const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Mater
       loadBOMData();
     }
   }, [material?.id]);
+
+  // Load pricing breakdown (custo direto + herdados) ao abrir o editor
+  useEffect(() => {
+    const loadPricing = async () => {
+      if (!material?.id || !isOpen) return;
+      setPricingLoading(true);
+      try {
+        const { data, error } = await (supabase.rpc as any)('compute_product_pricing', { p_material_id: material.id });
+        if (error) throw error;
+        setPricing(data);
+      } catch (err) {
+        console.error('Erro ao calcular precificação:', err);
+        setPricing(null);
+      } finally {
+        setPricingLoading(false);
+      }
+    };
+    loadPricing();
+  }, [material?.id, isOpen]);
 
   // Handle Escape key
   useEffect(() => {
@@ -338,6 +376,11 @@ const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Mater
       cst: formData.cst || undefined,
       origem: formData.origem ? parseInt(formData.origem) : undefined,
       restrictionTagIds,
+      // Precificação: percentual → fração; vazio → undefined (salva null = herda)
+      targetMarginPct: formData.targetMarginPct.trim() !== '' ? parseFloat(formData.targetMarginPct) / 100 : undefined,
+      overheadPct: formData.overheadPct.trim() !== '' ? parseFloat(formData.overheadPct) / 100 : undefined,
+      overheadValue: formData.overheadValue.trim() !== '' ? parseFloat(formData.overheadValue) : undefined,
+      practicedPrice: formData.practicedPrice.trim() !== '' ? parseFloat(formData.practicedPrice) : undefined,
     };
 
     onSave(updatedMaterial);
@@ -394,6 +437,30 @@ const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Mater
       setBomLoading(false);
     }
   };
+
+  // ── Preview ao vivo da precificação ──────────────────────────────────────
+  // Valores efetivos = override do form (se preenchido) OU herdado do compute do banco.
+  const directCost = pricing?.direct_cost != null ? Number(pricing.direct_cost) : 0;
+  const inheritedOhPct = pricing?.overhead_pct != null ? Number(pricing.overhead_pct) : 0;
+  const inheritedOhVal = pricing?.overhead_value != null ? Number(pricing.overhead_value) : 0;
+  const inheritedMargin = pricing?.margin_pct != null ? Number(pricing.margin_pct) : 0;
+  const marginSource: string | undefined = pricing?.margin_source;
+
+  const effOhPct = formData.overheadPct.trim() !== '' ? parseFloat(formData.overheadPct) / 100 : inheritedOhPct;
+  const effOhVal = formData.overheadValue.trim() !== '' ? parseFloat(formData.overheadValue) : inheritedOhVal;
+  const effMargin = formData.targetMarginPct.trim() !== '' ? parseFloat(formData.targetMarginPct) / 100 : inheritedMargin;
+  const usingInheritedMargin = formData.targetMarginPct.trim() === '';
+
+  const totalCost = directCost * (1 + (isNaN(effOhPct) ? 0 : effOhPct)) + (isNaN(effOhVal) ? 0 : effOhVal);
+  const previewSuggested = effMargin < 1 ? totalCost / (1 - effMargin) : 0;
+
+  const practicedNum = formData.practicedPrice.trim() !== '' ? parseFloat(formData.practicedPrice) : null;
+  const realizedMargin = practicedNum != null && practicedNum > 0
+    ? (practicedNum - totalCost) / practicedNum
+    : null;
+
+  const marginSourceLabel = (src?: string) =>
+    src === 'produto' ? 'produto' : src === 'categoria' ? 'categoria' : src === 'global' ? 'global' : '';
 
   if (!material) return null;
 
@@ -482,6 +549,10 @@ const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Mater
             <TabsTrigger value="fiscal" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
               <FileText className="h-4 w-4" />
               Fiscal
+            </TabsTrigger>
+            <TabsTrigger value="pricing" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+              <DollarSign className="h-4 w-4" />
+              Precificação
             </TabsTrigger>
             {isProducedMaterial && (
               <TabsTrigger value="bom" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
@@ -875,6 +946,120 @@ const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Mater
                       </SelectContent>
                     </Select>
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="pricing" className="mt-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Precificação
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {pricingLoading ? (
+                    <p className="text-sm text-muted-foreground">Calculando...</p>
+                  ) : (
+                    <>
+                      {/* Custo direto + preço sugerido */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="p-4 bg-muted rounded-lg">
+                          <p className="text-xs text-muted-foreground">Custo direto</p>
+                          <p className="text-lg font-semibold">{formatCurrency(directCost)}</p>
+                        </div>
+                        <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                          <p className="text-xs text-muted-foreground">Preço sugerido (ao vivo)</p>
+                          <p className="text-lg font-semibold text-primary">{formatCurrency(previewSuggested)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Custo total: {formatCurrency(totalCost)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Margem alvo */}
+                      <div className="space-y-2">
+                        <Label className="flex items-center">
+                          Margem alvo (%)
+                          <HelpTooltip content="Margem desejada sobre o preço de venda. Deixe vazio para herdar da categoria ou do parâmetro global." />
+                        </Label>
+                        <NumericInput
+                          step="0.1"
+                          value={formData.targetMarginPct}
+                          onChange={(e) => setFormData({ ...formData, targetMarginPct: e.target.value })}
+                          placeholder={
+                            marginSource
+                              ? `Herda: ${(inheritedMargin * 100).toFixed(1)}% (${marginSourceLabel(marginSource)})`
+                              : 'Ex: 40'
+                          }
+                        />
+                        {usingInheritedMargin && marginSource && (
+                          <p className="text-xs text-muted-foreground">
+                            Usando margem herdada de <strong>{marginSourceLabel(marginSource)}</strong>: {(inheritedMargin * 100).toFixed(1)}%
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Overhead */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="flex items-center">
+                            Overhead (%)
+                            <HelpTooltip content="Custos indiretos como percentual do custo direto. Vazio = herda." />
+                          </Label>
+                          <NumericInput
+                            step="0.1"
+                            value={formData.overheadPct}
+                            onChange={(e) => setFormData({ ...formData, overheadPct: e.target.value })}
+                            placeholder={inheritedOhPct ? `Herda: ${(inheritedOhPct * 100).toFixed(1)}%` : 'Ex: 10'}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="flex items-center">
+                            Overhead (R$/un)
+                            <HelpTooltip content="Custo indireto fixo por unidade, em reais. Vazio = herda." />
+                          </Label>
+                          <NumericInput
+                            step="0.01"
+                            value={formData.overheadValue}
+                            onChange={(e) => setFormData({ ...formData, overheadValue: e.target.value })}
+                            placeholder={inheritedOhVal ? `Herda: ${formatCurrency(inheritedOhVal)}` : 'Ex: 0,50'}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Preço praticado + margem realizada */}
+                      <div className="space-y-2">
+                        <Label className="flex items-center">
+                          Preço praticado (R$)
+                          <HelpTooltip content="Preço de venda efetivamente cobrado. Usado para calcular a margem realizada." />
+                        </Label>
+                        <NumericInput
+                          step="0.01"
+                          value={formData.practicedPrice}
+                          onChange={(e) => setFormData({ ...formData, practicedPrice: e.target.value })}
+                          placeholder="Ex: 12,90"
+                        />
+                        {realizedMargin != null && (
+                          <p className="text-sm">
+                            Margem realizada:{' '}
+                            <strong
+                              className={
+                                realizedMargin < 0
+                                  ? 'text-red-600'
+                                  : realizedMargin >= effMargin
+                                  ? 'text-green-600'
+                                  : 'text-amber-600'
+                              }
+                            >
+                              {(realizedMargin * 100).toFixed(1)}%
+                            </strong>
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

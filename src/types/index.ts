@@ -48,6 +48,12 @@ export interface Material {
   tracksInventory?: boolean; // false = não gera movimentação de estoque na NF (ex: combustível, descartáveis)
   // Restrições & características (tags do tipo material_restriction, via material_tags)
   restrictionTagIds?: string[];
+  // Precificação (margem/overhead_pct armazenados como FRAÇÃO no banco)
+  targetMarginPct?: number;
+  overheadPct?: number;
+  overheadValue?: number;
+  practicedPrice?: number;
+  suggestedPrice?: number; // cache calculado pelo banco — read-only no front
 }
 
 export interface Recipe {
