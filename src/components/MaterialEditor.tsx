@@ -145,9 +145,9 @@ const availableSubcategories = selectedCategoryTerm
   : [];
 
 // Map type term to legacy materialType for database
-const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Material['materialType'] => {
-  // Override por categoria: Equipamentos sempre mapeia para 'equipment'
-  if (categoryName === 'Equipamentos') return 'equipment';
+const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Material['materialType'] => {
+  // Tipo é explícito (termo da taxonomia). Sem override de categoria — tipo e
+  // categoria são eixos independentes (matriz tipo→comportamento).
   const typeTerm = materialTypesFromTaxonomy.find(t => t.id === typeTermId);
   if (!typeTerm) return 'ingredient';
 
@@ -158,6 +158,7 @@ const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Mater
     'Produto Acabado': 'finished_product',
     'Produto Composto': 'composite_product',
     'Produto de Revenda': 'resale_product',
+    'Equipamento': 'equipment',
     'Material de Limpeza': 'supply',
     'Material de Consumo': 'supply',
   };
@@ -180,9 +181,10 @@ const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Mater
       'intermediate_product': 'Produto Intermediário',
       'composite_product': 'Produto Composto',
       'resale_product': 'Produto de Revenda',
+      'equipment': 'Equipamento',
       'supply': 'Material de Consumo',
     };
-    
+
     const typeName = typeMapping[mat.materialType];
     const typeTerm = materialTypesFromTaxonomy.find(t => t.name === typeName);
     return typeTerm?.id || '';

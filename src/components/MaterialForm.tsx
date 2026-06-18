@@ -100,9 +100,8 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
     ? allSubcategories.filter(sub => sub.parent_id === selectedCategoryTerm.id)
     : [];
 
-  const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Material['materialType'] => {
-    // Override por categoria: Equipamentos sempre mapeia para 'equipment'
-    if (categoryName === 'Equipamentos') return 'equipment';
+  const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Material['materialType'] => {
+    // Tipo explícito pelo termo (sem override de categoria — eixos independentes).
     const term = materialTypesFromTaxonomy.find(t => t.id === typeTermId);
     if (!term) return 'ingredient';
     const map: Record<string, Material['materialType']> = {
@@ -112,6 +111,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
       'Produto Acabado': 'finished_product',
       'Produto Composto': 'composite_product',
       'Produto de Revenda': 'resale_product',
+      'Equipamento': 'equipment',
       'Material de Limpeza': 'supply',
       'Material de Consumo': 'supply',
     };
