@@ -120,8 +120,10 @@ supabase/migrations/AAAAMMDDHHMMSS_nome_snake_case.sql
 | `process_cost_adjustment` | Ajuste de preço médio |
 | `rpc_inventory_update_status` | Avança status do ciclo de inventário |
 | `rpc_inventory_finalize` | Fecha ciclo e aplica todos os ajustes |
-| `finalize_production_order` | Finaliza OP BOM com rendimento real |
+| `finalize_production_order` | Finaliza OP BOM com rendimento real; carimba custo real do lote no histórico e valora perdas |
 | `reserve_stock_for_production_order` | Reserva estoque para OP |
+| `compute_product_pricing(uuid)` | Calcula precificação do produto (custo, overhead, margem efetiva, preço sugerido/praticado, margem realizada) resolvendo produto→categoria→global |
+| `recompute_all_pricing()` | Recalcula `suggested_price` de todos os tipos vendáveis (usar após mudar default global/categoria) |
 | `create_event_from_proposal(uuid)` | Gera **1 evento na agenda por composição** da proposta (idempotente) |
 | `generate_production_from_proposal(uuid)` | Gera **Ordem de Evento** (separação, `event_production_orders`) por composição + **Ordem de Produção** (`bom_production_orders`) só do **déficit vs estoque** |
 | `approve_proposal_by_token(text)` | Cliente aceita pela página pública → status `'Aprovada pelo Cliente'` (NÃO gera; geração é na aprovação final da equipe) |
@@ -133,13 +135,38 @@ supabase/migrations/AAAAMMDDHHMMSS_nome_snake_case.sql
   - **Tags de restrição/característica** = eixo transversal (Low Fat, Vegano, Sem Glúten…) — taxonomia `material_restriction` + tabela de ligação `material_tags (material_id, term_id)` (many-to-many). Um produto pode ter várias.
 - **Proposta** = `proposals` → **`proposal_compositions`** (momentos: nome, `scheduled_date/time`, local, preço/pessoa) → `proposal_categories` (seções, com `composition_id`) → `proposal_category_items`. O compositor (`ProposalEditor.tsx`) monta seções por categoria + Low Fat por tag. PDF (`ProposalPDF.tsx`) e geração de evento/ordens são **por composição**.
 
+### Matriz tipo→comportamento (espinha dorsal, estilo SAP MTART)
+
+`material_type` governa toda a cadeia. **Comportamento deriva do tipo**, nunca de flags paralelas:
+
+| Tipo | Aprovisionamento | Custo (origem) | Ficha | Vendável/preço | Estoque |
+|---|---|---|---|---|---|
+| `ingredient` / `packaging` / `supply` | Compra | preço médio compra | Não | Não | Sim |
+| `intermediate_product` | Produção | custo-padrão (ficha) | Sim | Não | Sim |
+| `finished_product` | Produção | custo-padrão (ficha) | Sim | **Sim** | Sim |
+| `composite_product` | Montagem | custo componentes | Sim (`composites_bom`) | **Sim** | Sim |
+| `resale_product` | Compra | preço médio compra | Não | **Sim** | Sim |
+| `equipment` | Compra (ativo) | compra | Não | Não | Especial |
+
+- `is_sellable` é **derivado do tipo** no banco (trigger `trg_enforce_is_sellable`): vendável = finished/composite/resale.
+
+### Custo e precificação
+
+- **Custo do produto = custo-padrão (rolled-up)**, vivo: `recipes_bom.cached_unit_cost` = Σ(insumo `average_price` × qtd) ÷ rendimento, recalculado pela cascata `trigger_refresh_bom_costs_on_material_price_change` quando um insumo muda de preço. Dono de `materials.cost_price` e `stock_items.average_price` dos produzidos.
+- **Custo real do lote** é carimbado no `stock_movements` da produção (`finalize_production_order`) p/ CMV/DRE; **não** altera o custo-padrão. Média ponderada (`trg_update_weighted_average`) é só p/ itens **comprados** — entradas de produção são excluídas.
+- **Perda** = saída valorada (qtd × custo) → despesa, sem mexer no custo do produto.
+- **Preço de venda** (só tipos vendáveis): hierarquia margem/overhead **produto → categoria (`pricing_rules`) → global (`app_settings` `pricing.*`)**. `compute_product_pricing(material_id)` calcula; `suggested_price` (cache) mantido por `trg_material_pricing_refresh`. `preço = (custo + overhead)/(1 − margem)`. `practiced_price` (manual) é o preço que a proposta usa (senão `suggested_price`). Config em **Configurações > Precificação**; por produto na aba **Precificação** do cadastro. Proposta mostra **lucratividade por composição**.
+- Produção consolidada no fluxo de **Ordem de Produção** (`finalize_production_order`); o fluxo "Executar Produção" / `produce_finished_product` / `assemble_composite` foi **aposentado** (quebrado e conflitante).
+
 ### Triggers importantes
 
 | Trigger | Tabela | Função | Comportamento |
 |---|---|---|---|
 | `trg_sync_stock_quantity` | `stock_movements` | `trigger_sync_stock_quantity` | Recalcula `stock_items.current_quantity` em INSERT/UPDATE. **EXCEÇÃO**: pula o recálculo para `movement_type = 'Ajuste'` (a função já faz UPDATE direto) |
-| `trg_update_weighted_average` | `stock_movements` | `trigger_update_weighted_average_on_purchase` | Recalcula preço médio ponderado em entradas com unit_price |
+| `trg_update_weighted_average` | `stock_movements` | `trigger_update_weighted_average_on_purchase` | Recalcula preço médio ponderado em entradas com unit_price. **EXCEÇÃO**: pula entradas de produção (`reference_type` `'Ordem de Produção'`/`'Producao'`/`'production'`) — custo do produzido é o custo-padrão |
 | `trg_update_bom_costs` | `stock_items` | `trigger_update_bom_costs_on_price_change` | Cascateia atualização de custo nas fichas técnicas |
+| `trg_material_pricing_refresh` | `materials` | `trg_material_pricing_refresh` | Recalcula `suggested_price` ao mudar `material_type`/`cost_price`/overrides de margem; só p/ tipos vendáveis |
+| `trg_enforce_is_sellable` | `materials` | `enforce_is_sellable_from_type` | Deriva `is_sellable` do `material_type` (vendável = finished/composite/resale) |
 
 ---
 
