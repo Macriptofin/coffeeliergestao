@@ -576,6 +576,9 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
             )}
           </div>
 
+          {/* Precificação só para tipos vendáveis (acabado/composto/revenda) */}
+          {['finished_product', 'composite_product', 'resale_product'].includes(currentLegacyType) && (
+          <>
           <div className="border-t border-border" />
 
           {/* ── SEÇÃO: PRECIFICAÇÃO ── */}
@@ -636,6 +639,8 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
               </div>
             </div>
           </div>
+          </>
+          )}
 
           <div className="border-t border-border" />
 

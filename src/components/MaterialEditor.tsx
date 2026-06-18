@@ -269,7 +269,8 @@ const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Mater
   // Load pricing breakdown (custo direto + herdados) ao abrir o editor
   useEffect(() => {
     const loadPricing = async () => {
-      if (!material?.id || !isOpen) return;
+      const priceable = material && ['finished_product', 'composite_product', 'resale_product'].includes(material.materialType);
+      if (!material?.id || !isOpen || !priceable) return;
       setPricingLoading(true);
       try {
         const { data, error } = await (supabase.rpc as any)('compute_product_pricing', { p_material_id: material.id });
@@ -414,6 +415,11 @@ const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Mater
 
   const isProducedMaterial = material && ['intermediate_product', 'finished_product'].includes(material.materialType);
 
+  // Precificação só para tipos vendáveis (acabado/composto/revenda). Reage ao tipo
+  // selecionado no form. Insumos/intermediários/embalagem etc. só têm custo.
+  const formLegacyType = getLegacyMaterialType(formData.typeTermId, formData.category);
+  const isPriceable = ['finished_product', 'composite_product', 'resale_product'].includes(formLegacyType);
+
   const loadBOMData = async () => {
     if (!material) return;
     setBomLoading(true);
@@ -550,10 +556,12 @@ const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Mater
               <FileText className="h-4 w-4" />
               Fiscal
             </TabsTrigger>
-            <TabsTrigger value="pricing" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
-              <DollarSign className="h-4 w-4" />
-              Precificação
-            </TabsTrigger>
+            {isPriceable && (
+              <TabsTrigger value="pricing" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                <DollarSign className="h-4 w-4" />
+                Precificação
+              </TabsTrigger>
+            )}
             {isProducedMaterial && (
               <TabsTrigger value="bom" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
                 <ChefHat className="h-4 w-4" />
