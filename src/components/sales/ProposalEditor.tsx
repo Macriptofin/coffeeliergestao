@@ -34,6 +34,7 @@ interface SellableMaterial {
   unit_weight: number;
   cost_price: number;
   average_price: number;
+  sale_price: number;   // preço de venda por unidade (praticado ?? sugerido ?? fallback)
   usage_unit: string;
 }
 
@@ -190,7 +191,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   const loadMaterials = async () => {
     const { data: mats } = await supabase
       .from('materials')
-      .select('id, code, name, category, subcategory, unit_weight, cost_price, usage_unit')
+      .select('id, code, name, category, subcategory, unit_weight, cost_price, usage_unit, practiced_price, suggested_price')
       .eq('is_sellable', true)
       .eq('is_archived', false)
       .order('name');
@@ -221,13 +222,22 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     });
 
     setTagMap(tags);
-    setMaterials(mats.map((m: any) => ({
-      ...m,
-      unit_weight:   parseFloat(m.unit_weight || 0),
-      cost_price:    parseFloat(m.cost_price  || 0),
-      // Prioridade: cached_unit_cost (ficha técnica) > average_price (estoque) > cost_price (manual)
-      average_price: bomMap[m.id] || stockMap[m.id] || parseFloat(m.cost_price || 0),
-    })));
+    setMaterials(mats.map((m: any) => {
+      // Custo: cached_unit_cost (ficha) > average_price (estoque) > cost_price (manual)
+      const avg = bomMap[m.id] || stockMap[m.id] || parseFloat(m.cost_price || 0);
+      // Preço de venda do produto: praticado > sugerido (motor de precificação) >
+      // fallback (custo + margem padrão) p/ produtos ainda sem preço calculado.
+      const practiced = m.practiced_price != null ? parseFloat(m.practiced_price) : null;
+      const suggested = m.suggested_price != null ? parseFloat(m.suggested_price) : null;
+      const sale = practiced ?? suggested ?? (avg > 0 ? avg / (1 - MARGIN_TARGET) : 0);
+      return {
+        ...m,
+        unit_weight:   parseFloat(m.unit_weight || 0),
+        cost_price:    parseFloat(m.cost_price  || 0),
+        average_price: avg,
+        sale_price:    sale,
+      };
+    }));
   };
 
   const loadExistingProposal = async (id: string) => {
@@ -454,17 +464,18 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     const perComp: Record<string, {
       totalWeightG: number; totalCost: number; totalItemCount: number;
       weightPerPerson: number; costPerPerson: number; suggestedPrice: number; pricePerPerson: number;
+      profit: number; marginPct: number;
       people: number;
     }> = {};
 
     let grandWeightG = 0;
     let grandCost = 0;
     let grandItemCount = 0;
-    let grandSuggested = 0;
+    let grandRevenue = 0;
 
     compositions.forEach(c => {
       const people = peopleFor(c);
-      let weightG = 0, cost = 0, itemCount = 0;
+      let weightG = 0, cost = 0, revenue = 0, itemCount = 0;
       const sections = items[c.localId] || {};
       Object.values(sections).forEach(sec => {
         Object.values(sec).forEach(line => {
@@ -473,37 +484,44 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
           const effectiveQty = line.use_per_person ? line.qty_per_person * people : line.fixed_qty;
           weightG   += effectiveQty * mat.unit_weight;
           cost      += effectiveQty * mat.average_price;
+          revenue   += effectiveQty * mat.sale_price;   // preço de venda por produto
           itemCount += effectiveQty;
         });
       });
-      const suggestedPrice = cost / (1 - MARGIN_TARGET);
+      // Preço da composição = soma dos preços de venda dos itens. Lucratividade real.
+      const profit = revenue - cost;
       perComp[c.localId] = {
         totalWeightG: weightG,
         totalCost: cost,
         totalItemCount: itemCount,
         weightPerPerson: weightG / people,
         costPerPerson: cost / people,
-        suggestedPrice,
-        pricePerPerson: suggestedPrice / people,
+        suggestedPrice: revenue,
+        pricePerPerson: revenue / people,
+        profit,
+        marginPct: revenue > 0 ? profit / revenue : 0,
         people,
       };
       grandWeightG   += weightG;
       grandCost      += cost;
       grandItemCount += itemCount;
-      grandSuggested += suggestedPrice;
+      grandRevenue   += revenue;
     });
 
+    const grandProfit = grandRevenue - grandCost;
     return {
       perComp,
       grand: {
         totalWeightG: grandWeightG,
         totalCost: grandCost,
         totalItemCount: grandItemCount,
-        suggestedPrice: grandSuggested,
+        suggestedPrice: grandRevenue,
+        profit: grandProfit,
+        marginPct: grandRevenue > 0 ? grandProfit / grandRevenue : 0,
         // peso/pessoa de referência usa nº de pessoas da proposta
         weightPerPerson: grandWeightG / numPeople,
         costPerPerson: grandCost / numPeople,
-        pricePerPerson: grandSuggested / numPeople,
+        pricePerPerson: grandRevenue / numPeople,
       },
     };
   }, [items, materials, compositions, numPeople]);
@@ -1033,6 +1051,12 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                         <span className="text-muted-foreground">
                           Total <span className="font-bold text-primary">{fmt(compStats?.suggestedPrice || 0)}</span>
                         </span>
+                        <span className="text-muted-foreground">
+                          Margem <span className={`font-semibold ${(compStats?.marginPct ?? 0) < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                            {((compStats?.marginPct ?? 0) * 100).toFixed(1)}%
+                          </span>
+                          <span className="text-muted-foreground"> · lucro {fmt(compStats?.profit || 0)}</span>
+                        </span>
                       </div>
                     </div>
                   </CardContent>
@@ -1097,16 +1121,26 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
 
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Precificação ({(MARGIN_TARGET * 100).toFixed(0)}% margem)
+                    Precificação (preço de venda por produto)
                   </p>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Valor sugerido</span>
+                      <span className="text-muted-foreground">Valor de venda</span>
                       <span className="font-bold text-primary text-base">{fmt(calc.grand.suggestedPrice)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Por pessoa</span>
                       <span className="font-semibold">{fmt(calc.grand.pricePerPerson)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Lucro</span>
+                      <span className="font-semibold">{fmt(calc.grand.profit)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Margem</span>
+                      <span className={`font-bold ${calc.grand.marginPct < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                        {(calc.grand.marginPct * 100).toFixed(1)}%
+                      </span>
                     </div>
                   </div>
                 </div>
