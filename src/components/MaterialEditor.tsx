@@ -349,10 +349,9 @@ const getLegacyMaterialType = (typeTermId: string, categoryName?: string): Mater
       ? availableSubcategories.find(sub => sub.name === formData.subcategory)
       : undefined;
 
-    // Produtos acabados devem ser vendáveis por padrão (a menos que já esteja explicitamente false)
-    const isSellableValue = legacyMaterialType === 'finished_product'
-      ? (material.isSellable === false ? false : true)
-      : (material.isSellable || false);
+    // Matriz tipo→comportamento: a vendabilidade é DERIVADA do tipo. Vendáveis =
+    // acabado / composto / revenda. Demais tipos nunca são vendáveis.
+    const isSellableValue = ['finished_product', 'composite_product', 'resale_product'].includes(legacyMaterialType);
 
     const updatedMaterial: Material = {
       ...material,
