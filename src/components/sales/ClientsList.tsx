@@ -296,7 +296,11 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
               <TableBody>
                 {filteredClients.length > 0 ? (
                   filteredClients.map((client) => (
-                    <TableRow key={client.id} className="group">
+                    <TableRow
+                      key={client.id}
+                      className="group cursor-pointer"
+                      onClick={() => onViewClient?.(client.id)}
+                    >
                       <TableCell className="whitespace-nowrap">
                         <Badge variant="outline" className="font-mono text-xs whitespace-nowrap">
                           {client.client_code || '-'}
@@ -374,7 +378,7 @@ export default function ClientsList({ onNewClient, onEditClient, onViewClient }:
                           </TooltipProvider>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-1">
                           {onViewClient && (
                             <TooltipProvider>

@@ -673,7 +673,8 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   const handleSave = async () => {
     try {
       setSaving(true);
-      await persistAll('Rascunho');
+      const pid = await persistAll('Rascunho');
+      if (!pid) return;  // validação falhou (toast já exibido) — não reportar sucesso
       toast.success('Proposta salva!');
       onComplete();
     } catch (e: any) {
