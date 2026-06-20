@@ -84,6 +84,7 @@ const PROB_FALLBACK: Record<string, number> = {
 interface ProposalRow {
   id: string;
   proposal_number: string | null;
+  revision: number | null;
   status: Stage;
   total_amount: number | null;
   total_cost: number | null;
@@ -121,7 +122,7 @@ const SalesPipeline = () => {
       const { data, error } = await supabase
         .from("proposals")
         .select(
-          "id, proposal_number, status, total_amount, total_cost, event_date, number_of_people, loss_reason, approved_at, created_at, clients(name, fantasy_name)",
+          "id, proposal_number, revision, status, total_amount, total_cost, event_date, number_of_people, loss_reason, approved_at, created_at, clients(name, fantasy_name)",
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -347,6 +348,7 @@ const SalesPipeline = () => {
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {p.proposal_number || "—"}
+                                {(p.revision ?? 1) > 1 && ` · Rev. ${p.revision}`}
                               </div>
                             </div>
 

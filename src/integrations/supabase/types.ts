@@ -4419,8 +4419,65 @@ export type Database = {
           },
         ]
       }
+      proposal_revisions: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          data: Json | null
+          event_date: string | null
+          id: string
+          notes: string | null
+          number_of_people: number | null
+          proposal_id: string
+          revision: number
+          status: string | null
+          total_amount: number | null
+          total_cost: number | null
+          total_weight: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          data?: Json | null
+          event_date?: string | null
+          id?: string
+          notes?: string | null
+          number_of_people?: number | null
+          proposal_id: string
+          revision: number
+          status?: string | null
+          total_amount?: number | null
+          total_cost?: number | null
+          total_weight?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          data?: Json | null
+          event_date?: string | null
+          id?: string
+          notes?: string | null
+          number_of_people?: number | null
+          proposal_id?: string
+          revision?: number
+          status?: string | null
+          total_amount?: number | null
+          total_cost?: number | null
+          total_weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_revisions_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposals: {
         Row: {
+          approved_at: string | null
           auto_generated_bom_order_id: string | null
           auto_generated_event_id: string | null
           auto_generated_event_table_id: string | null
@@ -4435,6 +4492,7 @@ export type Database = {
           event_location_zip: string | null
           generated_order_id: string | null
           id: string
+          loss_reason: string | null
           notes: string | null
           number_of_people: number
           parent_proposal_id: string | null
@@ -4442,10 +4500,12 @@ export type Database = {
           proposal_date: string
           proposal_kind: string | null
           proposal_number: string
+          revision: number
           room_id: string | null
           status: string
           target_weight_per_person: number
           total_amount: number
+          total_cost: number | null
           total_target_weight: number | null
           total_weight: number
           unit_id: string | null
@@ -4453,6 +4513,7 @@ export type Database = {
           version: number
         }
         Insert: {
+          approved_at?: string | null
           auto_generated_bom_order_id?: string | null
           auto_generated_event_id?: string | null
           auto_generated_event_table_id?: string | null
@@ -4467,6 +4528,7 @@ export type Database = {
           event_location_zip?: string | null
           generated_order_id?: string | null
           id?: string
+          loss_reason?: string | null
           notes?: string | null
           number_of_people: number
           parent_proposal_id?: string | null
@@ -4474,10 +4536,12 @@ export type Database = {
           proposal_date?: string
           proposal_kind?: string | null
           proposal_number: string
+          revision?: number
           room_id?: string | null
           status?: string
           target_weight_per_person?: number
           total_amount?: number
+          total_cost?: number | null
           total_target_weight?: number | null
           total_weight?: number
           unit_id?: string | null
@@ -4485,6 +4549,7 @@ export type Database = {
           version?: number
         }
         Update: {
+          approved_at?: string | null
           auto_generated_bom_order_id?: string | null
           auto_generated_event_id?: string | null
           auto_generated_event_table_id?: string | null
@@ -4499,6 +4564,7 @@ export type Database = {
           event_location_zip?: string | null
           generated_order_id?: string | null
           id?: string
+          loss_reason?: string | null
           notes?: string | null
           number_of_people?: number
           parent_proposal_id?: string | null
@@ -4506,10 +4572,12 @@ export type Database = {
           proposal_date?: string
           proposal_kind?: string | null
           proposal_number?: string
+          revision?: number
           room_id?: string | null
           status?: string
           target_weight_per_person?: number
           total_amount?: number
+          total_cost?: number | null
           total_target_weight?: number | null
           total_weight?: number
           unit_id?: string | null

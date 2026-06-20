@@ -36,6 +36,7 @@ interface Proposal {
   number_of_people: number;
   total_amount: number;
   total_weight: number;
+  revision: number;
   status: string;
   created_at: string;
   auto_generated_event_table_id?: string;
@@ -415,6 +416,9 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                     <TableRow key={proposal.id}>
                       <TableCell className="font-medium whitespace-nowrap">
                         {proposal.proposal_number}
+                        {proposal.revision > 1 && (
+                          <span className="ml-1 text-xs text-muted-foreground">· Rev. {proposal.revision}</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">{proposalKindLabel(proposal.proposal_kind)}</Badge>

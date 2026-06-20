@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { Switch } from '@/components/ui/switch';
 import { computeDistanceKmFromCep } from '@/lib/geo';
+import { ProposalRevisions } from './ProposalRevisions';
 import { toast } from 'sonner';
 import {
   Plus, Minus, Save, ArrowLeft, X, Scale, DollarSign,
@@ -715,6 +716,58 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       const pid = await persistAll('Enviada');
       if (!pid) return;
 
+      // Revisão: cada envio incrementa o contador e grava um snapshot (auditoria).
+      const { count } = await supabase
+        .from('proposal_revisions')
+        .select('id', { count: 'exact', head: true })
+        .eq('proposal_id', pid);
+      const nextRevision = (count ?? 0) + 1;
+      await supabase.from('proposals').update({ revision: nextRevision }).eq('id', pid);
+
+      const snapshot = {
+        event_category: eventCategory,
+        number_of_people: numberOfPeople,
+        totals: {
+          revenue: calc.grand.suggestedPrice,
+          cost: calc.grand.totalCost,
+          weight: calc.grand.totalWeightG,
+          freight: calc.grand.freight,
+        },
+        compositions: compositions.map(c => {
+          const cs = calc.perComp[c.localId];
+          const secs = items[c.localId] || {};
+          return {
+            name: c.name,
+            scheduled_date: c.scheduled_date || null,
+            people: cs?.people ?? null,
+            price_per_person: cs?.pricePerPerson ?? null,
+            items: Object.entries(secs).flatMap(([secKey, lines]: any) =>
+              Object.values(lines).map((l: any) => {
+                const m = materials.find(mm => mm.id === l.material_id);
+                return {
+                  section: secKey,
+                  material: m?.name ?? l.material_id,
+                  qty_per_person: l.use_per_person ? l.qty_per_person : null,
+                  fixed_qty: !l.use_per_person ? l.fixed_qty : null,
+                };
+              })
+            ),
+          };
+        }),
+      };
+      await supabase.from('proposal_revisions').insert({
+        proposal_id: pid,
+        revision: nextRevision,
+        total_amount: calc.grand.suggestedPrice,
+        total_cost: calc.grand.totalCost,
+        total_weight: calc.grand.totalWeightG,
+        number_of_people: numberOfPeople,
+        event_date: eventDate || null,
+        status: 'Enviada',
+        notes: notes || null,
+        data: snapshot,
+      });
+
       // Gera o token de aprovação e monta o link público
       const { data: tok, error: tokErr } = await supabase
         .from('proposal_approval_tokens')
@@ -726,7 +779,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       const url = `${window.location.origin}/aprovar/${tok.token}`;
       try { await navigator.clipboard.writeText(url); } catch { /* clipboard pode falhar; link no toast */ }
 
-      toast.success('Proposta enviada! Link copiado — cole no e-mail/WhatsApp para o cliente aprovar.', {
+      toast.success(`Proposta enviada (Rev. ${nextRevision})! Link copiado — cole no e-mail/WhatsApp para o cliente aprovar.`, {
         duration: 8000,
         description: url,
       });
@@ -761,10 +814,13 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
             Preencha os dados do evento e monte a composição
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={onCancel}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Voltar
-        </Button>
+        <div className="flex items-center gap-2">
+          {!isNew && proposalId && <ProposalRevisions proposalId={proposalId} />}
+          <Button variant="outline" size="sm" onClick={onCancel}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
