@@ -30,27 +30,53 @@ const handler = async (req: Request): Promise<Response> => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
+    // Erros de negócio voltam como 200 {error} para a UI exibir a mensagem (sem overlay).
+    const biz = (msg: string) => new Response(JSON.stringify({ error: msg }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
     // Confirma que o cliente existe (e pega o nome para o e-mail).
     const { data: client, error: clientErr } = await admin
       .from('clients').select('name').eq('id', client_id).maybeSingle();
-    if (clientErr || !client) {
-      return new Response(JSON.stringify({ error: "Cliente não encontrado" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    if (clientErr || !client) return biz("Cliente não encontrado.");
 
-    // Gera o convite — cria o usuário no Auth imediatamente (estado não-confirmado).
-    const redirectTo = 'https://app.coffeelier.com.br/portal/login';
-    const { data: invite, error: inviteErr } = await admin.auth.admin.generateLink({
-      type: 'invite',
-      email,
-      options: { redirectTo, data: { full_name: full_name || null, user_type: 'client', client_id } },
-    });
-    if (inviteErr || !invite?.user?.id) {
-      console.error("generateLink error:", inviteErr);
-      return new Response(JSON.stringify({ error: "Falha ao gerar o convite" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // Procura usuário existente com este e-mail.
+    const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const existing = list?.users?.find(u => (u.email || '').toLowerCase() === email.toLowerCase());
+
+    let userId: string;
+    let inviteLink: string | null = null;
+
+    if (existing) {
+      // Já é usuário interno da equipe? Não pode virar cliente (perderia o acesso interno).
+      const { count: roleCount } = await admin
+        .from('user_roles').select('*', { count: 'exact', head: true }).eq('user_id', existing.id);
+      const { data: prof } = await admin
+        .from('user_profiles').select('user_type').eq('user_id', existing.id).maybeSingle();
+      const isInternal = (roleCount ?? 0) > 0 || (prof?.user_type ?? 'internal') === 'internal';
+
+      const { count: alreadyClient } = await admin
+        .from('client_users').select('*', { count: 'exact', head: true }).eq('user_id', existing.id);
+
+      if (isInternal && (alreadyClient ?? 0) === 0) {
+        return biz("Este e-mail já pertence a um usuário interno da equipe. Use um e-mail diferente para o acesso de cliente.");
+      }
+      // Já é (ou será) cliente — apenas garante o vínculo a este cliente.
+      userId = existing.id;
+    } else {
+      // Cria via convite (gera o usuário no Auth imediatamente).
+      const redirectTo = 'https://app.coffeelier.com.br/portal/login';
+      const { data: invite, error: inviteErr } = await admin.auth.admin.generateLink({
+        type: 'invite',
+        email,
+        options: { redirectTo, data: { full_name: full_name || null, user_type: 'client', client_id } },
+      });
+      if (inviteErr || !invite?.user?.id) {
+        console.error("generateLink error:", inviteErr);
+        return biz(`Falha ao gerar o convite${inviteErr?.message ? `: ${inviteErr.message}` : ''}.`);
+      }
+      userId = invite.user.id;
+      inviteLink = invite.properties?.action_link ?? null;
     }
-    const userId = invite.user.id;
 
     // Perfil (marca como cliente) + vínculo com o cliente.
     await admin.from('user_profiles').upsert(
@@ -66,9 +92,18 @@ const handler = async (req: Request): Promise<Response> => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Link para definir a senha: convite (novo) ou recuperação (usuário já existente).
+    let link = inviteLink;
+    if (!link) {
+      const { data: rec } = await admin.auth.admin.generateLink({
+        type: 'recovery', email,
+        options: { redirectTo: 'https://app.coffeelier.com.br/portal/login' },
+      });
+      link = rec?.properties?.action_link ?? null;
+    }
+
     // E-mail de boas-vindas (identidade Coffeelier).
     const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-    const link = invite.properties?.action_link;
     const emailResp = await resend.emails.send({
       from: Deno.env.get("RESEND_FROM_EMAIL") ?? "Coffeelier <onboarding@resend.dev>",
       to: [email],

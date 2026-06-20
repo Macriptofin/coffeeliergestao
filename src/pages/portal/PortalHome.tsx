@@ -7,7 +7,7 @@ import { PortalLayout } from '@/components/portal/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/formatters';
 import { formatLocalDate } from '@/lib/date-utils';
-import { PORTAL_WHATSAPP_URL } from '@/lib/portal';
+import { usePortalSettings } from '@/hooks/usePortalSettings';
 
 interface PortalProposalRow {
   id: string; proposal_number: string; event_category: string | null;
@@ -30,6 +30,7 @@ function statusBadge(status: string) {
 export default function PortalHome() {
   const navigate = useNavigate();
   const { portalClient } = usePortalClient();
+  const { contactHref } = usePortalSettings();
 
   const { data: proposals = [], isPending } = useQuery({
     queryKey: ['portal-proposals'],
@@ -60,7 +61,7 @@ export default function PortalHome() {
         </Button>
         <Button variant="outline" asChild
           className="h-auto py-5 rounded-2xl text-base font-semibold gap-3 bg-card shadow-soft">
-          <a href={PORTAL_WHATSAPP_URL} target="_blank" rel="noopener noreferrer">
+          <a href={contactHref} target="_blank" rel="noopener noreferrer">
             <MessageCircle className="h-5 w-5" /> Falar com a Coffeelier
           </a>
         </Button>

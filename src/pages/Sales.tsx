@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, FileText, KanbanSquare } from "lucide-react";
+import { Users, FileText, KanbanSquare, Store } from "lucide-react";
 import ProposalsList from '@/components/sales/ProposalsList';
+import PortalAdmin from '@/components/sales/PortalAdmin';
 import SalesPipeline from '@/components/sales/SalesPipeline';
 import ClientForm from '@/components/sales/ClientForm';
 import ClientsList from '@/components/sales/ClientsList';
@@ -107,7 +108,7 @@ const Sales = () => {
 
       {/* Tabs do Sistema */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-auto">
+        <TabsList className="grid w-full grid-cols-4 h-auto">
           <TabsTrigger value="proposals" className="flex items-center gap-2 py-2">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Propostas</span>
@@ -119,6 +120,10 @@ const Sales = () => {
           <TabsTrigger value="clients" className="flex items-center gap-2 py-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Clientes</span>
+          </TabsTrigger>
+          <TabsTrigger value="portal" className="flex items-center gap-2 py-2">
+            <Store className="h-4 w-4" />
+            <span className="hidden sm:inline">Portal</span>
           </TabsTrigger>
         </TabsList>
 
@@ -168,6 +173,10 @@ const Sales = () => {
 
         <TabsContent value="pipeline" className="mt-6">
           <SalesPipeline />
+        </TabsContent>
+
+        <TabsContent value="portal" className="mt-6">
+          <PortalAdmin />
         </TabsContent>
 
       </Tabs>

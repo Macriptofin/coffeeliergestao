@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { formatCurrency } from '@/lib/formatters';
 import { formatLocalDate } from '@/lib/date-utils';
-import { PORTAL_WHATSAPP_URL } from '@/lib/portal';
+import { usePortalSettings } from '@/hooks/usePortalSettings';
 import { toast } from 'sonner';
 
 interface Item { name: string; qty_per_person: number | null; fixed_qty: number | null; unit: string | null; }
@@ -44,6 +44,7 @@ export default function PortalProposta() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { portalClient } = usePortalClient();
+  const { contactHref } = usePortalSettings();
   const [changeOpen, setChangeOpen] = useState(false);
   const [changeMsg, setChangeMsg] = useState('');
   const [busy, setBusy] = useState(false);
@@ -204,7 +205,7 @@ export default function PortalProposta() {
             </div>
           </div>
 
-          <a href={PORTAL_WHATSAPP_URL} target="_blank" rel="noopener noreferrer"
+          <a href={contactHref} target="_blank" rel="noopener noreferrer"
              className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-primary hover:underline">
             <MessageCircle className="h-4 w-4" /> Falar com a Coffeelier
           </a>
