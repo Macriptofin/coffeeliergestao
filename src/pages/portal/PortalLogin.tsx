@@ -93,11 +93,9 @@ export default function PortalLogin() {
 
   const handleReset = async () => {
     if (!email.trim()) { toast.info('Informe seu e-mail para redefinir a senha.'); return; }
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/portal/login`,
-    });
-    if (error) toast.error('Não foi possível enviar o e-mail.');
-    else toast.success('Enviamos um link de redefinição para seu e-mail.');
+    // E-mail de redefinição com identidade Coffeelier (Resend) — anti-enumeração na função.
+    await supabase.functions.invoke('portal-reset-password', { body: { email: email.trim() } });
+    toast.success('Se este e-mail tiver acesso ao portal, enviamos um link para criar nova senha.');
   };
 
   return (
