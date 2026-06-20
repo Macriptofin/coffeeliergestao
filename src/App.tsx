@@ -54,6 +54,10 @@ import EstoqueRelatorios from "./pages/stock/EstoqueRelatorios";
 import MateriaisProblemas from "./pages/stock/MateriaisProblemas";
 import MateriaisDiagnostico from "./pages/stock/MateriaisDiagnostico";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { PortalRoute } from "./components/portal/PortalRoute";
+import PortalLogin from "./pages/portal/PortalLogin";
+import PortalHome from "./pages/portal/PortalHome";
+import PortalProposta from "./pages/portal/PortalProposta";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,6 +80,12 @@ function App() {
             <Route path="/auth" element={<Auth />} />
             {/* Rota pública — aprovação de proposta pelo cliente (sem login) */}
             <Route path="/aprovar/:token" element={<PropostaAprovacao />} />
+            {/* Portal do cliente (autoatendimento) */}
+            <Route path="/portal/login" element={<PortalLogin />} />
+            <Route element={<PortalRoute />}>
+              <Route path="/portal" element={<PortalHome />} />
+              <Route path="/portal/proposta/:id" element={<PortalProposta />} />
+            </Route>
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
               

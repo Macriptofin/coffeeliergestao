@@ -1240,6 +1240,7 @@ export type Database = {
       }
       client_rooms: {
         Row: {
+          approval_status: string
           capacity: number | null
           client_id: string
           created_at: string
@@ -1248,10 +1249,13 @@ export type Database = {
           is_active: boolean
           name: string
           notes: string | null
+          requested_at: string | null
+          requested_by: string | null
           unit_id: string
           updated_at: string
         }
         Insert: {
+          approval_status?: string
           capacity?: number | null
           client_id: string
           created_at?: string
@@ -1260,10 +1264,13 @@ export type Database = {
           is_active?: boolean
           name: string
           notes?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
           unit_id: string
           updated_at?: string
         }
         Update: {
+          approval_status?: string
           capacity?: number | null
           client_id?: string
           created_at?: string
@@ -1272,6 +1279,8 @@ export type Database = {
           is_active?: boolean
           name?: string
           notes?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
           unit_id?: string
           updated_at?: string
         }
@@ -1295,6 +1304,7 @@ export type Database = {
       client_units: {
         Row: {
           address: string | null
+          approval_status: string
           city: string | null
           client_id: string
           created_at: string
@@ -1303,12 +1313,15 @@ export type Database = {
           is_active: boolean
           name: string
           notes: string | null
+          requested_at: string | null
+          requested_by: string | null
           state: string | null
           updated_at: string
           zip_code: string | null
         }
         Insert: {
           address?: string | null
+          approval_status?: string
           city?: string | null
           client_id: string
           created_at?: string
@@ -1317,12 +1330,15 @@ export type Database = {
           is_active?: boolean
           name: string
           notes?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
           state?: string | null
           updated_at?: string
           zip_code?: string | null
         }
         Update: {
           address?: string | null
+          approval_status?: string
           city?: string | null
           client_id?: string
           created_at?: string
@@ -1331,6 +1347,8 @@ export type Database = {
           is_active?: boolean
           name?: string
           notes?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
           state?: string | null
           updated_at?: string
           zip_code?: string | null
@@ -1338,6 +1356,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "client_units_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_users: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          portal_role: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          portal_role?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          portal_role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_users_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
@@ -4245,6 +4301,57 @@ export type Database = {
           },
         ]
       }
+      proposal_change_requests: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          message: string
+          proposal_id: string
+          requested_by: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          message: string
+          proposal_id: string
+          requested_by?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          message?: string
+          proposal_id?: string
+          requested_by?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_change_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_change_requests_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposal_compositions: {
         Row: {
           created_at: string
@@ -4496,6 +4603,7 @@ export type Database = {
           notes: string | null
           number_of_people: number
           parent_proposal_id: string | null
+          payment_terms: string | null
           products_selected: boolean | null
           proposal_date: string
           proposal_kind: string | null
@@ -4532,6 +4640,7 @@ export type Database = {
           notes?: string | null
           number_of_people: number
           parent_proposal_id?: string | null
+          payment_terms?: string | null
           products_selected?: boolean | null
           proposal_date?: string
           proposal_kind?: string | null
@@ -4568,6 +4677,7 @@ export type Database = {
           notes?: string | null
           number_of_people?: number
           parent_proposal_id?: string | null
+          payment_terms?: string | null
           products_selected?: boolean | null
           proposal_date?: string
           proposal_kind?: string | null
@@ -6977,6 +7087,7 @@ export type Database = {
           id: string
           updated_at: string
           user_id: string
+          user_type: string
         }
         Insert: {
           created_at?: string
@@ -6987,6 +7098,7 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id: string
+          user_type?: string
         }
         Update: {
           created_at?: string
@@ -6997,6 +7109,7 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id?: string
+          user_type?: string
         }
         Relationships: []
       }
@@ -7373,6 +7486,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      approve_proposal_as_client: {
+        Args: { p_proposal_id: string }
+        Returns: Json
+      }
       approve_proposal_by_token: { Args: { p_token: string }; Returns: Json }
       archive_composite_bom: {
         Args: { p_bom_id: string; p_should_archive: boolean }
@@ -7478,6 +7595,7 @@ export type Database = {
         }
         Returns: string
       }
+      current_portal_client_id: { Args: never; Returns: string }
       detect_pii_anomaly: {
         Args: {
           p_access_count?: number
@@ -7616,6 +7734,8 @@ export type Database = {
         }[]
       }
       get_material_cost: { Args: { p_material_id: string }; Returns: number }
+      get_portal_proposal: { Args: { p_proposal_id: string }; Returns: Json }
+      get_portal_proposals: { Args: never; Returns: Json }
       get_proposal_by_token: { Args: { p_token: string }; Returns: Json }
       get_secure_user_profiles: {
         Args: never
@@ -7668,6 +7788,8 @@ export type Database = {
       }
       is_admin_or_manager: { Args: { _user_id: string }; Returns: boolean }
       is_flag_enabled: { Args: { p_flag_name: string }; Returns: boolean }
+      is_internal_user: { Args: never; Returns: boolean }
+      is_portal_client: { Args: never; Returns: boolean }
       is_within_allowed_time: {
         Args: { p_operation_type: string }
         Returns: boolean
@@ -7822,34 +7944,19 @@ export type Database = {
             }
             Returns: undefined
           }
-      process_inventory_adjustment:
-        | {
-            Args: {
-              p_adjustment_reason: string
-              p_material_id: string
-              p_notes?: string
-              p_occurred_at?: string
-              p_physical_quantity: number
-              p_reason_code?: string
-              p_reference_document?: string
-              p_responsible_person?: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_adjustment_reason: string
-              p_cycle_id?: string
-              p_material_id: string
-              p_notes?: string
-              p_occurred_at?: string
-              p_physical_quantity: number
-              p_reason_code?: string
-              p_reference_document?: string
-              p_responsible_person?: string
-            }
-            Returns: string
-          }
+      process_inventory_adjustment: {
+        Args: {
+          p_adjustment_reason: string
+          p_material_id: string
+          p_notes?: string
+          p_occurred_at?: string
+          p_physical_quantity: number
+          p_reason_code?: string
+          p_reference_document?: string
+          p_responsible_person?: string
+        }
+        Returns: string
+      }
       process_order_component_consumption: {
         Args: {
           p_material_id: string
@@ -7934,6 +8041,10 @@ export type Database = {
       refresh_material_pricing: {
         Args: { p_material_id: string }
         Returns: undefined
+      }
+      request_proposal_change: {
+        Args: { p_message: string; p_proposal_id: string }
+        Returns: Json
       }
       reserve_materials_for_production: {
         Args: { p_production_order_id: string }

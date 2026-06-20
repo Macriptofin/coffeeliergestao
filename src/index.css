@@ -1,6 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Portal do cliente: título display (serif boutique) */
+.font-display { font-family: 'Fraunces', Georgia, serif; }
+.portal-body { font-family: 'Nunito', system-ui, sans-serif; }
 
 /* ================================================================
    COFFEELIER — Design System
