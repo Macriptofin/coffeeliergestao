@@ -245,6 +245,16 @@ import { Button } from '@/components/ui/button';
 | Configurações | `Config.tsx` | Formas de pagamento, taxonomia, permissões |
 | RH | `RecursosHumanos.tsx` + `rh/` | Colaboradores, ponto |
 | Segurança | `SecurityMonitoring.tsx` | Auditoria e anomalias |
+| Portal do Cliente | `pages/portal/*` + `Sales.tsx` aba "Portal" | Canal externo de autoatendimento (`/portal/*`) |
+
+### Portal do Cliente (CRM Fase 5 / #22)
+
+Canal externo "loja online" para o cliente acompanhar/aprovar propostas (Fase 1 no ar) e, em breve, montar pedidos (Fase 2). Rotas `/portal/login`, `/portal`, `/portal/proposta/:id` (guarda `PortalRoute`). Admin interno em **Vendas → aba Portal** (`PortalAdmin`): solicitações de alteração, locais a aprovar, acessos e configurações (WhatsApp/e-mail).
+
+- **Acesso**: mesmo Supabase Auth; `user_profiles.user_type='client'` + `client_users (user_id, client_id, portal_role 'solicitante'|'aprovador')`. Convite pela aba Portal do cadastro do cliente (edge `invite-client-user`); redefinição `portal-reset-password`. **E-mail já interno não pode virar cliente** (perderia acesso interno).
+- **Visibilidade POR USUÁRIO**: cada usuário vê só os pedidos que **ele criou** (`proposals.portal_created_by = auth.uid()`), não todos do cliente. Em aberto: visibilidade do aprovador sobre pedidos de solicitantes da área.
+- **Segurança**: leitura via RPCs SECURITY DEFINER (`get_portal_proposals`, `get_portal_proposal`, `get_portal_settings`) que nunca expõem custo/margem; RLS aditivo escopa o cliente; helpers `current_portal_client_id()`/`is_portal_client()`/`is_internal_user()`. Aprovação mantém **gate interno** (`approve_proposal_as_client` → 'Aprovada pelo Cliente'; equipe confirma → dispara cadeia). Alterações via `request_proposal_change`.
+- **Deploy**: Edge Functions **não** sobem no publish do app — exigir `supabase functions deploy <nome>`. Client é PKCE + `detectSessionInUrl:false` → `PortalLogin` faz `exchangeCodeForSession` no retorno do e-mail.
 
 ---
 
