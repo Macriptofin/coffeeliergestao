@@ -3,6 +3,9 @@ project_id = "njxxqdcwvehlvqufuyww"
 [functions.create-user-with-invite]
 verify_jwt = true
 
+[functions.invite-client-user]
+verify_jwt = true
+
 [functions.delete-user]
 verify_jwt = true
 

@@ -4,13 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Building2, Building, DoorOpen, UserCircle, Edit, Mail, Phone, MapPin, FileText, User, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Building2, Building, DoorOpen, UserCircle, Edit, Mail, Phone, MapPin, FileText, User, ClipboardList, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import ClientForm from '../ClientForm';
 import ClientDepartments from './ClientDepartments';
 import ClientUnits from './ClientUnits';
 import ClientRooms from './ClientRooms';
 import ClientContacts from './ClientContacts';
+import ClientPortalUsers from './ClientPortalUsers';
 
 interface Client {
   id: string;
@@ -280,7 +281,7 @@ export default function ClientDetails({ clientId, onBack, onEdit }: Props) {
       <Card>
         <CardContent className="p-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5 mb-6">
+            <TabsList className="grid w-full grid-cols-6 mb-6">
               <TabsTrigger value="dados" className="flex items-center gap-2">
                 <ClipboardList className="h-4 w-4" />
                 <span className="hidden sm:inline">Dados</span>
@@ -300,6 +301,10 @@ export default function ClientDetails({ clientId, onBack, onEdit }: Props) {
               <TabsTrigger value="contacts" className="flex items-center gap-2">
                 <UserCircle className="h-4 w-4" />
                 <span className="hidden sm:inline">Contatos</span>
+              </TabsTrigger>
+              <TabsTrigger value="portal" className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4" />
+                <span className="hidden sm:inline">Portal</span>
               </TabsTrigger>
             </TabsList>
 
@@ -326,6 +331,10 @@ export default function ClientDetails({ clientId, onBack, onEdit }: Props) {
 
             <TabsContent value="contacts">
               <ClientContacts clientId={clientId} />
+            </TabsContent>
+
+            <TabsContent value="portal">
+              <ClientPortalUsers clientId={clientId} />
             </TabsContent>
           </Tabs>
         </CardContent>
