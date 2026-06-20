@@ -20,6 +20,15 @@ export default function PortalLogin() {
     () => (/type=(invite|recovery|signup)/.test(window.location.hash) ? 'setpw' : 'login')
   );
 
+  // Convite/recuperação: o Supabase emite PASSWORD_RECOVERY ao voltar do link do e-mail.
+  // Garante a tela "Definir senha" mesmo que o hash da URL já tenha sido consumido.
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setMode('setpw');
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
   // Já logado em modo normal → portal cuida do redirecionamento.
   useEffect(() => { if (user && mode === 'login') navigate('/portal', { replace: true }); }, [user, mode, navigate]);
 
