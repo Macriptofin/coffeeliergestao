@@ -15,22 +15,54 @@ export default function PortalLogin() {
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  // Convidado chega pelo link do e-mail (#type=invite/recovery): definir senha.
-  const [mode, setMode] = useState<'login' | 'setpw'>(
-    () => (/type=(invite|recovery|signup)/.test(window.location.hash) ? 'setpw' : 'login')
-  );
+  // Convidado chega pelo link do e-mail (convite/recuperação): estabelecer sessão e definir senha.
+  const hasLinkParams = () =>
+    /code=|access_token=|token_hash=|type=(invite|recovery|signup)/.test(window.location.hash + window.location.search);
+  const [mode, setMode] = useState<'login' | 'setpw'>('login');
+  const [linkProcessing, setLinkProcessing] = useState<boolean>(hasLinkParams);
 
-  // Convite/recuperação: o Supabase emite PASSWORD_RECOVERY ao voltar do link do e-mail.
-  // Garante a tela "Definir senha" mesmo que o hash da URL já tenha sido consumido.
+  // Processa o retorno do link do e-mail: troca code/token por sessão (client é PKCE +
+  // detectSessionInUrl:false) e abre "Definir senha". Espelha o fluxo da página /auth.
+  useEffect(() => {
+    if (!hasLinkParams()) { setLinkProcessing(false); return; }
+    const run = async () => {
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const query = new URLSearchParams(window.location.search);
+      const code = query.get('code') ?? hash.get('code');
+      const accessToken = hash.get('access_token');
+      const refreshToken = hash.get('refresh_token');
+      try {
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+        } else if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          if (error) throw error;
+        }
+        setMode('setpw');
+        window.history.replaceState({}, '', '/portal/login');
+      } catch {
+        toast.error('O link expirou ou já foi usado. Use "Esqueci minha senha" para gerar um novo.');
+        setMode('login');
+      } finally {
+        setLinkProcessing(false);
+      }
+    };
+    run();
+  }, []);
+
+  // Reforço: Supabase também emite PASSWORD_RECOVERY ao voltar do link.
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setMode('setpw');
+      if (event === 'PASSWORD_RECOVERY') { setMode('setpw'); setLinkProcessing(false); }
     });
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Já logado em modo normal → portal cuida do redirecionamento.
-  useEffect(() => { if (user && mode === 'login') navigate('/portal', { replace: true }); }, [user, mode, navigate]);
+  // Já logado em modo normal (sem fluxo de link) → portal cuida do redirecionamento.
+  useEffect(() => {
+    if (user && mode === 'login' && !linkProcessing) navigate('/portal', { replace: true });
+  }, [user, mode, linkProcessing, navigate]);
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,7 +122,12 @@ export default function PortalLogin() {
 
       {/* Formulário */}
       <div className="flex-1 flex items-center justify-center bg-background px-6">
-        {mode === 'setpw' ? (
+        {linkProcessing ? (
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <span className="text-sm">Validando seu acesso…</span>
+          </div>
+        ) : mode === 'setpw' ? (
           <form onSubmit={handleSetPassword} className="w-full max-w-sm">
             <div className="md:hidden flex items-center gap-2 font-display font-bold text-2xl text-primary mb-8">
               <Coffee className="h-6 w-6" /> Coffeelier
