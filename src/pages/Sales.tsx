@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, FileText, KanbanSquare } from "lucide-react";
 import ProposalsList from '@/components/sales/ProposalsList';
@@ -10,6 +11,7 @@ import ProposalEditor from '@/components/sales/ProposalEditor';
 import { ProposalPDF } from '@/components/sales/ProposalPDF';
 
 const Sales = () => {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('proposals');
   const [showProposalEditor, setShowProposalEditor] = useState(false);
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
@@ -42,6 +44,8 @@ const Sales = () => {
   const handleProposalEditorComplete = () => {
     setShowProposalEditor(false);
     setEditingProposalId(null);
+    // Atualiza Propostas e Funil na hora (mesmo cache ['proposals'])
+    queryClient.invalidateQueries({ queryKey: ['proposals'] });
   };
 
   const handleProposalEditorCancel = () => {
