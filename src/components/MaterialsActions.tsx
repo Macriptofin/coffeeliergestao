@@ -18,7 +18,7 @@ import {
   AlertDialogHeader, 
   AlertDialogTitle 
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Trash2, FileDown, Archive, Tag, Calculator } from "lucide-react";
+import { MoreHorizontal, Trash2, FileDown, Archive, ArchiveRestore, Tag, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Material } from "@/types";
@@ -28,20 +28,26 @@ interface MaterialsActionsProps {
   selectedMaterials: Material[];
   onBulkDelete: () => void;
   onBulkArchive: () => void;
+  onBulkUnarchive: () => void;
   onClearSelection: () => void;
   onRefresh?: () => void;
 }
 
-export const MaterialsActions = ({ 
-  selectedCount, 
+export const MaterialsActions = ({
+  selectedCount,
   selectedMaterials,
-  onBulkDelete, 
-  onBulkArchive, 
+  onBulkDelete,
+  onBulkArchive,
+  onBulkUnarchive,
   onClearSelection,
-  onRefresh 
+  onRefresh
 }: MaterialsActionsProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [showUnarchiveDialog, setShowUnarchiveDialog] = useState(false);
+
+  const anyArchived = selectedMaterials.some(m => m.isArchived);
+  const anyActive = selectedMaterials.some(m => !m.isArchived);
   const [showRecalculateDialog, setShowRecalculateDialog] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
 
@@ -144,11 +150,19 @@ export const MaterialsActions = ({
                 </>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setShowArchiveDialog(true)}>
-                <Archive className="h-4 w-4 mr-2" />
-                Arquivar Selecionados
-              </DropdownMenuItem>
-              <DropdownMenuItem 
+              {anyActive && (
+                <DropdownMenuItem onClick={() => setShowArchiveDialog(true)}>
+                  <Archive className="h-4 w-4 mr-2" />
+                  Arquivar (desativar) Selecionados
+                </DropdownMenuItem>
+              )}
+              {anyArchived && (
+                <DropdownMenuItem onClick={() => setShowUnarchiveDialog(true)}>
+                  <ArchiveRestore className="h-4 w-4 mr-2" />
+                  Reativar Selecionados
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
                 onClick={() => setShowDeleteDialog(true)}
                 className="text-red-600 focus:text-red-600"
               >
@@ -206,6 +220,30 @@ export const MaterialsActions = ({
               }}
             >
               Arquivar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showUnarchiveDialog} onOpenChange={setShowUnarchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Reativação</AlertDialogTitle>
+            <AlertDialogDescription>
+              Reativar {selectedCount} {selectedCount === 1 ? 'material' : 'materiais'}? Eles voltam a
+              aparecer nas listagens, seleções e na ficha técnica. A sincronia leva a ficha técnica
+              junto, se houver.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                onBulkUnarchive();
+                setShowUnarchiveDialog(false);
+              }}
+            >
+              Reativar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

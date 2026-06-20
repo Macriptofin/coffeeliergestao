@@ -232,7 +232,7 @@ export const SimplifiedMaterialsTable = ({
           {sortedMaterials.map((material) => (
             <TableRow
               key={material.id}
-              className={`hover:bg-muted/50 ${onRowClick ? 'cursor-pointer' : ''}`}
+              className={`hover:bg-muted/50 ${onRowClick ? 'cursor-pointer' : ''} ${material.isArchived ? 'opacity-60' : ''}`}
               onClick={() => onRowClick?.(material)}
             >
               <TableCell
@@ -249,7 +249,14 @@ export const SimplifiedMaterialsTable = ({
               </TableCell>
               <TableCell>
                 <div className="max-w-[250px]">
-                  <div className="font-medium truncate">{material.name}</div>
+                  <div className="font-medium truncate flex items-center gap-2">
+                    <span className="truncate">{material.name}</span>
+                    {material.isArchived && (
+                      <Badge variant="outline" className="text-[10px] shrink-0 border-muted-foreground/40 text-muted-foreground">
+                        Arquivado
+                      </Badge>
+                    )}
+                  </div>
                   {material.description && (
                     <div className="text-sm text-muted-foreground line-clamp-1">
                       {material.description}

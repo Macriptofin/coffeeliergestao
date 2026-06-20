@@ -26,8 +26,10 @@ type GeneratedMaterialsExport = {
   generatedAt: string;
 };
 
-async function fetchMaterials(): Promise<Material[]> {
-  const { data, error } = await supabase
+type MaterialStatus = 'active' | 'archived' | 'all';
+
+async function fetchMaterials(status: MaterialStatus = 'active'): Promise<Material[]> {
+  let query = supabase
     .from('materials')
     .select(`
       id,
@@ -40,6 +42,7 @@ async function fetchMaterials(): Promise<Material[]> {
       allowed_brands,
       category,
       subcategory,
+      is_archived,
       type_term_id,
       category_term_id,
       subcategory_term_id,
@@ -58,8 +61,13 @@ async function fetchMaterials(): Promise<Material[]> {
       practiced_price,
       suggested_price
     `)
-    .eq('is_archived', false)
     .order('name');
+
+  if (status === 'active') query = query.eq('is_archived', false);
+  else if (status === 'archived') query = query.eq('is_archived', true);
+  // 'all' => sem filtro de arquivamento
+
+  const { data, error } = await query;
 
   if (error) throw error;
   if (!data || data.length === 0) return [];
@@ -90,6 +98,7 @@ async function fetchMaterials(): Promise<Material[]> {
         cst: item.cst || undefined,
         origem: item.origem != null ? item.origem : undefined,
         tracksInventory: item.tracks_inventory !== false, // default true
+        isArchived: Boolean(item.is_archived),
         targetMarginPct: item.target_margin_pct != null ? parseFloat(item.target_margin_pct.toString()) : undefined,
         overheadPct: item.overhead_pct != null ? parseFloat(item.overhead_pct.toString()) : undefined,
         overheadValue: item.overhead_value != null ? parseFloat(item.overhead_value.toString()) : undefined,
@@ -124,11 +133,12 @@ const Materials = () => {
   const isMobile = useIsMobile();
   const { terms, getTermsByTaxonomy } = useTaxonomy();
   const queryClient = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState<MaterialStatus>('active');
   const {
     data: materials = [],
     isPending: loading,
     isError,
-  } = useQuery({ queryKey: ['materials'], queryFn: fetchMaterials });
+  } = useQuery({ queryKey: ['materials', statusFilter], queryFn: () => fetchMaterials(statusFilter) });
   const refetchMaterials = () => queryClient.invalidateQueries({ queryKey: ['materials'] });
   const [filteredMaterials, setFilteredMaterials] = useState<Material[]>([]);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
@@ -577,6 +587,25 @@ const Materials = () => {
     }
   };
 
+  const handleBulkUnarchive = async () => {
+    try {
+      const { error } = await supabase
+        .from('materials')
+        .update({ is_archived: false })
+        .in('id', selectedMaterials);
+
+      if (error) throw error;
+
+      refetchMaterials();
+      const n = selectedMaterials.length;
+      setSelectedMaterials([]);
+      toast.success(`${n} ${n === 1 ? 'material reativado' : 'materiais reativados'} com sucesso!`);
+    } catch (error) {
+      console.error('Erro ao reativar materiais:', error);
+      toast.error('Erro ao reativar materiais');
+    }
+  };
+
   const exportMaterialsToCSV = async () => {
     try {
       // Fetch full data from DB including stock info
@@ -792,7 +821,19 @@ const Materials = () => {
               </div>
 
               {/* Filter Row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Status Filter (ativo / arquivado / todos) */}
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v as MaterialStatus); setSelectedMaterials([]); }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Ativos</SelectItem>
+                    <SelectItem value="archived">Arquivados</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
+                  </SelectContent>
+                </Select>
+
                 {/* Category Filter */}
                 <Select value={selectedCategory} onValueChange={handleCategoryChange}>
                   <SelectTrigger>
@@ -858,11 +899,12 @@ const Materials = () => {
             </div>
 
             {/* Actions */}
-            <MaterialsActions 
+            <MaterialsActions
               selectedCount={selectedMaterials.length}
               selectedMaterials={filteredMaterials.filter(m => selectedMaterials.includes(m.id))}
               onBulkDelete={handleBulkDelete}
               onBulkArchive={handleBulkArchive}
+              onBulkUnarchive={handleBulkUnarchive}
               onClearSelection={() => setSelectedMaterials([])}
               onRefresh={refetchMaterials}
             />
