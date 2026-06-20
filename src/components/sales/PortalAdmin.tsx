@@ -8,22 +8,28 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
-  MessageSquareWarning, MapPinned, KeyRound, Settings2, Check, X, ShieldCheck, User,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
+  MessageSquareWarning, MapPinned, KeyRound, Settings2, Check, X, ShieldCheck, User, PackageSearch,
 } from 'lucide-react';
 import { formatLocalDate } from '@/lib/date-utils';
+import ClientPortalCatalog from '@/components/sales/client/ClientPortalCatalog';
 import { toast } from 'sonner';
 
 // Painel interno do Portal (admin "loja online"): acompanha e configura o canal do cliente.
 export default function PortalAdmin() {
   return (
     <Tabs defaultValue="requests" className="w-full">
-      <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+      <TabsList className="grid w-full grid-cols-3 md:grid-cols-5 h-auto">
         <TabsTrigger value="requests" className="gap-2 py-2"><MessageSquareWarning className="h-4 w-4" /><span className="hidden sm:inline">Solicitações</span></TabsTrigger>
+        <TabsTrigger value="catalog" className="gap-2 py-2"><PackageSearch className="h-4 w-4" /><span className="hidden sm:inline">Catálogo</span></TabsTrigger>
         <TabsTrigger value="locations" className="gap-2 py-2"><MapPinned className="h-4 w-4" /><span className="hidden sm:inline">Locais a aprovar</span></TabsTrigger>
         <TabsTrigger value="access" className="gap-2 py-2"><KeyRound className="h-4 w-4" /><span className="hidden sm:inline">Acessos</span></TabsTrigger>
         <TabsTrigger value="config" className="gap-2 py-2"><Settings2 className="h-4 w-4" /><span className="hidden sm:inline">Configurações</span></TabsTrigger>
       </TabsList>
       <TabsContent value="requests" className="mt-6"><ChangeRequests /></TabsContent>
+      <TabsContent value="catalog" className="mt-6"><CatalogSection /></TabsContent>
       <TabsContent value="locations" className="mt-6"><PendingLocations /></TabsContent>
       <TabsContent value="access" className="mt-6"><PortalAccess /></TabsContent>
       <TabsContent value="config" className="mt-6"><PortalConfig /></TabsContent>
@@ -242,6 +248,38 @@ function PortalConfig() {
         <Button onClick={save} disabled={saving || !loaded}>{saving ? 'Salvando…' : 'Salvar configurações'}</Button>
       </CardContent>
     </Card>
+  );
+}
+
+/* ---------- Catálogo do portal por cliente ---------- */
+function CatalogSection() {
+  const [clientId, setClientId] = useState<string>('');
+  const { data: clients = [] } = useQuery({
+    queryKey: ['portal-catalog-clients'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('clients')
+        .select('id, name').order('name');
+      if (error) throw error;
+      return data as { id: string; name: string }[];
+    },
+  });
+  return (
+    <div className="space-y-5">
+      <div className="max-w-md">
+        <label className="text-sm font-medium mb-1.5 block">Cliente</label>
+        <Select value={clientId} onValueChange={setClientId}>
+          <SelectTrigger><SelectValue placeholder="Selecione um cliente para configurar o catálogo" /></SelectTrigger>
+          <SelectContent>
+            {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      {clientId ? (
+        <ClientPortalCatalog clientId={clientId} />
+      ) : (
+        <Empty icon={<PackageSearch className="h-8 w-8" />} text="Selecione um cliente para definir quais produtos aparecem no portal dele." />
+      )}
+    </div>
   );
 }
 
