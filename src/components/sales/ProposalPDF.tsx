@@ -308,7 +308,7 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: `Proposta_Coffeelier_${proposal?.proposal_number || ''}${proposal && proposal.revision > 1 ? `_Rev${proposal.revision}` : ''}`,
+    documentTitle: `Proposta_${proposal?.proposal_number || ''}${proposal && proposal.revision > 1 ? `_Rev${proposal.revision}` : ''}`,
     pageStyle: `
       @page { size: A4 portrait; margin: 0; }
       @media print {
@@ -374,6 +374,14 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
       {/* Preview */}
       <div style={{ background: '#888', padding: 24, overflowY: 'auto', maxHeight: '85vh' }}>
         <div ref={printRef}>
+          {/* @page injetado no conteúdo impresso → remove cabeçalho/rodapé do navegador
+              (data, título e URL) de forma confiável. */}
+          <style>{`
+            @page { size: A4 portrait; margin: 0; }
+            @media print {
+              html, body { margin: 0 !important; padding: 0 !important; }
+            }
+          `}</style>
 
           {/* ════════════════════════════════════════════
               PÁG. 1 — Cliente · Evento · Composição
@@ -427,7 +435,7 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
                     { label: 'Serviço',  value: proposal.event_category },
                     { label: 'Pessoas',  value: String(numPeople) },
                     { label: 'Local',    value: proposal.room_name || proposal.unit_name || '—' },
-                    { label: 'Peso/pp',  value: `~${proposal.target_weight_per_person || 300}g` },
+                    { label: 'Peso/pp',  value: `~${Math.round(proposal.target_weight_per_person || 300)}g` },
                   ].map(f => (
                     <div key={f.label}>
                       <div style={{ fontSize: 6, letterSpacing: 0.8, color: C.cremedark, textTransform: 'uppercase', marginBottom: 2 }}>
