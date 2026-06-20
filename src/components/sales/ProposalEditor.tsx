@@ -596,6 +596,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       target_weight_per_person: calc.grand.weightPerPerson || 200,
       total_weight:             calc.grand.totalWeightG,
       total_amount:             calc.grand.suggestedPrice,
+      total_cost:               calc.grand.totalCost,
       notes:                    notes        || null,
       status,
     };

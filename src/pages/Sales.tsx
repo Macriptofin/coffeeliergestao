@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, FileText } from "lucide-react";
+import { Users, FileText, KanbanSquare } from "lucide-react";
 import ProposalsList from '@/components/sales/ProposalsList';
+import SalesPipeline from '@/components/sales/SalesPipeline';
 import ClientForm from '@/components/sales/ClientForm';
 import ClientsList from '@/components/sales/ClientsList';
 import ClientDetails from '@/components/sales/client/ClientDetails';
@@ -102,10 +103,14 @@ const Sales = () => {
 
       {/* Tabs do Sistema */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-auto">
+        <TabsList className="grid w-full grid-cols-3 h-auto">
           <TabsTrigger value="proposals" className="flex items-center gap-2 py-2">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Propostas</span>
+          </TabsTrigger>
+          <TabsTrigger value="pipeline" className="flex items-center gap-2 py-2">
+            <KanbanSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">Funil</span>
           </TabsTrigger>
           <TabsTrigger value="clients" className="flex items-center gap-2 py-2">
             <Users className="h-4 w-4" />
@@ -155,6 +160,10 @@ const Sales = () => {
               onPdfProposal={handlePdfProposal}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="pipeline" className="mt-6">
+          <SalesPipeline />
         </TabsContent>
 
       </Tabs>
