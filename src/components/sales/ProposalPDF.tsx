@@ -24,6 +24,7 @@ const C = {
 interface ProposalData {
   id: string;
   proposal_number: string;
+  revision: number;
   event_category: string;
   number_of_people: number;
   event_date: string;
@@ -110,6 +111,9 @@ const PageHeader = ({ num, proposal }: { num: string; proposal: ProposalData }) 
         </div>
         <div style={{ fontSize: 14, fontWeight: 800, color: C.creme, lineHeight: 1 }}>
           {proposal.proposal_number}
+          {proposal.revision > 1 && (
+            <span style={{ fontSize: 10, fontWeight: 700 }}> · Revisão {proposal.revision}</span>
+          )}
         </div>
         <div style={{ fontSize: 7, color: C.cremedark, marginTop: 2 }}>
           {fmtDate(todayStr())}
@@ -158,7 +162,7 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
         supabase
           .from('proposals')
           .select(`
-            id, proposal_number, event_category, number_of_people,
+            id, proposal_number, revision, event_category, number_of_people,
             event_date, total_amount, target_weight_per_person, status,
             clients(name, cnpj_cpf),
             client_departments(name),
@@ -191,6 +195,7 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
         setProposal({
           id: p.id,
           proposal_number: p.proposal_number,
+          revision: p.revision ?? 1,
           event_category: p.event_category,
           number_of_people: p.number_of_people,
           event_date: p.event_date,
@@ -303,7 +308,7 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: `Proposta_Coffeelier_${proposal?.proposal_number || ''}`,
+    documentTitle: `Proposta_Coffeelier_${proposal?.proposal_number || ''}${proposal && proposal.revision > 1 ? `_Rev${proposal.revision}` : ''}`,
     pageStyle: `
       @page { size: A4 portrait; margin: 0; }
       @media print {
@@ -348,7 +353,9 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
       {/* Controles */}
       <div className="flex items-center justify-between p-4 border-b bg-background print:hidden">
         <div>
-          <p className="font-semibold">{proposal.proposal_number} — {proposal.client_name}</p>
+          <p className="font-semibold">
+            {proposal.proposal_number}{proposal.revision > 1 ? ` · Rev. ${proposal.revision}` : ''} — {proposal.client_name}
+          </p>
           <p className="text-sm text-muted-foreground">
             {proposal.event_category} · {numPeople} pessoas · {fmtDate(proposal.event_date)}
           </p>
