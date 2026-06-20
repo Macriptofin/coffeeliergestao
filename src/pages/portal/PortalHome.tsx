@@ -54,10 +54,8 @@ export default function PortalHome() {
         <Button
           className="flex-1 h-auto py-5 rounded-2xl text-base font-semibold text-accent-creme shadow-warm justify-center gap-3"
           style={{ background: 'linear-gradient(135deg, hsl(20 54% 22%), hsl(25 53% 49%))' }}
-          onClick={() => navigate('/portal')}
-          disabled
-          title="Em breve">
-          <Plus className="h-5 w-5" /> Montar um novo pedido <span className="text-xs opacity-80">(em breve)</span>
+          onClick={() => navigate('/portal/novo-pedido')}>
+          <Plus className="h-5 w-5" /> Montar um novo pedido
         </Button>
         <Button variant="outline" asChild
           className="h-auto py-5 rounded-2xl text-base font-semibold gap-3 bg-card shadow-soft">

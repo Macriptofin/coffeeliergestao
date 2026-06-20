@@ -58,6 +58,7 @@ import { PortalRoute } from "./components/portal/PortalRoute";
 import PortalLogin from "./pages/portal/PortalLogin";
 import PortalHome from "./pages/portal/PortalHome";
 import PortalProposta from "./pages/portal/PortalProposta";
+import PortalNovoPedido from "./pages/portal/PortalNovoPedido";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -84,6 +85,7 @@ function App() {
             <Route path="/portal/login" element={<PortalLogin />} />
             <Route element={<PortalRoute />}>
               <Route path="/portal" element={<PortalHome />} />
+              <Route path="/portal/novo-pedido" element={<PortalNovoPedido />} />
               <Route path="/portal/proposta/:id" element={<PortalProposta />} />
             </Route>
             <Route path="/" element={<Layout />}>

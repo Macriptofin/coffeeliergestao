@@ -7664,6 +7664,7 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: undefined
       }
+      create_portal_order: { Args: { p_payload: Json }; Returns: Json }
       create_security_alert: {
         Args: {
           p_alert_type: string
