@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Package, AlertTriangle, TrendingUp } from "lucide-react";
 import { StockOverview } from "@/components/stock/StockOverview";
 
@@ -17,6 +19,7 @@ export interface StockItem {
     usageUnit: string;
     materialType: string;
     category: string;
+    archived: boolean;
   };
   currentQuantity: number;
   minimumQuantity: number;
@@ -59,7 +62,8 @@ async function fetchStockItems(): Promise<StockItem[]> {
         code,
         usage_unit,
         material_type,
-        category
+        category,
+        is_archived
       )
     `)
     .order('last_movement_date', { ascending: false, nullsFirst: false });
@@ -78,7 +82,8 @@ async function fetchStockItems(): Promise<StockItem[]> {
         code: item.materials.code,
         usageUnit: item.materials.usage_unit,
         materialType: item.materials.material_type || '',
-        category: item.materials.category || ''
+        category: item.materials.category || '',
+        archived: item.materials.is_archived ?? false
       },
       currentQuantity: current,
       minimumQuantity: parseFloat(item.minimum_quantity?.toString() || '0'),
@@ -102,6 +107,7 @@ const Stock = () => {
   } = useQuery({ queryKey: ['stock-items'], queryFn: fetchStockItems });
   const showLoader = useDelayedLoading(loading);
   const [filterType, setFilterType] = useState<'all' | 'low' | 'zero'>('all');
+  const [includeArchived, setIncludeArchived] = useState(false);
 
   useEffect(() => {
     if (isError) toast.error('Erro ao carregar dados do estoque');
@@ -109,11 +115,18 @@ const Stock = () => {
 
   const refetchStockItems = () => queryClient.invalidateQueries({ queryKey: ['stock-items'] });
 
-  // Cálculos para resumo
-  const totalStockValue = stockItems.reduce((sum, item) => sum + item.totalValue, 0);
-  const lowStockItems = stockItems.filter(item => item.currentQuantity > 0 && item.currentQuantity <= item.minimumQuantity);
-  const outOfStockItems = stockItems.filter(item => item.currentQuantity === 0);
-  const totalItems = stockItems.length;
+  // Itens-base: por padrão só materiais ativos (consistente com o Cadastro);
+  // o toggle "incluir arquivados" revela descontinuados que ainda carregam saldo.
+  const archivedCount = stockItems.filter(item => item.ingredient.archived).length;
+  const baseItems = includeArchived
+    ? stockItems
+    : stockItems.filter(item => !item.ingredient.archived);
+
+  // Cálculos para resumo (sobre a base filtrada)
+  const totalStockValue = baseItems.reduce((sum, item) => sum + item.totalValue, 0);
+  const lowStockItems = baseItems.filter(item => item.currentQuantity > 0 && item.currentQuantity <= item.minimumQuantity);
+  const outOfStockItems = baseItems.filter(item => item.currentQuantity === 0);
+  const totalItems = baseItems.length;
 
   // Aplicar filtro
   const getFilteredItems = () => {
@@ -123,7 +136,7 @@ const Stock = () => {
       case 'zero':
         return outOfStockItems;
       default:
-        return stockItems;
+        return baseItems;
     }
   };
 
@@ -259,10 +272,25 @@ const Stock = () => {
         </Card>
       )}
 
+      {/* Toggle: incluir materiais arquivados (descontinuados com saldo residual) */}
+      <div className="flex items-center justify-end gap-2 mb-4">
+        <Switch
+          id="include-archived"
+          checked={includeArchived}
+          onCheckedChange={setIncludeArchived}
+        />
+        <Label htmlFor="include-archived" className="text-sm text-muted-foreground cursor-pointer">
+          Incluir arquivados
+          {archivedCount > 0 && (
+            <Badge variant="secondary" className="ml-2">{archivedCount}</Badge>
+          )}
+        </Label>
+      </div>
+
       {/* Tabs do Sistema */}
       <div className="w-full">
-        <StockOverview 
-          stockItems={filteredStockItems} 
+        <StockOverview
+          stockItems={filteredStockItems}
           onRefresh={refetchStockItems}
         />
       </div>
