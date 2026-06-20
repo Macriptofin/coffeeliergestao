@@ -111,12 +111,13 @@ supabase/migrations/AAAAMMDDHHMMSS_nome_snake_case.sql
   - `materials.material_type` (chave **comportamental**, em inglês — exceção à regra PT-BR; define onde o item aparece): `'ingredient'`, `'packaging'`, `'intermediate_product'`, `'finished_product'`, `'composite_product'`, `'resale_product'`, `'equipment'`, `'supply'`
 - Todas as funções SECURITY DEFINER devem ter `SET search_path = public`
 - Constraints CHECK estão ativas nas tabelas — sempre verificar antes de inserir valores novos
+- **Nunca excluir, somente desativar**: regra dura do sistema. Materiais usam `materials.is_archived = true` (não há `is_active` em materials). O `code` do material é **único e imutável** após a criação; os demais atributos são mutáveis. Desativar preserva histórico (NF, movimentação, fichas, propostas) e integridade referencial. No Cadastro há filtro de status (Ativos/Arquivados/Todos) + ação em massa **Reativar**. O **Controle de Estoque** mostra ativos por padrão, com toggle "Incluir arquivados" para ver saldo residual de descontinuados.
 
 ### Funções RPC principais
 
 | Função | Descrição |
 |---|---|
-| `process_inventory_adjustment` | Ajuste de quantidade de estoque |
+| `process_inventory_adjustment` | Ajuste de quantidade de estoque. Define o saldo direto em `stock_items` (qtd + valor), grava auditoria em `inventory_adjustments` e registra a movimentação em `stock_movements` (`'Ajuste'` / `'Ajuste de Inventário'`) quando há diferença. **Só existe a sobrecarga de 8 args** (a de 9 args com `p_cycle_id` era quebrada e foi removida) |
 | `process_cost_adjustment` | Ajuste de preço médio |
 | `rpc_inventory_update_status` | Avança status do ciclo de inventário |
 | `rpc_inventory_finalize` | Fecha ciclo e aplica todos os ajustes |
@@ -167,6 +168,7 @@ supabase/migrations/AAAAMMDDHHMMSS_nome_snake_case.sql
 | `trg_update_bom_costs` | `stock_items` | `trigger_update_bom_costs_on_price_change` | Cascateia atualização de custo nas fichas técnicas |
 | `trg_material_pricing_refresh` | `materials` | `trg_material_pricing_refresh` | Recalcula `suggested_price` ao mudar `material_type`/`cost_price`/overrides de margem; só p/ tipos vendáveis |
 | `trg_enforce_is_sellable` | `materials` | `enforce_is_sellable_from_type` | Deriva `is_sellable` do `material_type` (vendável = finished/composite/resale) |
+| `trg_sync_recipe_archive` | `materials` | `sync_recipe_archive_with_material` | Ao mudar `materials.is_archived`, sincroniza `recipes_bom.is_archived` das fichas daquele produto. A ficha **segue** o produto (arquivar/reativar o material leva a ficha junto), evitando drift |
 
 ---
 
@@ -186,29 +188,16 @@ supabase/migrations/AAAAMMDDHHMMSS_nome_snake_case.sql
 
 ### Estado atual do repositório (junho 2026)
 
-Arquivos modificados ainda não commitados:
-```
-src/components/BOMProductionOrdersList.tsx
-src/components/ProductionOrdersList.tsx
-src/components/agenda/EventOperationalCard.tsx
-src/components/inventory/HistoricoUnificado.tsx
-src/components/stock/StockMovements.tsx
-src/pages/Dashboard.tsx
-src/pages/InventarioCiclo.tsx
-src/pages/Reports.tsx
-src/pages/production/ProductionPlanning.tsx
-supabase/migrations/20260616000000_reactivate_inventory_adjustment_movement.sql  (novo)
-```
+Working tree limpo — trabalho commitado e empurrado direto no `main` (deploy automático Lovable).
 
-Estes arquivos fazem parte das tasks #99 (padronização de terminologia PT-BR) e #100 (reativação de movimentação em ajustes de inventário). **Fazer commit e push antes de começar novas tasks.**
+**Depuração do catálogo de materiais (jun/2026)** — concluída e no ar (migrations `20260620000001`–`20260620000007`):
+- Exclusão de 26 itens duplicados/obsoletos via `is_archived` (com merge de Óleo→Oleo de Soja e Água sem Gás→Água Mineral sem Gás nas fichas antes de arquivar).
+- Reclassificação em massa de 254 itens (tipo/categoria/subcategoria texto+`term_id` + unidades) e limpeza da taxonomia (53 subcategorias canônicas; duplicatas desativadas).
+- Controle de Estoque passou a filtrar arquivados (toggle "incluir arquivados"); saneamento dos saldos residuais de descontinuados (zerados, auditados em `inventory_adjustments`, sem impacto em DRE).
+- Trigger `trg_sync_recipe_archive` (ficha segue o material) e ferramenta de ativar/desativar no Cadastro.
+- **#100 concluído de fato**: `process_inventory_adjustment` agora registra `stock_movements`; removida a sobrecarga quebrada de 9 args.
 
-Comando para commitar:
-```bash
-cd /Users/macielluchtemberg/Projetos/coffeeliergestao
-git add -A
-git commit -m "feat: padronização terminologia PT-BR + reativar movimentação ajuste inventário (#99 #100)"
-git push origin main
-```
+> Lembrete de fluxo: commit/push só quando o usuário pedir; trabalhar direto no `main`. Mensagens de commit em PT-BR.
 
 ---
 
