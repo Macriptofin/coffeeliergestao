@@ -181,6 +181,7 @@ const ContasReceber = () => {
     description: "",
     document_number: "",
     issue_date: "",
+    competence_date: "",
     due_date: "",
     original_amount: "",
     discount_amount: "0",
@@ -196,6 +197,7 @@ const ContasReceber = () => {
     description: "",
     document_number: "",
     issue_date: "",
+    competence_date: "",
     due_date: "",
     original_amount: "",
     discount_amount: "0",
@@ -220,6 +222,7 @@ const ContasReceber = () => {
           ...formData,
           client_id: formData.client_id || null,
           proposal_id: formData.proposal_id || null,
+          competence_date: formData.competence_date || null,
           cost_center_id: formData.cost_center_id || null,
           account_id: formData.account_id || null,
           original_amount: originalAmount,
@@ -267,6 +270,7 @@ const ContasReceber = () => {
       description: account.description,
       document_number: account.document_number || "",
       issue_date: account.issue_date,
+      competence_date: (account as any).competence_date || account.issue_date || "",
       due_date: account.due_date,
       original_amount: account.original_amount.toString(),
       discount_amount: account.discount_amount.toString(),
@@ -302,6 +306,7 @@ const ContasReceber = () => {
           description: editFormData.description,
           document_number: editFormData.document_number || null,
           issue_date: editFormData.issue_date,
+          competence_date: editFormData.competence_date || null,
           due_date: editFormData.due_date,
           original_amount: originalAmount,
           discount_amount: discountAmount,
@@ -698,7 +703,7 @@ const ContasReceber = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="issue_date">Data de Emissão *</Label>
                   <Input
@@ -708,6 +713,16 @@ const ContasReceber = () => {
                     onChange={(e) => setFormData({...formData, issue_date: e.target.value})}
                     required
                   />
+                </div>
+                <div>
+                  <Label htmlFor="competence_date">Competência (entrega)</Label>
+                  <Input
+                    id="competence_date"
+                    type="date"
+                    value={formData.competence_date}
+                    onChange={(e) => setFormData({...formData, competence_date: e.target.value})}
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">Data do evento/serviço (DRE). Vazio = emissão.</p>
                 </div>
                 <div>
                   <Label htmlFor="due_date">Data de Vencimento *</Label>
@@ -1158,7 +1173,7 @@ const ContasReceber = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="edit_issue_date">Data de Emissão *</Label>
                 <Input
@@ -1167,6 +1182,15 @@ const ContasReceber = () => {
                   value={editFormData.issue_date}
                   onChange={(e) => setEditFormData({...editFormData, issue_date: e.target.value})}
                   required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_competence_date">Competência (entrega)</Label>
+                <Input
+                  id="edit_competence_date"
+                  type="date"
+                  value={editFormData.competence_date}
+                  onChange={(e) => setEditFormData({...editFormData, competence_date: e.target.value})}
                 />
               </div>
               <div>
