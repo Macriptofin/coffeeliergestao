@@ -20,12 +20,12 @@ import { toast } from 'sonner';
 interface Item { name: string; qty_per_person: number | null; fixed_qty: number | null; unit: string | null; }
 interface Section { category_label: string; items: Item[] | null; }
 interface Composition {
-  name: string; scheduled_date: string | null; scheduled_time: string | null;
+  name: string; event_category: string | null; scheduled_date: string | null; scheduled_time: string | null;
   location: string | null; number_of_people: number | null; price_per_person: number | null;
   categories: Section[] | null;
 }
 interface PortalProposalDetail {
-  id: string; proposal_number: string; event_category: string | null;
+  id: string; proposal_number: string; event_name: string | null; event_category: string | null;
   number_of_people: number | null; event_date: string | null; total_amount: number | null;
   status: string; payment_terms: string | null; notes: string | null;
   client_name: string | null; department_name: string | null; unit_name: string | null;
@@ -130,7 +130,7 @@ export default function PortalProposta() {
             {[data.client_name, data.department_name].filter(Boolean).join(' · ')}
           </p>
           <h1 className="font-display text-3xl md:text-4xl font-semibold leading-tight">
-            {data.event_category || 'Pedido'} · Proposta {data.proposal_number}
+            {data.event_name || data.event_category || 'Pedido'} · Proposta {data.proposal_number}
           </h1>
 
           {/* Capa do evento */}

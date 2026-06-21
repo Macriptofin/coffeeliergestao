@@ -20,14 +20,20 @@ interface CatalogItem {
   unit: string | null; price: number;
 }
 interface Moment {
-  localId: number; name: string; date: string; time: string;
+  localId: number; name: string; eventCategory: string; date: string; time: string;
   unitId: string; roomId: string; people: number | '';
   qty: Record<string, number>;
 }
 
+// Mesma lista de tipos do editor interno (mantém linguagem única).
+const EVENT_CATEGORIES = [
+  'Coffee Break', 'Brunch', 'Coquetel', 'Almoco',
+  'Jantar', 'Festa Infantil', 'Casamento', 'Reuniao Corporativa',
+];
+
 let momentCounter = 1;
 const emptyMoment = (): Moment => ({
-  localId: momentCounter++, name: '', date: '', time: '', unitId: '', roomId: '', people: '', qty: {},
+  localId: momentCounter++, name: '', eventCategory: '', date: '', time: '', unitId: '', roomId: '', people: '', qty: {},
 });
 
 export default function PortalNovoPedido() {
@@ -78,7 +84,7 @@ export default function PortalNovoPedido() {
   useEffect(() => {
     if (!draft || draft.error || prefilled.current) return;
     prefilled.current = true;
-    setEventName(draft.event_category || '');
+    setEventName(draft.event_name || draft.event_category || '');
     setDepartmentId(draft.department_id || '');
     setDefaultPeople(draft.number_of_people || '');
     setNotes(draft.notes || '');
@@ -90,7 +96,8 @@ export default function PortalNovoPedido() {
           if (it.material_id && it.qty_per_person != null) qty[it.material_id] = Math.round(Number(it.qty_per_person));
         }));
         return {
-          localId: momentCounter++, name: c.name || '', date: c.scheduled_date || '',
+          localId: momentCounter++, name: c.name || '', eventCategory: c.event_category || '',
+          date: c.scheduled_date || '',
           time: (c.scheduled_time || '').slice(0, 5), unitId: c.unit_id || '', roomId: c.room_id || '',
           people: c.number_of_people || '', qty,
         } as Moment;
@@ -131,6 +138,7 @@ export default function PortalNovoPedido() {
       }
       return {
         name: mt.name.trim() || `Momento ${i + 1}`,
+        event_category: mt.eventCategory || null,
         scheduled_date: mt.date || null, scheduled_time: mt.time || null,
         unit_id: mt.unitId || null, room_id: mt.roomId || null,
         location: [unitName(mt.unitId), roomName(mt.roomId)].filter(Boolean).join(' · ') || null,
@@ -142,7 +150,10 @@ export default function PortalNovoPedido() {
     return {
       proposal_id: draftId || null, status,
       number_of_people: Number(defaultPeople || first?.people || 0),
-      event_date: first?.date || null, event_category: eventName.trim(), notes: notes.trim() || null,
+      event_date: first?.date || null,
+      event_name: eventName.trim(),
+      event_category: first?.eventCategory || null, // legado: tipo do 1º momento
+      notes: notes.trim() || null,
       unit_id: first?.unitId || null, department_id: departmentId || null, room_id: first?.roomId || null,
       compositions,
     };
@@ -151,8 +162,8 @@ export default function PortalNovoPedido() {
   const save = async (status: 'Rascunho' | 'Enviada') => {
     if (!eventName.trim()) { toast.error('Dê um nome ao evento.'); return; }
     if (status === 'Enviada') {
-      const ok = moments.some(m => m.date && momentPeople(m) > 0 && Object.values(m.qty).some(q => q > 0));
-      if (!ok) { toast.error('Para enviar: cada momento precisa de data, nº de pessoas e ao menos um item.'); return; }
+      const ok = moments.every(m => m.eventCategory && m.date && momentPeople(m) > 0 && Object.values(m.qty).some(q => q > 0));
+      if (!ok) { toast.error('Para enviar: cada momento precisa de tipo, data, nº de pessoas e ao menos um item.'); return; }
     }
     setSubmitting(true);
     try {
@@ -218,9 +229,16 @@ export default function PortalNovoPedido() {
                 )}
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2 space-y-1.5">
+                <div className="space-y-1.5">
                   <Label>Nome do momento</Label>
                   <Input value={mt.name} onChange={e => patchMoment(mt.localId, { name: e.target.value })} placeholder="Ex.: Welcome Coffee" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5"><Coffee className="h-4 w-4" /> Tipo de evento</Label>
+                  <Select value={mt.eventCategory} onValueChange={(v) => patchMoment(mt.localId, { eventCategory: v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                    <SelectContent>{EVENT_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><CalendarDays className="h-4 w-4" /> Data</Label>

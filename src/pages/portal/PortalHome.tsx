@@ -11,7 +11,7 @@ import { usePortalSettings } from '@/hooks/usePortalSettings';
 import heroHome from '@/assets/portal/buffet-6.jpg';
 
 interface PortalProposalRow {
-  id: string; proposal_number: string; event_category: string | null;
+  id: string; proposal_number: string; event_name: string | null; event_category: string | null;
   event_date: string | null; number_of_people: number | null;
   total_amount: number | null; status: string;
 }
@@ -103,7 +103,7 @@ export default function PortalHome() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-lg truncate">
-                    {p.event_category || 'Pedido'} · Proposta {p.proposal_number}
+                    {p.event_name || p.event_category || 'Pedido'} · Proposta {p.proposal_number}
                   </div>
                   <div className="text-muted-foreground text-sm mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
                     <span className="inline-flex items-center gap-1.5">
