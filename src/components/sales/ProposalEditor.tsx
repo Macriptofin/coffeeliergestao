@@ -134,6 +134,8 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   const [units, setUnits]             = useState<Unit[]>([]);
   const [rooms, setRooms]             = useState<Room[]>([]);
   const [contacts, setContacts]       = useState<Contact[]>([]);
+  const [portalUsers, setPortalUsers] = useState<{ user_id: string; name: string }[]>([]);
+  const [portalUserId, setPortalUserId] = useState(''); // solicitante: usuário do portal dono da proposta
   const [loadingStructure, setLoadingStructure] = useState(false);
 
   // ── Composition state ──────────────────────────────────────────────────────
@@ -279,6 +281,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     setUnitId(prop.unit_id || '');
     setRoomId(prop.room_id || '');
     setContactId(prop.contact_id || '');
+    setPortalUserId(prop.portal_created_by || '');
     // Local avulso (se a proposta tiver CEP de local avulso gravado)
     const hasAdhoc = !!prop.event_location_zip || prop.event_location_distance_km != null;
     setUseAdhocLocation(hasAdhoc);
@@ -377,6 +380,20 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       setUnits(unitR.data || []);
       setRooms(roomR.data || []);
       setContacts(contactR.data || []);
+
+      // Usuários do portal deste cliente (para indicar o solicitante/destinatário).
+      const cuR = await supabase.from('client_users')
+        .select('user_id, portal_role').eq('client_id', id).eq('is_active', true);
+      const ids = (cuR.data || []).map((r: any) => r.user_id);
+      let profs: any[] = [];
+      if (ids.length) {
+        profs = (await supabase.from('user_profiles').select('user_id, full_name, email').in('user_id', ids)).data || [];
+      }
+      const pm = new Map(profs.map((p: any) => [p.user_id, p]));
+      setPortalUsers((cuR.data || []).map((r: any) => ({
+        user_id: r.user_id,
+        name: pm.get(r.user_id)?.full_name || pm.get(r.user_id)?.email || 'Usuário',
+      })));
     } finally {
       setLoadingStructure(false);
     }
@@ -384,8 +401,8 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
 
   const handleClientChange = (id: string) => {
     setClientId(id);
-    setDepartmentId(''); setUnitId(''); setRoomId(''); setContactId('');
-    setDepartments([]); setUnits([]); setRooms([]); setContacts([]);
+    setDepartmentId(''); setUnitId(''); setRoomId(''); setContactId(''); setPortalUserId('');
+    setDepartments([]); setUnits([]); setRooms([]); setContacts([]); setPortalUsers([]);
     if (id) loadClientStructure(id);
   };
 
@@ -585,6 +602,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       unit_id:                  useAdhocLocation ? null : (unitId || null),
       room_id:                  useAdhocLocation ? null : (roomId || null),
       contact_id:               contactId    || null,
+      portal_created_by:        portalUserId || null, // solicitante/dono no portal
       // Local avulso (quando ativo)
       event_location_name:        useAdhocLocation ? (adhocName || null) : null,
       event_location_zip:         useAdhocLocation ? (adhocZip || null)  : null,
@@ -954,6 +972,17 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                         </SelectTrigger>
                         <SelectContent>
                           {filteredContacts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Solicitante (usuário do portal)</Label>
+                      <Select value={portalUserId} onValueChange={setPortalUserId} disabled={!portalUsers.length}>
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue placeholder={portalUsers.length ? 'Quem vê este pedido no portal' : 'Sem usuários de portal'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {portalUsers.map(u => <SelectItem key={u.user_id} value={u.user_id}>{u.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>

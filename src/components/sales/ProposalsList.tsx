@@ -45,6 +45,8 @@ interface Proposal {
   clients?: {
     name: string;
   };
+  portal_created_by?: string | null;
+  requester_name?: string | null; // nome do solicitante (usuário do portal), se houver
 }
 
 interface Props {
@@ -79,7 +81,15 @@ async function fetchProposals(): Promise<Proposal[]> {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return (data as any) || [];
+  const rows = ((data as any) || []) as Proposal[];
+  // Enriquecer com o nome do solicitante (usuário do portal) quando houver.
+  const ids = Array.from(new Set(rows.map(r => r.portal_created_by).filter(Boolean))) as string[];
+  if (ids.length) {
+    const { data: profs } = await supabase.from('user_profiles').select('user_id, full_name, email').in('user_id', ids);
+    const pm = new Map((profs || []).map((p: any) => [p.user_id, p.full_name || p.email]));
+    rows.forEach(r => { r.requester_name = r.portal_created_by ? (pm.get(r.portal_created_by) || 'Usuário do portal') : null; });
+  }
+  return rows;
 }
 
 export default function ProposalsList({ onNewProposal, onEditProposal, onViewProposal, onPdfProposal }: Props) {
@@ -423,7 +433,12 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                       <TableCell>
                         <Badge variant="secondary">{proposalKindLabel(proposal.proposal_kind)}</Badge>
                       </TableCell>
-                      <TableCell>{proposal.clients?.name || '—'}</TableCell>
+                      <TableCell>
+                        <div>{proposal.clients?.name || '—'}</div>
+                        {proposal.requester_name && (
+                          <div className="text-xs text-muted-foreground">Solicitante: {proposal.requester_name}</div>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {proposal.event_category
                           ? <Badge variant="outline">{proposal.event_category}</Badge>
