@@ -39,33 +39,30 @@ AS $function$
 DECLARE
   v_old_cost      NUMERIC;
   v_current_qty   NUMERIC;
-  v_old_total     NUMERIC;
   v_new_total     NUMERIC;
   v_date          DATE;
   v_adjustment_id UUID;
 BEGIN
   v_date := COALESCE(p_occurred_at, CURRENT_DATE);
 
-  SELECT COALESCE(average_price, 0),
-         COALESCE(current_quantity, 0),
-         COALESCE(total_value, 0)
-    INTO v_old_cost, v_current_qty, v_old_total
+  SELECT COALESCE(average_price, 0), COALESCE(current_quantity, 0)
+    INTO v_old_cost, v_current_qty
     FROM public.stock_items
    WHERE material_id = p_material_id;
 
   v_new_total := p_new_unit_cost * v_current_qty;
 
-  -- Auditoria na tabela DEDICADA de revalorização de custo
+  -- Auditoria na tabela DEDICADA de revalorização de custo.
+  -- cost_difference / old_total_value / new_total_value são colunas GERADAS (ALWAYS)
+  -- — não entram no INSERT (o banco as calcula).
   INSERT INTO public.cost_adjustments (
     material_id, adjustment_date, adjustment_time,
-    old_unit_cost, new_unit_cost, cost_difference,
-    current_quantity, old_total_value, new_total_value,
+    old_unit_cost, new_unit_cost, current_quantity,
     adjustment_reason, reference_document,
     responsible_user_id, responsible_person, reason_code, notes
   ) VALUES (
     p_material_id, v_date, CURRENT_TIME,
-    v_old_cost, p_new_unit_cost, p_new_unit_cost - v_old_cost,
-    v_current_qty, v_old_total, v_new_total,
+    v_old_cost, p_new_unit_cost, v_current_qty,
     p_adjustment_reason, p_reference_document,
     auth.uid(), p_responsible_person, p_reason_code, p_notes
   ) RETURNING id INTO v_adjustment_id;
