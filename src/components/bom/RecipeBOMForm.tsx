@@ -45,6 +45,8 @@ interface RecipeBOM {
   cached_total_cost?: number;
   cached_unit_cost?: number;
   cost_status?: string;
+  final_weight_manual?: number | null; // override do peso/volume final do rendimento
+  cached_unit_weight?: number;          // peso/volume por unidade (calculado pela ficha)
 }
 
 interface RecipeBOMFormProps {
@@ -86,7 +88,8 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
     yield_unit: finishedMaterial?.usage_unit || 'un',
     waste_percent: 0,
     notes: '',
-    items: []
+    items: [],
+    final_weight_manual: null,
   });
 
   useEffect(() => {
@@ -147,6 +150,8 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
           cached_total_cost: data.cached_total_cost,
           cached_unit_cost: data.cached_unit_cost,
           cost_status: data.cost_status,
+          final_weight_manual: data.final_weight_manual ?? null,
+          cached_unit_weight: data.cached_unit_weight,
           items: (data.recipe_bom_items || []).map((item: any) => ({
             id: item.id,
             material_id: item.material_id,
@@ -234,6 +239,8 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
           cached_total_cost: data.cached_total_cost,
           cached_unit_cost: data.cached_unit_cost,
           cost_status: data.cost_status,
+          final_weight_manual: data.final_weight_manual ?? null,
+          cached_unit_weight: data.cached_unit_weight,
           items: (data.recipe_bom_items || []).map((item: any) => ({
             id: item.id,
             material_id: item.material_id,
@@ -343,7 +350,8 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
             yield_quantity: bomData.yield_quantity,
             yield_unit: bomData.yield_unit,
             waste_percent: bomData.waste_percent,
-            notes: bomData.notes
+            notes: bomData.notes,
+            final_weight_manual: bomData.final_weight_manual ?? null,
           })
           .eq('id', bomId);
         if (error) throw error;
@@ -357,7 +365,8 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
             yield_quantity: bomData.yield_quantity,
             yield_unit: bomData.yield_unit,
             waste_percent: bomData.waste_percent,
-            notes: bomData.notes
+            notes: bomData.notes,
+            final_weight_manual: bomData.final_weight_manual ?? null,
           })
           .select()
           .single();
@@ -542,6 +551,36 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
                 value={bomData.waste_percent}
                 onChange={(e) => setBomData(prev => ({ ...prev, waste_percent: parseFloat(e.target.value) || 0 }))}
               />
+            </div>
+          </div>
+
+          {/* Peso/volume final — calculado pela ficha, com override manual p/ perda */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="final_weight_manual">Peso/volume final do rendimento (opcional)</Label>
+              <NumericInput
+                id="final_weight_manual"
+                step="0.01"
+                min="0"
+                placeholder="vazio = soma dos ingredientes"
+                value={bomData.final_weight_manual ?? ''}
+                onChange={(e) => setBomData(prev => ({
+                  ...prev,
+                  final_weight_manual: e.target.value === '' ? null : (parseFloat(e.target.value) || 0),
+                }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Vazio = somatório dos ingredientes. Preencha para refletir perda (cocção/evaporação).
+                Em <strong>g</strong> (comida) ou <strong>mL</strong> (bebida), referente ao rendimento total.
+              </p>
+            </div>
+            <div>
+              <Label>Peso/volume por unidade (calculado)</Label>
+              <div className="h-10 flex items-center px-3 rounded-md border bg-muted/40 text-sm text-muted-foreground">
+                {bomData.cached_unit_weight != null
+                  ? `${Number(bomData.cached_unit_weight).toFixed(2)} por ${bomData.yield_unit}`
+                  : '— salve a ficha para calcular —'}
+              </div>
             </div>
           </div>
 

@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import {
   Plus, Minus, Save, ArrowLeft, X, Scale, DollarSign,
   CheckCircle2, Loader2, Users, Calendar, ChefHat, Trash2,
-  CalendarClock, MapPin, Send,
+  CalendarClock, MapPin, Send, GlassWater,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -523,14 +523,20 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     const distanceForFreight = (useAdhocLocation ? adhocDistance : unitDistance) ?? clientDistance ?? 0;
     const freightPerComp = (distanceForFreight || 0) * deliveryTrips * costPerKm;
 
+    // Comida é medida em PESO (g) e bebida em VOLUME (mL). O unit_weight do material
+    // guarda o conteúdo por unidade de uso (g p/ comida, mL p/ bebida — vindo da ficha).
+    const isBeverage = (mat: SellableMaterial) => mat.category === 'Bebidas';
+
     const perComp: Record<string, {
-      totalWeightG: number; totalCost: number; totalItemCount: number;
-      weightPerPerson: number; costPerPerson: number; suggestedPrice: number; pricePerPerson: number;
+      totalWeightG: number; totalBevMl: number; totalCost: number; totalItemCount: number;
+      foodGPerPerson: number; bevMlPerPerson: number;
+      costPerPerson: number; suggestedPrice: number; pricePerPerson: number;
       profit: number; marginPct: number; freight: number;
       people: number;
     }> = {};
 
     let grandWeightG = 0;
+    let grandBevMl = 0;
     let grandCost = 0;
     let grandItemCount = 0;
     let grandRevenue = 0;
@@ -538,14 +544,15 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
 
     compositions.forEach(c => {
       const people = peopleFor(c);
-      let weightG = 0, cost = 0, revenue = 0, itemCount = 0;
+      let foodG = 0, bevMl = 0, cost = 0, revenue = 0, itemCount = 0;
       const sections = items[c.localId] || {};
       Object.values(sections).forEach(sec => {
         Object.values(sec).forEach(line => {
           const mat = materials.find(m => m.id === line.material_id);
           if (!mat) return;
           const effectiveQty = line.use_per_person ? line.qty_per_person * people : line.fixed_qty;
-          weightG   += effectiveQty * mat.unit_weight;
+          if (isBeverage(mat)) bevMl += effectiveQty * mat.unit_weight;   // volume (mL)
+          else                 foodG += effectiveQty * mat.unit_weight;   // peso (g)
           cost      += effectiveQty * mat.average_price;
           revenue   += effectiveQty * mat.sale_price;   // preço de venda por produto
           itemCount += effectiveQty;
@@ -556,10 +563,12 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       revenue += freightPerComp;
       const profit = revenue - cost;
       perComp[c.localId] = {
-        totalWeightG: weightG,
+        totalWeightG: foodG,
+        totalBevMl: bevMl,
         totalCost: cost,
         totalItemCount: itemCount,
-        weightPerPerson: weightG / (people || 1),
+        foodGPerPerson: foodG / (people || 1),
+        bevMlPerPerson: bevMl / (people || 1),
         costPerPerson: cost / (people || 1),
         suggestedPrice: revenue,
         pricePerPerson: revenue / (people || 1),
@@ -568,7 +577,8 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         freight: freightPerComp,
         people,
       };
-      grandWeightG   += weightG;
+      grandWeightG   += foodG;
+      grandBevMl     += bevMl;
       grandCost      += cost;
       grandItemCount += itemCount;
       grandRevenue   += revenue;
@@ -580,14 +590,16 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       perComp,
       grand: {
         totalWeightG: grandWeightG,
+        totalBevMl: grandBevMl,
         totalCost: grandCost,
         totalItemCount: grandItemCount,
         suggestedPrice: grandRevenue,
         profit: grandProfit,
         marginPct: grandRevenue > 0 ? grandProfit / grandRevenue : 0,
         freight: grandFreight,
-        // peso/pessoa de referência usa nº de pessoas da proposta
+        // médias de referência usam o nº total de pessoas (soma dos momentos)
         weightPerPerson: grandWeightG / numPeople,
+        bevMlPerPerson: grandBevMl / numPeople,
         costPerPerson: grandCost / numPeople,
         pricePerPerson: grandRevenue / numPeople,
       },
@@ -1264,6 +1276,14 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                       </span>
                       <div className="flex items-center gap-4">
                         <span className="text-muted-foreground">
+                          Comida/pessoa <span className="font-medium text-foreground">{Math.round(compStats?.foodGPerPerson || 0)} g</span>
+                        </span>
+                        {(compStats?.bevMlPerPerson || 0) > 0 && (
+                          <span className="text-muted-foreground">
+                            Bebida/pessoa <span className="font-medium text-foreground">{Math.round(compStats?.bevMlPerPerson || 0)} mL</span>
+                          </span>
+                        )}
+                        <span className="text-muted-foreground">
                           Custo/pessoa <span className="font-medium text-foreground">{fmt(compStats?.costPerPerson || 0)}</span>
                         </span>
                         <span className="text-muted-foreground">
@@ -1305,12 +1325,17 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
               <CardContent className="px-4 pb-4 space-y-4">
 
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Por pessoa</p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Por pessoa (média do evento)</p>
+                  <div className="grid grid-cols-3 gap-2">
                     <div className="bg-muted/50 rounded-lg p-3 text-center">
                       <Scale className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
                       <p className="text-xl font-bold">{calc.grand.weightPerPerson.toFixed(0)}g</p>
-                      <p className="text-xs text-muted-foreground">Peso</p>
+                      <p className="text-xs text-muted-foreground">Comida</p>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg p-3 text-center">
+                      <GlassWater className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                      <p className="text-xl font-bold">{calc.grand.bevMlPerPerson.toFixed(0)}mL</p>
+                      <p className="text-xs text-muted-foreground">Bebida</p>
                     </div>
                     <div className="bg-muted/50 rounded-lg p-3 text-center">
                       <DollarSign className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />

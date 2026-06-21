@@ -5646,10 +5646,13 @@ export type Database = {
       recipes_bom: {
         Row: {
           cached_total_cost: number | null
+          cached_total_weight: number | null
           cached_unit_cost: number | null
+          cached_unit_weight: number | null
           cost_last_calculated_at: string | null
           cost_status: string | null
           created_at: string | null
+          final_weight_manual: number | null
           finished_material_id: string
           id: string
           is_archived: boolean | null
@@ -5662,10 +5665,13 @@ export type Database = {
         }
         Insert: {
           cached_total_cost?: number | null
+          cached_total_weight?: number | null
           cached_unit_cost?: number | null
+          cached_unit_weight?: number | null
           cost_last_calculated_at?: string | null
           cost_status?: string | null
           created_at?: string | null
+          final_weight_manual?: number | null
           finished_material_id: string
           id?: string
           is_archived?: boolean | null
@@ -5678,10 +5684,13 @@ export type Database = {
         }
         Update: {
           cached_total_cost?: number | null
+          cached_total_weight?: number | null
           cached_unit_cost?: number | null
+          cached_unit_weight?: number | null
           cost_last_calculated_at?: string | null
           cost_status?: string | null
           created_at?: string | null
+          final_weight_manual?: number | null
           finished_material_id?: string
           id?: string
           is_archived?: boolean | null
@@ -7612,6 +7621,7 @@ export type Database = {
         Args: { p_bom_id: string; p_should_archive: boolean }
         Returns: Json
       }
+      bom_unit_content: { Args: { p_material_id: string }; Returns: number }
       calculate_bom_cost_recursive: {
         Args: { p_material_id: string; p_material_type: string }
         Returns: number
@@ -8137,6 +8147,10 @@ export type Database = {
       refresh_bom_costs_for_material: {
         Args: { p_material_id: string }
         Returns: Json
+      }
+      refresh_bom_weight_for_material: {
+        Args: { p_material_id: string }
+        Returns: undefined
       }
       refresh_material_pricing: {
         Args: { p_material_id: string }
