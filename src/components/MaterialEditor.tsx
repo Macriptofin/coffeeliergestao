@@ -133,10 +133,9 @@ const restrictionTerms = getTermsByTaxonomy('material_restriction')
   .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name));
 
 // Filter categories based on selected type
-// Categories have parent_id pointing to the material_type term
-const availableCategories = formData.typeTermId 
-  ? allCategories.filter(cat => cat.parent_id === formData.typeTermId)
-  : allCategories; // Show all categories if no type selected (for backward compatibility)
+// Categoria é eixo INDEPENDENTE do tipo (domínio de negócio): todas as canônicas
+// ficam disponíveis para qualquer tipo de material.
+const availableCategories = allCategories;
 
 // Get available subcategories for selected category
 const selectedCategoryTerm = allCategories.find(cat => cat.name === formData.category);

@@ -91,9 +91,9 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   const needsUnitWeight = !isWeightUnit && formData.usageUnit;
 
   const selectedTypeTerm = materialTypesFromTaxonomy.find(t => t.id === formData.typeTermId);
-  const availableCategories = formData.typeTermId
-    ? allCategories.filter(cat => cat.parent_id === formData.typeTermId)
-    : [];
+  // Categoria é eixo INDEPENDENTE do tipo (domínio de negócio): todas as categorias
+  // canônicas ficam disponíveis para qualquer tipo de material.
+  const availableCategories = allCategories;
 
   const selectedCategoryTerm = allCategories.find(cat => cat.name === formData.category);
   const availableSubcategories = selectedCategoryTerm
