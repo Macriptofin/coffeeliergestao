@@ -19,6 +19,7 @@ interface PortalProposalRow {
 // Rótulo amigável + cor do status para o cliente.
 function statusBadge(status: string) {
   switch (status) {
+    case 'Rascunho': return { label: 'Rascunho', cls: 'bg-muted text-muted-foreground' };
     case 'Enviada': return { label: 'Aguardando você', cls: 'bg-accent-mocca/35 text-accent-coffee' };
     case 'Aprovada pelo Cliente': return { label: 'Em confirmação', cls: 'bg-accent-mocca/35 text-accent-coffee' };
     case 'Aprovada': return { label: 'Confirmada', cls: 'bg-primary/15 text-primary' };
@@ -93,7 +94,7 @@ export default function PortalHome() {
           {proposals.map((p) => {
             const badge = statusBadge(p.status);
             return (
-              <button key={p.id} onClick={() => navigate(`/portal/proposta/${p.id}`)}
+              <button key={p.id} onClick={() => navigate(p.status === 'Rascunho' ? `/portal/novo-pedido?draft=${p.id}` : `/portal/proposta/${p.id}`)}
                 className="w-full text-left bg-card border border-border/70 rounded-2xl p-5 md:p-6 flex items-center gap-5
                            shadow-soft hover:shadow-warm transition-shadow">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
