@@ -1155,9 +1155,6 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
               <Save className="h-4 w-4 mr-2" />
               Salvar
             </Button>
-            <Button variant="outline" onClick={handleSave} disabled={!hasUnsavedChanges}>
-              Salvar e Continuar
-            </Button>
           </div>
         </div>
       )}
