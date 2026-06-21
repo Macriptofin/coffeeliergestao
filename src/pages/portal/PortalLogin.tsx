@@ -104,7 +104,7 @@ export default function PortalLogin() {
       {/* Painel de marca */}
       <div className="hidden md:flex w-[46%] flex-col justify-between p-14 text-accent-creme relative overflow-hidden"
            style={{ background: 'linear-gradient(150deg, hsl(20 54% 20%), hsl(25 53% 42%) 60%, hsl(25 53% 49%))' }}>
-        <CoffeelierLogo size="md" className="brightness-0 invert opacity-95" />
+        <CoffeelierLogo size="md" tone="creme" />
         <div>
           <h1 className="font-display text-4xl font-semibold leading-tight max-w-md">
             Sua próxima experiência começa aqui.

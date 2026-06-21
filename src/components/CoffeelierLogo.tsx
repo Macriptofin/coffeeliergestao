@@ -1,9 +1,17 @@
-import coffeelierLogo from "@/assets/coffeelier-logo.png";
+import oliva from "@/assets/brand/coffeelier-oliva.png";
+import creme from "@/assets/brand/coffeelier-creme.png";
+import cafe from "@/assets/brand/coffeelier-cafe.png";
+import caramelo from "@/assets/brand/coffeelier-caramelo.png";
+import mocca from "@/assets/brand/coffeelier-mocca.png";
 import { cn } from "@/lib/utils";
+
+type Tone = "oliva" | "creme" | "cafe" | "caramelo" | "mocca";
 
 interface CoffeelierLogoProps {
   className?: string;
   size?: "sm" | "md" | "lg" | "xl";
+  /** Cor do wordmark conforme a paleta da marca. 'creme' p/ fundos escuros. */
+  tone?: Tone;
 }
 
 const sizeClasses = {
@@ -13,11 +21,13 @@ const sizeClasses = {
   xl: "h-24",
 };
 
-export const CoffeelierLogo = ({ className, size = "md" }: CoffeelierLogoProps) => {
+const toneSrc: Record<Tone, string> = { oliva, creme, cafe, caramelo, mocca };
+
+export const CoffeelierLogo = ({ className, size = "md", tone = "oliva" }: CoffeelierLogoProps) => {
   return (
     <img
-      src={coffeelierLogo}
-      alt="Coffeelier - Gestão de Confeitaria"
+      src={toneSrc[tone]}
+      alt="Coffeelier"
       className={cn("object-contain", sizeClasses[size], className)}
     />
   );
