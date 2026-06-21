@@ -102,6 +102,7 @@ export type Database = {
         Row: {
           account_id: string | null
           bank_account_id: string | null
+          competence_date: string | null
           cost_center_id: string | null
           created_at: string
           description: string
@@ -127,6 +128,7 @@ export type Database = {
         Insert: {
           account_id?: string | null
           bank_account_id?: string | null
+          competence_date?: string | null
           cost_center_id?: string | null
           created_at?: string
           description: string
@@ -152,6 +154,7 @@ export type Database = {
         Update: {
           account_id?: string | null
           bank_account_id?: string | null
+          competence_date?: string | null
           cost_center_id?: string | null
           created_at?: string
           description?: string
@@ -210,6 +213,7 @@ export type Database = {
           account_id: string | null
           bank_account_id: string | null
           client_id: string | null
+          competence_date: string | null
           cost_center_id: string | null
           created_at: string
           description: string
@@ -235,6 +239,7 @@ export type Database = {
           account_id?: string | null
           bank_account_id?: string | null
           client_id?: string | null
+          competence_date?: string | null
           cost_center_id?: string | null
           created_at?: string
           description: string
@@ -260,6 +265,7 @@ export type Database = {
           account_id?: string | null
           bank_account_id?: string | null
           client_id?: string | null
+          competence_date?: string | null
           cost_center_id?: string | null
           created_at?: string
           description?: string

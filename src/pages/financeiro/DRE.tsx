@@ -28,11 +28,17 @@ interface DREData {
   // Resultado
   resultadoLiquido:   number;
   margemLiquida:      number;
+  // Provisão p/ inadimplência (PDD)
+  pdd:                number;
   // Detalhamento
   detReceitas:        { label: string; valor: number }[];
   detCSP:             { label: string; valor: number }[];
   detDespesasOp:      { label: string; valor: number }[];
   detDespesasFin:     { label: string; valor: number }[];
+  // Qualidade da receita (caixa × competência)
+  recebidaPeriodo:    number;   // recebimentos em caixa no período
+  carteiraAberta:     number;   // a receber em aberto (total)
+  carteiraVencida:    number;   // a receber vencido (total)
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -59,34 +65,43 @@ interface APRow {
 }
 
 interface DRESources {
-  rec:  { gross_amount: string | null; discount_amount: string | null }[];
-  ar:   { original_amount: string | null }[];
-  invo: { total_amount: string | null; discount_total: string | null }[];
-  ap:   APRow[];
+  rec:    { gross_amount: string | null; amount: string | null; discount_amount: string | null }[];
+  ar:     { original_amount: string | null }[];        // receita por competência (período)
+  arOpen: { remaining_amount: string | null; due_date: string | null; status: string | null }[]; // carteira aberta (aging/PDD)
+  invo:   { total_amount: string | null; discount_total: string | null }[];
+  ap:     APRow[];
 }
 
-const EMPTY_SOURCES: DRESources = { rec: [], ar: [], invo: [], ap: [] };
+const EMPTY_SOURCES: DRESources = { rec: [], ar: [], arOpen: [], invo: [], ap: [] };
 
 async function fetchDRESources(dateStart: string, dateEnd: string): Promise<DRESources> {
   const [
-    recRes,   // receitas recebidas (receipt_transactions)
-    arRes,    // contas a receber emitidas (accounts_receivable)
-    invoRes,  // notas fiscais de compra (custo dos serviços)
-    apRes,    // contas a pagar (despesas)
+    recRes,     // recebimentos em caixa no período (receipt_transactions) — p/ painel
+    arRes,      // receita por COMPETÊNCIA no período (accounts_receivable.competence_date)
+    arOpenRes,  // carteira a receber em aberto (aging / PDD) — total, não só o período
+    invoRes,    // notas fiscais de compra (custo dos serviços)
+    apRes,      // despesas por COMPETÊNCIA no período (accounts_payable.competence_date)
   ] = await Promise.all([
-    // Receitas: usar receipt_transactions para recebimentos confirmados
+    // Recebido (caixa) no período — usado só no painel "reconhecida × recebida"
     supabase
       .from('receipt_transactions')
-      .select('gross_amount, discount_amount')
+      .select('gross_amount, amount, discount_amount')
       .gte('receipt_date', dateStart)
       .lte('receipt_date', dateEnd),
 
-    // Receitas emitidas (AR) para comparação
+    // RECEITA POR COMPETÊNCIA: contas a receber cuja competência cai no período
     supabase
       .from('accounts_receivable')
       .select('original_amount')
-      .gte('issue_date', dateStart)
-      .lte('issue_date', dateEnd),
+      .neq('status', 'Cancelado')
+      .gte('competence_date', dateStart)
+      .lte('competence_date', dateEnd),
+
+    // Carteira a receber em aberto (para aging e PDD) — independe do período
+    supabase
+      .from('accounts_receivable')
+      .select('remaining_amount, due_date, status')
+      .in('status', ['Pendente', 'Vencido']),
 
     // CSP: notas fiscais de compra lançadas no estoque
     supabase
@@ -96,40 +111,63 @@ async function fetchDRESources(dateStart: string, dateEnd: string): Promise<DRES
       .lte('invoice_date', dateEnd)
       .eq('stock_posted', true),
 
-    // Despesas: contas a pagar com vencimento no período
+    // DESPESAS POR COMPETÊNCIA: contas a pagar cuja competência cai no período
     supabase
       .from('accounts_payable')
       .select(`
         original_amount, paid_amount, status,
         account:chart_of_accounts!account_id(code, name, account_type)
       `)
-      .gte('due_date', dateStart)
-      .lte('due_date', dateEnd),
+      .neq('status', 'Cancelado')
+      .gte('competence_date', dateStart)
+      .lte('competence_date', dateEnd),
   ]);
 
-  if (recRes.error)  throw recRes.error;
-  if (arRes.error)   throw arRes.error;
-  if (invoRes.error) throw invoRes.error;
-  if (apRes.error)   throw apRes.error;
+  if (recRes.error)    throw recRes.error;
+  if (arRes.error)     throw arRes.error;
+  if (arOpenRes.error) throw arOpenRes.error;
+  if (invoRes.error)   throw invoRes.error;
+  if (apRes.error)     throw apRes.error;
 
   return {
-    rec:  recRes.data  || [],
-    ar:   arRes.data   || [],
-    invo: invoRes.data || [],
-    ap:   apRes.data   || [],
+    rec:    recRes.data    || [],
+    ar:     arRes.data     || [],
+    arOpen: arOpenRes.data || [],
+    invo:   invoRes.data   || [],
+    ap:     apRes.data     || [],
   };
 }
 
-function computeDRE(sources: DRESources): DREData {
-  // Receita Bruta (recebimentos confirmados)
-  const receitaBruta = sources.rec.reduce((s, r) =>
-    s + parseFloat(r.gross_amount || '0'), 0);
+// Provisão p/ inadimplência (PDD) por faixa de atraso — conservador, padrão PME.
+function pddRateForDaysOverdue(days: number): number {
+  if (days <= 0)  return 0;      // a vencer / em dia
+  if (days <= 30) return 0;      // atraso recente — sem provisão
+  if (days <= 60) return 0.25;   // 31–60 dias
+  if (days <= 90) return 0.50;   // 61–90 dias
+  return 1.0;                    // > 90 dias — provisão integral
+}
 
-  // Se não há recebimentos, usa as emissões de AR
-  const receitaBrutaAR = sources.ar.reduce((s, r) =>
+function computeDRE(sources: DRESources): DREData {
+  // RECEITA BRUTA — regime de COMPETÊNCIA (contas a receber por data de competência).
+  const recBruta = sources.ar.reduce((s, r) =>
     s + parseFloat(r.original_amount || '0'), 0);
 
-  const recBruta = receitaBruta > 0 ? receitaBruta : receitaBrutaAR;
+  // Recebido em caixa no período (só p/ painel reconhecida × recebida).
+  const recebidaPeriodo = sources.rec.reduce((s, r) =>
+    s + parseFloat(r.gross_amount || r.amount || '0'), 0);
+
+  // Carteira a receber em aberto + PDD por aging.
+  const today = new Date();
+  let carteiraAberta = 0, carteiraVencida = 0, pdd = 0;
+  sources.arOpen.forEach((r) => {
+    const saldo = parseFloat(r.remaining_amount || '0');
+    if (saldo <= 0) return;
+    carteiraAberta += saldo;
+    const due = r.due_date ? new Date(r.due_date + 'T00:00:00') : null;
+    const days = due ? Math.floor((today.getTime() - due.getTime()) / 86400000) : 0;
+    if (days > 0) carteiraVencida += saldo;
+    pdd += saldo * pddRateForDaysOverdue(days);
+  });
 
   // ISS estimado (5% sobre serviços de catering)
   const iss      = recBruta * 0.05;
@@ -171,8 +209,12 @@ function computeDRE(sources: DRESources): DREData {
     }
   });
 
+  // PDD entra como despesa operacional (perda estimada com inadimplência).
+  if (pdd > 0) despOpMap['Provisão p/ inadimplência (PDD)'] = pdd;
+  const despOpComPdd = despOpTotal + pdd;
+
   const lucroBruto   = recLiq - cspTotal;
-  const ebitda       = lucroBruto - despOpTotal;
+  const ebitda       = lucroBruto - despOpComPdd;
   const resAntes     = ebitda - despFinTotal;
   const resLiquido   = resAntes; // sem IRPJ/CSLL por ora (Simples)
 
@@ -183,9 +225,10 @@ function computeDRE(sources: DRESources): DREData {
   return {
     receitaBruta: recBruta, deducoes, receitaLiquida: recLiq,
     csp: cspTotal, lucroBruto, margemBruta,
-    despesasOp: despOpTotal, ebitda, margemEbitda,
+    despesasOp: despOpComPdd, ebitda, margemEbitda,
     despesasFinanceiras: despFinTotal, resultadoAntes: resAntes,
     resultadoLiquido: resLiquido, margemLiquida,
+    pdd, recebidaPeriodo, carteiraAberta, carteiraVencida,
     detReceitas: [
       { label: 'Serviços de catering / coffee break', valor: recBruta * 0.85 },
       { label: 'Kits personalizados', valor: recBruta * 0.10 },
@@ -378,6 +421,45 @@ const DRE = () => {
             ))}
           </div>
 
+          {/* Qualidade da receita: competência × caixa × carteira */}
+          <Card className="shadow-soft border-blue-100">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">
+                Receita reconhecida (competência) × recebida (caixa) × a receber
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <div className="text-xs text-muted-foreground">Reconhecida no período</div>
+                  <div className="text-lg font-bold text-green-700">{fmt(data.receitaBruta)}</div>
+                  <div className="text-[11px] text-muted-foreground">competência (entregue)</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Recebida no período</div>
+                  <div className="text-lg font-bold text-blue-700">{fmt(data.recebidaPeriodo)}</div>
+                  <div className="text-[11px] text-muted-foreground">caixa (entrou)</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">A receber (carteira)</div>
+                  <div className="text-lg font-bold">{fmt(data.carteiraAberta)}</div>
+                  <div className="text-[11px] text-muted-foreground">em aberto, total</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Vencida (inadimplência)</div>
+                  <div className="text-lg font-bold text-red-600">{fmt(data.carteiraVencida)}</div>
+                  <div className="text-[11px] text-muted-foreground">PDD estimada {fmt(data.pdd)}</div>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-3">
+                O DRE é por <strong>competência</strong> (receita e custo no mês da entrega). O prazo de
+                pagamento do cliente afeta só o <strong>caixa</strong> — por isso "reconhecida" e "recebida"
+                podem divergir. A parcela vencida gera a <strong>provisão p/ inadimplência (PDD)</strong>,
+                já deduzida no resultado abaixo.
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Tabela DRE */}
           <Card className="shadow-soft">
             <CardHeader className="pb-2">
@@ -504,7 +586,7 @@ const DRE = () => {
           {data.receitaBruta === 0 && (
             <Card className="border-yellow-200 bg-yellow-50">
               <CardContent className="pt-4 pb-4 text-sm text-yellow-800">
-                Nenhum recebimento confirmado no período selecionado. Os valores mostram as emissões de contas a receber. Para o DRE por competência, configure os lançamentos no módulo Financeiro.
+                Nenhuma receita por competência no período (sem contas a receber com data de competência neste mês). O DRE reflete o que foi <strong>entregue</strong> no período, não o que foi recebido.
               </CardContent>
             </Card>
           )}
