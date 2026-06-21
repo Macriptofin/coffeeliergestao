@@ -30,7 +30,12 @@ function statusBadge(status: string) {
 
 export default function PortalHome() {
   const navigate = useNavigate();
-  const { portalClient } = usePortalClient();
+  const { portalClient, user } = usePortalClient();
+  const firstName = (
+    (user?.user_metadata?.full_name as string) ||
+    (user?.user_metadata?.display_name as string) ||
+    user?.email?.split('@')[0] || 'cliente'
+  ).split(' ')[0];
   const { contactHref } = usePortalSettings();
 
   const { data: proposals = [], isPending } = useQuery({
@@ -49,10 +54,10 @@ export default function PortalHome() {
         <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, hsl(20 54% 16% / .88), hsl(20 54% 20% / .55) 60%, hsl(20 54% 20% / .25))' }} />
         <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 text-accent-creme">
           <h1 className="font-display text-3xl md:text-4xl font-semibold leading-tight">
-            Bem-vindo de volta{portalClient?.clientName ? `, ${portalClient.clientName}` : ''}
+            Bem-vindo de volta, {firstName}
           </h1>
           <p className="opacity-90 mt-1.5 max-w-md">
-            Acompanhe seus pedidos e aprove suas propostas com tranquilidade.
+            Você está no ambiente de pedidos da {portalClient?.clientName || 'sua empresa'}.
           </p>
         </div>
       </div>
