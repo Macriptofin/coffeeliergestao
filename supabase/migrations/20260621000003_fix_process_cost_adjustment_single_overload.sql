@@ -76,15 +76,17 @@ BEGIN
 
   -- Movimentação de auditoria (qty 0): trg_sync_stock_quantity pula 'Ajuste' e o
   -- trigger de média ponderada só age em entradas com unit_price — não interfere.
+  -- stock_movements NÃO tem coluna responsible_person; espelha o INSERT comprovado
+  -- do #100 (process_inventory_adjustment). O responsável fica em cost_adjustments.
   INSERT INTO public.stock_movements (
-    material_id, movement_type, quantity,
-    reference_type, reference_id, notes, responsible_person
+    material_id, movement_type, quantity, unit_price,
+    reference_type, reference_id, notes, movement_date
   ) VALUES (
-    p_material_id, 'Ajuste', 0,
+    p_material_id, 'Ajuste', 0, NULL,
     'Ajuste de Custo', v_adjustment_id,
     'Revalorização de custo: R$' || v_old_cost::text || ' → R$' || p_new_unit_cost::text
       || ' (' || p_adjustment_reason || ')',
-    p_responsible_person
+    v_date
   );
 END;
 $function$;
