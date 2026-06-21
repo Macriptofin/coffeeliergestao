@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -151,7 +151,17 @@ if (!session || !user) {
         {/* Main Content - with left margin to account for fixed sidebar */}
         <main className="md:ml-64 min-h-[calc(100vh-6rem)] pt-8">
           <div className="px-6 lg:px-8 xl:px-12 2xl:px-16">
-            <Outlet />
+            {/* Spinner só na área de conteúdo: a barra lateral e o cabeçalho
+                permanecem visíveis enquanto o chunk da página carrega. */}
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center py-24">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                </div>
+              }
+            >
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>

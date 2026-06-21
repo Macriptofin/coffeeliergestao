@@ -1,64 +1,66 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from "@/components/ui/sonner";
 import { FeatureFlagRedirect } from '@/components/FeatureFlagRedirect';
 import { Layout } from "./components/Layout";
-import Dashboard from "./pages/Dashboard";
-import Materials from "./pages/Materials";
-import Recipes from "./pages/Recipes";
-import Suppliers from "./pages/Suppliers";
-import Stock from "./pages/Stock";
-import Purchases from "./pages/Purchases";
-import Sales from "./pages/Sales";
-import Reports from "./pages/Reports";
-import SecurityMonitoring from "./pages/SecurityMonitoring";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
-import Materiais from "./pages/Materiais";
-import MateriaisGestao from "./pages/stock/MateriaisGestao";
-import ProducaoMain from "./pages/ProducaoMain";
-import Financeiro from "./pages/Financeiro";
-import ContasPagar from "./pages/financeiro/ContasPagar";
-import ContasReceber from "./pages/financeiro/ContasReceber";
-import FluxoCaixa from "./pages/financeiro/FluxoCaixa";
-import CentrosCusto from "./pages/financeiro/CentrosCusto";
-import AnaliseFinanceira from "./pages/financeiro/AnaliseFinanceira";
-import DRE from "./pages/financeiro/DRE";
-import PlanoContas from "./pages/financeiro/PlanoContas";
-import PropostaAprovacao from "./pages/PropostaAprovacao";
-import RelatoriosContabeis from "./pages/financeiro/RelatoriosContabeis";
-import ContasBancarias from "./pages/financeiro/ContasBancarias";
-import RecurringTransactions from "./pages/financeiro/RecurringTransactions";
-import AgingReport from "./pages/financeiro/AgingReport";
-import CashFlowForecast from "./pages/financeiro/CashFlowForecast";
-import RecursosHumanos from "./pages/RecursosHumanos";
-import Colaboradores from "./pages/Colaboradores";
-import ControlePonto from "./pages/rh/ControlePonto";
-import EstoqueMovimentacoes from "./pages/EstoqueMovimentacoes";
-import Agenda from "./pages/Agenda";
-import EnhancedSecurity from "./pages/EnhancedSecurity";
-import SecurityAnomalies from "./pages/SecurityAnomalies";
-import InventarioAjustes from "./pages/InventarioAjustes";
-import InventarioCiclo from "./pages/InventarioCiclo";
-
-import CostCalculation from "./pages/production/CostCalculation";
-import ProductionPlanning from "./pages/production/ProductionPlanning";
-import ProductionReports from "./pages/production/ProductionReportsEnhanced";
-import BOMManagement from "./pages/BOMManagement";
-import EventTables from "./pages/EventTables";
-import FichasTecnicas from "./components/FichasTecnicas";
-import { MaterialEdit } from "./pages/MaterialEdit";
-import Config from "./pages/Config";
-import EstoqueRelatorios from "./pages/stock/EstoqueRelatorios";
-import MateriaisProblemas from "./pages/stock/MateriaisProblemas";
-import MateriaisDiagnostico from "./pages/stock/MateriaisDiagnostico";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PortalRoute } from "./components/portal/PortalRoute";
-import PortalLogin from "./pages/portal/PortalLogin";
-import PortalHome from "./pages/portal/PortalHome";
-import PortalProposta from "./pages/portal/PortalProposta";
-import PortalNovoPedido from "./pages/portal/PortalNovoPedido";
+
+// Páginas carregadas sob demanda (code-splitting) — reduz o bundle inicial e o tempo
+// de tela branca em recargas. O shell (Layout/guards) permanece estático.
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Materials = lazy(() => import("./pages/Materials"));
+const Recipes = lazy(() => import("./pages/Recipes"));
+const Suppliers = lazy(() => import("./pages/Suppliers"));
+const Stock = lazy(() => import("./pages/Stock"));
+const Purchases = lazy(() => import("./pages/Purchases"));
+const Sales = lazy(() => import("./pages/Sales"));
+const Reports = lazy(() => import("./pages/Reports"));
+const SecurityMonitoring = lazy(() => import("./pages/SecurityMonitoring"));
+const Auth = lazy(() => import("./pages/Auth"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Materiais = lazy(() => import("./pages/Materiais"));
+const MateriaisGestao = lazy(() => import("./pages/stock/MateriaisGestao"));
+const ProducaoMain = lazy(() => import("./pages/ProducaoMain"));
+const Financeiro = lazy(() => import("./pages/Financeiro"));
+const ContasPagar = lazy(() => import("./pages/financeiro/ContasPagar"));
+const ContasReceber = lazy(() => import("./pages/financeiro/ContasReceber"));
+const FluxoCaixa = lazy(() => import("./pages/financeiro/FluxoCaixa"));
+const CentrosCusto = lazy(() => import("./pages/financeiro/CentrosCusto"));
+const AnaliseFinanceira = lazy(() => import("./pages/financeiro/AnaliseFinanceira"));
+const DRE = lazy(() => import("./pages/financeiro/DRE"));
+const PlanoContas = lazy(() => import("./pages/financeiro/PlanoContas"));
+const PropostaAprovacao = lazy(() => import("./pages/PropostaAprovacao"));
+const RelatoriosContabeis = lazy(() => import("./pages/financeiro/RelatoriosContabeis"));
+const ContasBancarias = lazy(() => import("./pages/financeiro/ContasBancarias"));
+const RecurringTransactions = lazy(() => import("./pages/financeiro/RecurringTransactions"));
+const AgingReport = lazy(() => import("./pages/financeiro/AgingReport"));
+const CashFlowForecast = lazy(() => import("./pages/financeiro/CashFlowForecast"));
+const RecursosHumanos = lazy(() => import("./pages/RecursosHumanos"));
+const Colaboradores = lazy(() => import("./pages/Colaboradores"));
+const ControlePonto = lazy(() => import("./pages/rh/ControlePonto"));
+const EstoqueMovimentacoes = lazy(() => import("./pages/EstoqueMovimentacoes"));
+const Agenda = lazy(() => import("./pages/Agenda"));
+const EnhancedSecurity = lazy(() => import("./pages/EnhancedSecurity"));
+const SecurityAnomalies = lazy(() => import("./pages/SecurityAnomalies"));
+const InventarioAjustes = lazy(() => import("./pages/InventarioAjustes"));
+const InventarioCiclo = lazy(() => import("./pages/InventarioCiclo"));
+const CostCalculation = lazy(() => import("./pages/production/CostCalculation"));
+const ProductionPlanning = lazy(() => import("./pages/production/ProductionPlanning"));
+const ProductionReports = lazy(() => import("./pages/production/ProductionReportsEnhanced"));
+const BOMManagement = lazy(() => import("./pages/BOMManagement"));
+const EventTables = lazy(() => import("./pages/EventTables"));
+const FichasTecnicas = lazy(() => import("./components/FichasTecnicas"));
+const MaterialEdit = lazy(() => import("./pages/MaterialEdit").then(m => ({ default: m.MaterialEdit })));
+const Config = lazy(() => import("./pages/Config"));
+const EstoqueRelatorios = lazy(() => import("./pages/stock/EstoqueRelatorios"));
+const MateriaisProblemas = lazy(() => import("./pages/stock/MateriaisProblemas"));
+const MateriaisDiagnostico = lazy(() => import("./pages/stock/MateriaisDiagnostico"));
+const PortalLogin = lazy(() => import("./pages/portal/PortalLogin"));
+const PortalHome = lazy(() => import("./pages/portal/PortalHome"));
+const PortalProposta = lazy(() => import("./pages/portal/PortalProposta"));
+const PortalNovoPedido = lazy(() => import("./pages/portal/PortalNovoPedido"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,112 +73,121 @@ const queryClient = new QueryClient({
   },
 });
 
+// Loader leve para o carregamento das telas sob demanda.
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+  </div>
+);
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <FeatureFlagRedirect>
           <Toaster />
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            {/* Rota pública — aprovação de proposta pelo cliente (sem login) */}
-            <Route path="/aprovar/:token" element={<PropostaAprovacao />} />
-            {/* Portal do cliente (autoatendimento) */}
-            <Route path="/portal/login" element={<PortalLogin />} />
-            <Route element={<PortalRoute />}>
-              <Route path="/portal" element={<PortalHome />} />
-              <Route path="/portal/novo-pedido" element={<PortalNovoPedido />} />
-              <Route path="/portal/proposta/:id" element={<PortalProposta />} />
-            </Route>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Dashboard />} />
-              
-              {/* Categoria Materiais (nova estrutura) */}
-              <Route path="materiais" element={<Materiais />} />
-              <Route path="materiais/controle" element={<Stock />} />
-              <Route path="materiais/gestao" element={<MateriaisGestao />} />
-              <Route path="materiais/movimentacoes" element={<EstoqueMovimentacoes />} />
-              <Route path="materiais/relatorios" element={<EstoqueRelatorios />} />
-              <Route path="materiais/inventario-ajustes" element={<InventarioAjustes />} />
-              <Route path="materiais/inventario-ajustes/ciclo/:cycleId" element={<InventarioCiclo />} />
-              <Route path="materiais/importacao" element={<Stock />} />
-              <Route path="materiais/:id/editar" element={<MaterialEdit />} />
-              <Route path="materiais/diagnostico" element={<MateriaisDiagnostico />} />
-              <Route path="materiais/problemas" element={<MateriaisProblemas />} />
-              
-              {/* Redirects de rotas antigas para manter bookmarks */}
-              <Route path="estoque" element={<Materiais />} />
-              <Route path="estoque/controle" element={<Stock />} />
-              <Route path="estoque/parametros" element={<MateriaisGestao />} />
-              <Route path="estoque/planejamento" element={<MateriaisGestao />} />
-              <Route path="estoque/movimentacoes" element={<EstoqueMovimentacoes />} />
-              <Route path="estoque/relatorios" element={<EstoqueRelatorios />} />
-              <Route path="estoque/inventario-ajustes" element={<InventarioAjustes />} />
-              <Route path="estoque/inventario-ajustes/ciclo/:cycleId" element={<InventarioCiclo />} />
-              <Route path="estoque/importacao" element={<Stock />} />
-              <Route path="estoque/materiais/:id/editar" element={<MaterialEdit />} />
-              <Route path="estoque/problemas" element={<MateriaisProblemas />} />
-              <Route path="estoque/*" element={<Stock />} />
-              
-              {/* Cadastro de materiais */}
-              <Route path="ingredientes" element={<Materials />} />
-              {/* Categoria Compras */}
-              <Route path="compras" element={<Purchases />} />
-              {/* Categoria Vendas */}
-              <Route path="vendas" element={<Sales />} />
-              {/* Agenda de Eventos */}
-              <Route path="agenda" element={<Agenda />} />
-              {/* Categoria Produção */}
-              <Route path="producao" element={<ProducaoMain />} />
-              <Route path="receitas" element={<Recipes />} />
-              <Route path="producao/planejamento" element={<ProductionPlanning />} />
-              <Route path="producao/calculo-custos" element={<CostCalculation />} />
-              <Route path="producao/relatorios" element={<ProductionReports />} />
-              <Route path="producao/bom" element={<BOMManagement />} />
-              <Route path="producao/fichas-tecnicas" element={<FichasTecnicas />} />
-              <Route path="producao/fichas/novo" element={<FichasTecnicas />} />
-              <Route path="producao/fichas/:id" element={<FichasTecnicas />} />
-              <Route path="producao/eventos" element={<EventTables />} />
-              {/* Fornecedores */}
-              <Route path="fornecedores" element={<Suppliers />} />
-              {/* Categoria Financeiro — admin, manager e financial */}
-              <Route element={<ProtectedRoute requiredRoles={['admin', 'manager', 'financial']} />}>
-                <Route path="financeiro" element={<Financeiro />} />
-                <Route path="financeiro/pagar" element={<ContasPagar />} />
-                <Route path="financeiro/receber" element={<ContasReceber />} />
-                <Route path="financeiro/fluxo" element={<FluxoCaixa />} />
-                <Route path="financeiro/custos" element={<CentrosCusto />} />
-                <Route path="financeiro/analises" element={<AnaliseFinanceira />} />
-                <Route path="financeiro/dre" element={<DRE />} />
-                <Route path="financeiro/plano-contas" element={<PlanoContas />} />
-                <Route path="financeiro/relatorios" element={<RelatoriosContabeis />} />
-                <Route path="financeiro/bancos" element={<ContasBancarias />} />
-                <Route path="financeiro/recorrentes" element={<RecurringTransactions />} />
-                <Route path="financeiro/aging" element={<AgingReport />} />
-                <Route path="financeiro/previsao" element={<CashFlowForecast />} />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              {/* Rota pública — aprovação de proposta pelo cliente (sem login) */}
+              <Route path="/aprovar/:token" element={<PropostaAprovacao />} />
+              {/* Portal do cliente (autoatendimento) */}
+              <Route path="/portal/login" element={<PortalLogin />} />
+              <Route element={<PortalRoute />}>
+                <Route path="/portal" element={<PortalHome />} />
+                <Route path="/portal/novo-pedido" element={<PortalNovoPedido />} />
+                <Route path="/portal/proposta/:id" element={<PortalProposta />} />
               </Route>
-              {/* Categoria Recursos Humanos — admin e manager */}
-              <Route element={<ProtectedRoute requiredRoles={['admin', 'manager']} />}>
-                <Route path="rh" element={<RecursosHumanos />} />
-                <Route path="rh/colaboradores" element={<Colaboradores />} />
-                <Route path="rh/ponto" element={<ControlePonto />} />
-              </Route>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Dashboard />} />
 
-              {/* Gestão de usuários, segurança e config — somente admin */}
-              <Route element={<ProtectedRoute requiredRoles={['admin']} />}>
-                {/* /usuarios redireciona para Configurações → aba Usuários (fonte única) */}
-                <Route path="usuarios" element={<Navigate to="/config#usuarios" replace />} />
-                <Route path="seguranca" element={<SecurityMonitoring />} />
-                <Route path="seguranca/avancado" element={<EnhancedSecurity />} />
-                <Route path="seguranca/anomalias" element={<SecurityAnomalies />} />
-                <Route path="config" element={<Config />} />
+                {/* Categoria Materiais (nova estrutura) */}
+                <Route path="materiais" element={<Materiais />} />
+                <Route path="materiais/controle" element={<Stock />} />
+                <Route path="materiais/gestao" element={<MateriaisGestao />} />
+                <Route path="materiais/movimentacoes" element={<EstoqueMovimentacoes />} />
+                <Route path="materiais/relatorios" element={<EstoqueRelatorios />} />
+                <Route path="materiais/inventario-ajustes" element={<InventarioAjustes />} />
+                <Route path="materiais/inventario-ajustes/ciclo/:cycleId" element={<InventarioCiclo />} />
+                <Route path="materiais/importacao" element={<Stock />} />
+                <Route path="materiais/:id/editar" element={<MaterialEdit />} />
+                <Route path="materiais/diagnostico" element={<MateriaisDiagnostico />} />
+                <Route path="materiais/problemas" element={<MateriaisProblemas />} />
+
+                {/* Redirects de rotas antigas para manter bookmarks */}
+                <Route path="estoque" element={<Materiais />} />
+                <Route path="estoque/controle" element={<Stock />} />
+                <Route path="estoque/parametros" element={<MateriaisGestao />} />
+                <Route path="estoque/planejamento" element={<MateriaisGestao />} />
+                <Route path="estoque/movimentacoes" element={<EstoqueMovimentacoes />} />
+                <Route path="estoque/relatorios" element={<EstoqueRelatorios />} />
+                <Route path="estoque/inventario-ajustes" element={<InventarioAjustes />} />
+                <Route path="estoque/inventario-ajustes/ciclo/:cycleId" element={<InventarioCiclo />} />
+                <Route path="estoque/importacao" element={<Stock />} />
+                <Route path="estoque/materiais/:id/editar" element={<MaterialEdit />} />
+                <Route path="estoque/problemas" element={<MateriaisProblemas />} />
+                <Route path="estoque/*" element={<Stock />} />
+
+                {/* Cadastro de materiais */}
+                <Route path="ingredientes" element={<Materials />} />
+                {/* Categoria Compras */}
+                <Route path="compras" element={<Purchases />} />
+                {/* Categoria Vendas */}
+                <Route path="vendas" element={<Sales />} />
+                {/* Agenda de Eventos */}
+                <Route path="agenda" element={<Agenda />} />
+                {/* Categoria Produção */}
+                <Route path="producao" element={<ProducaoMain />} />
+                <Route path="receitas" element={<Recipes />} />
+                <Route path="producao/planejamento" element={<ProductionPlanning />} />
+                <Route path="producao/calculo-custos" element={<CostCalculation />} />
+                <Route path="producao/relatorios" element={<ProductionReports />} />
+                <Route path="producao/bom" element={<BOMManagement />} />
+                <Route path="producao/fichas-tecnicas" element={<FichasTecnicas />} />
+                <Route path="producao/fichas/novo" element={<FichasTecnicas />} />
+                <Route path="producao/fichas/:id" element={<FichasTecnicas />} />
+                <Route path="producao/eventos" element={<EventTables />} />
+                {/* Fornecedores */}
+                <Route path="fornecedores" element={<Suppliers />} />
+                {/* Categoria Financeiro — admin, manager e financial */}
+                <Route element={<ProtectedRoute requiredRoles={['admin', 'manager', 'financial']} />}>
+                  <Route path="financeiro" element={<Financeiro />} />
+                  <Route path="financeiro/pagar" element={<ContasPagar />} />
+                  <Route path="financeiro/receber" element={<ContasReceber />} />
+                  <Route path="financeiro/fluxo" element={<FluxoCaixa />} />
+                  <Route path="financeiro/custos" element={<CentrosCusto />} />
+                  <Route path="financeiro/analises" element={<AnaliseFinanceira />} />
+                  <Route path="financeiro/dre" element={<DRE />} />
+                  <Route path="financeiro/plano-contas" element={<PlanoContas />} />
+                  <Route path="financeiro/relatorios" element={<RelatoriosContabeis />} />
+                  <Route path="financeiro/bancos" element={<ContasBancarias />} />
+                  <Route path="financeiro/recorrentes" element={<RecurringTransactions />} />
+                  <Route path="financeiro/aging" element={<AgingReport />} />
+                  <Route path="financeiro/previsao" element={<CashFlowForecast />} />
+                </Route>
+                {/* Categoria Recursos Humanos — admin e manager */}
+                <Route element={<ProtectedRoute requiredRoles={['admin', 'manager']} />}>
+                  <Route path="rh" element={<RecursosHumanos />} />
+                  <Route path="rh/colaboradores" element={<Colaboradores />} />
+                  <Route path="rh/ponto" element={<ControlePonto />} />
+                </Route>
+
+                {/* Gestão de usuários, segurança e config — somente admin */}
+                <Route element={<ProtectedRoute requiredRoles={['admin']} />}>
+                  {/* /usuarios redireciona para Configurações → aba Usuários (fonte única) */}
+                  <Route path="usuarios" element={<Navigate to="/config#usuarios" replace />} />
+                  <Route path="seguranca" element={<SecurityMonitoring />} />
+                  <Route path="seguranca/avancado" element={<EnhancedSecurity />} />
+                  <Route path="seguranca/anomalias" element={<SecurityAnomalies />} />
+                  <Route path="config" element={<Config />} />
+                </Route>
+                {/* Relatórios */}
+                <Route path="relatorios" element={<Reports />} />
               </Route>
-              {/* Relatórios */}
-              <Route path="relatorios" element={<Reports />} />
-            </Route>
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </FeatureFlagRedirect>
       </BrowserRouter>
     </QueryClientProvider>
