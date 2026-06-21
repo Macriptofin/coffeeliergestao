@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Coffee } from 'lucide-react';
+import { CoffeelierLogo } from '@/components/CoffeelierLogo';
 import { supabase } from '@/integrations/supabase/client';
 import { useSecureAuth } from '@/hooks/useSecureAuth';
 import { Button } from '@/components/ui/button';
@@ -103,9 +104,7 @@ export default function PortalLogin() {
       {/* Painel de marca */}
       <div className="hidden md:flex w-[46%] flex-col justify-between p-14 text-accent-creme relative overflow-hidden"
            style={{ background: 'linear-gradient(150deg, hsl(20 54% 20%), hsl(25 53% 42%) 60%, hsl(25 53% 49%))' }}>
-        <div className="flex items-center gap-2.5 font-display font-bold text-3xl">
-          <Coffee className="h-7 w-7" /> Coffeelier
-        </div>
+        <CoffeelierLogo size="md" className="brightness-0 invert opacity-95" />
         <div>
           <h1 className="font-display text-4xl font-semibold leading-tight max-w-md">
             Sua próxima experiência começa aqui.
@@ -127,9 +126,7 @@ export default function PortalLogin() {
           </div>
         ) : mode === 'setpw' ? (
           <form onSubmit={handleSetPassword} className="w-full max-w-sm">
-            <div className="md:hidden flex items-center gap-2 font-display font-bold text-2xl text-primary mb-8">
-              <Coffee className="h-6 w-6" /> Coffeelier
-            </div>
+            <CoffeelierLogo size="sm" className="md:hidden mb-8" />
             <h2 className="font-display text-3xl font-semibold">Defina sua senha</h2>
             <p className="text-muted-foreground mt-2.5 mb-8 text-sm">
               Você foi convidado para o portal. Crie uma senha para ativar seu acesso.
@@ -148,9 +145,7 @@ export default function PortalLogin() {
           </form>
         ) : (
           <form onSubmit={handleLogin} className="w-full max-w-sm">
-            <div className="md:hidden flex items-center gap-2 font-display font-bold text-2xl text-primary mb-8">
-              <Coffee className="h-6 w-6" /> Coffeelier
-            </div>
+            <CoffeelierLogo size="sm" className="md:hidden mb-8" />
             <h2 className="font-display text-3xl font-semibold">Bem-vindo de volta</h2>
             <p className="text-muted-foreground mt-2.5 mb-8 text-sm">
               Entre com o e-mail da sua empresa para acessar seus pedidos.

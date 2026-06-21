@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
-import { Coffee, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import { CoffeelierLogo } from '@/components/CoffeelierLogo';
 import { useSecureAuth } from '@/hooks/useSecureAuth';
 import { usePortalClient } from '@/hooks/usePortalClient';
 import {
@@ -16,10 +17,7 @@ export function PortalLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background portal-body text-foreground">
       <header className="bg-primary text-primary-foreground">
         <div className="max-w-5xl mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 font-display font-bold text-2xl tracking-tight">
-            <Coffee className="h-6 w-6" />
-            Coffeelier
-          </div>
+          <CoffeelierLogo size="sm" className="brightness-0 invert opacity-95" />
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-3 outline-none">
               <span className="text-sm/none opacity-90 hidden sm:block">
