@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDelayedLoading } from '@/hooks/useDelayedLoading';
 import { supabase } from '@/integrations/supabase/client';
@@ -127,6 +128,7 @@ async function fetchCompositeProducts(): Promise<BOMSummary[]> {
 }
 
 const BOMManagement = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const {
     data: finishedProducts = EMPTY_BOM_SUMMARIES,
@@ -547,7 +549,7 @@ const BOMManagement = () => {
                     {searchTerm ? 'Tente alterar os termos da pesquisa' : 'Cadastre produtos acabados ou intermediários na página de materiais primeiro'}
                   </p>
                   {!searchTerm && (
-                    <Button onClick={() => window.location.href = '/materials'}>
+                    <Button onClick={() => navigate('/materials')}>
                       Ir para Materiais
                     </Button>
                   )}
@@ -594,7 +596,7 @@ const BOMManagement = () => {
                     {searchTerm ? 'Tente alterar os termos da pesquisa' : 'Cadastre produtos compostos na página de materiais primeiro'}
                   </p>
                   {!searchTerm && (
-                    <Button onClick={() => window.location.href = '/materials'}>
+                    <Button onClick={() => navigate('/materials')}>
                       Ir para Materiais
                     </Button>
                   )}

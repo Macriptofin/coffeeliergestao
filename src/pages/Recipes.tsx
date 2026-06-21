@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,6 +73,7 @@ async function fetchRecipes(): Promise<Recipe[]> {
 }
 
 const Recipes = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const {
@@ -362,7 +364,7 @@ const Recipes = () => {
               <p className="text-muted-foreground mb-4">
                 Para criar receitas, você precisa ter ingredientes cadastrados no sistema.
               </p>
-              <Button onClick={() => window.location.href = '/ingredientes'}>
+              <Button onClick={() => navigate('/ingredientes')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Cadastrar Ingredientes
               </Button>

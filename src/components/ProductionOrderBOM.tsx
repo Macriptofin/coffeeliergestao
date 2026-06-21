@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from 'react-router-dom';
 import { todayLocalISO } from "@/lib/date-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,7 @@ interface ConsolidatedIngredient {
 }
 
 export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
+  const navigate = useNavigate();
   const [boms, setBoms] = useState<BOM[]>([]);
   const [productionItems, setProductionItems] = useState<ProductionItem[]>([]);
   const [selectedBOM, setSelectedBOM] = useState('');
@@ -375,7 +377,7 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
             <p className="text-muted-foreground mb-4">
               Configure primeiro as fichas técnicas (BOMs) dos seus produtos para criar ordens de produção.
             </p>
-            <Button onClick={() => window.location.href = '/producao/fichas-tecnicas'}>
+            <Button onClick={() => navigate('/producao/fichas-tecnicas')}>
               <Plus className="h-4 w-4 mr-2" />
               Configurar Fichas Técnicas
             </Button>
