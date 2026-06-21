@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Coffee } from 'lucide-react';
 import { CoffeelierLogo } from '@/components/CoffeelierLogo';
+import heroLogin from '@/assets/portal/buffet-5.jpg';
 import { supabase } from '@/integrations/supabase/client';
 import { useSecureAuth } from '@/hooks/useSecureAuth';
 import { Button } from '@/components/ui/button';
@@ -102,19 +102,19 @@ export default function PortalLogin() {
   return (
     <div className="min-h-screen flex portal-body">
       {/* Painel de marca */}
-      <div className="hidden md:flex w-[46%] flex-col justify-between p-14 text-accent-creme relative overflow-hidden"
-           style={{ background: 'linear-gradient(150deg, hsl(20 54% 20%), hsl(25 53% 42%) 60%, hsl(25 53% 49%))' }}>
-        <CoffeelierLogo size="md" tone="creme" />
-        <div>
+      <div className="hidden md:flex w-[46%] flex-col justify-between p-14 text-accent-creme relative overflow-hidden">
+        <img src={heroLogin} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(150deg, hsl(20 54% 16% / .92), hsl(20 54% 20% / .80) 55%, hsl(25 53% 38% / .78))' }} />
+        <div className="relative z-10"><CoffeelierLogo size="md" tone="creme" /></div>
+        <div className="relative z-10">
           <h1 className="font-display text-4xl font-semibold leading-tight max-w-md">
             Sua próxima experiência começa aqui.
           </h1>
-          <p className="opacity-85 mt-4 text-base max-w-sm leading-relaxed">
+          <p className="opacity-90 mt-4 text-base max-w-sm leading-relaxed">
             Acompanhe seus pedidos, aprove propostas e monte novos eventos — com a praticidade que você merece.
           </p>
         </div>
-        <p className="text-sm opacity-70">Portal exclusivo para clientes Coffeelier</p>
-        <Coffee className="absolute -right-8 -bottom-10 h-72 w-72 opacity-[0.08]" />
+        <p className="relative z-10 text-sm opacity-80">Portal exclusivo para clientes Coffeelier</p>
       </div>
 
       {/* Formulário */}

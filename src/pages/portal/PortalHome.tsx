@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/formatters';
 import { formatLocalDate } from '@/lib/date-utils';
 import { usePortalSettings } from '@/hooks/usePortalSettings';
+import heroHome from '@/assets/portal/buffet-6.jpg';
 
 interface PortalProposalRow {
   id: string; proposal_number: string; event_category: string | null;
@@ -43,12 +44,18 @@ export default function PortalHome() {
 
   return (
     <PortalLayout>
-      <h1 className="font-display text-3xl md:text-4xl font-semibold leading-tight">
-        Bem-vindo de volta{portalClient?.clientName ? `, ${portalClient.clientName}` : ''}
-      </h1>
-      <p className="text-muted-foreground mt-2">
-        Acompanhe seus pedidos e aprove suas propostas com tranquilidade.
-      </p>
+      <div className="relative rounded-3xl overflow-hidden shadow-warm">
+        <img src={heroHome} alt="" className="w-full h-44 md:h-56 object-cover" />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, hsl(20 54% 16% / .88), hsl(20 54% 20% / .55) 60%, hsl(20 54% 20% / .25))' }} />
+        <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 text-accent-creme">
+          <h1 className="font-display text-3xl md:text-4xl font-semibold leading-tight">
+            Bem-vindo de volta{portalClient?.clientName ? `, ${portalClient.clientName}` : ''}
+          </h1>
+          <p className="opacity-90 mt-1.5 max-w-md">
+            Acompanhe seus pedidos e aprove suas propostas com tranquilidade.
+          </p>
+        </div>
+      </div>
 
       <div className="flex flex-col sm:flex-row gap-4 mt-7 mb-10">
         <Button
