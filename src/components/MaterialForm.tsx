@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MEASUREMENT_UNITS } from '@/lib/units';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,7 +85,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
   const originalName = material?.name || '';
 
   const units = [
-    'kg', 'g', 'L', 'mL', 'unidade', 'pacote', 'caixa', 'lata', 'saco', 'envelope', 'dúzia', 'centena'
+    ...MEASUREMENT_UNITS
   ];
 
   const isWeightUnit = ['kg', 'g'].includes(formData.usageUnit);

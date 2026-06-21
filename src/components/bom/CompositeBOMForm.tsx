@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { MEASUREMENT_UNITS } from '@/lib/units';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -113,7 +114,7 @@ export const CompositeBOMForm: React.FC<CompositeBOMFormProps> = ({
     const newItem: CompositeBOMItem = {
       component_material_id: '',
       quantity: 1,
-      unit: 'unidade',
+      unit: 'un',
       position: bomData.items.length + 1
     };
     setBomData(prev => ({
@@ -206,7 +207,7 @@ export const CompositeBOMForm: React.FC<CompositeBOMFormProps> = ({
     }
   };
 
-  const usageUnits = ['unidade', 'g', 'kg', 'ml', 'l'];
+  const usageUnits = MEASUREMENT_UNITS;
 
   return (
     <Card className="w-full max-w-4xl mx-auto">

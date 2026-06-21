@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { MEASUREMENT_UNITS } from '@/lib/units';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -82,7 +83,7 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
   const [bomData, setBomData] = useState<RecipeBOM>({
     finished_material_id: finishedMaterial?.id || '',
     yield_quantity: 1,
-    yield_unit: finishedMaterial?.usage_unit || 'unidade',
+    yield_unit: finishedMaterial?.usage_unit || 'un',
     waste_percent: 0,
     notes: '',
     items: []
@@ -123,7 +124,7 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
     setBomData({
       finished_material_id: productId,
       yield_quantity: 1,
-      yield_unit: product.usage_unit || 'unidade',
+      yield_unit: product.usage_unit || 'un',
       waste_percent: 0,
       notes: '',
       items: [],
@@ -425,8 +426,8 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
     }
   };
 
-  const yieldUnits = ['unidade', 'kg', 'g', 'ml', 'l', 'porção', 'dose'];
-  const usageUnits = ['g', 'kg', 'ml', 'l', 'unidade', 'porção'];
+  const yieldUnits = MEASUREMENT_UNITS;
+  const usageUnits = MEASUREMENT_UNITS;
 
   const costStatusColor = {
     complete: 'text-emerald-600',

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { MEASUREMENT_UNITS } from '@/lib/units';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -957,15 +958,9 @@ export const TechnicalSheetWizard: React.FC<TechnicalSheetWizardProps> = ({
                         <SelectValue placeholder="Selecione a unidade" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="unidade">unidade</SelectItem>
-                        <SelectItem value="kg">kg</SelectItem>
-                        <SelectItem value="g">g</SelectItem>
-                        <SelectItem value="L">L</SelectItem>
-                        <SelectItem value="mL">mL</SelectItem>
-                        <SelectItem value="porção">porção</SelectItem>
-                        <SelectItem value="fatia">fatia</SelectItem>
-                        <SelectItem value="pacote">pacote</SelectItem>
-                        <SelectItem value="caixa">caixa</SelectItem>
+                        {MEASUREMENT_UNITS.map((u) => (
+                          <SelectItem key={u} value={u}>{u}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

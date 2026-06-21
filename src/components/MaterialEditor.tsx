@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { MEASUREMENT_UNITS } from '@/lib/units';
 import { useNavigate, useParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
@@ -113,7 +114,7 @@ export const MaterialEditor = ({
   const initializedMaterialId = useRef<string | null>(null);
 
   const units = [
-    'kg', 'g', 'L', 'mL', 'unidade', 'pacote', 'caixa', 'lata', 'saco', 'envelope', 'dúzia', 'centena'
+    ...MEASUREMENT_UNITS
   ];
 
   const weightUnits = ['kg', 'g'];

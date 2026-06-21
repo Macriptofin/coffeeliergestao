@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MEASUREMENT_UNITS } from '@/lib/units';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +29,7 @@ export const IngredientForm = ({ ingredient, existingIngredients, onSubmit, onCa
   const [duplicateError, setDuplicateError] = useState('');
 
   const units = [
-    'kg', 'g', 'L', 'mL', 'unidade', 'pacote', 'caixa', 'lata', 'saco', 'envelope', 'dúzia', 'centena'
+    ...MEASUREMENT_UNITS
   ];
 
   // Calcula o preço por unidade de uso
