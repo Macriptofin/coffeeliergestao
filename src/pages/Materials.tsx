@@ -445,23 +445,6 @@ const Materials = () => {
     }
   };
 
-  const deleteMaterial = async (materialId: string) => {
-    try {
-      const { error } = await supabase
-        .from('materials')
-        .delete()
-        .eq('id', materialId);
-      
-      if (error) throw error;
-      
-      refetchMaterials();
-      toast.success('Material excluído com sucesso!');
-    } catch (error) {
-      console.error('Erro ao excluir material:', error);
-      toast.error('Erro ao excluir material');
-    }
-  };
-
   const handleMaterialSubmit = (materialData: Omit<Material, 'id' | 'code'>) => {
     if (editingMaterial) {
       updateMaterial({ ...materialData, id: editingMaterial.id, code: editingMaterial.code });
@@ -547,24 +530,6 @@ const Materials = () => {
       setSelectedMaterials(filteredMaterials.map(m => m.id));
     } else {
       setSelectedMaterials([]);
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    try {
-      const { error } = await supabase
-        .from('materials')
-        .delete()
-        .in('id', selectedMaterials);
-      
-      if (error) throw error;
-      
-      refetchMaterials();
-      setSelectedMaterials([]);
-      toast.success(`${selectedMaterials.length} materiais excluídos com sucesso!`);
-    } catch (error) {
-      console.error('Erro ao excluir materiais:', error);
-      toast.error('Erro ao excluir materiais');
     }
   };
 
@@ -902,7 +867,6 @@ const Materials = () => {
             <MaterialsActions
               selectedCount={selectedMaterials.length}
               selectedMaterials={filteredMaterials.filter(m => selectedMaterials.includes(m.id))}
-              onBulkDelete={handleBulkDelete}
               onBulkArchive={handleBulkArchive}
               onBulkUnarchive={handleBulkUnarchive}
               onClearSelection={() => setSelectedMaterials([])}

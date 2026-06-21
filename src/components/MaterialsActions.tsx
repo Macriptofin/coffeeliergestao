@@ -18,7 +18,7 @@ import {
   AlertDialogHeader, 
   AlertDialogTitle 
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Trash2, FileDown, Archive, ArchiveRestore, Tag, Calculator } from "lucide-react";
+import { MoreHorizontal, FileDown, Archive, ArchiveRestore, Tag, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Material } from "@/types";
@@ -26,7 +26,6 @@ import type { Material } from "@/types";
 interface MaterialsActionsProps {
   selectedCount: number;
   selectedMaterials: Material[];
-  onBulkDelete: () => void;
   onBulkArchive: () => void;
   onBulkUnarchive: () => void;
   onClearSelection: () => void;
@@ -36,13 +35,11 @@ interface MaterialsActionsProps {
 export const MaterialsActions = ({
   selectedCount,
   selectedMaterials,
-  onBulkDelete,
   onBulkArchive,
   onBulkUnarchive,
   onClearSelection,
   onRefresh
 }: MaterialsActionsProps) => {
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [showUnarchiveDialog, setShowUnarchiveDialog] = useState(false);
 
@@ -162,13 +159,6 @@ export const MaterialsActions = ({
                   Reativar Selecionados
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem
-                onClick={() => setShowDeleteDialog(true)}
-                className="text-red-600 focus:text-red-600"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Excluir Selecionados
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -177,30 +167,6 @@ export const MaterialsActions = ({
           </Button>
         </div>
       </div>
-
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir {selectedCount} {selectedCount === 1 ? 'material' : 'materiais'}? 
-              Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => {
-                onBulkDelete();
-                setShowDeleteDialog(false);
-              }}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
         <AlertDialogContent>
