@@ -103,10 +103,19 @@ export default function PortalProposta() {
     </PortalLayout>;
   }
 
-  const sections: Section[] = [
-    ...(data.compositions || []).flatMap(c => c.categories || []),
-    ...(data.categories_no_composition || []),
-  ];
+  const renderSection = (sec: Section, key: string | number) => (
+    <div key={key} className="bg-card border border-border/70 rounded-2xl p-5 md:p-6 shadow-soft">
+      <h3 className="font-display text-lg font-semibold mb-1">{sec.category_label}</h3>
+      <div>
+        {(sec.items || []).map((it, j) => (
+          <div key={j} className="flex justify-between items-center py-2.5 border-t border-dashed border-border first:border-t-0 text-[15px]">
+            <span>{it.name}</span>
+            <span className="text-muted-foreground whitespace-nowrap">{itemQty(it)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
   const localLabel = [data.unit_name, data.room_name].filter(Boolean).join(' · ')
     || data.event_location_name || 'A definir';
   const firstTime = data.compositions?.[0]?.scheduled_time;
@@ -143,21 +152,35 @@ export default function PortalProposta() {
             <CoverItem icon={<MapPin className="h-4 w-4" />} label="Local" value={localLabel} />
           </div>
 
-          {/* Seções */}
-          <div className="mt-5 space-y-4">
-            {sections.map((sec, i) => (
-              <div key={i} className="bg-card border border-border/70 rounded-2xl p-5 md:p-6 shadow-soft">
-                <h3 className="font-display text-lg font-semibold mb-1">{sec.category_label}</h3>
-                <div>
-                  {(sec.items || []).map((it, j) => (
-                    <div key={j} className="flex justify-between items-center py-2.5 border-t border-dashed border-border first:border-t-0 text-[15px]">
-                      <span>{it.name}</span>
-                      <span className="text-muted-foreground whitespace-nowrap">{itemQty(it)}</span>
-                    </div>
-                  ))}
+          {/* Momentos — cada composição com seu cabeçalho e seções */}
+          <div className="mt-6 space-y-7">
+            {(data.compositions || []).map((comp, ci) => {
+              const meta = [
+                comp.event_category,
+                comp.scheduled_date ? formatLocalDate(comp.scheduled_date) : null,
+                (comp.scheduled_time || '').slice(0, 5) || null,
+                comp.location,
+                comp.number_of_people ? `${comp.number_of_people} pessoas` : null,
+              ].filter(Boolean).join(' · ');
+              return (
+                <div key={ci} className="space-y-3">
+                  <div className="border-l-4 border-primary pl-3">
+                    <h2 className="font-display text-xl font-semibold leading-tight">
+                      {comp.name || `Momento ${ci + 1}`}
+                    </h2>
+                    {meta && <p className="text-sm text-muted-foreground mt-0.5">{meta}</p>}
+                  </div>
+                  {(comp.categories || []).map((sec, i) => renderSection(sec, `${ci}-${i}`))}
                 </div>
+              );
+            })}
+
+            {/* Legado: categorias sem composição (pedidos antigos) */}
+            {(data.categories_no_composition || []).length > 0 && (
+              <div className="space-y-3">
+                {(data.categories_no_composition || []).map((sec, i) => renderSection(sec, `legacy-${i}`))}
               </div>
-            ))}
+            )}
           </div>
         </div>
 
