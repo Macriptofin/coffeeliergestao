@@ -763,14 +763,28 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
 
               {needsUnitWeight && (
                 <div className="space-y-2">
-                  <Label>Peso por {formData.usageUnit} (gramas) *</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={formData.unitWeight}
-                    onChange={(e) => setFormData({ ...formData, unitWeight: e.target.value })}
-                    placeholder="Ex: 50 (gramas por unidade)"
-                  />
+                  <Label>
+                    {['intermediate_product','finished_product'].includes(formLegacyType)
+                      ? `Peso/volume por ${formData.usageUnit} (calculado pela ficha)`
+                      : `Peso por ${formData.usageUnit} (gramas) *`}
+                  </Label>
+                  {['intermediate_product','finished_product'].includes(formLegacyType) ? (
+                    <>
+                      <Input type="number" value={formData.unitWeight} readOnly disabled
+                        className="bg-muted/40" placeholder="— calculado pela ficha —" />
+                      <p className="text-xs text-muted-foreground">
+                        Vem da ficha técnica (somatório dos ingredientes ou peso final informado nela).
+                      </p>
+                    </>
+                  ) : (
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={formData.unitWeight}
+                      onChange={(e) => setFormData({ ...formData, unitWeight: e.target.value })}
+                      placeholder="Ex: 50 (gramas por unidade)"
+                    />
+                  )}
                 </div>
               )}
 

@@ -461,22 +461,22 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
                   {needsUnitWeight && (
                     <div className="space-y-2">
                       <Label>
-                        Peso por {formData.usageUnit} (gramas)
-                        <HelpTooltip content="Peso em gramas de 1 unidade, para cálculos de receita." />
+                        Peso/volume por {formData.usageUnit} (calculado)
+                        <HelpTooltip content="Para produzidos, o peso/volume vem da ficha técnica (somatório dos ingredientes ou peso final informado na ficha). Edite na ficha técnica." />
                       </Label>
                       <Input
                         type="number"
-                        step="0.1"
-                        min="0"
                         value={formData.unitWeight}
-                        onChange={(e) => setFormData({ ...formData, unitWeight: e.target.value })}
-                        placeholder="Ex: 50"
+                        readOnly
+                        disabled
+                        className="bg-muted/40"
+                        placeholder="— calculado pela ficha —"
                       />
                     </div>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground bg-muted/40 rounded px-3 py-2">
-                  O custo deste produto é calculado automaticamente a partir da ficha técnica (BOM), com base nos preços médios ponderados dos insumos.
+                  O custo e o peso/volume deste produto são calculados automaticamente a partir da ficha técnica (BOM) — custo pelos preços médios ponderados dos insumos; peso/volume pelo somatório dos ingredientes (ou peso final informado na ficha).
                 </p>
               </div>
             ) : (

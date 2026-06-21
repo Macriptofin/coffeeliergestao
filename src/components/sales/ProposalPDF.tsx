@@ -48,6 +48,8 @@ interface MenuItem {
   qty_per_person: number;
   fixed_qty: number;
   unit: string;
+  unit_weight: number;     // conteúdo por unidade (g comida / mL bebida)
+  is_beverage: boolean;
 }
 
 interface MenuSection {
@@ -188,7 +190,7 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
           .from('proposal_categories')
           .select(`
             category_label, sort_order, composition_id,
-            proposal_category_items(qty_per_person, fixed_qty, materials(name, usage_unit))
+            proposal_category_items(qty_per_person, fixed_qty, materials(name, usage_unit, unit_weight, category))
           `)
           .eq('proposal_id', proposalId)
           .order('sort_order'),
@@ -230,6 +232,8 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
           qty_per_person: parseFloat(it.qty_per_person || 0),
           fixed_qty: parseFloat(it.fixed_qty || 0),
           unit: it.materials?.usage_unit || 'un',
+          unit_weight: parseFloat(it.materials?.unit_weight || 0),
+          is_beverage: it.materials?.category === 'Bebidas',
         }));
         if (items.length === 0) return null;
         const key = (c.category_label || '').toLowerCase();
@@ -477,6 +481,18 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
                     [comp.room_name, comp.location].filter(Boolean).join(' — '),
                     comp.number_of_people > 0 ? `${comp.number_of_people} pessoas` : '',
                   ].filter(Boolean).join(' · ');
+                  // Consumo por pessoa do momento: comida (g) e bebida (mL).
+                  const cp = comp.number_of_people > 0 ? comp.number_of_people : 1;
+                  let foodG = 0, bevMl = 0;
+                  comp.sections.forEach(sec => sec.items.forEach(it => {
+                    const perPerson = it.qty_per_person > 0 ? it.qty_per_person : (it.fixed_qty / cp);
+                    if (it.is_beverage) bevMl += perPerson * it.unit_weight;
+                    else                foodG += perPerson * it.unit_weight;
+                  }));
+                  const consumo = [
+                    foodG > 0 ? `${Math.round(foodG)} g de comida/pessoa` : '',
+                    bevMl > 0 ? `${Math.round(bevMl)} mL de bebida/pessoa` : '',
+                  ].filter(Boolean).join(' · ');
                   const showMomentHeader = !!comp.name || !!meta || comp.price_per_person > 0;
 
                   return (
@@ -496,6 +512,11 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
                             {meta && (
                               <div style={{ fontSize: 7.5, color: C.textMuted, marginTop: 1 }}>
                                 {meta}
+                              </div>
+                            )}
+                            {consumo && (
+                              <div style={{ fontSize: 7.5, color: C.oliva, marginTop: 1, fontWeight: 600 }}>
+                                {consumo}
                               </div>
                             )}
                           </div>
