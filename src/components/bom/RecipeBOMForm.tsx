@@ -370,7 +370,8 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
           recipe_id: bomId,
           material_id: item.material_id,
           quantity: item.quantity,
-          unit: item.unit,
+          // Unidade sempre a do cadastro do material (usage_unit) — fonte da verdade.
+          unit: materials.find(m => m.id === item.material_id)?.usage_unit || item.unit,
           waste_percent: item.waste_percent,
           is_packaging: item.is_packaging,
           position: idx + 1
@@ -607,15 +608,12 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
                       />
                     </div>
 
-                    {/* Unidade (1.5 colunas) */}
+                    {/* Unidade — vem do cadastro do material (somente leitura) */}
                     <div className="col-span-2">
                       {index === 0 && <Label className="text-xs text-muted-foreground mb-1 block">Unidade</Label>}
-                      <Select value={item.unit} onValueChange={(v) => updateBOMItem(index, 'unit', v)}>
-                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {usageUnits.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <div className="h-8 flex items-center text-sm text-muted-foreground px-1" title="Unidade de uso definida no cadastro do material">
+                        {materials.find(m => m.id === item.material_id)?.usage_unit || item.unit || '—'}
+                      </div>
                     </div>
 
                     {/* Custo estimado do item (2 colunas) */}
