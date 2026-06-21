@@ -271,6 +271,7 @@ Canal externo "loja online" para o cliente acompanhar/aprovar propostas (Fase 1 
 | #65 | Suporte a lançamentos sem nota fiscal | Média |
 | #102 | Concluir migração react-query: ~53 componentes menores + hooks de dados restantes (forms/dialogs/listas; padrão em ContasPagar/Dashboard). Páginas e sub-páginas já migradas. Migrar ao tocar em cada área. Ver memória `react-query-data-fetching-standard`. | Média |
 | #34 | Geocodificação precisa via Google Maps API | Baixa |
+| #200 | **SaaS multi-tenant (vender o sistema por assinatura)** — épico futuro, depois de organizar o resto. Fases: (1) **fundação multi-tenant** = `organizations` + `org_id` em todas as tabelas + RLS por `current_org_id()` + auditar funções SECURITY DEFINER + **testes de isolamento** + pen test (pré-requisito inegociável de tudo); (2) onboarding self-service + baseline "empresa vazia" (hoje há seeds Coffeelier); (3) billing (planos, Stripe/Asaas, limites e feature-flags por org); (4) white-label + back-office/superadmin + LGPD (export/exclusão, DPA); (5) infra de produção (depende do #24). Reaproveita o padrão de isolamento já validado no Portal (`current_portal_client_id`). Ver memória `saas-multitenant-roadmap`. | Futuro/Estratégico |
 
 ---
 
