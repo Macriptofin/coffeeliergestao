@@ -1898,7 +1898,9 @@ export type Database = {
           notes: string | null
           old_total_value: number | null
           old_unit_cost: number
+          reason_code: string | null
           reference_document: string | null
+          responsible_person: string | null
           responsible_user_id: string | null
           updated_at: string
         }
@@ -1916,7 +1918,9 @@ export type Database = {
           notes?: string | null
           old_total_value?: number | null
           old_unit_cost: number
+          reason_code?: string | null
           reference_document?: string | null
+          responsible_person?: string | null
           responsible_user_id?: string | null
           updated_at?: string
         }
@@ -1934,7 +1938,9 @@ export type Database = {
           notes?: string | null
           old_total_value?: number | null
           old_unit_cost?: number
+          reason_code?: string | null
           reference_document?: string | null
+          responsible_person?: string | null
           responsible_user_id?: string | null
           updated_at?: string
         }
@@ -4432,6 +4438,7 @@ export type Database = {
       proposal_compositions: {
         Row: {
           created_at: string
+          event_category: string | null
           id: string
           location: string | null
           name: string
@@ -4439,13 +4446,16 @@ export type Database = {
           number_of_people: number | null
           price_per_person: number | null
           proposal_id: string
+          room_id: string | null
           scheduled_date: string | null
           scheduled_time: string | null
           sort_order: number
+          unit_id: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          event_category?: string | null
           id?: string
           location?: string | null
           name: string
@@ -4453,13 +4463,16 @@ export type Database = {
           number_of_people?: number | null
           price_per_person?: number | null
           proposal_id: string
+          room_id?: string | null
           scheduled_date?: string | null
           scheduled_time?: string | null
           sort_order?: number
+          unit_id?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          event_category?: string | null
           id?: string
           location?: string | null
           name?: string
@@ -4467,9 +4480,11 @@ export type Database = {
           number_of_people?: number | null
           price_per_person?: number | null
           proposal_id?: string
+          room_id?: string | null
           scheduled_date?: string | null
           scheduled_time?: string | null
           sort_order?: number
+          unit_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -4478,6 +4493,20 @@ export type Database = {
             columns: ["proposal_id"]
             isOneToOne: false
             referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_compositions_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "client_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_compositions_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "client_units"
             referencedColumns: ["id"]
           },
         ]
@@ -4674,6 +4703,7 @@ export type Database = {
           event_location_distance_km: number | null
           event_location_name: string | null
           event_location_zip: string | null
+          event_name: string | null
           generated_order_id: string | null
           id: string
           loss_reason: string | null
@@ -4712,6 +4742,7 @@ export type Database = {
           event_location_distance_km?: number | null
           event_location_name?: string | null
           event_location_zip?: string | null
+          event_name?: string | null
           generated_order_id?: string | null
           id?: string
           loss_reason?: string | null
@@ -4750,6 +4781,7 @@ export type Database = {
           event_location_distance_km?: number | null
           event_location_name?: string | null
           event_location_zip?: string | null
+          event_name?: string | null
           generated_order_id?: string | null
           id?: string
           loss_reason?: string | null
@@ -7973,34 +8005,19 @@ export type Database = {
         }
         Returns: undefined
       }
-      process_cost_adjustment:
-        | {
-            Args: {
-              p_adjustment_reason: string
-              p_material_id: string
-              p_new_unit_cost: number
-              p_notes?: string
-              p_occurred_at?: string
-              p_reason_code?: string
-              p_reference_document?: string
-              p_responsible_person?: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_adjustment_reason: string
-              p_cycle_id?: string
-              p_material_id: string
-              p_new_unit_cost: number
-              p_notes?: string
-              p_occurred_at?: string
-              p_reason_code?: string
-              p_reference_document?: string
-              p_responsible_person?: string
-            }
-            Returns: string
-          }
+      process_cost_adjustment: {
+        Args: {
+          p_adjustment_reason: string
+          p_material_id: string
+          p_new_unit_cost: number
+          p_notes?: string
+          p_occurred_at?: string
+          p_reason_code?: string
+          p_reference_document?: string
+          p_responsible_person?: string
+        }
+        Returns: undefined
+      }
       process_finish_input: {
         Args: {
           p_material_id: string

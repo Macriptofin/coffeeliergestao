@@ -57,10 +57,12 @@ interface Composition {
   localId: string;            // id local estável (contador) p/ compositions não salvas
   dbId: string | null;        // id existente no banco (se carregado)
   name: string;
+  event_category: string;     // tipo de evento DESTE momento (Coffee Break, Almoço…)
   scheduled_date: string;     // 'YYYY-MM-DD' ou ''
   scheduled_time: string;     // 'HH:MM' ou ''
-  location: string;
-  number_of_people: number | null; // null = usa nº pessoas da proposta
+  room_id: string;            // sala (estrutura do cliente) DESTE momento
+  location: string;           // local livre (complemento/avulso) DESTE momento
+  number_of_people: number | null; // nº de pessoas DESTE momento
   notes: string;
 }
 
@@ -110,14 +112,11 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
 
   // ── Header form state ──────────────────────────────────────────────────────
   const [clientId, setClientId]             = useState('');
-  const [eventCategory, setEventCategory]   = useState('');
-  const [eventDate, setEventDate]           = useState('');
+  const [eventName, setEventName]           = useState('');   // nome do evento guarda-chuva
   const [proposalDate, setProposalDate]     = useState(todayLocalISO());
-  const [numberOfPeople, setNumberOfPeople] = useState<number>(0);
   const [notes, setNotes]                   = useState('');
   const [departmentId, setDepartmentId]     = useState('');
-  const [unitId, setUnitId]                 = useState('');
-  const [roomId, setRoomId]                 = useState('');
+  const [unitId, setUnitId]                 = useState('');   // unidade (endereço) — dirige o frete
   const [contactId, setContactId]           = useState('');
   // Local avulso (evento em endereço que não é unidade do cliente — ex.: salão alugado)
   const [useAdhocLocation, setUseAdhocLocation] = useState(false);
@@ -176,9 +175,11 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         setCompositions([{
           localId: 'c0',
           dbId: null,
-          name: 'Composição 1',
+          name: 'Momento 1',
+          event_category: '',
           scheduled_date: '',
           scheduled_time: '',
+          room_id: '',
           location: '',
           number_of_people: null,
           notes: '',
@@ -272,14 +273,11 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     if (!prop) return;
 
     setClientId(prop.client_id || '');
-    setEventCategory(prop.event_category || '');
-    setEventDate(prop.event_date || '');
+    setEventName(prop.event_name || '');
     setProposalDate(prop.proposal_date || todayLocalISO());
-    setNumberOfPeople(prop.number_of_people || 0);
     setNotes(prop.notes || '');
     setDepartmentId(prop.department_id || '');
     setUnitId(prop.unit_id || '');
-    setRoomId(prop.room_id || '');
     setContactId(prop.contact_id || '');
     setPortalUserId(prop.portal_created_by || '');
     // Local avulso (se a proposta tiver CEP de local avulso gravado)
@@ -295,7 +293,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     const [compRes, catRes] = await Promise.all([
       supabase
         .from('proposal_compositions')
-        .select('id, name, scheduled_date, scheduled_time, location, number_of_people, notes, sort_order')
+        .select('id, name, event_category, scheduled_date, scheduled_time, room_id, location, number_of_people, notes, sort_order')
         .eq('proposal_id', id)
         .order('sort_order'),
       supabase
@@ -319,10 +317,12 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         localId,
         dbId: c.id,
         name: c.name || '',
+        event_category: c.event_category || prop.event_category || '',
         scheduled_date: c.scheduled_date || '',
         scheduled_time: c.scheduled_time ? String(c.scheduled_time).slice(0, 5) : '',
+        room_id: c.room_id || '',
         location: c.location || '',
-        number_of_people: c.number_of_people ?? null,
+        number_of_people: c.number_of_people ?? (prop.number_of_people || null),
         notes: c.notes || '',
       });
     });
@@ -333,11 +333,13 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       comps.push({
         localId: `c${seq++}`,
         dbId: null,
-        name: 'Composição 1',
+        name: 'Momento 1',
+        event_category: prop?.event_category || '',
         scheduled_date: prop?.event_date || '',
         scheduled_time: '',
+        room_id: prop?.room_id || '',
         location: '',
-        number_of_people: null,
+        number_of_people: prop?.number_of_people || null,
         notes: '',
       });
     }
@@ -401,7 +403,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
 
   const handleClientChange = (id: string) => {
     setClientId(id);
-    setDepartmentId(''); setUnitId(''); setRoomId(''); setContactId(''); setPortalUserId('');
+    setDepartmentId(''); setUnitId(''); setContactId(''); setPortalUserId('');
     setDepartments([]); setUnits([]); setRooms([]); setContacts([]); setPortalUsers([]);
     if (id) loadClientStructure(id);
   };
@@ -432,9 +434,11 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     setCompositions(prev => [...prev, {
       localId,
       dbId: null,
-      name: `Composição ${prev.length + 1}`,
+      name: `Momento ${prev.length + 1}`,
+      event_category: '',
       scheduled_date: '',
       scheduled_time: '',
+      room_id: '',
       location: '',
       number_of_people: null,
       notes: '',
@@ -498,11 +502,17 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
 
   // ── Totals (por composition + grand total) ───────────────────────────────────
 
-  const numPeople = numberOfPeople || 1;
+  // Nº de pessoas TOTAL do evento = soma dos momentos (derivado). Não há mais um
+  // nº de pessoas no cabeçalho — cada momento tem o seu.
+  const totalPeople = useMemo(
+    () => compositions.reduce((s, c) => s + (c.number_of_people && c.number_of_people > 0 ? c.number_of_people : 0), 0),
+    [compositions]
+  );
+  const numPeople = totalPeople || 1;
 
   const calc = useMemo(() => {
     const peopleFor = (c: Composition) =>
-      (c.number_of_people && c.number_of_people > 0) ? c.number_of_people : numPeople;
+      (c.number_of_people && c.number_of_people > 0) ? c.number_of_people : 0;
 
     // Frete por composição (delivery) = distância × nº trajetos × R$/km.
     // Distância vem da UNIDADE selecionada (cada local tem distância própria — ex.:
@@ -549,10 +559,10 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         totalWeightG: weightG,
         totalCost: cost,
         totalItemCount: itemCount,
-        weightPerPerson: weightG / people,
-        costPerPerson: cost / people,
+        weightPerPerson: weightG / (people || 1),
+        costPerPerson: cost / (people || 1),
         suggestedPrice: revenue,
-        pricePerPerson: revenue / people,
+        pricePerPerson: revenue / (people || 1),
         profit,
         marginPct: revenue > 0 ? profit / revenue : 0,
         freight: freightPerComp,
@@ -587,31 +597,43 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   // ── Persistence ────────────────────────────────────────────────────────────
 
   const validate = () => {
-    if (!clientId)       { toast.error('Selecione o cliente');           return false; }
-    if (!eventCategory)  { toast.error('Selecione a categoria do evento'); return false; }
-    if (!numberOfPeople) { toast.error('Informe o número de pessoas');   return false; }
+    if (!clientId)  { toast.error('Selecione o cliente');     return false; }
+    if (!eventName.trim()) { toast.error('Informe o nome do evento'); return false; }
+    if (!compositions.length) { toast.error('Adicione ao menos um momento'); return false; }
+    for (let i = 0; i < compositions.length; i++) {
+      const c = compositions[i];
+      if (!c.event_category) { toast.error(`Selecione o tipo de evento do momento ${i + 1}`); return false; }
+      if (!c.number_of_people || c.number_of_people <= 0) { toast.error(`Informe o nº de pessoas do momento ${i + 1}`); return false; }
+    }
     return true;
   };
 
   const persistAll = async (status: string) => {
     if (!validate()) return null;
 
+    // Campos legados de cabeçalho derivados dos momentos (mantidos p/ PDF/lista/RPCs):
+    //  event_category = tipo do 1º momento; event_date = menor data; number_of_people = soma.
+    const derivedEventCategory = compositions[0]?.event_category || null;
+    const compDates = compositions.map(c => c.scheduled_date).filter(Boolean).sort();
+    const derivedEventDate = compDates[0] || null;
+
     const proposalPayload: any = {
       client_id:                clientId,
+      event_name:               eventName.trim(),
       department_id:            departmentId || null,
       unit_id:                  useAdhocLocation ? null : (unitId || null),
-      room_id:                  useAdhocLocation ? null : (roomId || null),
+      room_id:                  null, // sala agora é por momento
       contact_id:               contactId    || null,
       portal_created_by:        portalUserId || null, // solicitante/dono no portal
       // Local avulso (quando ativo)
       event_location_name:        useAdhocLocation ? (adhocName || null) : null,
       event_location_zip:         useAdhocLocation ? (adhocZip || null)  : null,
       event_location_distance_km: useAdhocLocation ? adhocDistance       : null,
-      event_category:           eventCategory,
-      event_date:               eventDate    || null,
+      event_category:           derivedEventCategory,
+      event_date:               derivedEventDate,
       proposal_date:            proposalDate,
       proposal_kind:            'event_table',
-      number_of_people:         numberOfPeople,
+      number_of_people:         totalPeople,
       target_weight_per_person: calc.grand.weightPerPerson || 200,
       total_weight:             calc.grand.totalWeightG,
       total_amount:             calc.grand.suggestedPrice,
@@ -644,9 +666,11 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         .from('proposal_compositions')
         .insert({
           proposal_id: pid,
-          name: c.name || `Composição ${ci + 1}`,
+          name: c.name || `Momento ${ci + 1}`,
+          event_category: c.event_category || null,
           scheduled_date: c.scheduled_date || null,
           scheduled_time: c.scheduled_time || null,
+          room_id: c.room_id || null,
           location: c.location || null,
           number_of_people: c.number_of_people ?? null,
           price_per_person: compStats ? compStats.pricePerPerson : 0,
@@ -743,8 +767,9 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       await supabase.from('proposals').update({ revision: nextRevision }).eq('id', pid);
 
       const snapshot = {
-        event_category: eventCategory,
-        number_of_people: numberOfPeople,
+        event_name: eventName,
+        event_category: compositions[0]?.event_category || null,
+        number_of_people: totalPeople,
         totals: {
           revenue: calc.grand.suggestedPrice,
           cost: calc.grand.totalCost,
@@ -756,6 +781,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
           const secs = items[c.localId] || {};
           return {
             name: c.name,
+            event_category: c.event_category || null,
             scheduled_date: c.scheduled_date || null,
             people: cs?.people ?? null,
             price_per_person: cs?.pricePerPerson ?? null,
@@ -779,8 +805,8 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         total_amount: calc.grand.suggestedPrice,
         total_cost: calc.grand.totalCost,
         total_weight: calc.grand.totalWeightG,
-        number_of_people: numberOfPeople,
-        event_date: eventDate || null,
+        number_of_people: totalPeople,
+        event_date: compositions.map(c => c.scheduled_date).filter(Boolean).sort()[0] || null,
         status: 'Enviada',
         notes: notes || null,
         data: snapshot,
@@ -872,25 +898,15 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                   </Select>
                 </div>
 
-                {/* Categoria do evento */}
+                {/* Nome do evento (guarda-chuva) */}
                 <div className="space-y-1.5">
-                  <Label>Categoria do Evento *</Label>
-                  <Select value={eventCategory} onValueChange={setEventCategory}>
-                    <SelectTrigger className={!eventCategory ? 'border-destructive' : ''}>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EVENT_CATEGORIES.map(c => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Data do evento */}
-                <div className="space-y-1.5">
-                  <Label>Data do Evento</Label>
-                  <Input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} />
+                  <Label>Nome do Evento *</Label>
+                  <Input
+                    value={eventName}
+                    placeholder="Ex: Onboarding Turma 12"
+                    onChange={e => setEventName(e.target.value)}
+                    className={!eventName.trim() ? 'border-destructive' : ''}
+                  />
                 </div>
 
                 {/* Data da proposta */}
@@ -899,17 +915,14 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                   <Input type="date" value={proposalDate} onChange={e => setProposalDate(e.target.value)} />
                 </div>
 
-                {/* Número de pessoas */}
+                {/* Total de pessoas (derivado dos momentos) */}
                 <div className="space-y-1.5">
-                  <Label>Número de Pessoas *</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={numberOfPeople || ''}
-                    placeholder="Ex: 50"
-                    onChange={e => setNumberOfPeople(parseInt(e.target.value) || 0)}
-                    className={!numberOfPeople ? 'border-destructive' : ''}
-                  />
+                  <Label>Total de Pessoas</Label>
+                  <div className="h-10 flex items-center px-3 rounded-md border bg-muted/40 text-sm text-muted-foreground">
+                    {totalPeople > 0
+                      ? `${totalPeople} (soma dos momentos)`
+                      : 'definido por momento'}
+                  </div>
                 </div>
 
                 {/* Observações */}
@@ -954,17 +967,6 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                       </Select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Sala</Label>
-                      <Select value={roomId} onValueChange={setRoomId} disabled={!filteredRooms.length}>
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue placeholder={filteredRooms.length ? 'Selecione' : 'Nenhuma'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filteredRooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
                       <Label className="text-xs">Contato</Label>
                       <Select value={contactId} onValueChange={setContactId} disabled={!filteredContacts.length}>
                         <SelectTrigger className="h-8 text-sm">
@@ -995,7 +997,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                         checked={useAdhocLocation}
                         onCheckedChange={(v) => {
                           setUseAdhocLocation(v);
-                          if (v) { setUnitId(''); setRoomId(''); }  // avulso substitui unidade/sala
+                          if (v) { setUnitId(''); }  // avulso substitui a unidade (endereço)
                           else { setAdhocDistance(null); }
                         }}
                       />
@@ -1043,8 +1045,8 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
             <div className="flex items-center gap-2">
               <ChefHat className="h-4 w-4 text-muted-foreground" />
               <h3 className="font-semibold text-base">Composição do Cardápio</h3>
-              {numberOfPeople > 0 && (
-                <span className="text-xs text-muted-foreground">· {numberOfPeople} pessoas</span>
+              {totalPeople > 0 && (
+                <span className="text-xs text-muted-foreground">· {totalPeople} pessoas no total</span>
               )}
             </div>
 
@@ -1062,11 +1064,55 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                           <Input
                             value={comp.name}
                             onChange={e => updateComposition(comp.localId, { name: e.target.value })}
-                            placeholder={`Composição ${compIdx + 1}`}
+                            placeholder={`Momento ${compIdx + 1}`}
                             className="h-8 font-semibold text-base max-w-xs"
                           />
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Tipo de Evento *</Label>
+                            <Select
+                              value={comp.event_category}
+                              onValueChange={v => updateComposition(comp.localId, { event_category: v })}
+                            >
+                              <SelectTrigger className={`h-8 text-sm ${!comp.event_category ? 'border-destructive' : ''}`}>
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {EVENT_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Nº de Pessoas *</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={comp.number_of_people ?? ''}
+                              placeholder="Ex: 30"
+                              onChange={e => updateComposition(comp.localId, { number_of_people: parseInt(e.target.value) || null })}
+                              className={`h-8 text-sm ${!comp.number_of_people ? 'border-destructive' : ''}`}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                              <MapPin className="h-3 w-3" /> Sala
+                            </Label>
+                            <Select
+                              value={comp.room_id || 'none'}
+                              onValueChange={v => updateComposition(comp.localId, { room_id: v === 'none' ? '' : v })}
+                              disabled={!filteredRooms.length}
+                            >
+                              <SelectTrigger className="h-8 text-sm">
+                                <SelectValue placeholder={filteredRooms.length ? 'Selecione' : 'Selecione a unidade'} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">— sem sala —</SelectItem>
+                                {filteredRooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
                           <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">Data</Label>
                             <Input
@@ -1085,14 +1131,12 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                               className="h-8 text-sm"
                             />
                           </div>
-                          <div className="space-y-1 sm:col-span-2">
-                            <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                              <MapPin className="h-3 w-3" /> Local
-                            </Label>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Local (complemento)</Label>
                             <Input
                               value={comp.location}
                               onChange={e => updateComposition(comp.localId, { location: e.target.value })}
-                              placeholder="Local do momento"
+                              placeholder="Ex: detalhe do local"
                               className="h-8 text-sm"
                             />
                           </div>

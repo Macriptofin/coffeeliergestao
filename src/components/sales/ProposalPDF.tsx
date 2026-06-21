@@ -25,6 +25,7 @@ interface ProposalData {
   id: string;
   proposal_number: string;
   revision: number;
+  event_name: string;
   event_category: string;
   number_of_people: number;
   event_date: string;
@@ -57,8 +58,10 @@ interface MenuSection {
 interface Composition {
   id: string;
   name: string;
+  event_category: string | null;
   scheduled_date: string | null;
   scheduled_time: string | null;
+  room_name: string | null;
   location: string | null;
   price_per_person: number;
   number_of_people: number;
@@ -162,7 +165,7 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
         supabase
           .from('proposals')
           .select(`
-            id, proposal_number, revision, event_category, number_of_people,
+            id, proposal_number, revision, event_name, event_category, number_of_people,
             event_date, total_amount, target_weight_per_person, status,
             clients(name, cnpj_cpf),
             client_departments(name),
@@ -175,8 +178,9 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
         supabase
           .from('proposal_compositions')
           .select(`
-            id, name, scheduled_date, scheduled_time, location,
-            sort_order, price_per_person, number_of_people
+            id, name, event_category, scheduled_date, scheduled_time, location,
+            sort_order, price_per_person, number_of_people,
+            client_rooms(name)
           `)
           .eq('proposal_id', proposalId)
           .order('sort_order'),
@@ -196,6 +200,7 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
           id: p.id,
           proposal_number: p.proposal_number,
           revision: p.revision ?? 1,
+          event_name: p.event_name || '',
           event_category: p.event_category,
           number_of_people: p.number_of_people,
           event_date: p.event_date,
@@ -255,8 +260,10 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
         comps = rawComps.map((cp: any) => ({
           id: cp.id,
           name: cp.name || '',
+          event_category: cp.event_category || null,
           scheduled_date: cp.scheduled_date || null,
           scheduled_time: cp.scheduled_time || null,
+          room_name: cp.client_rooms?.name || null,
           location: cp.location || null,
           price_per_person: parseFloat(cp.price_per_person || 0),
           number_of_people: cp.number_of_people || 0,
@@ -270,8 +277,10 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
           comps.push({
             id: '__legacy__',
             name: '',
+            event_category: null,
             scheduled_date: null,
             scheduled_time: null,
+            room_name: null,
             location: null,
             price_per_person: 0,
             number_of_people: 0,
@@ -288,8 +297,10 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
           ? [{
               id: '__legacy__',
               name: '',
+              event_category: null,
               scheduled_date: null,
               scheduled_time: null,
+              room_name: null,
               location: null,
               price_per_person: 0,
               number_of_people: 0,
@@ -357,7 +368,7 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
             {proposal.proposal_number}{proposal.revision > 1 ? ` · Rev. ${proposal.revision}` : ''} — {proposal.client_name}
           </p>
           <p className="text-sm text-muted-foreground">
-            {proposal.event_category} · {numPeople} pessoas · {fmtDate(proposal.event_date)}
+            {proposal.event_name ? `${proposal.event_name} · ` : ''}{numPeople} pessoas · {fmtDate(proposal.event_date)}
           </p>
         </div>
         <div className="flex gap-2">
@@ -431,10 +442,10 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
                   display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8,
                 }}>
                   {[
+                    { label: 'Evento',   value: proposal.event_name || '—' },
                     { label: 'Data',     value: fmtDate(proposal.event_date) },
-                    { label: 'Serviço',  value: proposal.event_category },
                     { label: 'Pessoas',  value: String(numPeople) },
-                    { label: 'Local',    value: proposal.room_name || proposal.unit_name || '—' },
+                    { label: 'Local',    value: proposal.unit_name || '—' },
                     { label: 'Peso/pp',  value: `~${Math.round(proposal.target_weight_per_person || 300)}g` },
                   ].map(f => (
                     <div key={f.label}>
@@ -458,11 +469,13 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
                 )}
 
                 {compositions.map((comp, ci) => {
-                  // Linha-cabeçalho do momento: nome · DD/MM · HH:MM · local
+                  // Linha-cabeçalho do momento: tipo · DD/MM · HH:MM · sala/local · nº pessoas
                   const meta = [
+                    comp.event_category || '',
                     fmtDateShort(comp.scheduled_date),
                     fmtTime(comp.scheduled_time),
-                    comp.location || '',
+                    [comp.room_name, comp.location].filter(Boolean).join(' — '),
+                    comp.number_of_people > 0 ? `${comp.number_of_people} pessoas` : '',
                   ].filter(Boolean).join(' · ');
                   const showMomentHeader = !!comp.name || !!meta || comp.price_per_person > 0;
 
@@ -572,7 +585,7 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
                   <tbody>
                     <tr style={{ background: C.olive10 }}>
                       <td style={{ padding: '9px 8px', color: C.text }}>
-                        Serviço de {proposal.event_category.toLowerCase()} — entrega completa
+                        {proposal.event_name ? `${proposal.event_name} — ` : 'Serviço de buffet — '}entrega completa
                       </td>
                       <td style={{ padding: '9px 8px', textAlign: 'center', fontWeight: 700, color: C.text }}>
                         {numPeople}
