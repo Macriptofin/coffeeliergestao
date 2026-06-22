@@ -112,13 +112,18 @@ supabase/migrations/AAAAMMDDHHMMSS_nome_snake_case.sql
 - Todas as funções SECURITY DEFINER devem ter `SET search_path = public`
 - Constraints CHECK estão ativas nas tabelas — sempre verificar antes de inserir valores novos
 - **Nunca excluir, somente desativar**: regra dura do sistema. Materiais usam `materials.is_archived = true` (não há `is_active` em materials). O `code` do material é **único e imutável** após a criação; os demais atributos são mutáveis. Desativar preserva histórico (NF, movimentação, fichas, propostas) e integridade referencial. No Cadastro há filtro de status (Ativos/Arquivados/Todos) + ação em massa **Reativar**. O **Controle de Estoque** mostra ativos por padrão, com toggle "Incluir arquivados" para ver saldo residual de descontinuados.
+  - Os caminhos de **delete físico** de materiais (menu "Excluir Selecionados", `handleBulkDelete`, `deleteMaterial`, `RecipeMigrationDialog`) foram **removidos** (jun/2026). Ao tocar qualquer tela, auditar `.delete()` e trocar por desativação — ver memória `audit-hard-delete-paths`.
 
 ### Funções RPC principais
 
 | Função | Descrição |
 |---|---|
 | `process_inventory_adjustment` | Ajuste de quantidade de estoque. Define o saldo direto em `stock_items` (qtd + valor), grava auditoria em `inventory_adjustments` e registra a movimentação em `stock_movements` (`'Ajuste'` / `'Ajuste de Inventário'`) quando há diferença. **Só existe a sobrecarga de 8 args** (a de 9 args com `p_cycle_id` era quebrada e foi removida) |
-| `process_cost_adjustment` | Ajuste de preço médio |
+| `process_cost_adjustment` | Revalorização de custo (preço médio). **Sobrecarga única de 8 args** (a de 9 args com `p_cycle_id` era quebrada e foi removida). Grava na tabela dedicada `cost_adjustments` (não em `inventory_adjustments`), atualiza `stock_items.average_price/total_value` e registra `stock_movements` (`'Ajuste'`/`'Ajuste de Custo'`, qty 0) de auditoria |
+| `bom_unit_content(uuid)` | Conteúdo líquido (peso g / volume mL) por unidade de uso de um produto, recursivo pela ficha: massa→g, volume→mL, contável→qtd×conteúdo do componente; `final_weight_manual` (override) tem prioridade; ÷ rendimento. Sem override = somatório dos ingredientes |
+| `refresh_bom_weight_for_material(uuid)` | Recalcula `recipes_bom.cached_unit_weight` e sincroniza `materials.unit_weight` do produzido (cascateia p/ produtos que o usam) |
+| `refresh_overdue_status()` | Marca AR/AP como `'Vencido'` quando `due_date < hoje` e há saldo. Agendada via **pg_cron** (`refresh-overdue-status-daily`, 06:00 UTC) |
+| `recompute_bank_balance(uuid)` | `bank_accounts.current_balance = initial_balance + Σ(entradas−saídas)` do caixa da conta |
 | `rpc_inventory_update_status` | Avança status do ciclo de inventário |
 | `rpc_inventory_finalize` | Fecha ciclo e aplica todos os ajustes |
 | `finalize_production_order` | Finaliza OP BOM com rendimento real; carimba custo real do lote no histórico e valora perdas |
@@ -134,7 +139,10 @@ supabase/migrations/AAAAMMDDHHMMSS_nome_snake_case.sql
 - **Taxonomia** em `taxonomy_definitions` (keys: `material_type`, `material_category`, `material_subcategory`, `material_restriction`) + `taxonomy_terms` (hierárquico por `parent_id`). `term_id` é a **fonte da verdade**; as colunas texto `materials.category/subcategory` são sincronizadas a partir do termo.
   - **Tipo** = papel no sistema (`material_type`, 8 valores acima). **Categoria → Subcategoria** = domínio de negócio (9 categorias canônicas: Alimentos & Ingredientes, Doces & Confeitaria, Salgados, Bebidas, Embalagem, Higiene e Limpeza, Equipamentos, Operacionais, Kits & Mesas).
   - **Tags de restrição/característica** = eixo transversal (Low Fat, Vegano, Sem Glúten…) — taxonomia `material_restriction` + tabela de ligação `material_tags (material_id, term_id)` (many-to-many). Um produto pode ter várias.
-- **Proposta** = `proposals` → **`proposal_compositions`** (momentos: nome, `scheduled_date/time`, local, preço/pessoa) → `proposal_categories` (seções, com `composition_id`) → `proposal_category_items`. O compositor (`ProposalEditor.tsx`) monta seções por categoria + Low Fat por tag. PDF (`ProposalPDF.tsx`) e geração de evento/ordens são **por composição**.
+- **Proposta = o MOMENTO (composição) é a unidade central.** `proposals` (cabeçalho: `event_name`, cliente, `proposal_date`, solicitante/`portal_created_by`, departamento, contato, **unidade**=endereço que dirige o frete único) → **`proposal_compositions`** (por momento: `name`, **`event_category`** (tipo), `scheduled_date/time`, **`room_id`** (sala), `location`, **`number_of_people`**, `price_per_person`) → `proposal_categories` (seções, com `composition_id`) → `proposal_category_items`. O compositor (`ProposalEditor.tsx`) monta seções por categoria + Low Fat por tag. PDF (`ProposalPDF.tsx`) e geração de evento/ordens são **por composição**.
+  - **Nº de pessoas, tipo de evento e sala são por momento**; o total de pessoas da proposta é derivado (soma). Campos legados de cabeçalho (`event_category`, `event_date`, `number_of_people`) são mantidos sincronizados como derivados (tipo do 1º momento, menor data, soma) p/ PDF/lista/RPCs. `create_event_from_proposal` usa o **nome da sala** (`room_id`) como local do evento.
+  - **Indicadores de consumo por pessoa**: a proposta separa **comida (g)** e **bebida (mL)** por momento (bebida = categoria `'Bebidas'`), usando `unit_weight` (conteúdo por unidade). Objetivo: padrões de consumo (peso de comida/pessoa e mL de bebida/pessoa).
+  - **Portal** alinhado ao mesmo modelo: wizard captura `event_name` + tipo por momento; `create_portal_order`/`get_portal_proposal(s)` gravam/expõem `event_name` e `event_category` por composição.
 
 ### Matriz tipo→comportamento (espinha dorsal, estilo SAP MTART)
 
@@ -155,9 +163,23 @@ supabase/migrations/AAAAMMDDHHMMSS_nome_snake_case.sql
 
 - **Custo do produto = custo-padrão (rolled-up)**, vivo: `recipes_bom.cached_unit_cost` = Σ(insumo `average_price` × qtd) ÷ rendimento, recalculado pela cascata `trigger_refresh_bom_costs_on_material_price_change` quando um insumo muda de preço. Dono de `materials.cost_price` e `stock_items.average_price` dos produzidos.
 - **Custo real do lote** é carimbado no `stock_movements` da produção (`finalize_production_order`) p/ CMV/DRE; **não** altera o custo-padrão. Média ponderada (`trg_update_weighted_average`) é só p/ itens **comprados** — entradas de produção são excluídas.
+- **Peso/volume do produto = rollup da ficha** (espelha o custo): `recipes_bom.cached_unit_weight` = Σ(conteúdo dos ingredientes) ÷ rendimento (massa→g, volume→mL, contável→qtd×`unit_weight`), com **override manual** `recipes_bom.final_weight_manual` (perda por cocção/evaporação). Sincroniza `materials.unit_weight` dos produzidos, com cascata quando o peso de um insumo muda. Para produzidos, o `unit_weight` é **derivado** (read-only no cadastro); insumos comprados mantêm `unit_weight` manual.
 - **Perda** = saída valorada (qtd × custo) → despesa, sem mexer no custo do produto.
 - **Preço de venda** (só tipos vendáveis): hierarquia margem/overhead **produto → categoria (`pricing_rules`) → global (`app_settings` `pricing.*`)**. `compute_product_pricing(material_id)` calcula; `suggested_price` (cache) mantido por `trg_material_pricing_refresh`. `preço = (custo + overhead)/(1 − margem)`. `practiced_price` (manual) é o preço que a proposta usa (senão `suggested_price`). Config em **Configurações > Precificação**; por produto na aba **Precificação** do cadastro. Proposta mostra **lucratividade por composição**.
 - Produção consolidada no fluxo de **Ordem de Produção** (`finalize_production_order`); o fluxo "Executar Produção" / `produce_finished_product` / `assemble_composite` foi **aposentado** (quebrado e conflitante).
+
+### Financeiro e contábil (regime de competência) — nível PME
+
+Reforma jun/2026, **nível PME** (Simples Nacional): relatórios corretos, **sem** partidas dobradas/razão/balanço formal (isso fica com o contador externo). Ver memória `finance-accounting-model`.
+
+- **DRE = regime de COMPETÊNCIA**: receita e custo reconhecidos na **ENTREGA do serviço/evento** (princípio do confronto), nunca no recebimento/pagamento. O **prazo de pagamento do cliente rege só o CAIXA**.
+  - `accounts_receivable.competence_date` e `accounts_payable.competence_date` (default = `issue_date` via trigger; p/ eventos = data da entrega; editável em Contas a Receber, campo "Competência (entrega)").
+  - `DRE.tsx`: receita = AR por `competence_date`; despesas = AP por `competence_date` (antes filtrava por `due_date`, errado). **PDD** (provisão p/ inadimplência) por faixa de atraso: >90d 100%, 61-90 50%, 31-60 25%, deduzida como despesa operacional. Painel **"reconhecida (competência) × recebida (caixa) × a receber × vencida"**.
+- **Fluxo de Caixa = regime de CAIXA**: `cash_transactions` por `transaction_date`. Recebimento (`receipt_transactions`)/pagamento (`payment_transactions`) geram caixa via triggers `insert_cash_on_receipt`/`insert_cash_on_payment` (que agora carregam `bank_account_id`: transação→conta→padrão).
+- **Saldo bancário** sincronizado por trigger (`recompute_bank_balance`): `current_balance = initial_balance + Σ(entradas−saídas)`. **Conta padrão única = "Principal"**. ⚠️ o **saldo inicial real** de cada conta deve ser informado em Contas Bancárias p/ bater com o extrato.
+- **Vencidos** marcados diariamente por `refresh_overdue_status()` via **pg_cron**.
+- **Plano de contas** (`chart_of_accounts`): hierárquico, `is_postable` (analítica/sintética); despesas financeiras = código `5.3.x`. Centros de custo em `cost_centers`.
+- Telas em `src/pages/financeiro/` (DRE, FluxoCaixa, ContasPagar/Receber, AgingReport, CashFlowForecast, PlanoContas, CentrosCusto, ContasBancarias, RecurringTransactions). **Pendências pequenas**: campo de competência em Contas a Pagar; unificar realizado×previsto. Avançado (não feito, fica com contador): partidas dobradas / razão / balanço patrimonial formal.
 
 ### Triggers importantes
 
@@ -169,6 +191,10 @@ supabase/migrations/AAAAMMDDHHMMSS_nome_snake_case.sql
 | `trg_material_pricing_refresh` | `materials` | `trg_material_pricing_refresh` | Recalcula `suggested_price` ao mudar `material_type`/`cost_price`/overrides de margem; só p/ tipos vendáveis |
 | `trg_enforce_is_sellable` | `materials` | `enforce_is_sellable_from_type` | Deriva `is_sellable` do `material_type` (vendável = finished/composite/resale) |
 | `trg_sync_recipe_archive` | `materials` | `sync_recipe_archive_with_material` | Ao mudar `materials.is_archived`, sincroniza `recipes_bom.is_archived` das fichas daquele produto. A ficha **segue** o produto (arquivar/reativar o material leva a ficha junto), evitando drift |
+| `trg_bom_weight_on_items` / `trg_bom_weight_on_recipe` | `recipe_bom_items` / `recipes_bom` | `refresh_bom_weight_for_material` | Recalcula `cached_unit_weight` ao mudar itens, rendimento ou override manual da ficha |
+| `trg_cascade_weight_on_material` | `materials` | `trg_cascade_weight_on_material` | Peso de um insumo mudou → recalcula o peso dos produtos que o usam (cascata, como o custo) |
+| `trg_sync_bank_balance` | `cash_transactions` | `recompute_bank_balance` | Mantém `bank_accounts.current_balance` = inicial + Σ(entradas−saídas) da conta |
+| `trg_default_competence_ar` / `trg_default_competence_ap` | `accounts_receivable` / `accounts_payable` | `default_competence_date` | `competence_date` recebe `issue_date` quando não informada |
 
 ---
 
@@ -196,6 +222,14 @@ Working tree limpo — trabalho commitado e empurrado direto no `main` (deploy a
 - Controle de Estoque passou a filtrar arquivados (toggle "incluir arquivados"); saneamento dos saldos residuais de descontinuados (zerados, auditados em `inventory_adjustments`, sem impacto em DRE).
 - Trigger `trg_sync_recipe_archive` (ficha segue o material) e ferramenta de ativar/desativar no Cadastro.
 - **#100 concluído de fato**: `process_inventory_adjustment` agora registra `stock_movements`; removida a sobrecarga quebrada de 9 args.
+
+**Reforma de proposta, ficha e financeiro (jun/2026)** — no ar (migrations `20260621000003`–`20260621000013`):
+- `process_cost_adjustment` unificado (1 sobrecarga; grava em `cost_adjustments` + `stock_movements`).
+- **Proposta reorganizada em torno do momento**: `proposals.event_name` (cabeçalho) + `proposal_compositions.event_category`/`room_id`/`number_of_people` (por momento); total derivado; portal alinhado.
+- **Rollup de peso/volume na ficha** (`cached_unit_weight`, `final_weight_manual`, cascata) → `materials.unit_weight` derivado p/ produzidos; proposta/PDF mostram comida g/pessoa e bebida mL/pessoa por momento.
+- **Financeiro nível PME**: DRE por competência + PDD + painel reconhecida×recebida×a receber; `competence_date` em AR/AP; saldo bancário sincronizado; vencidos via pg_cron; caixa carrega o banco. Ver seção "Financeiro e contábil".
+- Removidos os caminhos de **delete físico** de materiais (só desativar).
+- **code-splitting** das rotas (lazy + Suspense) e botão fantasma "Salvar e Continuar" removido.
 
 > Lembrete de fluxo: commit/push só quando o usuário pedir; trabalhar direto no `main`. Mensagens de commit em PT-BR.
 
