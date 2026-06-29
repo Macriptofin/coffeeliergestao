@@ -251,6 +251,7 @@ const ContasReceber = () => {
       description: "",
       document_number: "",
       issue_date: "",
+      competence_date: "",
       due_date: "",
       original_amount: "",
       discount_amount: "0",

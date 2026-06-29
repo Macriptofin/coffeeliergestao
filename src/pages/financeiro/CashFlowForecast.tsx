@@ -52,7 +52,7 @@ async function fetchForecastSource(horizon: '30' | '60' | '90'): Promise<Forecas
   const { data: payables, error: payablesError } = await supabase
     .from('accounts_payable')
     .select('id, description, due_date, remaining_amount')
-    .eq('status', 'Pendente')
+    .in('status', ['Pendente', 'Parcial'])
     .gte('due_date', format(today, 'yyyy-MM-dd'))
     .lte('due_date', format(endDate, 'yyyy-MM-dd'));
   if (payablesError) throw payablesError;
@@ -61,7 +61,7 @@ async function fetchForecastSource(horizon: '30' | '60' | '90'): Promise<Forecas
   const { data: receivables, error: receivablesError } = await supabase
     .from('accounts_receivable')
     .select('id, description, due_date, remaining_amount')
-    .eq('status', 'Pendente')
+    .in('status', ['Pendente', 'Parcial'])
     .gte('due_date', format(today, 'yyyy-MM-dd'))
     .lte('due_date', format(endDate, 'yyyy-MM-dd'));
   if (receivablesError) throw receivablesError;
@@ -173,7 +173,7 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-const CashFlowForecast = () => {
+const CashFlowForecast = ({ embedded = false }: { embedded?: boolean }) => {
   const [period, setPeriod] = useState<'weekly' | 'monthly'>('weekly');
   const [horizon, setHorizon] = useState<'30' | '60' | '90'>('30');
 
@@ -214,8 +214,12 @@ const CashFlowForecast = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Previsão de Fluxo de Caixa</h1>
-          <p className="text-muted-foreground">Projeção baseada em contas a pagar, receber e recorrências</p>
+          {!embedded && (
+            <>
+              <h1 className="text-3xl font-bold text-foreground">Previsão de Fluxo de Caixa</h1>
+              <p className="text-muted-foreground">Projeção baseada em contas a pagar, receber e recorrências</p>
+            </>
+          )}
         </div>
         <div className="flex gap-2">
           <Select value={period} onValueChange={(v: 'weekly' | 'monthly') => setPeriod(v)}>

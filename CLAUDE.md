@@ -179,7 +179,7 @@ Reforma jun/2026, **nível PME** (Simples Nacional): relatórios corretos, **sem
 - **Saldo bancário** sincronizado por trigger (`recompute_bank_balance`): `current_balance = initial_balance + Σ(entradas−saídas)`. **Conta padrão única = "Principal"**. ⚠️ o **saldo inicial real** de cada conta deve ser informado em Contas Bancárias p/ bater com o extrato.
 - **Vencidos** marcados diariamente por `refresh_overdue_status()` via **pg_cron**.
 - **Plano de contas** (`chart_of_accounts`): hierárquico, `is_postable` (analítica/sintética); despesas financeiras = código `5.3.x`. Centros de custo em `cost_centers`.
-- Telas em `src/pages/financeiro/` (DRE, FluxoCaixa, ContasPagar/Receber, AgingReport, CashFlowForecast, PlanoContas, CentrosCusto, ContasBancarias, RecurringTransactions). **Pendências pequenas**: campo de competência em Contas a Pagar; unificar realizado×previsto. Avançado (não feito, fica com contador): partidas dobradas / razão / balanço patrimonial formal.
+- Telas em `src/pages/financeiro/` (DRE, FluxoCaixa, ContasPagar/Receber, AgingReport, CashFlowForecast, PlanoContas, CentrosCusto, ContasBancarias, RecurringTransactions). **Competência** já tem campo em Contas a Pagar **e** a Receber (default = emissão via trigger). **Fluxo de Caixa unificado**: `FluxoCaixa.tsx` é a página-casca com abas **Realizado** (extrato `cash_transactions`) e **Previsto** (`CashFlowForecast` embutido via prop `embedded`); a rota `/financeiro/previsao` abre direto na aba Previsto e o card/sidebar "Previsão de Caixa" foi removido (dobrado no Fluxo de Caixa). A previsão considera contas `Pendente` + `Parcial`. Avançado (não feito, fica com contador): partidas dobradas / razão / balanço patrimonial formal.
 
 ### Triggers importantes
 

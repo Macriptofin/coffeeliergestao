@@ -6,12 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Search, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatLocalDate } from "@/lib/date-utils";
+import CashFlowForecast from "./CashFlowForecast";
 
 interface CashTransaction {
   id: string;
@@ -64,7 +66,7 @@ async function fetchCashTransactions(start: string, end: string): Promise<CashTr
 
 const EMPTY_TRANSACTIONS: CashTransaction[] = [];
 
-const FluxoCaixa = () => {
+const FluxoRealizado = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState({
@@ -127,12 +129,7 @@ const FluxoCaixa = () => {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Fluxo de Caixa</h1>
-        <p className="text-muted-foreground">Extrato consolidado das movimentações financeiras geradas pelo sistema</p>
-      </div>
-
+    <div className="space-y-6">
       <div className="grid md:grid-cols-4 gap-6 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -273,6 +270,34 @@ const FluxoCaixa = () => {
           </Table>
         </CardContent>
       </Card>
+    </div>
+  );
+};
+
+const FluxoCaixa = ({ defaultTab = "realizado" }: { defaultTab?: string }) => {
+  return (
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-foreground mb-2">Fluxo de Caixa</h1>
+        <p className="text-muted-foreground">
+          Realizado e previsto: entradas e saídas de caixa em um só lugar
+        </p>
+      </div>
+
+      <Tabs defaultValue={defaultTab} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="realizado">Realizado</TabsTrigger>
+          <TabsTrigger value="previsto">Previsto</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="realizado">
+          <FluxoRealizado />
+        </TabsContent>
+
+        <TabsContent value="previsto">
+          <CashFlowForecast embedded />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

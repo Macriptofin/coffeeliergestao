@@ -36,7 +36,6 @@ const RelatoriosContabeis = lazy(() => import("./pages/financeiro/RelatoriosCont
 const ContasBancarias = lazy(() => import("./pages/financeiro/ContasBancarias"));
 const RecurringTransactions = lazy(() => import("./pages/financeiro/RecurringTransactions"));
 const AgingReport = lazy(() => import("./pages/financeiro/AgingReport"));
-const CashFlowForecast = lazy(() => import("./pages/financeiro/CashFlowForecast"));
 const RecursosHumanos = lazy(() => import("./pages/RecursosHumanos"));
 const Colaboradores = lazy(() => import("./pages/Colaboradores"));
 const ControlePonto = lazy(() => import("./pages/rh/ControlePonto"));
@@ -163,7 +162,7 @@ function App() {
                   <Route path="financeiro/bancos" element={<ContasBancarias />} />
                   <Route path="financeiro/recorrentes" element={<RecurringTransactions />} />
                   <Route path="financeiro/aging" element={<AgingReport />} />
-                  <Route path="financeiro/previsao" element={<CashFlowForecast />} />
+                  <Route path="financeiro/previsao" element={<FluxoCaixa defaultTab="previsto" />} />
                 </Route>
                 {/* Categoria Recursos Humanos — admin e manager */}
                 <Route element={<ProtectedRoute requiredRoles={['admin', 'manager']} />}>

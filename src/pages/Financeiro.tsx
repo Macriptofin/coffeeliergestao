@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, CreditCard, FileText, TrendingUp, Calculator, PieChart, Building2, Repeat, CalendarClock, LineChart, BarChart2, BookOpen } from "lucide-react";
+import { DollarSign, CreditCard, FileText, TrendingUp, Calculator, PieChart, Building2, Repeat, CalendarClock, BarChart2, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { FinancialAlerts } from "@/components/financeiro/FinancialAlerts";
 
@@ -24,7 +24,7 @@ const Financeiro = () => {
     },
     {
       title: "Fluxo de Caixa",
-      description: "Acompanhamento de entradas e saídas de caixa",
+      description: "Entradas e saídas: realizado e previsto em um só lugar",
       icon: TrendingUp,
       href: "/financeiro/fluxo",
       color: "bg-blue-500"
@@ -42,13 +42,6 @@ const Financeiro = () => {
       icon: Repeat,
       href: "/financeiro/recorrentes",
       color: "bg-violet-500"
-    },
-    {
-      title: "Previsão de Caixa",
-      description: "Projeção de fluxo de caixa futuro",
-      icon: LineChart,
-      href: "/financeiro/previsao",
-      color: "bg-emerald-500"
     },
     {
       title: "Aging de Contas",

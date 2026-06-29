@@ -30,6 +30,7 @@ interface AccountPayable {
   document_number?: string;
   document_type?: string;
   issue_date: string;
+  competence_date?: string;
   due_date: string;
   original_amount: number;
   discount_amount: number;
@@ -142,6 +143,7 @@ const ContasPagar = () => {
     document_number:"",
     document_type:  "nota_fiscal",
     issue_date:     today,
+    competence_date:"",
     due_date:       "",
     original_amount:"",
     discount_amount:"0",
@@ -160,7 +162,7 @@ const ContasPagar = () => {
   // ── form: edição ──────────────────────────────────────────────────────────
   const [editFormData, setEditFormData] = useState({
     supplier_id: "", invoice_number: "", description: "", document_number: "",
-    document_type: "nota_fiscal", issue_date: "", due_date: "",
+    document_type: "nota_fiscal", issue_date: "", competence_date: "", due_date: "",
     original_amount: "", discount_amount: "0", interest_amount: "0",
     cost_center_id: "", account_id: "", notes: "", status: ""
   });
@@ -292,6 +294,7 @@ const ContasPagar = () => {
           document_number: formData.document_number || null,
           document_type:   formData.document_type   || 'nota_fiscal',
           issue_date:      formData.issue_date,
+          competence_date: formData.competence_date  || null,
           due_date:        formData.due_date || formData.issue_date,
           original_amount: originalAmount,
           discount_amount: discountAmount,
@@ -346,6 +349,7 @@ const ContasPagar = () => {
       document_number: account.document_number || "",
       document_type:   account.document_type   || "nota_fiscal",
       issue_date:      account.issue_date,
+      competence_date: account.competence_date  || account.issue_date || "",
       due_date:        account.due_date,
       original_amount: account.original_amount.toString(),
       discount_amount: account.discount_amount.toString(),
@@ -378,6 +382,7 @@ const ContasPagar = () => {
           document_number: editFormData.document_number || null,
           document_type:   editFormData.document_type   || null,
           issue_date:      editFormData.issue_date,
+          competence_date: editFormData.competence_date  || null,
           due_date:        editFormData.due_date,
           original_amount: originalAmount,
           discount_amount: discountAmount,
@@ -865,11 +870,17 @@ const ContasPagar = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Data de Emissão *</Label>
                 <Input type="date" value={formData.issue_date}
                   onChange={e => setFormData(f => ({ ...f, issue_date: e.target.value }))} required />
+              </div>
+              <div>
+                <Label>Competência</Label>
+                <Input type="date" value={formData.competence_date}
+                  onChange={e => setFormData(f => ({ ...f, competence_date: e.target.value }))} />
+                <p className="text-[11px] text-muted-foreground mt-1">Mês a que a despesa pertence (DRE). Vazio = emissão.</p>
               </div>
               <div>
                 <Label>Data de Vencimento</Label>
@@ -1118,11 +1129,16 @@ const ContasPagar = () => {
                 onChange={e => setEditFormData(f => ({ ...f, description: e.target.value }))} required />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Data de Emissão *</Label>
                 <Input type="date" value={editFormData.issue_date}
                   onChange={e => setEditFormData(f => ({ ...f, issue_date: e.target.value }))} required />
+              </div>
+              <div>
+                <Label>Competência</Label>
+                <Input type="date" value={editFormData.competence_date}
+                  onChange={e => setEditFormData(f => ({ ...f, competence_date: e.target.value }))} />
               </div>
               <div>
                 <Label>Data de Vencimento *</Label>
@@ -1203,8 +1219,9 @@ const ContasPagar = () => {
                 <div><p className="text-muted-foreground text-xs">Tipo de Documento</p><p>{getDocTypeLabel(viewingAccount.document_type)}</p></div>
                 <div><p className="text-muted-foreground text-xs">Nº Documento</p><p>{viewingAccount.invoice_number || viewingAccount.document_number || '—'}</p></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div><p className="text-muted-foreground text-xs">Emissão</p><p>{formatLocalDate(viewingAccount.issue_date)}</p></div>
+                <div><p className="text-muted-foreground text-xs">Competência</p><p>{formatLocalDate(viewingAccount.competence_date || viewingAccount.issue_date)}</p></div>
                 <div><p className="text-muted-foreground text-xs">Vencimento</p><p className={viewingAccount.effectiveStatus === 'Vencido' ? 'text-red-600 font-medium' : ''}>{formatLocalDate(viewingAccount.due_date)}</p></div>
               </div>
               {viewingAccount.payment_date && (
