@@ -21,9 +21,10 @@ const SecurityHeader = () => {
       'wss://njxxqdcwvehlvqufuyww.supabase.co'
     ];
     
-    // Add production domain when deployed
+    // Add production domain when deployed (mesma origem já coberta por 'self';
+    // mantido explícito para o domínio oficial do app)
     if (!isDevelopment) {
-      allowedDomains.push('https://receita-maestro-digital.lovable.app');
+      allowedDomains.push('https://app.coffeelier.com.br');
     }
     
     const csp = [
