@@ -7,7 +7,6 @@ import { CoffeelierLogo } from "@/components/CoffeelierLogo";
 import { Sidebar } from "@/components/Sidebar";
 import { useSecureAuth } from "@/hooks/useSecureAuth";
 import { useSessionSecurity } from "@/hooks/useSessionSecurity";
-import SecurityHeader from "@/components/security/SecurityHeader";
 import { NotificationBell } from "@/components/NotificationBell";
 import SecureErrorBoundary from "@/components/security/SecureErrorBoundary";
 
@@ -80,7 +79,6 @@ if (!session || !user) {
   return (
     <SecureErrorBoundary>
       <div className="min-h-screen bg-gradient-subtle">
-        <SecurityHeader />
       {/* Header */}
       <div className="bg-gradient-primary text-primary-foreground shadow-warm fixed top-0 left-0 right-0 z-50">
         <div className="px-6 py-4">
