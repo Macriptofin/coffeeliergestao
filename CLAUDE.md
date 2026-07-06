@@ -404,4 +404,5 @@ supabase functions deploy <nome> --project-ref njxxqdcwvehlvqufuyww
 ### Identidade visual
 
 - **Ícones da marca** (o "C" da Coffeelier) em `public/`: `favicon.ico`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`. Referenciados em `index.html`; OG/Twitter apontam para `https://app.coffeelier.com.br/icon-512.png`.
-- **Fontes** (Google Fonts): **Inter** para o sistema interno; **Dancing Script** para documentos de cliente (proposta em PDF).
+- **Cores** — as 5 cores da paleta em `src/index.css` (tokens HSL) **já batem com o MIV oficial**: Oliva `--primary #626432`, Café `--foreground/--accent-coffee #552D19`, Caramelo `--secondary #C06C3A`, Mocca `--accent-mocca #DAAA73`, Creme `--background/--accent-creme #FCE8D0`. ⚠️ Os tokens `--sidebar-*` **ainda são o default cinza do shadcn** (hues 240 + anel azul), **fora da paleta** — pendência de harmonização.
+- **Fontes** (Google Fonts): **Inter** para o sistema interno; **Dancing Script** para documentos de cliente (proposta em PDF). ⚠️ **Pendência de reconciliação** (a tratar em documento de marca dedicado): há três conjuntos divergentes no código — Tailwind/`index.html` = **Inter + Georgia + Dancing Script**; `src/index.css` importa **Fraunces + Nunito** (usados só no Portal, fora do Tailwind); e o manual da marca pede **Beround + Adelia**. Definir a fonte oficial e alinhar código + doc.
