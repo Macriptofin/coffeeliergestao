@@ -183,7 +183,7 @@ export default function PortalNovoPedido() {
       <button onClick={() => navigate('/portal')} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-5">
         <ChevronLeft className="h-4 w-4" /> Voltar
       </button>
-      <h1 className="font-display text-3xl md:text-4xl font-semibold leading-tight">
+      <h1 className="text-3xl md:text-4xl font-semibold leading-tight">
         {draftId ? 'Continuar rascunho' : 'Montar um novo pedido'}
       </h1>
       <p className="text-muted-foreground mt-2">Crie um ou mais momentos (ex.: welcome, coffee da tarde), cada um com seu local, horário e itens.</p>
@@ -192,7 +192,7 @@ export default function PortalNovoPedido() {
         <div className="space-y-6">
           {/* Dados gerais */}
           <div className="bg-card border border-border/70 rounded-2xl p-5 md:p-6 shadow-soft">
-            <h2 className="font-display text-lg font-semibold mb-4">Dados gerais</h2>
+            <h2 className="text-lg font-semibold mb-4">Dados gerais</h2>
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
                 <Label>Nome do evento</Label>
@@ -220,7 +220,7 @@ export default function PortalNovoPedido() {
           {moments.map((mt, idx) => (
             <div key={mt.localId} className="bg-card border border-border/70 rounded-2xl p-5 md:p-6 shadow-soft">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display text-lg font-semibold">Momento {idx + 1}</h2>
+                <h2 className="text-lg font-semibold">Momento {idx + 1}</h2>
                 {moments.length > 1 && (
                   <Button variant="ghost" size="sm" className="text-destructive gap-1"
                     onClick={() => setMoments(prev => prev.filter(m => m.localId !== mt.localId))}>
@@ -276,7 +276,7 @@ export default function PortalNovoPedido() {
                   <p className="text-sm text-muted-foreground">Seu catálogo ainda não tem itens. Fale com a Coffeelier.</p>
                 ) : grouped.map(([cat, items]) => (
                   <div key={cat} className="mb-3 last:mb-0">
-                    <div className="font-display font-semibold text-sm mb-1">{cat}</div>
+                    <div className="font-semibold text-sm mb-1">{cat}</div>
                     {items.map(it => (
                       <div key={it.material_id} className="flex items-center gap-3 py-1.5 border-t border-dashed border-border first:border-t-0">
                         <div className="flex-1 min-w-0">
@@ -306,7 +306,7 @@ export default function PortalNovoPedido() {
         <div className="lg:sticky lg:top-6 self-start">
           <div className="bg-card border border-border/70 rounded-2xl p-6 shadow-soft">
             <div className="text-sm text-muted-foreground">Total estimado</div>
-            <div className="font-display text-4xl font-bold mt-0.5">{formatCurrency(total)}</div>
+            <div className="text-4xl font-bold mt-0.5">{formatCurrency(total)}</div>
             <div className="text-muted-foreground text-sm mt-1">{moments.length} momento(s)</div>
             <Button onClick={() => save('Enviada')} disabled={submitting}
               className="w-full h-12 rounded-xl text-base font-semibold text-accent-creme shadow-warm gap-2 mt-5"

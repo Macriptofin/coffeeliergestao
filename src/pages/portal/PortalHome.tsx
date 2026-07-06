@@ -54,7 +54,7 @@ export default function PortalHome() {
         <img src={heroHome} alt="" className="w-full h-44 md:h-56 object-cover" />
         <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, hsl(20 54% 16% / .88), hsl(20 54% 20% / .55) 60%, hsl(20 54% 20% / .25))' }} />
         <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 text-accent-creme">
-          <h1 className="font-display text-3xl md:text-4xl font-semibold leading-tight">
+          <h1 className="text-3xl md:text-4xl font-semibold leading-tight">
             Bem-vindo de volta, {firstName}
           </h1>
           <p className="opacity-90 mt-1.5 max-w-md">
@@ -78,7 +78,7 @@ export default function PortalHome() {
         </Button>
       </div>
 
-      <h2 className="font-display text-2xl font-semibold mb-4">Meus pedidos</h2>
+      <h2 className="text-2xl font-semibold mb-4">Meus pedidos</h2>
 
       {isPending ? (
         <div className="py-10 flex justify-center">
@@ -114,7 +114,7 @@ export default function PortalHome() {
                     </span>
                   </div>
                 </div>
-                <div className="font-display text-xl font-semibold hidden sm:block">{formatCurrency(p.total_amount)}</div>
+                <div className="text-xl font-semibold hidden sm:block">{formatCurrency(p.total_amount)}</div>
                 <span className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${badge.cls}`}>
                   {badge.label}
                 </span>

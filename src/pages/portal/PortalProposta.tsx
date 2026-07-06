@@ -105,7 +105,7 @@ export default function PortalProposta() {
 
   const renderSection = (sec: Section, key: string | number) => (
     <div key={key} className="bg-card border border-border/70 rounded-2xl p-5 md:p-6 shadow-soft">
-      <h3 className="font-display text-lg font-semibold mb-1">{sec.category_label}</h3>
+      <h3 className="text-lg font-semibold mb-1">{sec.category_label}</h3>
       <div>
         {(sec.items || []).map((it, j) => (
           <div key={j} className="flex justify-between items-center py-2.5 border-t border-dashed border-border first:border-t-0 text-[15px]">
@@ -138,7 +138,7 @@ export default function PortalProposta() {
           <p className="text-muted-foreground text-sm mb-1.5">
             {[data.client_name, data.department_name].filter(Boolean).join(' · ')}
           </p>
-          <h1 className="font-display text-3xl md:text-4xl font-semibold leading-tight">
+          <h1 className="text-3xl md:text-4xl font-semibold leading-tight">
             {data.event_name || data.event_category || 'Pedido'} · Proposta {data.proposal_number}
           </h1>
 
@@ -165,7 +165,7 @@ export default function PortalProposta() {
               return (
                 <div key={ci} className="space-y-3">
                   <div className="border-l-4 border-primary pl-3">
-                    <h2 className="font-display text-xl font-semibold leading-tight">
+                    <h2 className="text-xl font-semibold leading-tight">
                       {comp.name || `Momento ${ci + 1}`}
                     </h2>
                     {meta && <p className="text-sm text-muted-foreground mt-0.5">{meta}</p>}
@@ -188,7 +188,7 @@ export default function PortalProposta() {
         <div className="lg:sticky lg:top-6 self-start">
           <div className="bg-card border border-border/70 rounded-2xl p-6 shadow-soft">
             <div className="text-sm text-muted-foreground">Total do pedido</div>
-            <div className="font-display text-4xl font-bold mt-0.5">{formatCurrency(data.total_amount)}</div>
+            <div className="text-4xl font-bold mt-0.5">{formatCurrency(data.total_amount)}</div>
             {pricePerPerson != null && (
               <div className="text-muted-foreground text-sm mt-1">
                 {formatCurrency(pricePerPerson)} por pessoa · {data.number_of_people} pessoas
@@ -238,7 +238,7 @@ export default function PortalProposta() {
       {/* Diálogo: solicitar alteração */}
       <Dialog open={changeOpen} onOpenChange={setChangeOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle className="font-display">Solicitar alteração</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Solicitar alteração</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground -mt-1">
             Conte o que gostaria de ajustar (itens, quantidades, data, local…). Nossa equipe retorna com uma nova versão.
           </p>
@@ -258,7 +258,7 @@ function CoverItem({ icon, label, value }: { icon: React.ReactNode; label: strin
   return (
     <div>
       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide opacity-80">{icon}{label}</div>
-      <div className="font-display text-lg font-semibold mt-1 leading-tight">{value}</div>
+      <div className="text-lg font-semibold mt-1 leading-tight">{value}</div>
     </div>
   );
 }

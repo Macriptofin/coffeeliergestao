@@ -160,62 +160,54 @@ Já validada contra o código atual do ERP ✅.
 
 ### 12.3 Tipografia
 
-O MIV define duas famílias oficiais, **ambas pagas**, e você não tem os arquivos licenciados:
+O MIV define duas famílias oficiais, **ambas pagas**, e não temos os arquivos licenciados:
 
-- **Beround Family** (NicolassFonts) — sans serif com cantos levemente arredondados, 16 estilos (Light/Regular/Semibold/Bold/Black, normal e itálico). Usada em títulos e corpo de texto.
-- **Adelia Typeface** (NissaStudio) — script fluido e elegante, um único peso. Usada em citações, manifesto e trechos de assinatura/destaque.
+- **Beround Family** (NicolassFonts) — sans serif com cantos levemente arredondados. Papel de títulos e corpo de texto.
+- **Adelia Typeface** (NissaStudio) — script fluido e elegante, peso único. Papel de citações, manifesto e assinatura/destaque.
 
-**Decisão: usar substitutas gratuitas via Google Fonts (licença OFL, uso comercial livre)** em vez das originais pagas:
+Como o ERP é comercial e essas licenças não cobrem esse uso, a **decisão final** foi consolidar nas fontes gratuitas (Google Fonts, licença OFL) **que já estavam implementadas no sistema** — sem introduzir novas famílias:
 
-| Original (paga) | Substituta recomendada | Por quê |
+| Papel | Fonte (decisão final) | Correspondência MIV |
 |---|---|---|
-| Beround Family | **Nunito** | Variable font, faixa de peso 200–900, itálico verdadeiro em toda a faixa, terminações levemente arredondadas — é a que mais se aproxima do Beround entre as fontes gratuitas com essa amplitude de pesos. |
-| Beround (alternativa para títulos grandes, se quiser mais "arredondado/lúdico") | Baloo 2 ou Fredoka | Mais redondas e com mais personalidade, mas sem itálico — usar só em headlines pontuais, não no corpo de texto. |
-| Adelia Typeface | **Alex Brush** ou **Sacramento** | Scripts fluidos, monoline, elegantes, sem serifa — visual próximo ao Adelia. Usar com moderação: só em citações/frases de efeito, nunca em UI funcional (formulários, tabelas, números). |
+| **Sans principal** — UI, corpo e títulos | **Inter** | ocupa o papel do Beround. Já é o padrão do sistema (Tailwind `font-sans` + `index.html`); **mantida — não migrar para Nunito**. |
+| **Script** — citações, assinatura e destaques em documentos de cliente (proposta PDF) | **Dancing Script** | ocupa o papel do Adelia. Já implementada (`font-script`); **mantida — não introduzir Alex Brush**. |
 
-⚠️ Nas buscas por essas fontes aparecem sites ("free download") oferecendo Beround e Adelia como demo "uso pessoal apenas" — **não usar essas versões no ERP**, pois é um sistema comercial e essas licenças não cobrem esse uso. As substitutas do Google Fonts acima são realmente gratuitas para uso comercial.
+**Consolidação aplicada (jul/2026):**
+- **Fraunces** (serif de título que era usada só no Portal via `.font-display`) — **removida**; tudo unificado em Inter.
+- **Nunito** (corpo do Portal via `.portal-body`) — **removida**; cai no Inter.
+- **Times New Roman** nas impressões de ficha técnica / ordem de produção — **não era intencional**; trocado por Inter.
+
+> As originais pagas (Beround/Adelia) ficam como **referência do MIV**, não como dependência. Inter e Dancing Script são as aproximações gratuitas adotadas de fato.
+
+⚠️ Sites de "free download" oferecem Beround/Adelia como demo "uso pessoal apenas" — **não usar no ERP** (licença não cobre uso comercial).
 
 ---
 
 ## 13. Aplicação técnica no ERP (Coffeelier Gestão)
 
-### 13.1 Import das fontes (Google Fonts)
+### 13.1 Import das fontes (Google Fonts) — já em `index.html`
 ```html
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&family=Alex+Brush&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Dancing+Script:wght@400;600;700&display=swap" rel="stylesheet">
 ```
 
-### 13.2 CSS custom properties
-```css
-:root {
-  --color-oliva: #626432;
-  --color-cafe: #552D19;
-  --color-caramelo: #C06C3A;
-  --color-mocca: #DAAA73;
-  --color-creme: #FCE8D0;
+### 13.2 Fontes e cores no CSS
+As cores da marca vivem em `src/index.css` como tokens **HSL** semânticos (padrão shadcn), consumidos via `hsl(var(--token))` — não como hex soltos. As 5 cores oficiais mapeiam para: `--primary` (Oliva), `--secondary` (Caramelo), `--accent-coffee` (Café), `--accent-mocca` (Mocca), `--accent-creme`/`--background` (Creme).
 
-  --font-sans: 'Nunito', ui-sans-serif, system-ui, sans-serif;
-  --font-script: 'Alex Brush', cursive;
-}
-```
+As fontes são declaradas no `fontFamily` do Tailwind (§13.3) e carregadas pelo `<link>` do §13.1 — não há `--font-*` como CSS custom property.
 
-### 13.3 Tailwind config (extensão sugerida)
-```js
-// tailwind.config.js
+### 13.3 Tailwind config (`tailwind.config.ts`) — estado real
+```ts
 theme: {
   extend: {
-    colors: {
-      oliva: '#626432',
-      cafe: '#552D19',
-      caramelo: '#C06C3A',
-      mocca: '#DAAA73',
-      creme: '#FCE8D0',
-    },
     fontFamily: {
-      sans: ['Nunito', 'ui-sans-serif', 'system-ui'],
-      script: ['"Alex Brush"', 'cursive'],
+      sans:    ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      serif:   ['Georgia', 'ui-serif', 'serif'],
+      display: ['Inter', 'sans-serif'],
+      script:  ['Dancing Script', 'cursive'], // documentos de cliente (proposta PDF)
     },
+    // cores via hsl(var(--token)) — ver src/index.css
   },
 },
 ```
@@ -223,9 +215,10 @@ theme: {
 ---
 
 ## 14. Pendências / próximos passos
-- [ ] Rodar uma busca no repo (`grep -r "font-family" src/` ou equivalente) para achar as fontes hardcoded hoje e reconciliar com Nunito/Alex Brush.
+- [x] ~~Reconciliar as fontes hardcoded com o padrão da marca~~ — **feito (jul/2026)**: consolidado em **Inter + Dancing Script**; removidas Fraunces/Nunito (Portal) e Times New Roman (impressões). Ver 12.3.
+- [x] ~~`<link>` do Google Fonts no `index.html`~~ — já presente (Inter + Dancing Script).
+- [x] ~~`fontFamily` no Tailwind~~ — já configurado (Inter/Georgia/Dancing Script). Cores já em tokens HSL semânticos.
 - [ ] Confirmar com quem gerou o MIV o tamanho mínimo real do logo (a % de "Redução" está inconsistente — ver seção 12.1).
-- [ ] Adicionar o `<link>` do Google Fonts no `index.html` (ou `@import` no CSS global).
-- [ ] Atualizar `tailwind.config.js` com os tokens de cor e `fontFamily` acima.
-- [ ] Garantir que o logotipo "Coffeelier" seja tratado como asset SVG/PNG no header do ERP — nunca recriado com fonte web.
+- [ ] Limpeza futura separada: hex de cor duplicado em `ProposalPDF.tsx` / `PropostaAprovacao.tsx` (mover para tokens).
+- [ ] Garantir que o logotipo "Coffeelier" seja tratado como asset SVG/PNG no header do ERP — nunca recriado com fonte web. *(Hoje: `src/assets/brand/coffeelier-*.png` + `CoffeelierLogo.tsx` já seguem essa regra; falta versão SVG.)*
 - [ ] Quando chegar a vez do site institucional (coffeelier.com.br), este mesmo arquivo é a referência — não recriar do zero.

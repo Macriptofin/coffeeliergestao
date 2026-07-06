@@ -100,14 +100,14 @@ export default function PortalLogin() {
   };
 
   return (
-    <div className="min-h-screen flex portal-body">
+    <div className="min-h-screen flex">
       {/* Painel de marca */}
       <div className="hidden md:flex w-[46%] flex-col justify-between p-14 text-accent-creme relative overflow-hidden">
         <img src={heroLogin} alt="" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0" style={{ background: 'linear-gradient(150deg, hsl(20 54% 16% / .92), hsl(20 54% 20% / .80) 55%, hsl(25 53% 38% / .78))' }} />
         <div className="relative z-10"><CoffeelierLogo size="md" tone="creme" /></div>
         <div className="relative z-10">
-          <h1 className="font-display text-4xl font-semibold leading-tight max-w-md">
+          <h1 className="text-4xl font-semibold leading-tight max-w-md">
             Sua próxima experiência começa aqui.
           </h1>
           <p className="opacity-90 mt-4 text-base max-w-sm leading-relaxed">
@@ -127,7 +127,7 @@ export default function PortalLogin() {
         ) : mode === 'setpw' ? (
           <form onSubmit={handleSetPassword} className="w-full max-w-sm">
             <CoffeelierLogo size="sm" className="md:hidden mb-8" />
-            <h2 className="font-display text-3xl font-semibold">Defina sua senha</h2>
+            <h2 className="text-3xl font-semibold">Defina sua senha</h2>
             <p className="text-muted-foreground mt-2.5 mb-8 text-sm">
               Você foi convidado para o portal. Crie uma senha para ativar seu acesso.
             </p>
@@ -146,7 +146,7 @@ export default function PortalLogin() {
         ) : (
           <form onSubmit={handleLogin} className="w-full max-w-sm">
             <CoffeelierLogo size="sm" className="md:hidden mb-8" />
-            <h2 className="font-display text-3xl font-semibold">Bem-vindo de volta</h2>
+            <h2 className="text-3xl font-semibold">Bem-vindo de volta</h2>
             <p className="text-muted-foreground mt-2.5 mb-8 text-sm">
               Entre com o e-mail da sua empresa para acessar seus pedidos.
             </p>

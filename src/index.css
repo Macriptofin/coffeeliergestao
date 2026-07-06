@@ -1,12 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Portal do cliente: título display (serif boutique) */
-.font-display { font-family: 'Fraunces', Georgia, serif; }
-.portal-body { font-family: 'Nunito', system-ui, sans-serif; }
 
 /* ================================================================
    COFFEELIER — Design System
@@ -16,7 +10,7 @@
      Caramelo #C06C3A  → HSL(25, 53%, 49%)
      Mocca    #DAAA73  → HSL(34, 52%, 65%)
      Creme    #FCE8D0  → HSL(34, 88%, 90%)
-   Tipografia: Nunito (principal) · Dancing Script (script/assinatura)
+   Tipografia: Inter (principal) · Dancing Script (script/assinatura)
 ================================================================ */
 
 @layer base {
@@ -166,7 +160,7 @@
   
   .print-recipe {
     @apply text-black bg-white;
-    font-family: 'Arial', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 10pt;
     line-height: 1.2;
     color-adjust: exact;

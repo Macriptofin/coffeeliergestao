@@ -209,7 +209,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
       }
       @media print {
         body {
-          font-family: 'Times New Roman', serif;
+          font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
           color: black !important;
           background: white !important;
         }
