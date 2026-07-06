@@ -10,7 +10,7 @@ Guia de contexto para o Claude Code. Leia este arquivo antes de qualquer tarefa.
 
 - **Stack**: React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui
 - **Backend**: Supabase (PostgreSQL 17, Auth, Edge Functions, Storage)
-- **Hospedagem frontend**: Lovable (deploy automático via push no GitHub)
+- **Hospedagem frontend**: Vercel (deploy automático via push no GitHub) — ver Seção 11
 - **Repo**: https://github.com/Macriptofin/coffeeliergestao.git
 
 ---
@@ -59,7 +59,7 @@ Guia de contexto para o Claude Code. Leia este arquivo antes de qualquer tarefa.
 │
 ├── supabase/
 │   ├── config.toml         ← project_id = "njxxqdcwvehlvqufuyww"
-│   ├── migrations/         ← 232 migrations SQL (histórico completo)
+│   ├── migrations/         ← 301 migrations SQL (histórico completo)
 │   └── functions/          ← Edge Functions (Deno)
 │       ├── create-user-with-invite/
 │       ├── delete-user/
@@ -196,6 +196,18 @@ Reforma jun/2026, **nível PME** (Simples Nacional): relatórios corretos, **sem
 | `trg_sync_bank_balance` | `cash_transactions` | `recompute_bank_balance` | Mantém `bank_accounts.current_balance` = inicial + Σ(entradas−saídas) da conta |
 | `trg_default_competence_ar` / `trg_default_competence_ap` | `accounts_receivable` / `accounts_payable` | `default_competence_date` | `competence_date` recebe `issue_date` quando não informada |
 
+### Segurança do banco (hardening jul/2026)
+
+Auditoria disparada pelo Supabase Advisor (migrations `20260701000001`–`20260701000005`). Ver memória `db-security-hardening-jul2026`.
+
+- **2 CRITICAL corrigidos**: `vw_stock_available` → `security_invoker = true` (rodava com permissão do criador da view); `_backup_material_names` (backup manual pré-reclassificação, jun/2026) → RLS habilitado sem policies (estava legível por qualquer anon key).
+- **14 funções** com `search_path` mutável → `SET search_path = public`.
+- **`pricing_rules`**: policy `ALL` liberada p/ qualquer autenticado → restrita a admin/manager via `is_admin_or_manager()`.
+- **~110 funções `SECURITY DEFINER` de mutação** (estoque/custo/produção/financeiro/materiais/portal/diagnóstico): `EXECUTE` era concedido a `PUBLIC` → chamáveis por qualquer um na internet com a anon key, sem login. Revogado de `PUBLIC`, `authenticated` mantido.
+  - ⚠️ **Armadilha real**: `REVOKE ... FROM anon` não basta se o ACL concede a `PUBLIC` (aparece como `=X` em `pg_proc.proacl`) — todo papel herda `PUBLIC`. É preciso `REVOKE ... FROM PUBLIC`; verificar com `has_function_privilege('anon', oid, 'EXECUTE')`.
+- **Deliberadamente NÃO tocados**: helpers de permissão/máscara (usados dentro de RLS de outras tabelas), funções de log/rate-limit (rodam pré-auth) e fluxo público por token (`approve_proposal_by_token` — anon por design).
+- **Pendente (não urgente, liga ao #200)**: 174 warns `authenticated_security_definer_function_executable` — qual role autenticado pode chamar cada RPC é objetivo da fundação multi-tenant. `pg_trgm` em `public` deixado (cosmético).
+
 ---
 
 ## 4. GitHub
@@ -212,9 +224,9 @@ Reforma jun/2026, **nível PME** (Simples Nacional): relatórios corretos, **sem
 2. O Lovable (plataforma de deploy) monitora `origin/main` e faz deploy automático
 3. Branches de feature foram usadas historicamente mas o trabalho atual é direto no `main`
 
-### Estado atual do repositório (junho 2026)
+### Estado atual do repositório (julho 2026)
 
-Working tree limpo — trabalho commitado e empurrado direto no `main` (deploy automático Lovable).
+Working tree limpo — trabalho commitado e empurrado direto no `main` (deploy automático Vercel).
 
 **Depuração do catálogo de materiais (jun/2026)** — concluída e no ar (migrations `20260620000001`–`20260620000007`):
 - Exclusão de 26 itens duplicados/obsoletos via `is_archived` (com merge de Óleo→Oleo de Soja e Água sem Gás→Água Mineral sem Gás nas fichas antes de arquivar).
@@ -230,6 +242,13 @@ Working tree limpo — trabalho commitado e empurrado direto no `main` (deploy a
 - **Financeiro nível PME**: DRE por competência + PDD + painel reconhecida×recebida×a receber; `competence_date` em AR/AP; saldo bancário sincronizado; vencidos via pg_cron; caixa carrega o banco. Ver seção "Financeiro e contábil".
 - Removidos os caminhos de **delete físico** de materiais (só desativar).
 - **code-splitting** das rotas (lazy + Suspense) e botão fantasma "Salvar e Continuar" removido.
+
+**Migração de infra + segurança (jul/2026)** — no ar (commits `985bc8e`…`cdd5574`):
+- **Hospedagem migrada de Lovable → Vercel** (#24): deploy automático via push no `main`; backend Supabase inalterado. Domínio próprio `app.coffeelier.com.br`. Ver Seção 11.
+- **Financeiro concluído no front**: campo Competência em Contas a Pagar; Fluxo de Caixa unificado (abas Realizado × Previsto numa página só; card/menu "Previsão de Caixa" removido).
+- **Headers de segurança HTTP reais** via `vercel.json` (CSP, X-Frame-Options, etc.); removido o "teatro de segurança" client-side (`SecurityHeader.tsx`, bloqueio de F12).
+- **Hardening do banco** (Advisor): ver subseção "Segurança do banco" na Seção 3.
+- Marca visual: favicon/ícones oficiais da Coffeelier substituíram o ícone genérico.
 
 > Lembrete de fluxo: commit/push só quando o usuário pedir; trabalhar direto no `main`. Mensagens de commit em PT-BR.
 
@@ -324,12 +343,16 @@ Canal externo "loja online" para o cliente acompanhar/aprovar propostas (Fase 1 
 
 ## 9. Variáveis de Ambiente
 
-O projeto funciona **sem arquivo `.env`** — as credenciais Supabase estão hardcoded no `client.ts` como fallback.
+O app **funciona sem `.env`** — há fallback hardcoded em `src/integrations/supabase/client.ts` (`VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`/`VITE_SUPABASE_PUBLISHABLE_KEY`). Definir as variáveis apenas torna explícito o alvo e permite trocar de projeto Supabase sem editar código.
 
-Para usar variáveis de ambiente no Vite, criar `.env.local`:
+> A **anon key é pública por design** (já vai no bundle do navegador) — não é segredo.
+
+- **Produção (Vercel)**: definir em *Project Settings → Environment Variables*.
+- **Local**: copiar `.env.example` para `.env.local` e preencher:
+
 ```
 VITE_SUPABASE_URL=https://njxxqdcwvehlvqufuyww.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+VITE_SUPABASE_ANON_KEY=...
 ```
 
 ---
@@ -352,3 +375,33 @@ Para deploy de edge function:
 ```bash
 supabase functions deploy <nome> --project-ref njxxqdcwvehlvqufuyww
 ```
+
+---
+
+## 11. Arquitetura de Marcas e Domínios
+
+### Hospedagem
+
+| Camada | Onde | Observação |
+|---|---|---|
+| **Frontend** | **Vercel** | Deploy automático via push no `main`. Migrado do Lovable em jul/2026 (#24). |
+| **Backend** | **Supabase** | Inalterado na migração (mesmo project `njxxqdcwvehlvqufuyww`, região `sa-east-1`). |
+
+`vercel.json` define: framework Vite, SPA `rewrites` (React Router), cache longo em `/assets/*` e **headers de segurança HTTP reais** (CSP, X-Frame-Options: DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener-Policy). O CSP escopa `img-src`/`connect-src` ao domínio Supabase e Google Fonts.
+
+### Domínios
+
+| Domínio | Uso |
+|---|---|
+| **`app.coffeelier.com.br`** | Produção (sistema de gestão). Domínio oficial. |
+| `coffeeliergestao.vercel.app` | URL técnica da Vercel (fallback/preview). |
+| `app.coffeelier.com.br/portal/*` | Portal do cliente (mesmo app, rotas `/portal`). |
+
+- **DNS** no **Registro.br** ("Configurar Zona DNS"): `app` → CNAME apontando para a Vercel. SSL **auto-provisionado pela Vercel** após detectar o DNS (alguns minutos de lag são normais).
+  - ⚠️ **Gotcha Registro.br**: o painel **não faz troca A→CNAME atômica** no mesmo `Nome` — valida contra o estado salvo, não o pendente. É preciso **deletar+salvar** e depois **adicionar+salvar** em operações separadas. Para diagnosticar propagação vs. save falho, consultar o nameserver autoritativo direto (`dig @<ns>`).
+- **Supabase Auth → Redirect URLs**: precisa listar `https://app.coffeelier.com.br/**`. (Havia um `coffeeliergestao.vercel.app/**` temporário de teste — remover.)
+
+### Identidade visual
+
+- **Ícones da marca** (o "C" da Coffeelier) em `public/`: `favicon.ico`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`. Referenciados em `index.html`; OG/Twitter apontam para `https://app.coffeelier.com.br/icon-512.png`.
+- **Fontes** (Google Fonts): **Inter** para o sistema interno; **Dancing Script** para documentos de cliente (proposta em PDF).
