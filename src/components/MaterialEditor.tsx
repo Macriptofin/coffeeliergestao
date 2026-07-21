@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { MEASUREMENT_UNITS } from '@/lib/units';
 import { useNavigate, useParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -56,6 +57,47 @@ interface MaterialEditorProps {
   canNavigate?: { prev: boolean; next: boolean };
 }
 
+interface PurchaseHistoryEntry {
+  id: string;
+  unitPrice: number;
+  unit: string | null;
+  quantity: number;
+  invoiceDate: string;
+  invoiceNumber: string;
+  supplierName: string | null;
+}
+
+// Preço realmente pago por NF já lançada (invoice_items.unit_price, na unidade de
+// compra) — distinto de stock_items.average_price (preço médio móvel, usado para
+// custo/cascata). Só considera NFs com stock_posted=true (lançamento confirmado,
+// não rascunho).
+async function fetchMaterialPurchaseHistory(materialId: string): Promise<PurchaseHistoryEntry[]> {
+  const { data, error } = await supabase
+    .from('invoice_items')
+    .select(`
+      id, unit_price, unit, quantity,
+      purchase_invoices!inner ( invoice_date, invoice_number, stock_posted,
+        suppliers ( company_name )
+      )
+    `)
+    .eq('material_id', materialId)
+    .eq('purchase_invoices.stock_posted', true);
+
+  if (error) throw error;
+
+  return (data || [])
+    .map((row: any) => ({
+      id: row.id,
+      unitPrice: Number(row.unit_price),
+      unit: row.unit,
+      quantity: Number(row.quantity),
+      invoiceDate: row.purchase_invoices.invoice_date,
+      invoiceNumber: row.purchase_invoices.invoice_number,
+      supplierName: row.purchase_invoices.suppliers?.company_name ?? null,
+    }))
+    .sort((a, b) => b.invoiceDate.localeCompare(a.invoiceDate));
+}
+
 export const MaterialEditor = ({ 
   material, 
   materials,
@@ -101,6 +143,13 @@ export const MaterialEditor = ({
   // Breakdown calculado pelo banco (compute_product_pricing) — base p/ preview ao vivo
   const [pricing, setPricing] = useState<any>(null);
   const [pricingLoading, setPricingLoading] = useState(false);
+
+  const { data: purchaseHistory = [], isLoading: purchaseHistoryLoading } = useQuery({
+    queryKey: ['material-purchase-history', material?.id],
+    queryFn: () => fetchMaterialPurchaseHistory(material!.id),
+    enabled: !!material?.id && isOpen,
+    staleTime: 60_000,
+  });
 
   const [restrictionTagIds, setRestrictionTagIds] = useState<string[]>(material?.restrictionTagIds ?? []);
 
@@ -574,7 +623,7 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
               <Paperclip className="h-4 w-4" />
               Anexos
             </TabsTrigger>
-            <TabsTrigger value="history" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none" disabled>
+            <TabsTrigger value="history" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
               <History className="h-4 w-4" />
               Histórico
             </TabsTrigger>
@@ -969,6 +1018,72 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
                       </SelectContent>
                     </Select>
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="history" className="mt-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Histórico de Compras
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {purchaseHistoryLoading ? (
+                    <p className="text-sm text-muted-foreground">Carregando...</p>
+                  ) : purchaseHistory.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma nota fiscal lançada para este material ainda.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                        <p className="text-xs text-muted-foreground">Último preço pago</p>
+                        <p className="text-lg font-semibold text-primary">
+                          {formatCurrency(purchaseHistory[0].unitPrice)} / {purchaseHistory[0].unit || formData.purchaseUnit}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {purchaseHistory[0].supplierName || 'Fornecedor não informado'} em{' '}
+                          {new Date(purchaseHistory[0].invoiceDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                          {' · NF '}{purchaseHistory[0].invoiceNumber}
+                        </p>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b text-left text-muted-foreground">
+                              <th className="py-2 pr-2 font-medium">Data</th>
+                              <th className="py-2 pr-2 font-medium">Fornecedor</th>
+                              <th className="py-2 pr-2 font-medium">NF</th>
+                              <th className="py-2 pr-2 font-medium text-right">Qtd.</th>
+                              <th className="py-2 pr-2 font-medium">Unid.</th>
+                              <th className="py-2 pr-2 font-medium text-right">Preço Unit.</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {purchaseHistory.map((entry) => (
+                              <tr key={entry.id} className="border-b last:border-0">
+                                <td className="py-2 pr-2 whitespace-nowrap">
+                                  {new Date(entry.invoiceDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                </td>
+                                <td className="py-2 pr-2">{entry.supplierName || '—'}</td>
+                                <td className="py-2 pr-2 whitespace-nowrap">{entry.invoiceNumber}</td>
+                                <td className="py-2 pr-2 text-right">{entry.quantity}</td>
+                                <td className="py-2 pr-2">{entry.unit || '—'}</td>
+                                <td className="py-2 pr-2 text-right font-medium">{formatCurrency(entry.unitPrice)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Preço na unidade de compra, conforme lançado na nota fiscal — não é o preço médio móvel usado no custo do estoque.
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
