@@ -2,28 +2,19 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 interface FeatureFlags {
-  FF_UNIFY_BOM_RECEITAS: boolean;
-  FF_MOVE_COSTS_TO_REPORTS: boolean;
-  FF_ORDERS_AS_CENTRAL: boolean;
   FF_EVENT_TABLES_ENABLED: boolean;
-  FF_HIDE_LEGACY_RECIPES: boolean;
 }
 
 const defaultFlags: FeatureFlags = {
-  FF_UNIFY_BOM_RECEITAS: false,
-  FF_MOVE_COSTS_TO_REPORTS: false,
-  FF_ORDERS_AS_CENTRAL: false,
   FF_EVENT_TABLES_ENABLED: false,
-  FF_HIDE_LEGACY_RECIPES: false,
 };
 
 const FEATURE_FLAGS_QUERY_KEY = ['feature-flags'] as const;
 
 /**
  * Busca os feature flags. Usado como queryFn única e compartilhada via
- * react-query: antes cada consumidor (hub de Produção, redirect, relatórios)
- * refazia a busca e iniciava com os flags em `false`, causando troca de
- * conteúdo visível (ex.: card "Receitas" piscando antes de "Fichas Técnicas").
+ * react-query: antes cada consumidor refazia a busca e iniciava com os flags
+ * em `false`, causando troca de conteúdo visível na 1ª carga da sessão.
  */
 async function fetchFeatureFlags(): Promise<FeatureFlags> {
   const { data, error } = await supabase

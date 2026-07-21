@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChefHat, ClipboardList, FileText, Settings, Calendar, Package2, AlertTriangle, ChevronRight } from "lucide-react";
+import { ClipboardList, FileText, Calendar, Package2, AlertTriangle, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useFeatureFlags, logFeatureFlagEvent } from "@/hooks/useFeatureFlags";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,60 +38,16 @@ const ProducaoMain = () => {
     }
   };
 
-  // Legacy modules (shown when flags are OFF)
-  const legacyModules = [
-    {
-      title: "Receitas",
-      description: "Criação e gestão de receitas com cálculo automático de custos",
-      icon: ChefHat,
-      href: "/receitas",
-      color: "bg-red-500",
-      hidden: flags.FF_UNIFY_BOM_RECEITAS
-    },
-    {
-      title: "Planejamento e Ordens",
-      description: "Gestão unificada de ordens de produção com dashboard integrado",
-      icon: ClipboardList,
-      href: "/producao/planejamento",
-      color: "bg-blue-500"
-    },
-    {
-      title: "BOM & Produção",
-      description: "Configuração de BOMs e execução de produção/montagem",
-      icon: Settings,
-      href: "/producao/bom",
-      color: "bg-indigo-500",
-      hidden: flags.FF_UNIFY_BOM_RECEITAS
-    },
-    {
-      title: "Relatórios de Produção",
-      description: "Performance, eficiência e análises de produção e custos",
-      icon: FileText,
-      href: "/producao/relatorios",
-      color: "bg-orange-500"
-    },
-    {
-      title: "Mesas/Eventos",
-      description: "Gestão dinâmica de eventos com cálculo automático por pessoa",
-      icon: Calendar,
-      href: "/producao/eventos",
-      color: "bg-pink-500",
-      hidden: !flags.FF_EVENT_TABLES_ENABLED
-    }
-  ];
-
-  // New unified modules (shown when flags are ON)
-  const unifiedModules = [
+  const modules = [
     {
       title: "Fichas Técnicas (BOM)",
       description: "Gestão unificada de produtos, receitas e composições com custos automáticos",
       icon: Package2,
       href: "/producao/fichas-tecnicas",
-      color: "bg-purple-500",
-      shown: flags.FF_UNIFY_BOM_RECEITAS
+      color: "bg-purple-500"
     },
     {
-      title: "Planejamento e Ordens", 
+      title: "Planejamento e Ordens",
       description: "Centro operacional unificado - gestão completa da produção",
       icon: ClipboardList,
       href: "/producao/planejamento",
@@ -112,26 +68,16 @@ const ProducaoMain = () => {
       color: "bg-pink-500",
       hidden: !flags.FF_EVENT_TABLES_ENABLED
     }
-  ];
-
-  const getActiveModules = () => {
-    if (flags.FF_UNIFY_BOM_RECEITAS || flags.FF_MOVE_COSTS_TO_REPORTS) {
-      return unifiedModules.filter(module => !module.hidden && module.shown !== false);
-    }
-    return legacyModules.filter(module => !module.hidden);
-  };
-
-  const modules = getActiveModules();
+  ].filter(module => !module.hidden);
 
   const handleModuleClick = (module: any) => {
     logFeatureFlagEvent('nav.module.click', module.href);
     navigate(module.href);
   };
 
-  // Bloquear a renderização dos cards até os flags carregarem — evita que os
-  // módulos legados (ex.: "Receitas") pisquem antes de virarem os unificados
-  // (ex.: "Fichas Técnicas"). Com o cache do react-query, isto só ocorre na 1ª
-  // carga da sessão; revisitas são instantâneas e já com os flags corretos.
+  // Bloquear a renderização até a flag de Mesas/Eventos carregar, evitando
+  // o card piscar. Com o cache do react-query, isto só ocorre na 1ª carga
+  // da sessão; revisitas são instantâneas e já com a flag correta.
   if (loading) {
     return (
       <div>
