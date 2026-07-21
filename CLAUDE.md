@@ -290,7 +290,7 @@ import { Button } from '@/components/ui/button';
 | Estoque | `Stock.tsx` / `EstoqueMovimentacoes.tsx` | Saldo, histórico, ajustes, ciclos de inventário |
 | Fichas Técnicas | `Recipes.tsx` | BOM (bill of materials) para produção |
 | Produção | `ProducaoMain.tsx` + `production/` | Ordens de produção BOM e por evento |
-| Compras | `Purchases.tsx` | Notas fiscais, contas a pagar, fornecedores |
+| Compras | `Purchases.tsx` | Necessidades (planejamento MRP/ABC), notas fiscais, contas a pagar, fornecedores, cotações |
 | Financeiro | `Financeiro.tsx` + `financeiro/` | Contas a pagar/receber, fluxo de caixa, DRE, plano de contas |
 | Propostas | `Sales.tsx` + aprovação via link | Propostas comerciais com PDF |
 | Agenda | `Agenda.tsx` | Calendário de eventos + cards operacionais |
@@ -308,6 +308,22 @@ Canal externo "loja online" para o cliente acompanhar/aprovar propostas (Fase 1 
 - **Visibilidade POR USUÁRIO**: cada usuário vê só os pedidos que **ele criou** (`proposals.portal_created_by = auth.uid()`), não todos do cliente. Em aberto: visibilidade do aprovador sobre pedidos de solicitantes da área.
 - **Segurança**: leitura via RPCs SECURITY DEFINER (`get_portal_proposals`, `get_portal_proposal`, `get_portal_settings`) que nunca expõem custo/margem; RLS aditivo escopa o cliente; helpers `current_portal_client_id()`/`is_portal_client()`/`is_internal_user()`. Aprovação mantém **gate interno** (`approve_proposal_as_client` → 'Aprovada pelo Cliente'; equipe confirma → dispara cadeia). Alterações via `request_proposal_change`.
 - **Deploy**: Edge Functions **não** sobem no publish do app — exigir `supabase functions deploy <nome>`. Client é PKCE + `detectSessionInUrl:false` → `PortalLogin` faz `exchangeCodeForSession` no retorno do e-mail.
+
+### Necessidades de Compra (MRP unificado) — jul/2026
+
+**Compras → aba Necessidades** (`StockPlanning.tsx`, mesmo componente também em Materiais → Gestão de Estoque → Planejamento): fonte única de necessidade de compra, unificando dois motores que existiam separados e nenhum completo. Analisa `stock_parameters` (classificação ABC, mínimo, máximo, ponto de pedido, estoque de segurança, lead time — configurados manualmente em `StockParameters.tsx` ou via **"Sugerir Classificação ABC"**, que calcula curva de Pareto do valor de consumo real dos últimos 180 dias, RPC `suggest_abc_classification`) + demanda de eventos futuros confirmados na Agenda no horizonte escolhido (7/14/30/60d, RPC `explode_event_requirements`). `projected_stock = estoque_atual − demanda_de_eventos`; dispara necessidade se `projected_stock ≤ ponto_de_pedido`, recomendando repor até o `máximo`. Material com demanda de evento mas sem parâmetro configurado aparece como linha "sem parâmetro ABC" (não escondido). Botão **"Gerar Requisições"** fecha o loop: cria `purchase_requirements` de verdade (evita duplicar — se já existe requisição aberta pro material de uma execução anterior, só vincula nela em vez de criar outra).
+
+- **Só materiais comprávels** (`ingredient`/`packaging`/`supply`/`resale_product`/`equipment`) entram em `stock_parameters`/passada reativa — produzidos sob demanda (`intermediate_product`/`finished_product`/`composite_product`, ex.: um sanduíche montado horas antes do evento, estoque sempre zerado) nunca viram necessidade de compra, só os insumos da ficha técnica deles.
+- **`explode_event_requirements` agora explode recursivamente fichas em cascata** — corrigido um bug real: antes só descia UM nível (se um componente da ficha era ele mesmo `intermediate_product`/`finished_product`, ficha em cascata, voltava como "compra isso" em vez de continuar explodindo). Agora desce até chegar só em insumos comprávels, via helper `explode_bom_to_purchasable` (recursivo, guarda contra ciclo/profundidade).
+- **Aposentado**: `MRPGenerator.tsx` (reativo por `stock_items.minimum_quantity`/`ideal_qty`, praticamente vazio — 2/290 e 0/290 configurados — sem ABC/máximo/ponto de pedido) e `EstoquePlanejamento.tsx` (já era código morto, nenhuma rota apontava pra ele).
+- `stock_items.minimum_quantity`/`ideal_qty` continuam existindo só como indicador visual (badge de status em Estoque/Dashboard) — não alimentam mais a geração de requisição.
+
+### Cotações (RFQ) em Compras — Fase 1 manual (jul/2026)
+
+**Compras → aba Cotações** (`QuoteRequestsList.tsx` → `QuoteRequestForm.tsx`/`QuoteRequestDetail.tsx`): o comprador cria uma cotação (prazo, itens a cotar), adiciona os fornecedores que está comparando e digita manualmente o preço que cada um passou por fora do sistema (telefone/WhatsApp/e-mail) — a matriz item×fornecedor destaca o mais barato por linha e permite marcar o vencedor. Schema reaproveitado de set/2025 (`quote_requests`, `quote_request_suppliers`, `supplier_quotes`, `supplier_quote_items`, todo em `is_admin_or_manager`), que estava 100% morto (zero UI); somado a `quote_request_items` (nova, jul/2026 — a lista mestra do que foi pedido, independente da resposta de qualquer fornecedor) e a FK `supplier_quote_items.quote_request_item_id`. Numeração automática `COT-AAAA-NNNN` (`generate_quote_number`, sem `SECURITY DEFINER`). Status em PT-BR com CHECK: `quote_requests.status` (`Coletando Cotações`/`Concluída`/`Cancelada`), `supplier_quotes.status` (`Recebida`/`Selecionada`/`Rejeitada`).
+
+- **Fase 1 (no ar)**: unidade travada na do pedido (não compara preço em unidades diferentes); `quote_request_suppliers.response_status`/`sent_at`/`responded_at` existem mas não são escritos ainda (pressupõem um fluxo de envio/resposta que só existe na Fase 2).
+- **Fase 2 (futura, não implementada)**: o próprio fornecedor logaria e preencheria a cotação dele — mesmo padrão do Portal do Cliente (`supplier_users` espelhando `client_users`, `current_portal_supplier_id()`, RLS aditiva em `supplier_quotes`/`supplier_quote_items` por `supplier_id`, RPCs que escondem o que não deve ser visto). `quote_request_items` já é, hoje, exatamente a lista que esse fornecedor veria — nenhuma mudança de schema da Fase 1 precisa ser desfeita.
 
 ---
 

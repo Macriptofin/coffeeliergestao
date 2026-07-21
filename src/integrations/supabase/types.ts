@@ -5401,6 +5401,89 @@ export type Database = {
           },
         ]
       }
+      quote_request_items: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string
+          notes: string | null
+          position: number
+          quantity: number
+          quote_request_id: string
+          unit: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id: string
+          notes?: string | null
+          position?: number
+          quantity: number
+          quote_request_id: string
+          unit: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string
+          notes?: string | null
+          position?: number
+          quantity?: number
+          quote_request_id?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_request_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_request_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cost_audit"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "quote_request_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_proposal_breakdown"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "quote_request_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_below_min"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "quote_request_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_no_avg_price"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "quote_request_items_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "vw_stock_zero"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "quote_request_items_quote_request_id_fkey"
+            columns: ["quote_request_id"]
+            isOneToOne: false
+            referencedRelation: "quote_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_request_suppliers: {
         Row: {
           id: string
@@ -6776,6 +6859,7 @@ export type Database = {
           position: number
           quantity: number
           quote_id: string
+          quote_request_item_id: string | null
           specifications: string | null
           total_price: number
           unit: string
@@ -6788,6 +6872,7 @@ export type Database = {
           position?: number
           quantity: number
           quote_id: string
+          quote_request_item_id?: string | null
           specifications?: string | null
           total_price: number
           unit: string
@@ -6800,6 +6885,7 @@ export type Database = {
           position?: number
           quantity?: number
           quote_id?: string
+          quote_request_item_id?: string | null
           specifications?: string | null
           total_price?: number
           unit?: string
@@ -6853,6 +6939,13 @@ export type Database = {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "supplier_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_items_quote_request_item_id_fkey"
+            columns: ["quote_request_item_id"]
+            isOneToOne: false
+            referencedRelation: "quote_request_items"
             referencedColumns: ["id"]
           },
         ]
@@ -7738,6 +7831,23 @@ export type Database = {
         Args: { p_event_table_id: string }
         Returns: undefined
       }
+      explode_bom_to_purchasable: {
+        Args: {
+          p_depth?: number
+          p_is_packaging?: boolean
+          p_material_id: string
+          p_quantity: number
+          p_unit: string
+        }
+        Returns: {
+          material_id: string
+          material_name: string
+          material_type: string
+          planned_qty: number
+          planned_unit: string
+          source_kind: string
+        }[]
+      }
       explode_event_requirements: {
         Args: { p_event_table_id: string; p_explode_components?: boolean }
         Returns: {
@@ -8150,6 +8260,10 @@ export type Database = {
       }
       recalculate_stock_total_values: { Args: never; Returns: undefined }
       recompute_all_pricing: { Args: never; Returns: undefined }
+      recompute_bank_balance: {
+        Args: { p_bank_account_id: string }
+        Returns: undefined
+      }
       refresh_bom_costs_for_material: {
         Args: { p_material_id: string }
         Returns: Json
@@ -8162,6 +8276,7 @@ export type Database = {
         Args: { p_material_id: string }
         Returns: undefined
       }
+      refresh_overdue_status: { Args: never; Returns: undefined }
       request_proposal_change: {
         Args: { p_message: string; p_proposal_id: string }
         Returns: Json
@@ -8207,6 +8322,20 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      suggest_abc_classification: {
+        Args: { p_lookback_days?: number }
+        Returns: {
+          avg_daily_consumption: number
+          consumption_value: number
+          cumulative_pct: number
+          material_id: string
+          material_name: string
+          suggested_classification: string
+          suggested_maximum_stock: number
+          suggested_reorder_point: number
+          usage_unit: string
+        }[]
+      }
       suggest_material_matches: {
         Args: {
           p_item_description: string

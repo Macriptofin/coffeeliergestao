@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { AlertTriangle, Plus, FileText, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -31,50 +32,38 @@ interface PurchaseRequirement {
   };
 }
 
+const EMPTY_REQUIREMENTS: PurchaseRequirement[] = [];
+
+async function fetchPurchaseRequirements(): Promise<PurchaseRequirement[]> {
+  const { data, error } = await supabase
+    .from('purchase_requirements')
+    .select(`
+      *,
+      material:materials(name, code)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
 export function PurchaseRequirements() {
-  const [requirements, setRequirements] = useState<PurchaseRequirement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: requirements = EMPTY_REQUIREMENTS, isPending: loading } = useQuery({
+    queryKey: ['purchase-requirements'],
+    queryFn: fetchPurchaseRequirements,
+  });
+
   const [showCreateRequest, setShowCreateRequest] = useState(false);
   const [selectedRequirement, setSelectedRequirement] = useState<PurchaseRequirement | null>(null);
   const [department, setDepartment] = useState('');
   const [justification, setJustification] = useState('');
-  const { toast } = useToast();
 
-  useEffect(() => {
-    loadRequirements();
-  }, []);
-
-  const loadRequirements = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('purchase_requirements')
-        .select(`
-          *,
-          material:materials(name, code)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setRequirements(data || []);
-    } catch (error) {
-      console.error('Error loading requirements:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar necessidades de compra.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const refetchRequirements = () => queryClient.invalidateQueries({ queryKey: ['purchase-requirements'] });
 
   const createPurchaseRequest = async () => {
     if (!selectedRequirement || !department || !justification) {
-      toast({
-        title: "Erro",
-        description: "Preencha todos os campos obrigatórios.",
-        variant: "destructive",
-      });
+      toast.error('Preencha todos os campos obrigatórios.');
       return;
     }
 
@@ -116,23 +105,16 @@ export function PurchaseRequirements() {
 
       if (updateError) throw updateError;
 
-      toast({
-        title: "Sucesso",
-        description: "Requisição de compra criada com sucesso!",
-      });
+      toast.success('Requisição de compra criada com sucesso!');
 
       setShowCreateRequest(false);
       setSelectedRequirement(null);
       setDepartment('');
       setJustification('');
-      loadRequirements();
+      refetchRequirements();
     } catch (error) {
       console.error('Error creating request:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao criar requisição de compra.",
-        variant: "destructive",
-      });
+      toast.error('Erro ao criar requisição de compra.');
     }
   };
 
@@ -188,7 +170,7 @@ export function PurchaseRequirements() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5" />
-            Necessidades de Compra (MRP)
+            Necessidades de Compra
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -273,16 +255,18 @@ export function PurchaseRequirements() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {requirement.source_type === 'production_order' ? 'Produção' : 
-                         requirement.source_type === 'stock_minimum' ? 'Estoque Mín.' : 'Manual'}
+                        {requirement.source_type === 'production_order' ? 'Produção' :
+                         requirement.source_type === 'stock_planning' ? 'Planejamento ABC' :
+                         requirement.source_type === 'stock_minimum' ? 'Estoque Mín.' :
+                         requirement.source_type === 'mrp' ? 'MRP' : 'Manual'}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       {requirement.status === 'pending' && (
                         <Dialog open={showCreateRequest} onOpenChange={setShowCreateRequest}>
                           <DialogTrigger asChild>
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               onClick={() => setSelectedRequirement(requirement)}
                             >
                               <FileText className="h-4 w-4 mr-1" />
@@ -296,16 +280,16 @@ export function PurchaseRequirements() {
                             <div className="space-y-4">
                               <div>
                                 <Label>Material</Label>
-                                <Input 
-                                  value={selectedRequirement?.material.name || ''} 
-                                  disabled 
+                                <Input
+                                  value={selectedRequirement?.material.name || ''}
+                                  disabled
                                 />
                               </div>
                               <div>
                                 <Label>Quantidade</Label>
-                                <Input 
-                                  value={`${selectedRequirement?.required_quantity || ''} ${selectedRequirement?.required_unit || ''}`} 
-                                  disabled 
+                                <Input
+                                  value={`${selectedRequirement?.required_quantity || ''} ${selectedRequirement?.required_unit || ''}`}
+                                  disabled
                                 />
                               </div>
                               <div>
@@ -332,8 +316,8 @@ export function PurchaseRequirements() {
                                 />
                               </div>
                               <div className="flex justify-end gap-2">
-                                <Button 
-                                  variant="outline" 
+                                <Button
+                                  variant="outline"
                                   onClick={() => setShowCreateRequest(false)}
                                 >
                                   Cancelar

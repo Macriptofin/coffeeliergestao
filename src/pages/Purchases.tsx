@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +14,8 @@ import { ImportMaterials } from "@/components/ImportMaterials";
 import { PurchaseRequirements } from "@/components/purchase/PurchaseRequirements";
 import { PurchaseRequestsList } from "@/components/purchase/PurchaseRequestsList";
 import { PurchaseOrders } from "@/components/purchase/PurchaseOrders";
-import { MRPGenerator } from "@/components/purchase/MRPGenerator";
+import { StockPlanning } from "@/components/stock/StockPlanning";
+import { QuoteRequestsList } from "@/components/purchase/QuoteRequestsList";
 
 export interface PurchaseInvoice {
   id: string;
@@ -66,9 +68,19 @@ async function fetchPurchaseInvoices(): Promise<PurchaseInvoice[]> {
   }));
 }
 
+const HASH_TO_TAB: Record<string, string> = {
+  '#cotacoes': 'quotes',
+};
+
 const Purchases = () => {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('requirements');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(() => HASH_TO_TAB[location.hash] || 'requirements');
+
+  useEffect(() => {
+    const tab = HASH_TO_TAB[location.hash];
+    if (tab) setActiveTab(tab);
+  }, [location.hash]);
 
   const {
     data: purchaseInvoices = EMPTY_INVOICES,
@@ -206,10 +218,9 @@ const Purchases = () => {
             Requisições
             <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 ml-1">Em breve</Badge>
           </TabsTrigger>
-          <TabsTrigger value="quotes" className="flex items-center gap-2 opacity-60">
+          <TabsTrigger value="quotes" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
             Cotações
-            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 ml-1">Em breve</Badge>
           </TabsTrigger>
           <TabsTrigger value="orders" className="flex items-center gap-2 opacity-60">
             <ShoppingCart className="h-4 w-4" />
@@ -227,7 +238,7 @@ const Purchases = () => {
         </TabsList>
 
         <TabsContent value="requirements" className="mt-6 space-y-6">
-          <MRPGenerator onGenerated={loadData} />
+          <StockPlanning />
           <PurchaseRequirements />
         </TabsContent>
 
@@ -243,14 +254,7 @@ const Purchases = () => {
         </TabsContent>
 
         <TabsContent value="quotes" className="mt-6">
-          <Card className="p-10 text-center">
-            <MessageSquare className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-            <h3 className="font-semibold mb-1">Cotações</h3>
-            <p className="text-sm text-muted-foreground">
-              Módulo de solicitação e comparativo de cotações entre fornecedores.<br />
-              Disponível em uma versão futura.
-            </p>
-          </Card>
+          <QuoteRequestsList />
         </TabsContent>
 
         <TabsContent value="orders" className="mt-6">
