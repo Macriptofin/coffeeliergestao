@@ -1,13 +1,13 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useDelayedLoading } from "@/hooks/useDelayedLoading";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, FileText, Check } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Eye, Check, Send } from "lucide-react";
 import { format } from "date-fns";
 
 interface PurchaseOrder {
@@ -17,106 +17,114 @@ interface PurchaseOrder {
   supplier_id: string;
   supplier_name: string;
   expected_delivery_date?: string;
+  payment_terms?: string;
   total_amount: number;
   status: string;
   created_at: string;
 }
 
+interface PurchaseOrderItem {
+  id: string;
+  material_id: string;
+  material_name: string;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+  total_price: number;
+}
+
 const EMPTY_ORDERS: PurchaseOrder[] = [];
+const EMPTY_ITEMS: PurchaseOrderItem[] = [];
 
 async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
   const { data, error } = await supabase
     .from('purchase_orders')
-    .select(`
-      *,
-      suppliers (
-        company_name
-      )
-    `)
+    .select(`*, suppliers ( company_name )`)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
 
-  return (data?.map(order => ({
+  return (data?.map((order: any) => ({
     ...order,
     supplier_name: order.suppliers?.company_name || 'N/A'
   })) || []) as PurchaseOrder[];
 }
 
+async function fetchOrderItems(orderId: string): Promise<PurchaseOrderItem[]> {
+  const { data, error } = await supabase
+    .from('purchase_order_items')
+    .select('id, material_id, quantity, unit, unit_price, total_price, materials(name)')
+    .eq('purchase_order_id', orderId)
+    .order('position');
+  if (error) throw error;
+  return (data || []).map((i: any) => ({ ...i, material_name: i.materials?.name || '—' }));
+}
+
 export function PurchaseOrders() {
-  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [viewingOrderId, setViewingOrderId] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
-  const {
-    data: orders = EMPTY_ORDERS,
-    isPending: loading,
-    isError,
-  } = useQuery({ queryKey: ['purchase-orders'], queryFn: fetchPurchaseOrders });
+  const { data: orders = EMPTY_ORDERS, isPending: loading } = useQuery({
+    queryKey: ['purchase-orders'],
+    queryFn: fetchPurchaseOrders,
+  });
 
-  const showLoader = useDelayedLoading(loading);
+  const { data: viewingItems = EMPTY_ITEMS, isPending: loadingItems } = useQuery({
+    queryKey: ['purchase-order-items', viewingOrderId],
+    queryFn: () => fetchOrderItems(viewingOrderId!),
+    enabled: !!viewingOrderId,
+  });
 
-  // NOTA: este componente ainda não possui mutações (os botões de ação são
-  // placeholders). Quando forem implementadas (criar / receber pedido), use:
-  //   const queryClient = useQueryClient();
-  //   const refetchOrders = () => queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
-  // e chame refetchOrders() após cada mutação.
+  const refetchOrders = () => queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+  const viewingOrder = orders.find(o => o.id === viewingOrderId);
 
-  // Erro de carregamento → toast (uma vez por mudança no estado de erro)
-  useEffect(() => {
-    if (isError) {
-      console.error('Erro ao carregar pedidos');
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar os pedidos de compra",
-        variant: "destructive"
-      });
+  const advanceStatus = async (order: PurchaseOrder, nextStatus: 'Aprovado' | 'Enviado') => {
+    setUpdatingStatus(order.id);
+    try {
+      const payload: Record<string, unknown> = { status: nextStatus };
+      if (nextStatus === 'Aprovado') {
+        payload.approved_by = (await supabase.auth.getUser()).data.user?.id;
+        payload.approved_at = new Date().toISOString();
+      }
+      const { error } = await supabase.from('purchase_orders').update(payload).eq('id', order.id);
+      if (error) throw error;
+      toast.success(`Pedido ${order.order_number} marcado como ${nextStatus.toLowerCase()}`);
+      refetchOrders();
+    } catch (error) {
+      console.error('Erro ao atualizar status do pedido:', error);
+      toast.error('Erro ao atualizar status do pedido');
+    } finally {
+      setUpdatingStatus(null);
     }
-  }, [isError, toast]);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'bg-green-500';
-      case 'sent': return 'bg-blue-500';
-      case 'received': return 'bg-purple-500';
-      case 'partial': return 'bg-yellow-500';
-      case 'cancelled': return 'bg-red-500';
+      case 'Aprovado': return 'bg-green-500';
+      case 'Enviado': return 'bg-blue-500';
+      case 'Recebido': return 'bg-purple-500';
+      case 'Cancelado': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'pending': return 'Pendente';
-      case 'approved': return 'Aprovado';
-      case 'sent': return 'Enviado';
-      case 'partial': return 'Parcial';
-      case 'received': return 'Recebido';
-      case 'cancelled': return 'Cancelado';
-      default: return status;
-    }
-  };
-
-  if (showLoader) return <div className="text-center py-8">Carregando...</div>;
+  if (loading) return <div className="text-center py-8">Carregando...</div>;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Pedidos de Compra</h3>
-          <p className="text-sm text-muted-foreground">
-            Gerencie pedidos de compra e recebimentos
-          </p>
-        </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Pedido
-        </Button>
+      <div>
+        <h3 className="text-lg font-semibold">Pedidos de Compra</h3>
+        <p className="text-sm text-muted-foreground">
+          Gerados a partir do fornecedor vencedor de uma cotação, na aba Cotações.
+        </p>
       </div>
 
       <Card className="p-6">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Número PO</TableHead>
+              <TableHead>Número</TableHead>
               <TableHead>Fornecedor</TableHead>
               <TableHead>Data Pedido</TableHead>
               <TableHead>Previsão Entrega</TableHead>
@@ -132,26 +140,28 @@ export function PurchaseOrders() {
                 <TableCell>{order.supplier_name}</TableCell>
                 <TableCell>{format(new Date(order.order_date), 'dd/MM/yyyy')}</TableCell>
                 <TableCell>
-                  {order.expected_delivery_date 
+                  {order.expected_delivery_date
                     ? format(new Date(order.expected_delivery_date), 'dd/MM/yyyy')
                     : '-'}
                 </TableCell>
                 <TableCell>R$ {order.total_amount.toFixed(2)}</TableCell>
                 <TableCell>
-                  <Badge className={getStatusColor(order.status)}>
-                    {getStatusLabel(order.status)}
-                  </Badge>
+                  <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
                 </TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button size="sm" variant="ghost">
+                <TableCell className="text-right space-x-1">
+                  <Button size="sm" variant="ghost" onClick={() => setViewingOrderId(order.id)}>
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" variant="ghost">
-                    <FileText className="h-4 w-4" />
-                  </Button>
-                  {order.status === 'sent' && (
-                    <Button size="sm" variant="ghost">
-                      <Check className="h-4 w-4" />
+                  {order.status === 'Pendente' && (
+                    <Button size="sm" variant="outline" disabled={updatingStatus === order.id} onClick={() => advanceStatus(order, 'Aprovado')}>
+                      <Check className="h-4 w-4 mr-1" />
+                      Aprovar
+                    </Button>
+                  )}
+                  {order.status === 'Aprovado' && (
+                    <Button size="sm" variant="outline" disabled={updatingStatus === order.id} onClick={() => advanceStatus(order, 'Enviado')}>
+                      <Send className="h-4 w-4 mr-1" />
+                      Marcar Enviado
                     </Button>
                   )}
                 </TableCell>
@@ -160,13 +170,50 @@ export function PurchaseOrders() {
             {orders.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  Nenhum pedido de compra encontrado
+                  Nenhum pedido de compra encontrado. Selecione um fornecedor vencedor numa cotação pra gerar o primeiro.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </Card>
+
+      <Dialog open={!!viewingOrderId} onOpenChange={(open) => !open && setViewingOrderId(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Itens do Pedido {viewingOrder?.order_number}</DialogTitle>
+          </DialogHeader>
+          {loadingItems ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">Carregando...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Material</TableHead>
+                  <TableHead className="text-right">Qtd.</TableHead>
+                  <TableHead>Unid.</TableHead>
+                  <TableHead className="text-right">Preço Unit.</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {viewingItems.map(item => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.material_name}</TableCell>
+                    <TableCell className="text-right">{item.quantity}</TableCell>
+                    <TableCell>{item.unit}</TableCell>
+                    <TableCell className="text-right">R$ {Number(item.unit_price).toFixed(2)}</TableCell>
+                    <TableCell className="text-right">R$ {Number(item.total_price).toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingOrderId(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { FileText, Check, X, Eye } from 'lucide-react';
+import { toast } from 'sonner';
+import { FileText, Check, X, Eye, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface PurchaseRequest {
@@ -18,6 +20,7 @@ interface PurchaseRequest {
   status: string;
   created_at: string;
   approved_at: string;
+  purchase_order_id: string | null;
   requirement: {
     material: {
       name: string;
@@ -33,47 +36,40 @@ interface PurchaseRequest {
   }>;
 }
 
+const EMPTY_REQUESTS: PurchaseRequest[] = [];
+
+async function fetchPurchaseRequests(): Promise<PurchaseRequest[]> {
+  const { data, error } = await supabase
+    .from('purchase_requests')
+    .select(`
+      *,
+      requirement:purchase_requirements(
+        material:materials(name, code)
+      ),
+      items:purchase_request_items(
+        material:materials(name),
+        quantity,
+        unit
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
 export function PurchaseRequestsList() {
-  const [requests, setRequests] = useState<PurchaseRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { data: requests = EMPTY_REQUESTS, isPending: loading } = useQuery({
+    queryKey: ['purchase-requests'],
+    queryFn: fetchPurchaseRequests,
+  });
+
   const [selectedRequest, setSelectedRequest] = useState<PurchaseRequest | null>(null);
   const [showDetails, setShowDetails] = useState(false);
-  const { toast } = useToast();
 
-  useEffect(() => {
-    loadRequests();
-  }, []);
-
-  const loadRequests = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('purchase_requests')
-        .select(`
-          *,
-          requirement:purchase_requirements(
-            material:materials(name, code)
-          ),
-          items:purchase_request_items(
-            material:materials(name),
-            quantity,
-            unit
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setRequests(data || []);
-    } catch (error) {
-      console.error('Error loading requests:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar requisições de compra.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const refetchRequests = () => queryClient.invalidateQueries({ queryKey: ['purchase-requests'] });
 
   const approveRequest = async (requestId: string) => {
     try {
@@ -87,20 +83,11 @@ export function PurchaseRequestsList() {
         .eq('id', requestId);
 
       if (error) throw error;
-
-      toast({
-        title: "Sucesso",
-        description: "Requisição aprovada com sucesso!",
-      });
-
-      loadRequests();
+      toast.success('Requisição aprovada com sucesso!');
+      refetchRequests();
     } catch (error) {
       console.error('Error approving request:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao aprovar requisição.",
-        variant: "destructive",
-      });
+      toast.error('Erro ao aprovar requisição.');
     }
   };
 
@@ -116,21 +103,16 @@ export function PurchaseRequestsList() {
         .eq('id', requestId);
 
       if (error) throw error;
-
-      toast({
-        title: "Sucesso",
-        description: "Requisição rejeitada.",
-      });
-
-      loadRequests();
+      toast.success('Requisição rejeitada.');
+      refetchRequests();
     } catch (error) {
       console.error('Error rejecting request:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao rejeitar requisição.",
-        variant: "destructive",
-      });
+      toast.error('Erro ao rejeitar requisição.');
     }
+  };
+
+  const createQuoteFromRequest = (requestId: string) => {
+    navigate(`/compras?fromRequest=${requestId}#cotacoes`);
   };
 
   const getStatusColor = (status: string) => {
@@ -276,6 +258,16 @@ export function PurchaseRequestsList() {
                               <X className="h-4 w-4" />
                             </Button>
                           </>
+                        )}
+                        {request.status === 'approved' && !request.purchase_order_id && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => createQuoteFromRequest(request.id)}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Criar Cotação
+                          </Button>
                         )}
                       </div>
                     </TableCell>

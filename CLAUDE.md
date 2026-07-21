@@ -325,6 +325,18 @@ Canal externo "loja online" para o cliente acompanhar/aprovar propostas (Fase 1 
 - **Fase 1 (no ar)**: unidade travada na do pedido (não compara preço em unidades diferentes); `quote_request_suppliers.response_status`/`sent_at`/`responded_at` existem mas não são escritos ainda (pressupõem um fluxo de envio/resposta que só existe na Fase 2).
 - **Fase 2 (futura, não implementada)**: o próprio fornecedor logaria e preencheria a cotação dele — mesmo padrão do Portal do Cliente (`supplier_users` espelhando `client_users`, `current_portal_supplier_id()`, RLS aditiva em `supplier_quotes`/`supplier_quote_items` por `supplier_id`, RPCs que escondem o que não deve ser visto). `quote_request_items` já é, hoje, exatamente a lista que esse fornecedor veria — nenhuma mudança de schema da Fase 1 precisa ser desfeita.
 
+### Cadeia completa: Requisição → Cotação → Pedido de Compra (jul/2026)
+
+**Compras → aba Requisições** (`PurchaseRequestsList.tsx`, antes placeholder "Em breve", agora ligada): lista `purchase_requests` (criadas a partir de uma necessidade em `PurchaseRequirements.tsx`, botão "Criar Requisição"), aprova/rejeita. Requisição **aprovada** ganha botão **"Criar Cotação"** → navega pra `/compras?fromRequest=<id>#cotacoes`, que abre `QuoteRequestForm` já com os itens da requisição importados (convertidos de unidade de uso pra unidade de compra pelo `conversion_factor` do material) e grava `quote_requests.request_id`. Uma cotação referencia no máximo **uma** requisição de origem (FK singular, sem tabela de junção).
+
+Na cotação, depois de marcar um fornecedor **Selecionada**, aparece **"Criar Pedido de Compra"**: copia os `supplier_quote_items` do vencedor pra `purchase_orders`/`purchase_order_items` (avisa, sem bloquear, se o fornecedor não cotou todos os itens pedidos), e fecha a rastreabilidade — `purchase_requests.purchase_order_id` e `purchase_requirements.status='ordered'`. **Compras → aba Pedidos** (`PurchaseOrders.tsx`, antes só leitura): ver itens, status `Pendente → Aprovado → Enviado` (marcação manual, sem envio real — mesma disciplina das Cotações).
+
+**Dois achados de schema corrigidos nesta entrega** (confirmados ao vivo no banco, não presumidos pela migration):
+- `purchase_requests.request_number` nunca teve trigger de geração (`generate_request_number`, formato `REQ-AAAA-NNNN`, adicionado agora) — a 2ª requisição de qualquer material estourava `UNIQUE` em `request_number=''`.
+- `purchase_orders` em produção **não tinha** o schema que a migration de set/2025 dizia criar: `CREATE TABLE IF NOT EXISTS` rodou contra uma tabela homônima *mais antiga* (23/set) e foi um no-op silencioso — `quote_request_id`/`supplier_quote_id`/`payment_terms`/`approved_by`/etc. não existiam de fato. Adicionadas via `ALTER TABLE`; status recriado em PT-BR (`Pendente`/`Aprovado`/`Enviado`/`Recebido`/`Cancelado`). `purchase_order_items` também só tinha RLS de `SELECT` (mesmo bug de `stock_planning_results`, corrigido igual).
+
+**Fora de escopo, não construído**: "receber" o pedido — o caminho certo é linkar a NF de entrada ao pedido (`purchase_invoices.purchase_order_id`, FK já existe) em `PurchaseInvoices.tsx`/`InvoiceEditDialog.tsx`, reaproveitando o posting de estoque que a NF já faz certo, sem duplicar lógica em `purchase_order_items.quantity_received`.
+
 ---
 
 ## 7. Tasks Pendentes (backlog ativo)

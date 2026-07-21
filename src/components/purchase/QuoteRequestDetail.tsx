@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, X, Trophy, Save } from 'lucide-react';
+import { ArrowLeft, Plus, X, Trophy, Save, ShoppingCart, AlertTriangle } from 'lucide-react';
 
 interface QuoteRequestDetailProps {
   quoteRequestId: string;
@@ -23,6 +23,7 @@ interface HeaderData {
   payment_terms: string | null;
   special_conditions: string | null;
   status: string;
+  request_id: string | null;
 }
 
 interface RequestItem {
@@ -63,6 +64,8 @@ export const QuoteRequestDetail = ({ quoteRequestId, onBack }: QuoteRequestDetai
   const [supplierToAdd, setSupplierToAdd] = useState('');
   const [loading, setLoading] = useState(true);
   const [savingSupplier, setSavingSupplier] = useState<string | null>(null);
+  const [existingOrderNumber, setExistingOrderNumber] = useState<string | null>(null);
+  const [creatingOrder, setCreatingOrder] = useState(false);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -169,6 +172,13 @@ export const QuoteRequestDetail = ({ quoteRequestId, onBack }: QuoteRequestDetai
         .order('company_name');
       if (allSuppliersError) throw allSuppliersError;
       setAvailableSuppliers((allSuppliers || []).filter(s => !supplierIds.includes(s.id)));
+
+      const { data: existingOrder } = await supabase
+        .from('purchase_orders')
+        .select('order_number')
+        .eq('quote_request_id', quoteRequestId)
+        .maybeSingle();
+      setExistingOrderNumber(existingOrder?.order_number ?? null);
     } catch (error) {
       console.error('Erro ao carregar cotação:', error);
       toast.error('Erro ao carregar cotação');
@@ -298,6 +308,85 @@ export const QuoteRequestDetail = ({ quoteRequestId, onBack }: QuoteRequestDetai
     } catch (error) {
       console.error('Erro ao selecionar fornecedor:', error);
       toast.error('Erro ao selecionar fornecedor');
+    }
+  };
+
+  const winnerColumn = columns.find(c => c.status === 'Selecionada') || null;
+
+  const missingItemsCount = winnerColumn
+    ? items.filter(item => {
+        const p = parseFloat(prices[item.id]?.[winnerColumn.supplier_id] || '');
+        return isNaN(p) || p <= 0;
+      }).length
+    : 0;
+
+  const handleCreatePurchaseOrder = async () => {
+    if (!winnerColumn?.supplier_quote_id) return;
+    setCreatingOrder(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: sqItems, error: sqItemsError } = await supabase
+        .from('supplier_quote_items')
+        .select('*')
+        .eq('quote_id', winnerColumn.supplier_quote_id);
+      if (sqItemsError) throw sqItemsError;
+      if (!sqItems || sqItems.length === 0) {
+        toast.error('Esse fornecedor não tem preços salvos — nada pra colocar no pedido.');
+        return;
+      }
+
+      const totalAmount = sqItems.reduce((sum, i: any) => sum + Number(i.total_price), 0);
+
+      const { data: order, error: orderError } = await supabase
+        .from('purchase_orders')
+        .insert({
+          order_number: '',
+          supplier_id: winnerColumn.supplier_id,
+          quote_request_id: quoteRequestId,
+          supplier_quote_id: winnerColumn.supplier_quote_id,
+          expected_delivery_date: winnerColumn.valid_until || null,
+          payment_terms: winnerColumn.payment_terms || null,
+          total_amount: totalAmount,
+          status: 'Pendente',
+          created_by: user?.id,
+        })
+        .select()
+        .single();
+      if (orderError) throw orderError;
+
+      const orderItems = sqItems.map((i: any, idx: number) => ({
+        purchase_order_id: order.id,
+        material_id: i.material_id,
+        quantity: i.quantity,
+        unit: i.unit,
+        unit_price: i.unit_price,
+        total_price: i.total_price,
+        position: idx + 1,
+      }));
+      const { error: itemsInsertError } = await supabase.from('purchase_order_items').insert(orderItems);
+      if (itemsInsertError) throw itemsInsertError;
+
+      // Fecha a rastreabilidade até a requisição de origem, se houver.
+      if (header?.request_id) {
+        await supabase.from('purchase_requests').update({ purchase_order_id: order.id }).eq('id', header.request_id);
+        const { data: req } = await supabase
+          .from('purchase_requests')
+          .select('requirement_id')
+          .eq('id', header.request_id)
+          .single();
+        if (req?.requirement_id) {
+          await supabase.from('purchase_requirements').update({ status: 'ordered' }).eq('id', req.requirement_id);
+        }
+      }
+
+      toast.success(`Pedido de Compra ${order.order_number} criado com sucesso!`);
+      setExistingOrderNumber(order.order_number);
+    } catch (error) {
+      console.error('Erro ao criar pedido de compra:', error);
+      toast.error('Erro ao criar pedido de compra');
+    } finally {
+      setCreatingOrder(false);
     }
   };
 
@@ -472,6 +561,39 @@ export const QuoteRequestDetail = ({ quoteRequestId, onBack }: QuoteRequestDetai
           )}
         </CardContent>
       </Card>
+
+      {winnerColumn && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              Pedido de Compra
+            </CardTitle>
+            <CardDescription>
+              {existingOrderNumber
+                ? `Pedido ${existingOrderNumber} já criado com ${winnerColumn.company_name}.`
+                : `Fornecedor vencedor: ${winnerColumn.company_name}.`}
+            </CardDescription>
+          </CardHeader>
+          {!existingOrderNumber && (
+            <CardContent className="space-y-3">
+              {missingItemsCount > 0 && (
+                <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>
+                    {missingItemsCount} {missingItemsCount === 1 ? 'item' : 'itens'} da lista não tem preço salvo com esse fornecedor
+                    e vai ficar de fora do pedido. Confira antes de criar, ou crie assim mesmo se for intencional.
+                  </span>
+                </div>
+              )}
+              <Button onClick={handleCreatePurchaseOrder} disabled={creatingOrder}>
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                {creatingOrder ? 'Criando...' : 'Criar Pedido de Compra'}
+              </Button>
+            </CardContent>
+          )}
+        </Card>
+      )}
     </div>
   );
 };

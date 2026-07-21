@@ -28,15 +28,19 @@ interface QuoteItemRow {
 interface QuoteRequestFormProps {
   onSuccess: (quoteRequestId: string) => void;
   onCancel: () => void;
+  /** Requisição de compra aprovada de onde importar os itens (opcional). */
+  fromRequestId?: string;
 }
 
 // Fase 1: o comprador cria a cotação e alimenta os preços manualmente (telefone/
 // WhatsApp/e-mail, fora do sistema). Esta lista de itens é o "pedido mestre" —
 // na Fase 2 (futura), é exatamente o que um fornecedor logado veria pra preencher
 // a cotação dele. Ver plano em CLAUDE.md / memória do módulo de Cotações.
-export const QuoteRequestForm = ({ onSuccess, onCancel }: QuoteRequestFormProps) => {
+export const QuoteRequestForm = ({ onSuccess, onCancel, fromRequestId }: QuoteRequestFormProps) => {
   const [materials, setMaterials] = useState<MaterialOption[]>([]);
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(!!fromRequestId);
+  const [sourceRequestNumber, setSourceRequestNumber] = useState('');
   const [deadlineDate, setDeadlineDate] = useState('');
   const [deliveryLocation, setDeliveryLocation] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('');
@@ -46,6 +50,10 @@ export const QuoteRequestForm = ({ onSuccess, onCancel }: QuoteRequestFormProps)
   useEffect(() => {
     loadMaterials();
   }, []);
+
+  useEffect(() => {
+    if (fromRequestId) importFromRequest(fromRequestId);
+  }, [fromRequestId]);
 
   const loadMaterials = async () => {
     const { data, error } = await supabase
@@ -59,6 +67,42 @@ export const QuoteRequestForm = ({ onSuccess, onCancel }: QuoteRequestFormProps)
       return;
     }
     setMaterials(data || []);
+  };
+
+  // Requisição guarda quantidade na unidade de uso (ex.: g) — cotação é feita
+  // na unidade de compra (ex.: kg), que é o que o fornecedor de fato cota.
+  // Converte pelo fator de conversão do próprio material.
+  const importFromRequest = async (requestId: string) => {
+    setImporting(true);
+    try {
+      const { data: request, error: requestError } = await supabase
+        .from('purchase_requests')
+        .select('request_number')
+        .eq('id', requestId)
+        .single();
+      if (requestError) throw requestError;
+      setSourceRequestNumber(request.request_number);
+
+      const { data: reqItems, error: itemsError } = await supabase
+        .from('purchase_request_items')
+        .select('material_id, quantity, unit, materials(purchase_unit, usage_unit, conversion_factor)')
+        .eq('request_id', requestId);
+      if (itemsError) throw itemsError;
+
+      setItems((reqItems || []).map((ri: any) => {
+        const mat = ri.materials;
+        const factor = mat?.conversion_factor || 1;
+        const isUsageUnit = mat?.usage_unit && ri.unit === mat.usage_unit;
+        const quantity = isUsageUnit ? Number(ri.quantity) / factor : Number(ri.quantity);
+        const unit = isUsageUnit ? (mat?.purchase_unit || ri.unit) : ri.unit;
+        return { material_id: ri.material_id, quantity, unit, notes: '' };
+      }));
+    } catch (error) {
+      console.error('Erro ao importar itens da requisição:', error);
+      toast.error('Erro ao importar itens da requisição');
+    } finally {
+      setImporting(false);
+    }
   };
 
   const addItem = () => {
@@ -109,6 +153,7 @@ export const QuoteRequestForm = ({ onSuccess, onCancel }: QuoteRequestFormProps)
           payment_terms: paymentTerms || null,
           special_conditions: specialConditions || null,
           created_by: user?.id,
+          request_id: fromRequestId || null,
         })
         .select()
         .single();
@@ -147,10 +192,15 @@ export const QuoteRequestForm = ({ onSuccess, onCancel }: QuoteRequestFormProps)
       <CardHeader>
         <CardTitle>Nova Cotação</CardTitle>
         <CardDescription>
-          Liste os materiais e defina o prazo — os fornecedores a comparar são escolhidos na próxima tela.
+          {fromRequestId
+            ? `Itens importados da requisição ${sourceRequestNumber || '...'} — confira antes de criar.`
+            : 'Liste os materiais e defina o prazo — os fornecedores a comparar são escolhidos na próxima tela.'}
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {importing ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">Importando itens da requisição...</p>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -273,6 +323,7 @@ export const QuoteRequestForm = ({ onSuccess, onCancel }: QuoteRequestFormProps)
             </Button>
           </div>
         </form>
+        )}
       </CardContent>
     </Card>
   );

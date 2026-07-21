@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDelayedLoading } from "@/hooks/useDelayedLoading";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, FileText, TrendingUp, Package2, Clock, MessageSquare } from "lucide-react";
 import { PurchaseInvoices } from "@/components/stock/PurchaseInvoices";
 import { SupplierProducts } from "@/components/stock/SupplierProducts";
@@ -75,12 +74,20 @@ const HASH_TO_TAB: Record<string, string> = {
 const Purchases = () => {
   const queryClient = useQueryClient();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState(() => HASH_TO_TAB[location.hash] || 'requirements');
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromRequest = searchParams.get('fromRequest');
+  const [activeTab, setActiveTab] = useState(() => (fromRequest ? 'quotes' : HASH_TO_TAB[location.hash] || 'requirements'));
 
   useEffect(() => {
     const tab = HASH_TO_TAB[location.hash];
-    if (tab) setActiveTab(tab);
-  }, [location.hash]);
+    if (tab || fromRequest) setActiveTab(fromRequest ? 'quotes' : tab);
+  }, [location.hash, fromRequest]);
+
+  // Consumido pelo QuoteRequestForm ao pré-carregar os itens da requisição —
+  // limpa o parâmetro da URL pra não repuxar o pré-preenchimento ao voltar
+  // pra lista, recarregar a página ou navegar de novo pra #cotacoes.
+  const clearFromRequest = () => navigate('/compras#cotacoes', { replace: true });
 
   const {
     data: purchaseInvoices = EMPTY_INVOICES,
@@ -213,19 +220,17 @@ const Purchases = () => {
             <TrendingUp className="h-4 w-4" />
             Necessidades
           </TabsTrigger>
-          <TabsTrigger value="requests" className="flex items-center gap-2 opacity-60">
+          <TabsTrigger value="requests" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Requisições
-            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 ml-1">Em breve</Badge>
           </TabsTrigger>
           <TabsTrigger value="quotes" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
             Cotações
           </TabsTrigger>
-          <TabsTrigger value="orders" className="flex items-center gap-2 opacity-60">
+          <TabsTrigger value="orders" className="flex items-center gap-2">
             <ShoppingCart className="h-4 w-4" />
             Pedidos
-            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 ml-1">Em breve</Badge>
           </TabsTrigger>
           <TabsTrigger value="invoices" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -243,29 +248,15 @@ const Purchases = () => {
         </TabsContent>
 
         <TabsContent value="requests" className="mt-6">
-          <Card className="p-10 text-center">
-            <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-            <h3 className="font-semibold mb-1">Requisições de Compra</h3>
-            <p className="text-sm text-muted-foreground">
-              Funcionalidade planejada para o fluxo de compras com fabricantes e produtores diretos.<br />
-              Por enquanto, o lançamento vai direto de Necessidades → Notas Fiscais.
-            </p>
-          </Card>
+          <PurchaseRequestsList />
         </TabsContent>
 
         <TabsContent value="quotes" className="mt-6">
-          <QuoteRequestsList />
+          <QuoteRequestsList initialFromRequestId={fromRequest} onConsumeFromRequest={clearFromRequest} />
         </TabsContent>
 
         <TabsContent value="orders" className="mt-6">
-          <Card className="p-10 text-center">
-            <ShoppingCart className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-            <h3 className="font-semibold mb-1">Pedidos de Compra</h3>
-            <p className="text-sm text-muted-foreground">
-              Emissão e acompanhamento de pedidos para fornecedores.<br />
-              Disponível em uma versão futura.
-            </p>
-          </Card>
+          <PurchaseOrders />
         </TabsContent>
 
         <TabsContent value="invoices" className="mt-6">

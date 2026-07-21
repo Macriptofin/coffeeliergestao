@@ -20,8 +20,15 @@ interface QuoteRequestRow {
 
 type View = { mode: 'list' } | { mode: 'create' } | { mode: 'detail'; id: string };
 
-export const QuoteRequestsList = () => {
-  const [view, setView] = useState<View>({ mode: 'list' });
+interface QuoteRequestsListProps {
+  /** Requisição de compra aprovada de onde puxar os itens ao abrir já em modo criação. */
+  initialFromRequestId?: string | null;
+  /** Chamado assim que a requisição de origem é consumida (form aberto ou cancelado). */
+  onConsumeFromRequest?: () => void;
+}
+
+export const QuoteRequestsList = ({ initialFromRequestId, onConsumeFromRequest }: QuoteRequestsListProps) => {
+  const [view, setView] = useState<View>(() => initialFromRequestId ? { mode: 'create' } : { mode: 'list' });
   const [rows, setRows] = useState<QuoteRequestRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -67,8 +74,9 @@ export const QuoteRequestsList = () => {
   if (view.mode === 'create') {
     return (
       <QuoteRequestForm
-        onSuccess={(id) => setView({ mode: 'detail', id })}
-        onCancel={() => setView({ mode: 'list' })}
+        fromRequestId={initialFromRequestId ?? undefined}
+        onSuccess={(id) => { onConsumeFromRequest?.(); setView({ mode: 'detail', id }); }}
+        onCancel={() => { onConsumeFromRequest?.(); setView({ mode: 'list' }); }}
       />
     );
   }

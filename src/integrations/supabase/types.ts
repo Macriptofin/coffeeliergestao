@@ -5110,47 +5110,82 @@ export type Database = {
       }
       purchase_orders: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           created_at: string
+          created_by: string | null
           expected_delivery_date: string | null
           id: string
           notes: string | null
           order_date: string
           order_number: string
+          payment_method: string | null
+          payment_terms: string | null
+          quote_request_id: string | null
           status: string
           supplier_id: string | null
+          supplier_quote_id: string | null
           total_amount: number | null
           updated_at: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
+          created_by?: string | null
           expected_delivery_date?: string | null
           id?: string
           notes?: string | null
           order_date?: string
           order_number: string
+          payment_method?: string | null
+          payment_terms?: string | null
+          quote_request_id?: string | null
           status?: string
           supplier_id?: string | null
+          supplier_quote_id?: string | null
           total_amount?: number | null
           updated_at?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
+          created_by?: string | null
           expected_delivery_date?: string | null
           id?: string
           notes?: string | null
           order_date?: string
           order_number?: string
+          payment_method?: string | null
+          payment_terms?: string | null
+          quote_request_id?: string | null
           status?: string
           supplier_id?: string | null
+          supplier_quote_id?: string | null
           total_amount?: number | null
           updated_at?: string
         }
         Relationships: [
           {
+            foreignKeyName: "purchase_orders_quote_request_id_fkey"
+            columns: ["quote_request_id"]
+            isOneToOne: false
+            referencedRelation: "quote_requests"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "purchase_orders_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_quote_id_fkey"
+            columns: ["supplier_quote_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_quotes"
             referencedColumns: ["id"]
           },
         ]
