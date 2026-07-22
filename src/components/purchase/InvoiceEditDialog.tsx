@@ -84,6 +84,9 @@ interface InvoiceEditDialogProps {
   isEditMode?: boolean;
   itemsLocked?: boolean;
   isAdmin?: boolean;
+  /** Pedido de Compra de origem, quando a NF está sendo lançada a partir de um pedido aprovado. */
+  purchaseOrderId?: string | null;
+  purchaseOrderNumber?: string | null;
 }
 
 export const InvoiceEditDialog = ({
@@ -101,7 +104,9 @@ export const InvoiceEditDialog = ({
   invoiceId,
   isEditMode = false,
   itemsLocked = false,
-  isAdmin = false
+  isAdmin = false,
+  purchaseOrderId = null,
+  purchaseOrderNumber = null
 }: InvoiceEditDialogProps) => {
   const [editedData, setEditedData] = useState<InvoiceData | null>(null);
   const [supplierId, setSupplierId] = useState<string | null>(initialSupplierId || null);
@@ -144,8 +149,12 @@ export const InvoiceEditDialog = ({
       // Restaurar desconto global e tipo (preserva rascunho salvo)
       if (invoiceData.discount_total != null) setDiscountTotal(invoiceData.discount_total);
       if (invoiceData.discount_type) setDiscountType(invoiceData.discount_type);
+
+      // Re-sincronizar fornecedor com o prop — o componente não desmonta entre
+      // aberturas, então o useState inicial não reflete um supplierId novo
+      setSupplierId(initialSupplierId || null);
     }
-  }, [invoiceData, open]);
+  }, [invoiceData, open, initialSupplierId]);
 
   const loadCostCenters = async () => {
     try {
@@ -549,6 +558,7 @@ export const InvoiceEditDialog = ({
           .update({
             invoice_number: editedData.numero_nota,
             supplier_id: supplierId,
+            purchase_order_id: purchaseOrderId,
             invoice_date: new Date(editedData.data).toISOString().split('T')[0],
             total_amount: totalWithFreight,
             discount_total: discountValue,
@@ -617,6 +627,7 @@ export const InvoiceEditDialog = ({
           .insert({
             invoice_number: editedData.numero_nota,
             supplier_id: supplierId,
+            purchase_order_id: purchaseOrderId,
             invoice_date: new Date(editedData.data).toISOString().split('T')[0],
             total_amount: totalWithFreight,
             discount_total: discountValue,
@@ -818,6 +829,7 @@ export const InvoiceEditDialog = ({
       const invoicePayload = {
         invoice_number: editedData.numero_nota || `RASCUNHO-${Date.now()}`,
         supplier_id: supplierId,
+        purchase_order_id: purchaseOrderId,
         invoice_date: editedData.data ? new Date(editedData.data).toISOString().split('T')[0] : todayLocalISO(),
         total_amount: totalWithFreight,
         discount_total: discountValue,
@@ -968,6 +980,15 @@ export const InvoiceEditDialog = ({
           </DialogHeader>
 
           <div className="space-y-6">
+            {purchaseOrderId && (
+              <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
+                <Truck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-blue-700 dark:text-blue-300">
+                  Itens importados do Pedido de Compra <strong>{purchaseOrderNumber || ''}</strong> — confira quantidades e preços antes de lançar.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Cabeçalho da Nota */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">

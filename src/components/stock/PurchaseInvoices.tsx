@@ -48,6 +48,13 @@ interface PurchaseInvoicesProps {
   onRefresh: () => void;
 }
 
+interface OpenPurchaseOrder {
+  id: string;
+  order_number: string;
+  supplier_id: string;
+  supplier_name: string;
+}
+
 export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps) {
   const { isAdminOrManager, isAdmin, loading: roleLoading } = useUserRole();
   const { methodNames: paymentMethodNames } = usePaymentMethods();
@@ -58,6 +65,10 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
   const [editingItemsLocked, setEditingItemsLocked] = useState(false);
+  const [linkedPurchaseOrder, setLinkedPurchaseOrder] = useState<{ id: string; order_number: string } | null>(null);
+  const [poPickerOpen, setPoPickerOpen] = useState(false);
+  const [openPurchaseOrders, setOpenPurchaseOrders] = useState<OpenPurchaseOrder[]>([]);
+  const [loadingPOs, setLoadingPOs] = useState(false);
   const [paymentData, setPaymentData] = useState({
     paymentMethod: 'Dinheiro',
     responsiblePerson: '',
@@ -172,6 +183,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     setEditingInvoiceId(null);
     setEditingSupplierId(null);
     setEditingItemsLocked(false);
+    setLinkedPurchaseOrder(null);
     setIsInvoiceDialogOpen(true);
   };
 
@@ -181,7 +193,97 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     setEditingInvoiceId(null);
     setEditingSupplierId(null);
     setEditingItemsLocked(false);
+    setLinkedPurchaseOrder(null);
     onRefresh();
+  };
+
+  // Pedidos de compra aprovados/enviados que ainda não têm nenhuma NF vinculada
+  const loadOpenPurchaseOrders = async () => {
+    setLoadingPOs(true);
+    try {
+      const { data: linked } = await supabase
+        .from('purchase_invoices')
+        .select('purchase_order_id')
+        .not('purchase_order_id', 'is', null);
+      const linkedIds = (linked || []).map((l: any) => l.purchase_order_id).filter(Boolean);
+
+      let query = supabase
+        .from('purchase_orders')
+        .select('id, order_number, supplier_id, suppliers(company_name)')
+        .in('status', ['Aprovado', 'Enviado'])
+        .order('order_date', { ascending: false });
+
+      if (linkedIds.length > 0) {
+        query = query.not('id', 'in', `(${linkedIds.join(',')})`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      setOpenPurchaseOrders((data || []).map((o: any) => ({
+        id: o.id,
+        order_number: o.order_number,
+        supplier_id: o.supplier_id,
+        supplier_name: o.suppliers?.company_name || 'N/A',
+      })));
+    } catch (error) {
+      console.error('Erro ao carregar pedidos de compra em aberto:', error);
+      toast.error('Erro ao carregar pedidos de compra em aberto');
+    } finally {
+      setLoadingPOs(false);
+    }
+  };
+
+  const openInvoiceFromPurchaseOrder = async (order: OpenPurchaseOrder) => {
+    setPoPickerOpen(false);
+    setLoading(true);
+    try {
+      const { data: items, error } = await supabase
+        .from('purchase_order_items')
+        .select('material_id, quantity, unit, unit_price, materials(name, code, usage_unit, conversion_factor)')
+        .eq('purchase_order_id', order.id)
+        .order('position');
+      if (error) throw error;
+
+      const itens = (items || []).map((it: any) => {
+        const mat = it.materials;
+        const conversionFactor = parseFloat(mat?.conversion_factor?.toString() || '1') || 1;
+        const quantidade = parseFloat(it.quantity?.toString() || '0');
+        const precoUnitario = parseFloat(it.unit_price?.toString() || '0');
+        return {
+          nome: mat?.name || '',
+          quantidade,
+          unidade: it.unit || mat?.usage_unit || 'un',
+          preco_unitario: precoUnitario,
+          preco_total: quantidade * precoUnitario,
+          material_id: it.material_id,
+          material_nome: mat?.name || null,
+          material_codigo: mat?.code || null,
+          status: 'matched' as const,
+          conversion_factor: conversionFactor,
+          usage_unit: mat?.usage_unit,
+          converted_quantity: quantidade * conversionFactor,
+          converted_unit_price: precoUnitario / conversionFactor,
+        };
+      });
+
+      setManualInvoiceData({
+        fornecedor: order.supplier_name,
+        data: todayLocalISO(),
+        numero_nota: '',
+        itens,
+      });
+      setEditingInvoiceId(null);
+      setEditingSupplierId(order.supplier_id);
+      setEditingItemsLocked(false);
+      setLinkedPurchaseOrder({ id: order.id, order_number: order.order_number });
+      setIsInvoiceDialogOpen(true);
+    } catch (error) {
+      console.error('Erro ao importar itens do pedido de compra:', error);
+      toast.error('Erro ao importar itens do pedido de compra');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const startEditInvoice = async (invoiceId: string) => {
@@ -196,6 +298,10 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           suppliers:supplier_id (
             id,
             company_name
+          ),
+          purchase_orders:purchase_order_id (
+            id,
+            order_number
           )
         `)
         .eq('id', invoiceId)
@@ -268,6 +374,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       setEditingInvoiceId(invoiceId);
       setEditingSupplierId(invoice.supplier_id);
       setEditingItemsLocked(invoice.items_locked || false);
+      setLinkedPurchaseOrder(
+        invoice.purchase_orders ? { id: invoice.purchase_orders.id, order_number: invoice.purchase_orders.order_number } : null
+      );
       setIsInvoiceDialogOpen(true);
     } catch (error) {
       console.error('Erro ao carregar nota fiscal:', error);
@@ -488,6 +597,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
           freight_amount,
           freight_cost_center_id,
           notes,
+          purchase_order_id,
           suppliers:supplier_id (
             id,
             company_name
@@ -724,6 +834,18 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         .eq('id', invoiceId);
 
       if (updateError) throw updateError;
+
+      // Fecha a rastreabilidade: NF vinculada a um Pedido de Compra o marca como recebido
+      if (invoice.purchase_order_id) {
+        const { error: poError } = await supabase
+          .from('purchase_orders')
+          .update({ status: 'Recebido' })
+          .eq('id', invoice.purchase_order_id);
+        if (poError) {
+          console.error('Erro ao marcar pedido de compra como recebido:', poError);
+          toast.error('Estoque lançado, mas houve erro ao marcar o pedido de compra como recebido');
+        }
+      }
 
       let successMessage = 'Nota fiscal lançada no estoque com sucesso';
       if (paymentData.createPayable) {
@@ -967,6 +1089,10 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               </CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+              <Button variant="outline" size="sm" onClick={() => { setPoPickerOpen(true); loadOpenPurchaseOrders(); }}>
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Lançar Pedido de Compra
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setIsOCRSheetOpen(true)}>
                 <Upload className="h-4 w-4 mr-2" />
                 Importar via OCR
@@ -1053,6 +1179,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                 setEditingInvoiceId(null);
                 setEditingSupplierId(null);
                 setEditingItemsLocked(false);
+                setLinkedPurchaseOrder(null);
               }
             }}
             invoiceData={manualInvoiceData}
@@ -1066,7 +1193,44 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             isEditMode={!!editingInvoiceId}
             itemsLocked={editingItemsLocked}
             isAdmin={isAdmin()}
+            purchaseOrderId={linkedPurchaseOrder?.id ?? null}
+            purchaseOrderNumber={linkedPurchaseOrder?.order_number ?? null}
           />
+
+          {/* Picker de Pedido de Compra em aberto pra iniciar a NF já preenchida */}
+          <Dialog open={poPickerOpen} onOpenChange={setPoPickerOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Lançar Pedido de Compra</DialogTitle>
+                <DialogDescription>
+                  Selecione o pedido que chegou — fornecedor e itens serão pré-preenchidos na nota.
+                </DialogDescription>
+              </DialogHeader>
+              {loadingPOs ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">Carregando...</p>
+              ) : openPurchaseOrders.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  Nenhum pedido de compra aprovado/enviado sem NF vinculada.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {openPurchaseOrders.map(order => (
+                    <button
+                      key={order.id}
+                      type="button"
+                      onClick={() => openInvoiceFromPurchaseOrder(order)}
+                      className="w-full flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition-colors text-left"
+                    >
+                      <div>
+                        <div className="font-mono text-sm font-medium">{order.order_number}</div>
+                        <div className="text-sm text-muted-foreground">{order.supplier_name}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </CardHeader>
         <CardContent>
           {displayedInvoices.length === 0 ? (
