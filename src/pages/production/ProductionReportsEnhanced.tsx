@@ -27,18 +27,41 @@ const ProductionReports = () => {
   const loadCostData = async () => {
     try {
       const { data, error } = await supabase
-        .from('recipes')
+        .from('recipes_bom')
         .select(`
-          *,
-          recipe_ingredients (
-            quantity,
-            material_id,
-            materials (name, purchase_unit, price_per_purchase_unit)
+          id,
+          yield_quantity,
+          yield_unit,
+          cached_total_cost,
+          materials:finished_material_id (
+            name,
+            category,
+            suggested_price,
+            practiced_price
           )
-        `);
+        `)
+        .eq('is_archived', false);
 
       if (error) throw error;
-      setCostData(data || []);
+
+      const rows = (data || []).map((recipe: any) => {
+        const totalCost = Number(recipe.cached_total_cost) || 0;
+        const yieldAmount = Number(recipe.yield_quantity) || 0;
+        const unitCost = yieldAmount > 0 ? totalCost / yieldAmount : 0;
+        const price = Number(recipe.materials?.practiced_price ?? recipe.materials?.suggested_price) || 0;
+        return {
+          id: recipe.id,
+          name: recipe.materials?.name || '—',
+          category: recipe.materials?.category || '—',
+          yield_amount: yieldAmount,
+          yield_unit: recipe.yield_unit,
+          total_cost: totalCost,
+          suggested_price: price || null,
+          profit_margin: price > 0 ? ((price - unitCost) / price) * 100 : null,
+        };
+      });
+
+      setCostData(rows);
     } catch (error) {
       console.error('Error loading cost data:', error);
       toast.error('Erro ao carregar dados de custos');
