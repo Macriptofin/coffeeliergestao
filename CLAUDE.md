@@ -185,7 +185,7 @@ Reforma jun/2026, **nível PME** (Simples Nacional): relatórios corretos, **sem
 
 | Trigger | Tabela | Função | Comportamento |
 |---|---|---|---|
-| `trg_sync_stock_quantity` | `stock_movements` | `trigger_sync_stock_quantity` | Recalcula `stock_items.current_quantity` em INSERT/UPDATE/**DELETE** (jul/2026: função lia só `NEW`, quebrava em DELETE — corrigida p/ usar `OLD` nesse caso). **EXCEÇÃO**: pula o recálculo para `movement_type = 'Ajuste'` (a função já faz UPDATE direto) |
+| `trg_sync_stock_quantity` | `stock_movements` | `trigger_sync_stock_quantity` | Ajusta `stock_items.current_quantity` **incrementalmente** (± delta do movimento) em INSERT/UPDATE/DELETE (jul/2026, reescrita — ver nota abaixo). **EXCEÇÃO**: pula pra `movement_type = 'Ajuste'` (o RPC já faz UPDATE direto) |
 | `trg_update_weighted_average` | `stock_movements` | `trigger_update_weighted_average_on_purchase` | Recalcula preço médio ponderado em entradas com unit_price. **EXCEÇÃO**: pula entradas de produção (`reference_type` `'Ordem de Produção'`/`'Producao'`/`'production'`) — custo do produzido é o custo-padrão |
 | `trg_update_bom_costs` | `stock_items` | `trigger_update_bom_costs_on_price_change` | Cascateia atualização de custo nas fichas técnicas |
 | `trg_material_pricing_refresh` | `materials` | `trg_material_pricing_refresh` | Recalcula `suggested_price` ao mudar `material_type`/`cost_price`/overrides de margem; só p/ tipos vendáveis |
@@ -249,6 +249,8 @@ Working tree limpo — trabalho commitado e empurrado direto no `main` (deploy a
 - **Headers de segurança HTTP reais** via `vercel.json` (CSP, X-Frame-Options, etc.); removido o "teatro de segurança" client-side (`SecurityHeader.tsx`, bloqueio de F12).
 - **Hardening do banco** (Advisor): ver subseção "Segurança do banco" na Seção 3.
 - Marca visual: favicon/ícones oficiais da Coffeelier substituíram o ícone genérico.
+
+**Bug real de estoque negativo corrigido (jul/2026)** — investigando saldo negativo de "Ovo" (-7791) e "Água Mineral sem Gás" (-6800), achado o root cause: `trigger_sync_stock_quantity` recalculava `current_quantity` **do zero** somando todo o histórico a cada movimento, ignorando que um `'Ajuste'` (`process_inventory_adjustment`) define o saldo direto em `stock_items` — o recálculo do zero **descartava silenciosamente** esse ajuste assim que qualquer compra/consumo posterior acontecia. Não era dado sujo isolado: **13 materiais** tinham esse risco no momento do achado. Reescrito pra incremental (± delta do movimento em cima do saldo já existente, nunca reconstrói do zero) — testado ao vivo (insert/delete) confirmando que não quebra mais. **Ovo corrigido** via `process_inventory_adjustment` (novo saldo 15179, calculado a partir da contagem física de 15/jun/2026 + consumos depois). **Pendente**: os outros 12 materiais (Água Mineral sem Gás, Açúcar Refinado, Bisnaga Artesano, Cacau, Chocolate Nobre, Creme de Leite, Farinha de Trigo, Farinha Integral, Glacê Re, Leite Condensado, Leite Integral, Pote Papel Branco 100ml) têm histórico de ajuste ambíguo demais pra corrigir por inferência (mistura de contagens rascunho/teste e ajustes antigos sem auditoria clara) — precisam de **recontagem física manual** pela tela de Estoque (agora seguro, o bug que apagava o ajuste está corrigido).
 
 > Lembrete de fluxo: commit/push só quando o usuário pedir; trabalhar direto no `main`. Mensagens de commit em PT-BR.
 
