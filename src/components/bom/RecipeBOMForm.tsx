@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MEASUREMENT_UNITS } from '@/lib/units';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -72,189 +73,158 @@ const TYPE_COLORS: Record<string, string> = {
 const fmt = (v?: number | null) =>
   v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+type ProductOption = { id: string; name: string; code: string; usage_unit: string; material_type: string };
+
+const EMPTY_MATERIALS: Material[] = [];
+const EMPTY_PRODUCT_OPTIONS: ProductOption[] = [];
+
+// Materiais que podem ser componentes de uma ficha técnica: insumos, embalagens
+// e produtos intermediários (que já têm sua própria ficha).
+async function fetchBOMComponentMaterials(): Promise<Material[]> {
+  const { data: mats, error } = await supabase
+    .from('materials')
+    .select('id, name, code, usage_unit, material_type')
+    .in('material_type', ['ingredient', 'packaging', 'intermediate_product', 'raw_material'])
+    .eq('is_archived', false)
+    .order('name');
+
+  if (error) throw error;
+
+  // Preços de custo: average_price de stock_items (insumos) e cached_unit_cost de recipes_bom (intermediários)
+  const ids = (mats || []).map(m => m.id);
+  if (ids.length === 0) return [];
+
+  const [{ data: stocks }, { data: boms }] = await Promise.all([
+    supabase
+      .from('stock_items')
+      .select('material_id, average_price')
+      .in('material_id', ids),
+    supabase
+      .from('recipes_bom')
+      .select('finished_material_id, cached_unit_cost')
+      .in('finished_material_id', ids)
+      .eq('is_archived', false)
+  ]);
+
+  const stockMap = Object.fromEntries(
+    (stocks || []).map(s => [s.material_id, s.average_price])
+  );
+  const bomCostMap = Object.fromEntries(
+    (boms || []).map(b => [b.finished_material_id, b.cached_unit_cost])
+  );
+
+  return (mats || []).map(m => ({
+    ...m,
+    average_price: stockMap[m.id] ?? undefined,
+    cached_unit_cost: bomCostMap[m.id] ?? undefined,
+  }));
+}
+
+async function fetchBOMProductOptions(): Promise<ProductOption[]> {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('id, name, code, usage_unit, material_type')
+    .in('material_type', ['intermediate_product', 'finished_product'])
+    .eq('is_archived', false)
+    .order('name');
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchExistingRecipeBOM(materialId: string) {
+  const { data, error } = await supabase
+    .from('recipes_bom')
+    .select('*, recipe_bom_items (*)')
+    .eq('finished_material_id', materialId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+function mapRecipeBOMRow(data: any): RecipeBOM {
+  return {
+    id: data.id,
+    finished_material_id: data.finished_material_id,
+    yield_quantity: data.yield_quantity,
+    yield_unit: data.yield_unit,
+    waste_percent: data.waste_percent,
+    notes: data.notes || '',
+    cached_total_cost: data.cached_total_cost,
+    cached_unit_cost: data.cached_unit_cost,
+    cost_status: data.cost_status,
+    final_weight_manual: data.final_weight_manual ?? null,
+    cached_unit_weight: data.cached_unit_weight,
+    items: (data.recipe_bom_items || []).map((item: any) => ({
+      id: item.id,
+      material_id: item.material_id,
+      quantity: item.quantity,
+      unit: item.unit,
+      waste_percent: item.waste_percent,
+      is_packaging: item.is_packaging,
+      position: item.position
+    }))
+  };
+}
+
+function buildEmptyBOM(materialId: string, usageUnit: string): RecipeBOM {
+  return {
+    finished_material_id: materialId,
+    yield_quantity: 1,
+    yield_unit: usageUnit || 'un',
+    waste_percent: 0,
+    notes: '',
+    items: [],
+    final_weight_manual: null,
+  };
+}
+
 export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
   finishedMaterial,
   onSuccess,
   onCancel
 }) => {
-  const [materials, setMaterials] = useState<Material[]>([]);
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
-  const [productOptions, setProductOptions] = useState<{id: string; name: string; code: string; usage_unit: string; material_type: string}[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
-  const [bomData, setBomData] = useState<RecipeBOM>({
-    finished_material_id: finishedMaterial?.id || '',
-    yield_quantity: 1,
-    yield_unit: finishedMaterial?.usage_unit || 'un',
-    waste_percent: 0,
-    notes: '',
-    items: [],
-    final_weight_manual: null,
+  const [selectedProductId, setSelectedProductId] = useState(finishedMaterial?.id || '');
+  const [bomData, setBomData] = useState<RecipeBOM>(() =>
+    buildEmptyBOM(finishedMaterial?.id || '', finishedMaterial?.usage_unit || 'un')
+  );
+
+  const { data: materials = EMPTY_MATERIALS } = useQuery({
+    queryKey: ['bom-component-materials'],
+    queryFn: fetchBOMComponentMaterials,
   });
 
+  const { data: productOptions = EMPTY_PRODUCT_OPTIONS, isPending: loadingProducts } = useQuery({
+    queryKey: ['bom-product-options'],
+    queryFn: fetchBOMProductOptions,
+    enabled: !finishedMaterial,
+  });
+
+  const { data: existingBOM, isFetching: loadingExistingBOM } = useQuery({
+    queryKey: ['recipe-bom-existing', selectedProductId],
+    queryFn: () => fetchExistingRecipeBOM(selectedProductId),
+    enabled: !!selectedProductId,
+  });
+
+  // Seleção de produto (ou o material pré-selecionado no mount): sincroniza o
+  // formulário local assim que a busca da ficha existente resolve — vazio = produto novo, sem ficha ainda.
   useEffect(() => {
-    loadMaterials();
-    if (finishedMaterial?.id) {
-      loadExistingBOM();
+    if (!selectedProductId || loadingExistingBOM) return;
+    if (existingBOM) {
+      setBomData(mapRecipeBOMRow(existingBOM));
+    } else {
+      const usageUnit = finishedMaterial?.usage_unit
+        || productOptions.find(p => p.id === selectedProductId)?.usage_unit
+        || 'un';
+      setBomData(buildEmptyBOM(selectedProductId, usageUnit));
     }
-    if (!finishedMaterial) {
-      loadProductOptions();
-    }
-  }, [finishedMaterial]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProductId, existingBOM, loadingExistingBOM]);
 
-  const loadProductOptions = async () => {
-    setLoadingProducts(true);
-    try {
-      const { data, error } = await supabase
-        .from('materials')
-        .select('id, name, code, usage_unit, material_type')
-        .in('material_type', ['intermediate_product', 'finished_product'])
-        .eq('is_archived', false)
-        .order('name');
-      if (error) throw error;
-      setProductOptions(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar produtos:', error);
-    } finally {
-      setLoadingProducts(false);
-    }
-  };
-
-  const handleProductSelect = async (productId: string) => {
-    const product = productOptions.find(p => p.id === productId);
-    if (!product) return;
-    // Reset form for the new product
-    setBomData({
-      finished_material_id: productId,
-      yield_quantity: 1,
-      yield_unit: product.usage_unit || 'un',
-      waste_percent: 0,
-      notes: '',
-      items: [],
-    });
-    // Load existing BOM if it exists for this product
-    try {
-      const { data } = await supabase
-        .from('recipes_bom')
-        .select('*, recipe_bom_items (*)')
-        .eq('finished_material_id', productId)
-        .maybeSingle();
-      if (data) {
-        setBomData({
-          id: data.id,
-          finished_material_id: data.finished_material_id,
-          yield_quantity: data.yield_quantity,
-          yield_unit: data.yield_unit,
-          waste_percent: data.waste_percent,
-          notes: data.notes || '',
-          cached_total_cost: data.cached_total_cost,
-          cached_unit_cost: data.cached_unit_cost,
-          cost_status: data.cost_status,
-          final_weight_manual: data.final_weight_manual ?? null,
-          cached_unit_weight: data.cached_unit_weight,
-          items: (data.recipe_bom_items || []).map((item: any) => ({
-            id: item.id,
-            material_id: item.material_id,
-            quantity: item.quantity,
-            unit: item.unit,
-            waste_percent: item.waste_percent,
-            is_packaging: item.is_packaging,
-            position: item.position
-          }))
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao carregar BOM existente:', error);
-    }
-  };
-
-  const loadMaterials = async () => {
-    try {
-      // Buscar materiais que podem ser componentes de uma ficha técnica:
-      // insumos, embalagens e produtos intermediários (que já têm sua própria ficha)
-      const { data: mats, error } = await supabase
-        .from('materials')
-        .select('id, name, code, usage_unit, material_type')
-        .in('material_type', ['ingredient', 'packaging', 'intermediate_product', 'raw_material'])
-        .eq('is_archived', false)
-        .order('name');
-
-      if (error) throw error;
-
-      // Buscar preços de custo: average_price de stock_items (insumos)
-      // e cached_unit_cost de recipes_bom (intermediários)
-      const ids = (mats || []).map(m => m.id);
-      if (ids.length === 0) { setMaterials([]); return; }
-
-      const [{ data: stocks }, { data: boms }] = await Promise.all([
-        supabase
-          .from('stock_items')
-          .select('material_id, average_price')
-          .in('material_id', ids),
-        supabase
-          .from('recipes_bom')
-          .select('finished_material_id, cached_unit_cost')
-          .in('finished_material_id', ids)
-          .eq('is_archived', false)
-      ]);
-
-      const stockMap = Object.fromEntries(
-        (stocks || []).map(s => [s.material_id, s.average_price])
-      );
-      const bomCostMap = Object.fromEntries(
-        (boms || []).map(b => [b.finished_material_id, b.cached_unit_cost])
-      );
-
-      const enriched: Material[] = (mats || []).map(m => ({
-        ...m,
-        average_price: stockMap[m.id] ?? undefined,
-        cached_unit_cost: bomCostMap[m.id] ?? undefined,
-      }));
-
-      setMaterials(enriched);
-    } catch (error) {
-      console.error('Erro ao carregar materiais:', error);
-      toast.error('Erro ao carregar materiais');
-    }
-  };
-
-  const loadExistingBOM = async () => {
-    if (!finishedMaterial?.id) return;
-    try {
-      const { data, error } = await supabase
-        .from('recipes_bom')
-        .select('*, recipe_bom_items (*)')
-        .eq('finished_material_id', finishedMaterial.id)
-        .maybeSingle();
-
-      if (error) throw error;
-      if (data) {
-        setBomData({
-          id: data.id,
-          finished_material_id: data.finished_material_id,
-          yield_quantity: data.yield_quantity,
-          yield_unit: data.yield_unit,
-          waste_percent: data.waste_percent,
-          notes: data.notes || '',
-          cached_total_cost: data.cached_total_cost,
-          cached_unit_cost: data.cached_unit_cost,
-          cost_status: data.cost_status,
-          final_weight_manual: data.final_weight_manual ?? null,
-          cached_unit_weight: data.cached_unit_weight,
-          items: (data.recipe_bom_items || []).map((item: any) => ({
-            id: item.id,
-            material_id: item.material_id,
-            quantity: item.quantity,
-            unit: item.unit,
-            waste_percent: item.waste_percent,
-            is_packaging: item.is_packaging,
-            position: item.position
-          }))
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao carregar BOM existente:', error);
-    }
+  const handleProductSelect = (productId: string) => {
+    setSelectedProductId(productId);
   };
 
   // Custo unitário de um material: average_price (insumos) ou cached_unit_cost (intermediários)
@@ -399,6 +369,9 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
         // Não crítico — o trigger automático recalcula na próxima compra
       }
 
+      queryClient.invalidateQueries({ queryKey: ['recipe-bom-existing', bomData.finished_material_id] });
+      queryClient.invalidateQueries({ queryKey: ['bom-component-materials'] });
+
       toast.success('Ficha técnica salva com sucesso!');
       onSuccess();
     } catch (error: any) {
@@ -425,8 +398,10 @@ export const RecipeBOMForm: React.FC<RecipeBOMFormProps> = ({
           });
         }
       }
-      await loadExistingBOM();
-      await loadMaterials();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['recipe-bom-existing', bomData.finished_material_id] }),
+        queryClient.invalidateQueries({ queryKey: ['bom-component-materials'] }),
+      ]);
       toast.success('CMV recalculado com base nos preços médios atuais');
     } catch {
       toast.error('Erro ao recalcular CMV');

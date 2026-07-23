@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -68,9 +69,56 @@ interface ConsolidatedMaterial {
   };
 }
 
+const PRODUCTION_ORDERS_QUERY_KEY = ['bom-production-orders'];
+const EMPTY_PRODUCTION_ORDERS: ProductionOrder[] = [];
+const EMPTY_STOCK_ITEMS: Array<{ material_id: string; current_quantity: number; average_price: number }> = [];
+
+async function fetchBOMProductionOrders(): Promise<ProductionOrder[]> {
+  const { data, error } = await supabase
+    .from('bom_production_orders')
+    .select(`
+      *,
+      items:bom_production_order_items (
+        *,
+        bom:recipes_bom (
+          id,
+          finished_material:materials!recipes_bom_finished_material_id_fkey (
+            id, name, category, code, material_type
+          )
+        )
+      ),
+      consolidated_materials:bom_production_consolidated_materials (
+        *,
+        material:materials (
+          id, name, code, category, usage_unit
+        )
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchStockItemsSummary() {
+  const { data, error } = await supabase
+    .from('stock_items')
+    .select('material_id, current_quantity, average_price');
+
+  if (error) throw error;
+  return data || [];
+}
+
 export const BOMProductionOrdersList = () => {
-  const [productionOrders, setProductionOrders] = useState<ProductionOrder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: productionOrders = EMPTY_PRODUCTION_ORDERS, isPending: loading } = useQuery({
+    queryKey: PRODUCTION_ORDERS_QUERY_KEY,
+    queryFn: fetchBOMProductionOrders,
+  });
+  const { data: stockItems = EMPTY_STOCK_ITEMS } = useQuery({
+    queryKey: ['stock-items-summary'],
+    queryFn: fetchStockItemsSummary,
+  });
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [processingOrder, setProcessingOrder] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<ProductionOrder | null>(null);
@@ -81,15 +129,14 @@ export const BOMProductionOrdersList = () => {
   const [technicalSheetsData, setTechnicalSheetsData] = useState<any[]>([]);
   const [checklistOrderId, setChecklistOrderId] = useState<string | null>(null);
   const [finalizingOrder, setFinalizingOrder] = useState<ProductionOrder | null>(null);
-  const [stockItems, setStockItems] = useState<Array<{ material_id: string; current_quantity: number; average_price: number }>>([]);
   const [thermalOrder, setThermalOrder] = useState<ProductionOrder | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
   const thermalRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    loadProductionOrders();
-    loadStockItems();
+  const reloadProductionOrders = () =>
+    queryClient.invalidateQueries({ queryKey: PRODUCTION_ORDERS_QUERY_KEY });
 
+  useEffect(() => {
     // Subscribe to realtime changes for automatic refresh
     const channel = supabase
       .channel('bom-production-orders-changes')
@@ -101,7 +148,7 @@ export const BOMProductionOrdersList = () => {
           table: 'bom_production_orders'
         },
         () => {
-          loadProductionOrders();
+          reloadProductionOrders();
         }
       )
       .subscribe();
@@ -109,54 +156,8 @@ export const BOMProductionOrdersList = () => {
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const loadStockItems = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('stock_items')
-        .select('material_id, current_quantity, average_price');
-      
-      if (error) throw error;
-      setStockItems(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar estoque:', error);
-    }
-  };
-
-  const loadProductionOrders = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('bom_production_orders')
-        .select(`
-          *,
-          items:bom_production_order_items (
-            *,
-            bom:recipes_bom (
-              id,
-              finished_material:materials!recipes_bom_finished_material_id_fkey (
-                id, name, category, code, material_type
-              )
-            )
-          ),
-          consolidated_materials:bom_production_consolidated_materials (
-            *,
-            material:materials (
-              id, name, code, category, usage_unit
-            )
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setProductionOrders(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar ordens:', error);
-      toast.error('Erro ao carregar ordens de produção');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     setProcessingOrder(orderId);
@@ -168,7 +169,7 @@ export const BOMProductionOrdersList = () => {
 
       if (error) throw error;
 
-      await loadProductionOrders();
+      await reloadProductionOrders();
       toast.success(`Ordem ${getStatusLabel(newStatus).toLowerCase()}!`);
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
@@ -452,7 +453,7 @@ export const BOMProductionOrdersList = () => {
             Gerencie o fluxo de produção com controle de status e estoque
           </p>
         </div>
-        <Button onClick={loadProductionOrders} variant="outline" disabled={loading}>
+        <Button onClick={reloadProductionOrders} variant="outline" disabled={loading}>
           <RefreshCcw className="h-4 w-4 mr-2" />
           Atualizar
         </Button>
@@ -870,7 +871,7 @@ export const BOMProductionOrdersList = () => {
           onClose={() => setFinalizingOrder(null)}
           onFinalized={() => {
             setFinalizingOrder(null);
-            loadProductionOrders();
+            reloadProductionOrders();
           }}
         />
       )}

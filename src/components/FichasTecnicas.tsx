@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Filter, Package, Edit, Archive, ArchiveRestore, Eye, ArrowLeft, Printer } from 'lucide-react';
 import { TechnicalSheetActions } from '@/components/TechnicalSheetActions';
 import { Switch } from '@/components/ui/switch';
@@ -32,10 +33,109 @@ interface TechnicalSheet {
   updated_at: string;
 }
 
+const TECHNICAL_SHEETS_QUERY_KEY = ['technical-sheets'];
+const EMPTY_SHEETS: TechnicalSheet[] = [];
+
+async function fetchTechnicalSheets(): Promise<TechnicalSheet[]> {
+  const sheets: TechnicalSheet[] = [];
+
+  // Load recipe BOMs (finished and intermediate products)
+  const { data: recipeBOMs, error: recipeError } = await supabase
+    .from('recipes_bom')
+    .select(`
+      id,
+      yield_quantity,
+      yield_unit,
+      is_archived,
+      created_at,
+      updated_at,
+      materials!recipes_bom_finished_material_id_fkey(
+        id,
+        name,
+        code,
+        category,
+        subcategory,
+        material_type,
+        usage_unit
+      ),
+      recipe_bom_items(id)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (recipeError) throw recipeError;
+
+  for (const bom of recipeBOMs || []) {
+    const productType = bom.materials?.material_type === 'finished_product'
+      ? 'finished_product'
+      : 'intermediate_product';
+
+    sheets.push({
+      id: bom.id,
+      name: bom.materials?.name || 'Sem nome',
+      product_type: productType,
+      category: bom.materials?.category || '',
+      subcategory: bom.materials?.subcategory,
+      yield_quantity: bom.yield_quantity,
+      yield_unit: bom.yield_unit,
+      items_count: bom.recipe_bom_items?.length || 0,
+      material_id: bom.materials?.id || '',
+      material_code: bom.materials?.code,
+      usage_unit: bom.materials?.usage_unit,
+      is_archived: bom.is_archived || false,
+      created_at: bom.created_at,
+      updated_at: bom.updated_at
+    });
+  }
+
+  // Load composite BOMs
+  const { data: compositeBOMs, error: compositeError } = await supabase
+    .from('composites_bom')
+    .select(`
+      id,
+      is_archived,
+      created_at,
+      updated_at,
+      materials!composites_bom_composite_material_id_fkey(
+        id,
+        name,
+        code,
+        category,
+        subcategory,
+        material_type,
+        usage_unit
+      ),
+      composite_bom_items(id)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (compositeError) throw compositeError;
+
+  for (const bom of compositeBOMs || []) {
+    sheets.push({
+      id: bom.id,
+      name: bom.materials?.name || 'Sem nome',
+      product_type: 'composite_product',
+      category: bom.materials?.category || '',
+      subcategory: bom.materials?.subcategory,
+      items_count: bom.composite_bom_items?.length || 0,
+      material_id: bom.materials?.id || '',
+      material_code: bom.materials?.code,
+      usage_unit: bom.materials?.usage_unit,
+      is_archived: bom.is_archived || false,
+      created_at: bom.created_at,
+      updated_at: bom.updated_at
+    });
+  }
+
+  return sheets;
+}
+
 const FichasTecnicas = () => {
-  const [technicalSheets, setTechnicalSheets] = useState<TechnicalSheet[]>([]);
-  const [filteredSheets, setFilteredSheets] = useState<TechnicalSheet[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: technicalSheets = EMPTY_SHEETS, isPending: loading } = useQuery({
+    queryKey: TECHNICAL_SHEETS_QUERY_KEY,
+    queryFn: fetchTechnicalSheets,
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -45,118 +145,10 @@ const FichasTecnicas = () => {
   const [showWizard, setShowWizard] = useState(false);
   const [editingSheet, setEditingSheet] = useState<TechnicalSheet | null>(null);
 
-  useEffect(() => {
-    loadTechnicalSheets();
-  }, []);
+  const reloadTechnicalSheets = () =>
+    queryClient.invalidateQueries({ queryKey: TECHNICAL_SHEETS_QUERY_KEY });
 
-  useEffect(() => {
-    applyFilters();
-  }, [technicalSheets, searchTerm, typeFilter, categoryFilter, showArchived]);
-
-  const loadTechnicalSheets = async () => {
-    try {
-      setLoading(true);
-      
-      const sheets: TechnicalSheet[] = [];
-
-      // Load recipe BOMs (finished and intermediate products)
-      const { data: recipeBOMs, error: recipeError } = await supabase
-        .from('recipes_bom')
-        .select(`
-          id,
-          yield_quantity,
-          yield_unit,
-          is_archived,
-          created_at,
-          updated_at,
-          materials!recipes_bom_finished_material_id_fkey(
-            id,
-            name,
-            code,
-            category,
-            subcategory,
-            material_type,
-            usage_unit
-          ),
-          recipe_bom_items(id)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (recipeError) throw recipeError;
-
-      for (const bom of recipeBOMs || []) {
-        const productType = bom.materials?.material_type === 'finished_product' 
-          ? 'finished_product' 
-          : 'intermediate_product';
-
-        sheets.push({
-          id: bom.id,
-          name: bom.materials?.name || 'Sem nome',
-          product_type: productType,
-          category: bom.materials?.category || '',
-          subcategory: bom.materials?.subcategory,
-          yield_quantity: bom.yield_quantity,
-          yield_unit: bom.yield_unit,
-          items_count: bom.recipe_bom_items?.length || 0,
-          material_id: bom.materials?.id || '',
-          material_code: bom.materials?.code,
-          usage_unit: bom.materials?.usage_unit,
-          is_archived: bom.is_archived || false,
-          created_at: bom.created_at,
-          updated_at: bom.updated_at
-        });
-      }
-
-      // Load composite BOMs
-      const { data: compositeBOMs, error: compositeError } = await supabase
-        .from('composites_bom')
-        .select(`
-          id,
-          is_archived,
-          created_at,
-          updated_at,
-          materials!composites_bom_composite_material_id_fkey(
-            id,
-            name,
-            code,
-            category,
-            subcategory,
-            material_type,
-            usage_unit
-          ),
-          composite_bom_items(id)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (compositeError) throw compositeError;
-
-      for (const bom of compositeBOMs || []) {
-        sheets.push({
-          id: bom.id,
-          name: bom.materials?.name || 'Sem nome',
-          product_type: 'composite_product',
-          category: bom.materials?.category || '',
-          subcategory: bom.materials?.subcategory,
-          items_count: bom.composite_bom_items?.length || 0,
-          material_id: bom.materials?.id || '',
-          material_code: bom.materials?.code,
-          usage_unit: bom.materials?.usage_unit,
-          is_archived: bom.is_archived || false,
-          created_at: bom.created_at,
-          updated_at: bom.updated_at
-        });
-      }
-
-      setTechnicalSheets(sheets);
-    } catch (error) {
-      console.error('Erro ao carregar fichas técnicas:', error);
-      toast.error('Erro ao carregar fichas técnicas');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const applyFilters = () => {
+  const filteredSheets = useMemo(() => {
     let filtered = technicalSheets;
 
     // Archive filter (mostrar ou não arquivadas)
@@ -193,8 +185,8 @@ const FichasTecnicas = () => {
       filtered = filtered.filter(sheet => sheet.category === categoryFilter);
     }
 
-    setFilteredSheets(filtered);
-  };
+    return filtered;
+  }, [technicalSheets, searchTerm, typeFilter, categoryFilter, showArchived]);
 
   const handleNewTechnicalSheet = () => {
     setEditingSheet(null);
@@ -233,7 +225,7 @@ const FichasTecnicas = () => {
 
       if (result?.success) {
         toast.success(`Ficha técnica ${shouldArchive ? 'arquivada' : 'desarquivada'} com sucesso!`);
-        loadTechnicalSheets();
+        reloadTechnicalSheets();
       } else {
         throw new Error(result?.error || 'Erro desconhecido');
       }
@@ -246,7 +238,7 @@ const FichasTecnicas = () => {
   const handleWizardSuccess = () => {
     setShowWizard(false);
     setEditingSheet(null);
-    loadTechnicalSheets();
+    reloadTechnicalSheets();
   };
 
   const handleWizardCancel = () => {

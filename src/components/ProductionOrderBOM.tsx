@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { todayLocalISO } from "@/lib/date-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,110 +64,105 @@ interface ConsolidatedIngredient {
   usedInBOMs: { bomName: string; quantity: number }[];
 }
 
+const EMPTY_BOMS: BOM[] = [];
+const EMPTY_STOCK_ITEMS: any[] = [];
+
+async function fetchProductionBOMs(): Promise<BOM[]> {
+  const { data, error } = await supabase
+    .from('recipes_bom')
+    .select(`
+      id,
+      yield_quantity,
+      yield_unit,
+      notes,
+      materials!recipes_bom_finished_material_id_fkey(
+        id,
+        name,
+        code,
+        category,
+        subcategory,
+        material_type,
+        purchase_unit,
+        usage_unit,
+        conversion_factor,
+        price_per_purchase_unit
+      ),
+      recipe_bom_items(
+        id,
+        quantity,
+        unit,
+        position,
+        is_packaging,
+        notes,
+        materials!recipe_bom_items_material_id_fkey(
+          id,
+          name,
+          code,
+          category,
+          subcategory,
+          material_type,
+          purchase_unit,
+          usage_unit,
+          conversion_factor,
+          price_per_purchase_unit
+        )
+      )
+    `)
+    .order('materials(name)');
+
+  if (error) throw error;
+
+  return data.map(bom => ({
+    id: bom.id,
+    yield_quantity: bom.yield_quantity,
+    yield_unit: bom.yield_unit,
+    notes: bom.notes,
+    finished_material: bom.materials as Material,
+    recipe_bom_items: bom.recipe_bom_items
+      .map(item => ({
+        id: item.id,
+        quantity: item.quantity,
+        unit: item.unit,
+        position: item.position,
+        is_packaging: item.is_packaging,
+        notes: item.notes,
+        material: item.materials as Material
+      }))
+      .sort((a, b) => a.position - b.position)
+  }));
+}
+
+async function fetchStockItemsForProduction() {
+  const { data, error } = await supabase
+    .from('stock_items')
+    .select('material_id, current_quantity, average_price');
+
+  if (error) throw error;
+  return data || [];
+}
+
 export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
   const navigate = useNavigate();
-  const [boms, setBoms] = useState<BOM[]>([]);
+  const queryClient = useQueryClient();
+  const { data: boms = EMPTY_BOMS, isPending: loading, isError: bomsError } = useQuery({
+    queryKey: ['production-boms'],
+    queryFn: fetchProductionBOMs,
+  });
+  const { data: stockItems = EMPTY_STOCK_ITEMS } = useQuery({
+    queryKey: ['stock-items-summary'],
+    queryFn: fetchStockItemsForProduction,
+  });
   const [productionItems, setProductionItems] = useState<ProductionItem[]>([]);
   const [selectedBOM, setSelectedBOM] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [multiplier, setMultiplier] = useState('1');
   const [orderName, setOrderName] = useState('');
   const [orderDate, setOrderDate] = useState(todayLocalISO());
-  const [loading, setLoading] = useState(true);
-  const [stockItems, setStockItems] = useState<any[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadBOMs();
-    loadStockItems();
-  }, []);
-
-  const loadBOMs = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('recipes_bom')
-        .select(`
-          id,
-          yield_quantity,
-          yield_unit,
-          notes,
-          materials!recipes_bom_finished_material_id_fkey(
-            id,
-            name,
-            code,
-            category,
-            subcategory,
-            material_type,
-            purchase_unit,
-            usage_unit,
-            conversion_factor,
-            price_per_purchase_unit
-          ),
-          recipe_bom_items(
-            id,
-            quantity,
-            unit,
-            position,
-            is_packaging,
-            notes,
-            materials!recipe_bom_items_material_id_fkey(
-              id,
-              name,
-              code,
-              category,
-              subcategory,
-              material_type,
-              purchase_unit,
-              usage_unit,
-              conversion_factor,
-              price_per_purchase_unit
-            )
-          )
-        `)
-        .order('materials(name)');
-
-      if (error) throw error;
-
-      const formattedBOMs = data.map(bom => ({
-        id: bom.id,
-        yield_quantity: bom.yield_quantity,
-        yield_unit: bom.yield_unit,
-        notes: bom.notes,
-        finished_material: bom.materials as Material,
-        recipe_bom_items: bom.recipe_bom_items
-          .map(item => ({
-            id: item.id,
-            quantity: item.quantity,
-            unit: item.unit,
-            position: item.position,
-            is_packaging: item.is_packaging,
-            notes: item.notes,
-            material: item.materials as Material
-          }))
-          .sort((a, b) => a.position - b.position)
-      }));
-
-      setBoms(formattedBOMs);
-    } catch (error) {
-      console.error('Erro ao carregar BOMs:', error);
-      toast.error('Erro ao carregar fichas técnicas');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadStockItems = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('stock_items')
-        .select('material_id, current_quantity, average_price');
-      
-      if (error) throw error;
-      setStockItems(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar estoque:', error);
-    }
-  };
+    if (bomsError) toast.error('Erro ao carregar fichas técnicas');
+  }, [bomsError]);
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -250,8 +246,10 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
 
       if (consolidatedMaterialsError) throw consolidatedMaterialsError;
 
+      queryClient.invalidateQueries({ queryKey: ['bom-production-orders'] });
+
       toast.success('Ordem de produção criada com sucesso! Validação de estoque disponível no módulo de compras.');
-      
+
       // Limpar formulário
       setProductionItems([]);
       setOrderName('');
