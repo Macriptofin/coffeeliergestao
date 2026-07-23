@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -94,10 +95,12 @@ const fmtDate = (d: string) => {
 
 // ─── Componente ────────────────────────────────────────────────────────────────
 
+const EMPTY_CHECKLIST: ChecklistItem[] = [];
+
 export function EventOperationalCard({ event, onEdit, onRefresh }: Props) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [expanded,  setExpanded]  = useState(false);
-  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newTask,   setNewTask]   = useState('');
   const [loading,   setLoading]   = useState(false);
 
@@ -106,28 +109,31 @@ export function EventOperationalCard({ event, onEdit, onRefresh }: Props) {
   const isToday = days === 0;
   const isPast  = days < 0;
 
-  useEffect(() => {
-    if (expanded) loadChecklist();
-  }, [expanded]);
-
-  const loadChecklist = async () => {
-    const { data } = await supabase
-      .from('event_checklist')
-      .select('*')
-      .eq('event_id', event.id)
-      .order('created_at');
-    setChecklist((data || []) as unknown as ChecklistItem[]);
-  };
+  const checklistQueryKey = ['event-checklist', event.id];
+  const { data: checklist = EMPTY_CHECKLIST } = useQuery({
+    queryKey: checklistQueryKey,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('event_checklist')
+        .select('*')
+        .eq('event_id', event.id)
+        .order('created_at');
+      if (error) throw error;
+      return (data || []) as unknown as ChecklistItem[];
+    },
+    enabled: expanded,
+  });
 
   const toggleItem = async (item: ChecklistItem) => {
     await supabase.from('event_checklist').update({ is_completed: !item.is_completed }).eq('id', item.id);
-    setChecklist(prev => prev.map(c => c.id === item.id ? { ...c, is_completed: !c.is_completed } : c));
+    queryClient.invalidateQueries({ queryKey: checklistQueryKey });
   };
 
   const addItem = async () => {
     if (!newTask.trim()) return;
-    const { data } = await (supabase as any).from('event_checklist').insert({ event_id: event.id, task: newTask.trim(), is_completed: false }).select().single();
-    if (data) { setChecklist(prev => [...prev, data as ChecklistItem]); setNewTask(''); }
+    await (supabase as any).from('event_checklist').insert({ event_id: event.id, task: newTask.trim(), is_completed: false });
+    setNewTask('');
+    queryClient.invalidateQueries({ queryKey: checklistQueryKey });
   };
 
   const updateStatus = async (newStatus: string) => {

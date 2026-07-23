@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Calendar as CalendarIcon, Plus, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Calendar } from '@/components/ui/calendar';
@@ -35,32 +36,26 @@ interface EventCalendarProps {
   onEventCreate: (date?: Date) => void;
 }
 
+const EMPTY_SESSIONS: EventSession[] = [];
+
 export function EventCalendar({ events, onEventSelect, onEventCreate }: EventCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [allSessions, setAllSessions] = useState<EventSession[]>([]);
 
-  // Carregar todas as sessões
-  useEffect(() => {
-    const loadSessions = async () => {
-      const eventIds = events.map(e => e.id);
-      if (eventIds.length === 0) {
-        setAllSessions([]);
-        return;
-      }
+  const eventIds = events.map(e => e.id);
 
-      const { data } = await supabase
+  const { data: allSessions = EMPTY_SESSIONS } = useQuery({
+    queryKey: ['event-sessions', eventIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('event_sessions')
         .select('*')
         .in('event_id', eventIds);
-
-      if (data) {
-        setAllSessions(data);
-      }
-    };
-
-    loadSessions();
-  }, [events]);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: eventIds.length > 0,
+  });
 
   const getStatusColor = (status: string) => {
     const colors = {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { MEASUREMENT_UNITS } from '@/lib/units';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -36,8 +37,19 @@ interface QuoteRequestFormProps {
 // WhatsApp/e-mail, fora do sistema). Esta lista de itens é o "pedido mestre" —
 // na Fase 2 (futura), é exatamente o que um fornecedor logado veria pra preencher
 // a cotação dele. Ver plano em CLAUDE.md / memória do módulo de Cotações.
+const EMPTY_MATERIALS: MaterialOption[] = [];
+
+async function fetchPurchasableMaterials(): Promise<MaterialOption[]> {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('id, name, code, purchase_unit')
+    .eq('is_archived', false)
+    .order('name');
+  if (error) throw error;
+  return data || [];
+}
+
 export const QuoteRequestForm = ({ onSuccess, onCancel, fromRequestId }: QuoteRequestFormProps) => {
-  const [materials, setMaterials] = useState<MaterialOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(!!fromRequestId);
   const [sourceRequestNumber, setSourceRequestNumber] = useState('');
@@ -47,27 +59,18 @@ export const QuoteRequestForm = ({ onSuccess, onCancel, fromRequestId }: QuoteRe
   const [specialConditions, setSpecialConditions] = useState('');
   const [items, setItems] = useState<QuoteItemRow[]>([]);
 
+  const { data: materials = EMPTY_MATERIALS, isError: materialsError } = useQuery({
+    queryKey: ['purchasable-materials'],
+    queryFn: fetchPurchasableMaterials,
+  });
+
   useEffect(() => {
-    loadMaterials();
-  }, []);
+    if (materialsError) toast.error('Erro ao carregar materiais');
+  }, [materialsError]);
 
   useEffect(() => {
     if (fromRequestId) importFromRequest(fromRequestId);
   }, [fromRequestId]);
-
-  const loadMaterials = async () => {
-    const { data, error } = await supabase
-      .from('materials')
-      .select('id, name, code, purchase_unit')
-      .eq('is_archived', false)
-      .order('name');
-    if (error) {
-      console.error('Erro ao carregar materiais:', error);
-      toast.error('Erro ao carregar materiais');
-      return;
-    }
-    setMaterials(data || []);
-  };
 
   // Requisição guarda quantidade na unidade de uso (ex.: g) — cotação é feita
   // na unidade de compra (ex.: kg), que é o que o fornecedor de fato cota.

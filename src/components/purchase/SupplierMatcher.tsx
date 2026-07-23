@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -24,103 +25,98 @@ interface SupplierMatcherProps {
   onCreateNew: () => void;
 }
 
+const EMPTY_SUPPLIERS: Supplier[] = [];
+
+async function fetchActiveSuppliers(): Promise<Supplier[]> {
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('id, company_name, cnpj_cpf')
+    .eq('status', 'Ativo')
+    .order('company_name');
+
+  if (error) throw error;
+  return data || [];
+}
+
+function levenshteinDistance(str1: string, str2: string): number {
+  const matrix: number[][] = [];
+  for (let i = 0; i <= str2.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= str1.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[str2.length][str1.length];
+}
+
+function calculateSimilarity(str1: string, str2: string): number {
+  const longer = str1.length > str2.length ? str1 : str2;
+  const shorter = str1.length > str2.length ? str2 : str1;
+  if (longer.length === 0) return 1.0;
+  const editDistance = levenshteinDistance(longer, shorter);
+  return (longer.length - editDistance) / longer.length;
+}
+
+function generateSuggestions(text: string, suppliers: Supplier[]): SupplierSuggestion[] {
+  if (!text) return [];
+
+  const suggestions: SupplierSuggestion[] = [];
+  const textLower = text.toLowerCase();
+
+  // Buscar por CNPJ exato
+  const cnpjMatch = text.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/);
+  if (cnpjMatch) {
+    const exactMatch = suppliers.find(s => s.cnpj_cpf === cnpjMatch[0]);
+    if (exactMatch) {
+      suggestions.push({ ...exactMatch, confidence: 1.0, method: 'exact' });
+    }
+  }
+
+  // Buscar por nome similar
+  suppliers.forEach(supplier => {
+    const nameLower = supplier.company_name.toLowerCase();
+    if (nameLower.includes(textLower) || textLower.includes(nameLower)) {
+      const confidence = calculateSimilarity(nameLower, textLower);
+      if (confidence > 0.3 && !suggestions.find(s => s.id === supplier.id)) {
+        suggestions.push({ ...supplier, confidence, method: 'fuzzy' });
+      }
+    }
+  });
+
+  return suggestions
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 5);
+}
+
 export const SupplierMatcher = ({
   supplierText,
   selectedSupplierId,
   onSupplierSelect,
   onCreateNew
 }: SupplierMatcherProps) => {
-  const [suggestions, setSuggestions] = useState<SupplierSuggestion[]>([]);
-  const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
   const [supplierSearch, setSupplierSearch] = useState('');
 
   const isManualMode = !supplierText;
 
-  useEffect(() => {
-    loadSuppliers();
-  }, [supplierText]);
+  const { data: allSuppliers = EMPTY_SUPPLIERS, isPending: loading } = useQuery({
+    queryKey: ['active-suppliers'],
+    queryFn: fetchActiveSuppliers,
+    staleTime: 5 * 60_000, // lista de fornecedores muda pouco
+  });
 
-  const loadSuppliers = async () => {
-    setLoading(true);
-    try {
-      const { data: all } = await supabase
-        .from('suppliers')
-        .select('id, company_name, cnpj_cpf')
-        .eq('status', 'Ativo')
-        .order('company_name');
-
-      setAllSuppliers(all || []);
-
-      if (!isManualMode) {
-        const suggs = generateSuggestions(supplierText, all || []);
-        setSuggestions(suggs);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar fornecedores:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const generateSuggestions = (text: string, suppliers: Supplier[]): SupplierSuggestion[] => {
-    if (!text) return [];
-
-    const suggestions: SupplierSuggestion[] = [];
-    const textLower = text.toLowerCase();
-
-    // Buscar por CNPJ exato
-    const cnpjMatch = text.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/);
-    if (cnpjMatch) {
-      const exactMatch = suppliers.find(s => s.cnpj_cpf === cnpjMatch[0]);
-      if (exactMatch) {
-        suggestions.push({ ...exactMatch, confidence: 1.0, method: 'exact' });
-      }
-    }
-
-    // Buscar por nome similar
-    suppliers.forEach(supplier => {
-      const nameLower = supplier.company_name.toLowerCase();
-      if (nameLower.includes(textLower) || textLower.includes(nameLower)) {
-        const confidence = calculateSimilarity(nameLower, textLower);
-        if (confidence > 0.3 && !suggestions.find(s => s.id === supplier.id)) {
-          suggestions.push({ ...supplier, confidence, method: 'fuzzy' });
-        }
-      }
-    });
-
-    return suggestions
-      .sort((a, b) => b.confidence - a.confidence)
-      .slice(0, 5);
-  };
-
-  const calculateSimilarity = (str1: string, str2: string): number => {
-    const longer = str1.length > str2.length ? str1 : str2;
-    const shorter = str1.length > str2.length ? str2 : str1;
-    if (longer.length === 0) return 1.0;
-    const editDistance = levenshteinDistance(longer, shorter);
-    return (longer.length - editDistance) / longer.length;
-  };
-
-  const levenshteinDistance = (str1: string, str2: string): number => {
-    const matrix: number[][] = [];
-    for (let i = 0; i <= str2.length; i++) matrix[i] = [i];
-    for (let j = 0; j <= str1.length; j++) matrix[0][j] = j;
-    for (let i = 1; i <= str2.length; i++) {
-      for (let j = 1; j <= str1.length; j++) {
-        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
-          );
-        }
-      }
-    }
-    return matrix[str2.length][str1.length];
-  };
+  const suggestions = useMemo(
+    () => (isManualMode ? [] : generateSuggestions(supplierText, allSuppliers)),
+    [isManualMode, supplierText, allSuppliers]
+  );
 
   const handleSelect = (value: string) => {
     if (value === '__new__') {

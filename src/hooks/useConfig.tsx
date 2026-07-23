@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -47,42 +47,42 @@ export interface TaxonomyTerm {
   children?: TaxonomyTerm[];
 }
 
+interface ConfigData {
+  namespaces: ConfigNamespace[];
+  options: ConfigOption[];
+  values: ConfigValue[];
+}
+
+const EMPTY_CONFIG: ConfigData = { namespaces: [], options: [], values: [] };
+const CONFIG_QUERY_KEY = ['config-data'] as const;
+
+async function fetchConfigData(): Promise<ConfigData> {
+  const [namespacesRes, optionsRes, valuesRes] = await Promise.all([
+    supabase.from('config_namespaces').select('*').order('key'),
+    supabase.from('config_options').select('*').order('key'),
+    supabase.from('config_values').select('*')
+  ]);
+
+  if (namespacesRes.error) throw namespacesRes.error;
+  if (optionsRes.error) throw optionsRes.error;
+  if (valuesRes.error) throw valuesRes.error;
+
+  return {
+    namespaces: namespacesRes.data || [],
+    options: optionsRes.data || [],
+    values: valuesRes.data || [],
+  };
+}
+
 export function useConfig() {
-  const [namespaces, setNamespaces] = useState<ConfigNamespace[]>([]);
-  const [options, setOptions] = useState<ConfigOption[]>([]);
-  const [values, setValues] = useState<ConfigValue[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fetch all configuration data
-  const fetchConfig = async () => {
-    try {
-      setLoading(true);
-      
-      const [namespacesRes, optionsRes, valuesRes] = await Promise.all([
-        supabase.from('config_namespaces').select('*').order('key'),
-        supabase.from('config_options').select('*').order('key'),
-        supabase.from('config_values').select('*')
-      ]);
-
-      if (namespacesRes.error) throw namespacesRes.error;
-      if (optionsRes.error) throw optionsRes.error;
-      if (valuesRes.error) throw valuesRes.error;
-
-      setNamespaces(namespacesRes.data || []);
-      setOptions(optionsRes.data || []);
-      setValues(valuesRes.data || []);
-    } catch (error) {
-      console.error('Error fetching config:', error);
-      toast({
-        title: "Erro ao carregar configurações",
-        description: "Não foi possível carregar as configurações do sistema.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data = EMPTY_CONFIG, isPending: loading } = useQuery({
+    queryKey: CONFIG_QUERY_KEY,
+    queryFn: fetchConfigData,
+  });
+  const { namespaces, options, values } = data;
 
   // Get config value with fallback to default
   const getConfigValue = (namespaceKey: string, optionKey: string) => {
@@ -115,24 +115,24 @@ export function useConfig() {
 
       if (error) throw error;
 
-      // Update local state
-      setValues(prev => {
-        const existing = prev.find(v => v.namespace_id === namespace.id && v.key === optionKey);
-        if (existing) {
-          return prev.map(v => 
-            v.namespace_id === namespace.id && v.key === optionKey 
-              ? { ...v, value_jsonb: value, updated_at: new Date().toISOString() }
-              : v
-          );
-        } else {
-          return [...prev, {
-            id: crypto.randomUUID(),
-            namespace_id: namespace.id,
-            key: optionKey,
-            value_jsonb: value,
-            updated_at: new Date().toISOString(),
-          }];
-        }
+      // Atualiza o cache local sem refetch — importante pra operações em lote (silent)
+      queryClient.setQueryData(CONFIG_QUERY_KEY, (old: ConfigData | undefined) => {
+        if (!old) return old;
+        const existing = old.values.find(v => v.namespace_id === namespace.id && v.key === optionKey);
+        const newValues = existing
+          ? old.values.map(v =>
+              v.namespace_id === namespace.id && v.key === optionKey
+                ? { ...v, value_jsonb: value, updated_at: new Date().toISOString() }
+                : v
+            )
+          : [...old.values, {
+              id: crypto.randomUUID(),
+              namespace_id: namespace.id,
+              key: optionKey,
+              value_jsonb: value,
+              updated_at: new Date().toISOString(),
+            }];
+        return { ...old, values: newValues };
       });
 
       if (!silent) {
@@ -163,61 +163,57 @@ export function useConfig() {
     return options.filter(o => o.namespace_id === namespace.id);
   };
 
-  useEffect(() => {
-    fetchConfig();
-  }, []);
-
   return {
     namespaces,
     options,
     values,
     loading,
-    fetchConfig,
+    fetchConfig: () => queryClient.invalidateQueries({ queryKey: CONFIG_QUERY_KEY }),
     getConfigValue,
     setConfigValue,
     getOptionsByNamespace,
   };
 }
 
+interface TaxonomyData {
+  definitions: TaxonomyDefinition[];
+  terms: TaxonomyTerm[];
+}
+
+const EMPTY_TAXONOMY: TaxonomyData = { definitions: [], terms: [] };
+const TAXONOMY_QUERY_KEY = ['taxonomy-data'] as const;
+
+async function fetchTaxonomyData(): Promise<TaxonomyData> {
+  const [defsRes, termsRes] = await Promise.all([
+    supabase.from('taxonomy_definitions').select('*').order('key'),
+    supabase.from('taxonomy_terms').select('*').order('sort_order')
+  ]);
+
+  if (defsRes.error) throw defsRes.error;
+  if (termsRes.error) throw termsRes.error;
+
+  // Build hierarchical structure
+  const allTerms = termsRes.data || [];
+  const termsWithChildren = allTerms.map(term => ({
+    ...term,
+    children: allTerms.filter(child => child.parent_id === term.id)
+  }));
+
+  return {
+    definitions: defsRes.data || [],
+    terms: termsWithChildren,
+  };
+}
+
 export function useTaxonomy() {
-  const [definitions, setDefinitions] = useState<TaxonomyDefinition[]>([]);
-  const [terms, setTerms] = useState<TaxonomyTerm[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const fetchTaxonomies = async () => {
-    try {
-      setLoading(true);
-      
-      const [defsRes, termsRes] = await Promise.all([
-        supabase.from('taxonomy_definitions').select('*').order('key'),
-        supabase.from('taxonomy_terms').select('*').order('sort_order')
-      ]);
-
-      if (defsRes.error) throw defsRes.error;
-      if (termsRes.error) throw termsRes.error;
-
-      setDefinitions(defsRes.data || []);
-      
-      // Build hierarchical structure
-      const allTerms = termsRes.data || [];
-      const termsWithChildren = allTerms.map(term => ({
-        ...term,
-        children: allTerms.filter(child => child.parent_id === term.id)
-      }));
-      
-      setTerms(termsWithChildren);
-    } catch (error) {
-      console.error('Error fetching taxonomies:', error);
-      toast({
-        title: "Erro ao carregar taxonomias",
-        description: "Não foi possível carregar as taxonomias.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data = EMPTY_TAXONOMY, isPending: loading } = useQuery({
+    queryKey: TAXONOMY_QUERY_KEY,
+    queryFn: fetchTaxonomyData,
+  });
+  const { definitions, terms } = data;
 
   const getTermsByTaxonomy = (taxonomyKey: string) => {
     const taxonomy = definitions.find(d => d.key === taxonomyKey);
@@ -242,8 +238,10 @@ export function useTaxonomy() {
 
       if (error) throw error;
 
-      setTerms(prev => [...prev, { ...data, children: [] }]);
-      
+      queryClient.setQueryData(TAXONOMY_QUERY_KEY, (old: TaxonomyData | undefined) =>
+        old ? { ...old, terms: [...old.terms, { ...data, children: [] }] } : old
+      );
+
       toast({
         title: "Termo criado",
         description: "O termo foi criado com sucesso.",
@@ -270,9 +268,9 @@ export function useTaxonomy() {
 
       if (error) throw error;
 
-      setTerms(prev => prev.map(t => 
-        t.id === termId ? { ...t, ...updates } : t
-      ));
+      queryClient.setQueryData(TAXONOMY_QUERY_KEY, (old: TaxonomyData | undefined) =>
+        old ? { ...old, terms: old.terms.map(t => t.id === termId ? { ...t, ...updates } : t) } : old
+      );
 
       toast({
         title: "Termo atualizado",
@@ -298,7 +296,9 @@ export function useTaxonomy() {
 
       if (error) throw error;
 
-      setTerms(prev => prev.filter(t => t.id !== termId));
+      queryClient.setQueryData(TAXONOMY_QUERY_KEY, (old: TaxonomyData | undefined) =>
+        old ? { ...old, terms: old.terms.filter(t => t.id !== termId) } : old
+      );
 
       toast({
         title: "Termo excluído",
@@ -315,15 +315,11 @@ export function useTaxonomy() {
     }
   };
 
-  useEffect(() => {
-    fetchTaxonomies();
-  }, []);
-
   return {
     definitions,
     terms,
     loading,
-    fetchTaxonomies,
+    fetchTaxonomies: () => queryClient.invalidateQueries({ queryKey: TAXONOMY_QUERY_KEY }),
     getTermsByTaxonomy,
     createTerm,
     updateTerm,

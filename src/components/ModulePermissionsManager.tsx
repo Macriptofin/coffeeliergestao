@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -63,66 +64,76 @@ const EMPTY_MATRIX = (): PermMatrix => {
   return m;
 };
 
+const EMPTY_USERS: UserProfile[] = [];
+const EMPTY_TEMPLATES: RoleTemplate[] = [];
+
+async function fetchUsersAndTemplates(): Promise<{ users: UserProfile[]; templates: RoleTemplate[] }> {
+  const [profilesRes, templatesRes, rolesRes] = await Promise.all([
+    supabase.from('user_profiles').select('id, user_id, full_name, display_name, email'),
+    supabase.from('role_templates').select('role_name, label, description, permissions'),
+    supabase.from('user_roles').select('user_id, role'),
+  ]);
+
+  const roleMap: Record<string, string> = {};
+  rolesRes.data?.forEach((r: any) => { roleMap[r.user_id] = r.role; });
+
+  const users: UserProfile[] = (profilesRes.data || []).map((p: any) => ({
+    id:        p.user_id || p.id,
+    email:     p.email || '—',
+    full_name: p.full_name || p.display_name,
+    role:      roleMap[p.user_id || p.id],
+  }));
+
+  const templates: RoleTemplate[] = (templatesRes.data || []).map((t: any) => ({
+    ...t,
+    permissions: typeof t.permissions === 'string' ? JSON.parse(t.permissions) : t.permissions,
+  }));
+
+  return { users, templates };
+}
+
+async function fetchUserPermissionsMatrix(uid: string): Promise<PermMatrix> {
+  const { data, error } = await supabase
+    .from('module_permissions')
+    .select('module, action')
+    .eq('user_id', uid);
+  if (error) throw error;
+
+  const m = EMPTY_MATRIX();
+  data?.forEach((p: any) => {
+    if (m[p.module]) m[p.module][p.action] = true;
+  });
+  return m;
+}
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export function ModulePermissionsManager() {
-  const [users,      setUsers]      = useState<UserProfile[]>([]);
-  const [templates,  setTemplates]  = useState<RoleTemplate[]>([]);
+  const queryClient = useQueryClient();
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [matrix,     setMatrix]     = useState<PermMatrix>(EMPTY_MATRIX());
-  const [loading,    setLoading]    = useState(true);
   const [saving,     setSaving]     = useState(false);
   const [expanded,   setExpanded]   = useState<Record<string, boolean>>({});
 
-  useEffect(() => { loadData(); }, []);
+  const { data: baseData, isPending: loading } = useQuery({
+    queryKey: ['users-and-role-templates'],
+    queryFn: fetchUsersAndTemplates,
+  });
+  const users = baseData?.users ?? EMPTY_USERS;
+  const templates = baseData?.templates ?? EMPTY_TEMPLATES;
+
+  const permissionsQueryKey = ['module-permissions', selectedUser];
+  const { data: fetchedMatrix } = useQuery({
+    queryKey: permissionsQueryKey,
+    queryFn: () => fetchUserPermissionsMatrix(selectedUser),
+    enabled: !!selectedUser,
+  });
+
+  // matrix precisa ser editável localmente (checkboxes antes de salvar) —
+  // ressincroniza a partir do servidor sempre que o usuário selecionado muda.
   useEffect(() => {
-    if (selectedUser) loadUserPermissions(selectedUser);
-    else setMatrix(EMPTY_MATRIX());
-  }, [selectedUser]);
-
-  const loadData = async () => {
-    try {
-      const [profilesRes, templatesRes] = await Promise.all([
-        supabase.from('user_profiles').select('id, user_id, full_name, display_name, email'),
-        supabase.from('role_templates').select('role_name, label, description, permissions'),
-      ]);
-
-      const rolesRes = await supabase.from('user_roles').select('user_id, role');
-      const roleMap: Record<string, string> = {};
-      rolesRes.data?.forEach((r: any) => { roleMap[r.user_id] = r.role; });
-
-      const profiles: UserProfile[] = (profilesRes.data || []).map((p: any) => ({
-        id:        p.user_id || p.id,
-        email:     p.email || '—',
-        full_name: p.full_name || p.display_name,
-        role:      roleMap[p.user_id || p.id],
-      }));
-
-      setUsers(profiles);
-      setTemplates((templatesRes.data || []).map((t: any) => ({
-        ...t,
-        permissions: typeof t.permissions === 'string' ? JSON.parse(t.permissions) : t.permissions,
-      })));
-    } catch (e) {
-      console.error(e);
-      toast.error('Erro ao carregar dados');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadUserPermissions = async (uid: string) => {
-    const { data } = await supabase
-      .from('module_permissions')
-      .select('module, action')
-      .eq('user_id', uid);
-
-    const m = EMPTY_MATRIX();
-    data?.forEach((p: any) => {
-      if (m[p.module]) m[p.module][p.action] = true;
-    });
-    setMatrix(m);
-  };
+    setMatrix(selectedUser && fetchedMatrix ? fetchedMatrix : EMPTY_MATRIX());
+  }, [selectedUser, fetchedMatrix]);
 
   const applyTemplate = (roleName: string) => {
     const tpl = templates.find(t => t.role_name === roleName);
@@ -163,6 +174,7 @@ export function ModulePermissionsManager() {
         if (error) throw error;
       }
 
+      queryClient.invalidateQueries({ queryKey: permissionsQueryKey });
       toast.success(`Permissões salvas — ${rows.length} permissões ativas`);
     } catch (e: any) {
       toast.error('Erro ao salvar: ' + e.message);

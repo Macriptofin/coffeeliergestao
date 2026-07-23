@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,38 +123,45 @@ const PERMISSION_CATEGORIES = {
   },
 };
 
+const EMPTY_PERMISSIONS: Permission[] = [];
+
+async function fetchUserPermissions(userId: string): Promise<Permission[]> {
+  const { data, error } = await supabase
+    .from('user_permissions')
+    .select('*')
+    .eq('user_id', userId);
+
+  if (error) throw error;
+
+  return data?.map(p => ({
+    category: p.category,
+    subcategory: p.subcategory,
+    id: p.id,
+    granted: true
+  })) || [];
+}
+
 export function PermissionsSelector({ userId, onPermissionsChange }: PermissionsSelectorProps) {
-  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const queryClient = useQueryClient();
+  const permissionsQueryKey = ['user-permissions', userId];
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
 
+  const { data: permissions = EMPTY_PERMISSIONS, isError } = useQuery({
+    queryKey: permissionsQueryKey,
+    queryFn: () => fetchUserPermissions(userId),
+  });
+
   useEffect(() => {
-    loadUserPermissions();
-  }, [userId]);
+    if (isError) toast.error('Erro ao carregar permissões do usuário');
+  }, [isError]);
 
-  const loadUserPermissions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_permissions')
-        .select('*')
-        .eq('user_id', userId);
+  useEffect(() => {
+    onPermissionsChange?.(permissions);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permissions]);
 
-      if (error) throw error;
-
-      const userPermissions: Permission[] = data?.map(p => ({
-        category: p.category,
-        subcategory: p.subcategory,
-        id: p.id,
-        granted: true
-      })) || [];
-
-      setPermissions(userPermissions);
-      onPermissionsChange?.(userPermissions);
-    } catch (error) {
-      console.error('Erro ao carregar permissões:', error);
-      toast.error('Erro ao carregar permissões do usuário');
-    }
-  };
+  const reload = () => queryClient.invalidateQueries({ queryKey: permissionsQueryKey });
 
   const hasPermission = (category: string, subcategory: string) => {
     return permissions.some(p => p.category === category && p.subcategory === subcategory && p.granted);
@@ -207,7 +215,7 @@ export function PermissionsSelector({ userId, onPermissionsChange }: Permissions
         if (error) throw error;
       }
 
-      await loadUserPermissions();
+      await reload();
       toast.success(`Permissões da categoria ${categoryConfig.name} ${grant ? 'concedidas' : 'removidas'}`);
     } catch (error) {
       console.error('Erro ao alterar permissões da categoria:', error);
@@ -246,7 +254,7 @@ export function PermissionsSelector({ userId, onPermissionsChange }: Permissions
         if (error) throw error;
       }
 
-      await loadUserPermissions();
+      await reload();
     } catch (error) {
       console.error('Erro ao alterar permissão:', error);
       toast.error('Erro ao alterar permissão');

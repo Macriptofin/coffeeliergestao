@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -45,7 +46,50 @@ interface CategoryRuleState {
 
 const emptyRule = (): CategoryRuleState => ({ marginPct: "", overheadPct: "", overheadValue: "" });
 
+interface GlobalSettingsState {
+  globalMargin: string;
+  globalOhPct: string;
+  globalOhVal: string;
+  logisticsTrips: string;
+  logisticsCostKm: string;
+}
+
+async function fetchGlobalPricingSettings(): Promise<GlobalSettingsState> {
+  const { data, error } = await supabase
+    .from("app_settings")
+    .select("key,value")
+    .in("key", [SETTING_MARGIN, SETTING_OH_PCT, SETTING_OH_VAL, SETTING_TRIPS, SETTING_COST_KM]);
+  if (error) throw error;
+  const map = new Map((data || []).map((r) => [r.key, r.value]));
+  const ohVal = map.get(SETTING_OH_VAL);
+  return {
+    globalMargin: fracStrToPct(map.get(SETTING_MARGIN)),
+    globalOhPct: fracStrToPct(map.get(SETTING_OH_PCT)),
+    globalOhVal: ohVal != null && ohVal !== "" && parseFloat(ohVal) !== 0 ? ohVal : "",
+    logisticsTrips: map.get(SETTING_TRIPS) ?? "4",
+    logisticsCostKm: map.get(SETTING_COST_KM) ?? "1.50",
+  };
+}
+
+async function fetchCategoryPricingRules(): Promise<Record<string, CategoryRuleState>> {
+  const { data, error } = await supabase
+    .from("pricing_rules")
+    .select("term_id,target_margin_pct,overhead_pct,overhead_value")
+    .eq("scope_type", "category");
+  if (error) throw error;
+  const next: Record<string, CategoryRuleState> = {};
+  (data as PricingRuleRow[] | null)?.forEach((r) => {
+    next[r.term_id] = {
+      marginPct: fracStrToPct(r.target_margin_pct?.toString()),
+      overheadPct: fracStrToPct(r.overhead_pct?.toString()),
+      overheadValue: r.overhead_value != null ? r.overhead_value.toString() : "",
+    };
+  });
+  return next;
+}
+
 export const ConfigPrecificacao = () => {
+  const queryClient = useQueryClient();
   const { getTermsByTaxonomy, loading: taxonomyLoading } = useTaxonomy();
 
   // ── Parâmetros globais ─────────────────────────────────────────────────
@@ -55,70 +99,46 @@ export const ConfigPrecificacao = () => {
   const [logisticsTrips, setLogisticsTrips] = useState(""); // nº de trajetos
   const [logisticsCostKm, setLogisticsCostKm] = useState(""); // R$/km
   const [savingGlobal, setSavingGlobal] = useState(false);
-  const [loadingGlobal, setLoadingGlobal] = useState(true);
 
   // ── Regras por categoria ───────────────────────────────────────────────
   const [rules, setRules] = useState<Record<string, CategoryRuleState>>({});
   const [savingRule, setSavingRule] = useState<string | null>(null);
-  const [loadingRules, setLoadingRules] = useState(true);
 
   const categories = getTermsByTaxonomy("material_category").filter((t) => t.is_active !== false);
 
-  // Carregar parâmetros globais
-  useEffect(() => {
-    const load = async () => {
-      setLoadingGlobal(true);
-      try {
-        const { data, error } = await supabase
-          .from("app_settings")
-          .select("key,value")
-          .in("key", [SETTING_MARGIN, SETTING_OH_PCT, SETTING_OH_VAL, SETTING_TRIPS, SETTING_COST_KM]);
-        if (error) throw error;
-        const map = new Map((data || []).map((r) => [r.key, r.value]));
-        setGlobalMargin(fracStrToPct(map.get(SETTING_MARGIN)));
-        setGlobalOhPct(fracStrToPct(map.get(SETTING_OH_PCT)));
-        const ohVal = map.get(SETTING_OH_VAL);
-        setGlobalOhVal(ohVal != null && ohVal !== "" && parseFloat(ohVal) !== 0 ? ohVal : "");
-        setLogisticsTrips(map.get(SETTING_TRIPS) ?? "4");
-        setLogisticsCostKm(map.get(SETTING_COST_KM) ?? "1.50");
-      } catch (err) {
-        console.error("Erro ao carregar parâmetros de precificação:", err);
-        toast.error("Não foi possível carregar os parâmetros globais.");
-      } finally {
-        setLoadingGlobal(false);
-      }
-    };
-    load();
-  }, []);
+  const globalSettingsQueryKey = ["pricing-global-settings"];
+  const { data: globalSettings, isPending: loadingGlobal, isError: globalError } = useQuery({
+    queryKey: globalSettingsQueryKey,
+    queryFn: fetchGlobalPricingSettings,
+  });
 
-  // Carregar regras por categoria existentes
   useEffect(() => {
-    const load = async () => {
-      setLoadingRules(true);
-      try {
-        const { data, error } = await supabase
-          .from("pricing_rules")
-          .select("term_id,target_margin_pct,overhead_pct,overhead_value")
-          .eq("scope_type", "category");
-        if (error) throw error;
-        const next: Record<string, CategoryRuleState> = {};
-        (data as PricingRuleRow[] | null)?.forEach((r) => {
-          next[r.term_id] = {
-            marginPct: fracStrToPct(r.target_margin_pct?.toString()),
-            overheadPct: fracStrToPct(r.overhead_pct?.toString()),
-            overheadValue: r.overhead_value != null ? r.overhead_value.toString() : "",
-          };
-        });
-        setRules(next);
-      } catch (err) {
-        console.error("Erro ao carregar regras por categoria:", err);
-        toast.error("Não foi possível carregar as regras por categoria.");
-      } finally {
-        setLoadingRules(false);
-      }
-    };
-    load();
-  }, []);
+    if (globalError) toast.error("Não foi possível carregar os parâmetros globais.");
+  }, [globalError]);
+
+  // Seed dos campos editáveis a partir do servidor (form seedado, editável localmente)
+  useEffect(() => {
+    if (!globalSettings) return;
+    setGlobalMargin(globalSettings.globalMargin);
+    setGlobalOhPct(globalSettings.globalOhPct);
+    setGlobalOhVal(globalSettings.globalOhVal);
+    setLogisticsTrips(globalSettings.logisticsTrips);
+    setLogisticsCostKm(globalSettings.logisticsCostKm);
+  }, [globalSettings]);
+
+  const rulesQueryKey = ["pricing-category-rules"];
+  const { data: fetchedRules, isPending: loadingRules, isError: rulesError } = useQuery({
+    queryKey: rulesQueryKey,
+    queryFn: fetchCategoryPricingRules,
+  });
+
+  useEffect(() => {
+    if (rulesError) toast.error("Não foi possível carregar as regras por categoria.");
+  }, [rulesError]);
+
+  useEffect(() => {
+    if (fetchedRules) setRules(fetchedRules);
+  }, [fetchedRules]);
 
   const recompute = async () => {
     const { error } = await (supabase.rpc as any)("recompute_all_pricing");
@@ -138,6 +158,7 @@ export const ConfigPrecificacao = () => {
       const { error } = await supabase.from("app_settings").upsert(rows, { onConflict: "key" });
       if (error) throw error;
       await recompute();
+      queryClient.invalidateQueries({ queryKey: globalSettingsQueryKey });
       toast.success("Parâmetros globais salvos e preços recalculados.");
     } catch (err) {
       console.error("Erro ao salvar parâmetros globais:", err);
@@ -171,6 +192,7 @@ export const ConfigPrecificacao = () => {
         .upsert(payload, { onConflict: "scope_type,term_id" });
       if (error) throw error;
       await recompute();
+      queryClient.invalidateQueries({ queryKey: rulesQueryKey });
       toast.success("Regra da categoria salva e preços recalculados.");
     } catch (err) {
       console.error("Erro ao salvar regra de categoria:", err);

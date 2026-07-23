@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -44,29 +44,23 @@ interface EventDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const EMPTY_SESSIONS: EventSession[] = [];
+
 export function EventDetailsDialog({ event, open, onOpenChange }: EventDetailsDialogProps) {
-  const [sessions, setSessions] = useState<EventSession[]>([]);
-
-  useEffect(() => {
-    const loadSessions = async () => {
-      if (!event?.id) return;
-
-      const { data } = await supabase
+  const { data: sessions = EMPTY_SESSIONS } = useQuery({
+    queryKey: ['event-sessions', event?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('event_sessions')
         .select('*')
-        .eq('event_id', event.id)
+        .eq('event_id', event!.id)
         .order('session_date', { ascending: true })
         .order('session_time', { ascending: true });
-
-      if (data) {
-        setSessions(data);
-      }
-    };
-
-    if (open) {
-      loadSessions();
-    }
-  }, [event?.id, open]);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open && !!event?.id,
+  });
 
   if (!event) return null;
 

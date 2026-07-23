@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,44 +46,45 @@ interface Props {
   onEdit: () => void;
 }
 
+async function fetchClientDetails(clientId: string): Promise<{ client: Client; stats: Stats }> {
+  const [clientRes, deptRes, unitsRes, roomsRes, contactsRes] = await Promise.all([
+    supabase.from('clients').select('*').eq('id', clientId).single(),
+    supabase.from('client_departments').select('id', { count: 'exact' }).eq('client_id', clientId),
+    supabase.from('client_units').select('id', { count: 'exact' }).eq('client_id', clientId),
+    supabase.from('client_rooms').select('id', { count: 'exact' }).eq('client_id', clientId),
+    supabase.from('client_contacts').select('id', { count: 'exact' }).eq('client_id', clientId)
+  ]);
+
+  if (clientRes.error) throw clientRes.error;
+
+  return {
+    client: clientRes.data as Client,
+    stats: {
+      departments: deptRes.count || 0,
+      units: unitsRes.count || 0,
+      rooms: roomsRes.count || 0,
+      contacts: contactsRes.count || 0
+    },
+  };
+}
+
 export default function ClientDetails({ clientId, onBack, onEdit }: Props) {
-  const [client, setClient] = useState<Client | null>(null);
-  const [stats, setStats] = useState<Stats>({ departments: 0, units: 0, rooms: 0, contacts: 0 });
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const queryKey = ['client-details', clientId];
   const [activeTab, setActiveTab] = useState('dados');
 
+  const { data, isPending: loading, isError } = useQuery({
+    queryKey,
+    queryFn: () => fetchClientDetails(clientId),
+  });
+  const client = data?.client ?? null;
+  const stats = data?.stats ?? { departments: 0, units: 0, rooms: 0, contacts: 0 };
+
+  const reload = () => queryClient.invalidateQueries({ queryKey });
+
   useEffect(() => {
-    loadClientData();
-  }, [clientId]);
-
-  const loadClientData = async () => {
-    try {
-      setLoading(true);
-      
-      const [clientRes, deptRes, unitsRes, roomsRes, contactsRes] = await Promise.all([
-        supabase.from('clients').select('*').eq('id', clientId).single(),
-        supabase.from('client_departments').select('id', { count: 'exact' }).eq('client_id', clientId),
-        supabase.from('client_units').select('id', { count: 'exact' }).eq('client_id', clientId),
-        supabase.from('client_rooms').select('id', { count: 'exact' }).eq('client_id', clientId),
-        supabase.from('client_contacts').select('id', { count: 'exact' }).eq('client_id', clientId)
-      ]);
-
-      if (clientRes.error) throw clientRes.error;
-
-      setClient(clientRes.data as Client);
-      setStats({
-        departments: deptRes.count || 0,
-        units: unitsRes.count || 0,
-        rooms: roomsRes.count || 0,
-        contacts: contactsRes.count || 0
-      });
-    } catch (error) {
-      console.error('Erro ao carregar cliente:', error);
-      toast.error('Erro ao carregar dados do cliente');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (isError) toast.error('Erro ao carregar dados do cliente');
+  }, [isError]);
 
   if (loading) {
     return (
@@ -312,7 +314,7 @@ export default function ClientDetails({ clientId, onBack, onEdit }: Props) {
               <ClientForm
                 clientId={clientId}
                 embedded
-                onSuccess={() => loadClientData()}
+                onSuccess={reload}
                 onCancel={() => {}}
               />
             </TabsContent>

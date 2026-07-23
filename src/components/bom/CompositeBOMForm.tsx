@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { MEASUREMENT_UNITS } from '@/lib/units';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -40,12 +41,52 @@ interface CompositeBOMFormProps {
   onCancel: () => void;
 }
 
+const EMPTY_MATERIALS: Material[] = [];
+
+async function fetchMaterialsExcept(excludeId?: string): Promise<Material[]> {
+  let query = supabase
+    .from('materials')
+    .select('id, name, code, usage_unit, material_type')
+    .order('name');
+  if (excludeId) query = query.neq('id', excludeId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchExistingCompositeBOM(compositeMaterialId: string): Promise<CompositeBOM | null> {
+  const { data: bomData, error: bomError } = await supabase
+    .from('composites_bom')
+    .select(`
+      *,
+      composite_bom_items (*)
+    `)
+    .eq('composite_material_id', compositeMaterialId)
+    .single();
+
+  if (bomError && bomError.code !== 'PGRST116') throw bomError;
+  if (!bomData) return null;
+
+  return {
+    id: bomData.id,
+    composite_material_id: bomData.composite_material_id,
+    notes: bomData.notes || '',
+    items: bomData.composite_bom_items.map((item: any) => ({
+      id: item.id,
+      component_material_id: item.component_material_id,
+      quantity: item.quantity,
+      unit: item.unit,
+      position: item.position
+    }))
+  };
+}
+
 export const CompositeBOMForm: React.FC<CompositeBOMFormProps> = ({
   compositeMaterial,
   onSuccess,
   onCancel
 }) => {
-  const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(false);
   const [bomData, setBomData] = useState<CompositeBOM>({
     composite_material_id: compositeMaterial?.id || '',
@@ -53,62 +94,24 @@ export const CompositeBOMForm: React.FC<CompositeBOMFormProps> = ({
     items: []
   });
 
+  const { data: materials = EMPTY_MATERIALS, isError: materialsError } = useQuery({
+    queryKey: ['materials-except', compositeMaterial?.id],
+    queryFn: () => fetchMaterialsExcept(compositeMaterial?.id),
+  });
+
   useEffect(() => {
-    loadMaterials();
-    if (compositeMaterial?.id) {
-      loadExistingBOM();
-    }
-  }, [compositeMaterial]);
+    if (materialsError) toast.error('Erro ao carregar materiais');
+  }, [materialsError]);
 
-  const loadMaterials = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('materials')
-        .select('id, name, code, usage_unit, material_type')
-        .neq('id', compositeMaterial?.id) // Não incluir o próprio material composto
-        .order('name');
+  const { data: existingBom } = useQuery({
+    queryKey: ['composite-bom', compositeMaterial?.id],
+    queryFn: () => fetchExistingCompositeBOM(compositeMaterial!.id),
+    enabled: !!compositeMaterial?.id,
+  });
 
-      if (error) throw error;
-      setMaterials(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar materiais:', error);
-      toast.error('Erro ao carregar materiais');
-    }
-  };
-
-  const loadExistingBOM = async () => {
-    if (!compositeMaterial?.id) return;
-
-    try {
-      const { data: bomData, error: bomError } = await supabase
-        .from('composites_bom')
-        .select(`
-          *,
-          composite_bom_items (*)
-        `)
-        .eq('composite_material_id', compositeMaterial.id)
-        .single();
-
-      if (bomError && bomError.code !== 'PGRST116') throw bomError;
-
-      if (bomData) {
-        setBomData({
-          id: bomData.id,
-          composite_material_id: bomData.composite_material_id,
-          notes: bomData.notes || '',
-          items: bomData.composite_bom_items.map((item: any) => ({
-            id: item.id,
-            component_material_id: item.component_material_id,
-            quantity: item.quantity,
-            unit: item.unit,
-            position: item.position
-          }))
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao carregar BOM existente:', error);
-    }
-  };
+  useEffect(() => {
+    if (existingBom) setBomData(existingBom);
+  }, [existingBom]);
 
   const addBOMItem = () => {
     const newItem: CompositeBOMItem = {

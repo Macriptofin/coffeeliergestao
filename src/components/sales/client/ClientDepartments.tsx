@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,9 +50,23 @@ interface Props {
   clientId: string;
 }
 
+const EMPTY_DEPARTMENTS: Department[] = [];
+
+async function fetchClientDepartments(clientId: string): Promise<Department[]> {
+  const { data, error } = await supabase
+    .from('client_departments')
+    .select('*')
+    .eq('client_id', clientId)
+    .eq('is_active', true)
+    .order('name');
+
+  if (error) throw error;
+  return data || [];
+}
+
 export default function ClientDepartments({ clientId }: Props) {
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const queryKey = ['client-departments', clientId];
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -60,29 +75,12 @@ export default function ClientDepartments({ clientId }: Props) {
     is_active: true
   });
 
-  useEffect(() => {
-    loadDepartments();
-  }, [clientId]);
+  const { data: departments = EMPTY_DEPARTMENTS, isPending: loading } = useQuery({
+    queryKey,
+    queryFn: () => fetchClientDepartments(clientId),
+  });
 
-  const loadDepartments = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('client_departments')
-        .select('*')
-        .eq('client_id', clientId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setDepartments(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar departamentos:', error);
-      toast.error('Erro ao carregar departamentos');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const reload = () => queryClient.invalidateQueries({ queryKey });
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
@@ -120,7 +118,7 @@ export default function ClientDepartments({ clientId }: Props) {
       setShowForm(false);
       setEditingId(null);
       setFormData({ name: '', description: '', is_active: true });
-      loadDepartments();
+      reload();
     } catch (error: any) {
       console.error('Erro ao salvar departamento:', error);
       if (error.code === '23505') {
@@ -150,7 +148,7 @@ export default function ClientDepartments({ clientId }: Props) {
 
       if (error) throw error;
       toast.success('Departamento desativado!');
-      loadDepartments();
+      reload();
     } catch (error) {
       console.error('Erro ao desativar departamento:', error);
       toast.error('Erro ao desativar departamento');
