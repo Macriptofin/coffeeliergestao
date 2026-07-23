@@ -1,4 +1,5 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useMemo, Fragment } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Calendar, Clock, Users, MapPin, Edit, Trash2, Eye, FileText, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -51,49 +52,42 @@ interface EventsListProps {
   onRefresh: () => void;
 }
 
+const EMPTY_SESSIONS: EventSession[] = [];
+
 export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
-  const [eventSessions, setEventSessions] = useState<Record<string, EventSession[]>>({});
 
-  // Carregar sessões para todos os eventos - otimizado com debounce
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    
-    const loadSessions = async () => {
-      const eventIds = events.map(e => e.id);
-      if (eventIds.length === 0) {
-        setEventSessions({});
-        return;
-      }
+  const eventIds = events.map(e => e.id);
 
-      const { data } = await supabase
+  const { data: sessions = EMPTY_SESSIONS } = useQuery({
+    queryKey: ['event-sessions', eventIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('event_sessions')
         .select('*')
         .in('event_id', eventIds)
         .order('session_date', { ascending: true })
         .order('session_time', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: eventIds.length > 0,
+  });
 
-      if (data) {
-        const sessionsByEvent: Record<string, EventSession[]> = {};
-        data.forEach((session) => {
-          if (!sessionsByEvent[session.event_id]) {
-            sessionsByEvent[session.event_id] = [];
-          }
-          sessionsByEvent[session.event_id].push(session);
-        });
-        setEventSessions(sessionsByEvent);
+  const eventSessions = useMemo(() => {
+    const sessionsByEvent: Record<string, EventSession[]> = {};
+    sessions.forEach((session) => {
+      if (!sessionsByEvent[session.event_id]) {
+        sessionsByEvent[session.event_id] = [];
       }
-    };
-
-    // Debounce para evitar múltiplas chamadas
-    timeoutId = setTimeout(loadSessions, 300);
-    
-    return () => clearTimeout(timeoutId);
-  }, [events.length, events.map(e => e.id).join(',')]);
+      sessionsByEvent[session.event_id].push(session);
+    });
+    return sessionsByEvent;
+  }, [sessions]);
 
   const toggleEventExpansion = (eventId: string) => {
     setExpandedEvents(prev => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -51,68 +52,55 @@ interface MergeSuggestion {
   reason: string;
 }
 
+async function fetchDiagnosticReport(): Promise<DiagnosticReport> {
+  const { data, error } = await supabase.rpc('diag_bom_migration_report');
+  if (error) throw error;
+  return data as unknown as DiagnosticReport;
+}
+
+// duplicates/bomIssues/orphans sempre vazios: as views que os alimentavam foram
+// removidas e nunca foram substituídas — mantidos como stub visível na UI (abas
+// "Duplicados"/"Órfãos"), não é um dado a buscar do servidor.
+const EMPTY_DUPLICATES: MaterialDuplicate[] = [];
+const EMPTY_BOM_ISSUES: BOMIssue[] = [];
+const EMPTY_ORPHANS: OrphanMaterial[] = [];
+
 const BOMDiagnostics: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [diagnosticReport, setDiagnosticReport] = useState<DiagnosticReport | null>(null);
-  const [duplicates, setDuplicates] = useState<MaterialDuplicate[]>([]);
-  const [bomIssues, setBomIssues] = useState<BOMIssue[]>([]);
-  const [orphans, setOrphans] = useState<OrphanMaterial[]>([]);
+  const queryClient = useQueryClient();
   const [mergeSuggestions, setMergeSuggestions] = useState<MergeSuggestion[]>([]);
   const [selectedDuplicates, setSelectedDuplicates] = useState<Set<string>>(new Set());
   const [processingCleanup, setProcessingCleanup] = useState(false);
   const { toast } = useToast();
 
-  const runDiagnostic = async () => {
-    setLoading(true);
-    try {
-      // Run diagnostic report
-      const { data: reportData, error: reportError } = await supabase.rpc('diag_bom_migration_report');
-      if (reportError) throw reportError;
-      setDiagnosticReport(reportData as unknown as DiagnosticReport);
+  const { data: diagnosticReport, isPending: loading, isError, refetch } = useQuery({
+    queryKey: ['bom-diagnostic-report'],
+    queryFn: fetchDiagnosticReport,
+  });
+  const duplicates = EMPTY_DUPLICATES;
+  const bomIssues = EMPTY_BOM_ISSUES;
+  const orphans = EMPTY_ORPHANS;
 
-      // Fetch detailed data directly from tables since views were removed
-      const [duplicatesRes, bomIssuesRes, orphansRes] = await Promise.all([
-        // Find duplicates by name similarity
-        supabase.from('materials').select('*').then(({ data, error }) => ({
-          data: data ? [] : [], // Simplified for now - views removed
-          error
-        })),
-        // Find BOM issues - materials without proper BOMs
-        supabase.from('materials').select('*').then(({ data, error }) => ({
-          data: data ? [] : [], // Simplified for now - views removed  
-          error
-        })),
-        // Find orphaned materials
-        supabase.from('materials').select('*').then(({ data, error }) => ({
-          data: data ? [] : [], // Simplified for now - views removed
-          error
-        }))
-      ]);
-
-      if (duplicatesRes.error) throw duplicatesRes.error;
-      if (bomIssuesRes.error) throw bomIssuesRes.error;
-      if (orphansRes.error) throw orphansRes.error;
-
-      setDuplicates([]);
-      setBomIssues([]);
-      setOrphans([]);
-
-      const typedReport = reportData as unknown as DiagnosticReport;
-      toast({
-        title: "Diagnóstico concluído",
-        description: `Encontrados ${typedReport.duplicate_materials} duplicados, ${typedReport.bom_issues} problemas de BOM e ${typedReport.orphaned_materials} materiais órfãos.`
-      });
-    } catch (error) {
-      console.error('Error running diagnostic:', error);
+  useEffect(() => {
+    if (isError) {
       toast({
         title: "Erro no diagnóstico",
         description: "Erro ao executar diagnóstico do sistema BOM.",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isError, toast]);
+
+  useEffect(() => {
+    if (diagnosticReport) {
+      toast({
+        title: "Diagnóstico concluído",
+        description: `Encontrados ${diagnosticReport.duplicate_materials} duplicados, ${diagnosticReport.bom_issues} problemas de BOM e ${diagnosticReport.orphaned_materials} materiais órfãos.`
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diagnosticReport]);
+
+  const runDiagnostic = () => refetch();
 
   const generateCleanupSuggestions = async () => {
     try {
@@ -182,10 +170,6 @@ const BOMDiagnostics: React.FC = () => {
       });
     }
   };
-
-  useEffect(() => {
-    runDiagnostic();
-  }, []);
 
   return (
     <div className="p-6 space-y-6">

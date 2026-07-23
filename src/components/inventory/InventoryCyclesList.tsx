@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,9 +61,46 @@ const statusLabels: Record<string, string> = {
 
 type Scope = "all" | "category" | "random";
 
+const EMPTY_CYCLES: InventoryCycle[] = [];
+const EMPTY_CATEGORIES: string[] = [];
+const CYCLES_QUERY_KEY = ["inventory-cycles"] as const;
+
+async function fetchInventoryCycles(): Promise<InventoryCycle[]> {
+  const { data, error } = await supabase
+    .from("inventory_cycles")
+    .select("id, name, status, notes, created_at, started_at, closed_at, created_by, closed_by")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  return Promise.all(
+    (data || []).map(async (cycle) => {
+      const { count: materialsCount } = await supabase
+        .from("inventory_adjustments")
+        .select("material_id", { count: "exact", head: true })
+        .eq("cycle_id", cycle.id);
+      const { count: adjustmentsCount } = await supabase
+        .from("inventory_adjustments")
+        .select("*", { count: "exact", head: true })
+        .eq("cycle_id", cycle.id);
+      return { ...cycle, adjustments_count: adjustmentsCount || 0, materials_count: materialsCount || 0 };
+    })
+  );
+}
+
+async function fetchInventoryCategories(): Promise<string[]> {
+  const { data } = await supabase
+    .from("materials")
+    .select("category")
+    .eq("tracks_inventory", true)
+    .not("category", "is", null)
+    .neq("category", "");
+  if (!data) return [];
+  return [...new Set(data.map((d: any) => d.category as string).filter(Boolean))].sort();
+}
+
 export const InventoryCyclesList = () => {
-  const [cycles, setCycles] = useState<InventoryCycle[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -73,60 +111,21 @@ export const InventoryCyclesList = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [randomPct, setRandomPct] = useState<number>(20);
 
-  // Categories
-  const [categories, setCategories] = useState<string[]>([]);
-
   const navigate = useNavigate();
 
+  const { data: cycles = EMPTY_CYCLES, isPending: loading, isError } = useQuery({
+    queryKey: CYCLES_QUERY_KEY,
+    queryFn: fetchInventoryCycles,
+  });
+  const { data: categories = EMPTY_CATEGORIES } = useQuery({
+    queryKey: ["inventory-categories"],
+    queryFn: fetchInventoryCategories,
+    staleTime: 5 * 60_000,
+  });
+
   useEffect(() => {
-    loadCycles();
-    loadCategories();
-  }, []);
-
-  const loadCategories = async () => {
-    const { data } = await supabase
-      .from("materials")
-      .select("category")
-      .eq("tracks_inventory", true)
-      .not("category", "is", null)
-      .neq("category", "");
-    if (data) {
-      const unique = [...new Set(data.map((d: any) => d.category as string).filter(Boolean))].sort();
-      setCategories(unique);
-    }
-  };
-
-  const loadCycles = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("inventory_cycles")
-        .select("id, name, status, notes, created_at, started_at, closed_at, created_by, closed_by")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      const cyclesWithCounts = await Promise.all(
-        (data || []).map(async (cycle) => {
-          const { count: materialsCount } = await supabase
-            .from("inventory_adjustments")
-            .select("material_id", { count: "exact", head: true })
-            .eq("cycle_id", cycle.id);
-          const { count: adjustmentsCount } = await supabase
-            .from("inventory_adjustments")
-            .select("*", { count: "exact", head: true })
-            .eq("cycle_id", cycle.id);
-          return { ...cycle, adjustments_count: adjustmentsCount || 0, materials_count: materialsCount || 0 };
-        })
-      );
-
-      setCycles(cyclesWithCounts);
-    } catch (error) {
-      console.error("Erro ao carregar ciclos:", error);
-      toast.error("Erro ao carregar ciclos de inventário");
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (isError) toast.error("Erro ao carregar ciclos de inventário");
+  }, [isError]);
 
   const resetForm = () => {
     setCycleName("");
@@ -208,6 +207,7 @@ export const InventoryCyclesList = () => {
 
       setDialogOpen(false);
       resetForm();
+      queryClient.invalidateQueries({ queryKey: CYCLES_QUERY_KEY });
       navigate(`/materiais/inventario-ajustes/ciclo/${cycleId}`);
     } catch (error) {
       console.error("Erro ao criar ciclo:", error);

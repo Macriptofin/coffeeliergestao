@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,91 +28,62 @@ interface UsersListProps {
   onEditUser: (user: UserWithProfile) => void;
 }
 
+const EMPTY_USERS: UserWithProfile[] = [];
+const USERS_QUERY_KEY = ['users-with-roles'] as const;
+
+async function fetchUsersWithRoles(): Promise<UserWithProfile[]> {
+  // Buscar todos os perfis de usuários
+  const { data: profiles, error: profilesError } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (profilesError) throw profilesError;
+  if (!profiles || profiles.length === 0) return [];
+
+  // Buscar todas as roles
+  const userIds = profiles.map(p => p.user_id);
+  const { data: rolesData } = await supabase
+    .from('user_roles')
+    .select('*')
+    .in('user_id', userIds);
+
+  // Criar lista de usuários com suas roles
+  return profiles.map(profile => {
+    const userRoles = rolesData?.filter(r => r.user_id === profile.user_id) || [];
+    const isEmailConfirmed = profile.email_confirmed_at !== null;
+
+    return {
+      id: profile.user_id,
+      email: profile.email || `user-${profile.user_id.slice(0, 8)}@system.local`,
+      full_name: profile.full_name,
+      display_name: profile.display_name,
+      created_at: profile.created_at || new Date().toISOString(),
+      roles: userRoles,
+      email_confirmed: isEmailConfirmed
+    };
+  });
+}
+
 export function UsersList({ onEditUser }: UsersListProps) {
-  const [users, setUsers] = useState<UserWithProfile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { userRole: currentUserRole } = useUserRole();
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const { data: users = EMPTY_USERS, isPending: loading, isError } = useQuery({
+    queryKey: USERS_QUERY_KEY,
+    queryFn: fetchUsersWithRoles,
+  });
 
   useEffect(() => {
-    checkCurrentUserRole();
-    loadUsers();
-  }, []);
+    if (isError) toast.error('Erro ao carregar lista de usuários');
+  }, [isError]);
 
-  const checkCurrentUserRole = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Erro ao verificar role:', error);
-        return;
-      }
-
-      setCurrentUserRole(data?.role || null);
-    } catch (error) {
-      console.error('Erro ao verificar role do usuário:', error);
-    }
-  };
-
-  const loadUsers = async () => {
-    try {
-      setLoading(true);
-
-      // Buscar todos os perfis de usuários
-      const { data: profiles, error: profilesError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (profilesError) throw profilesError;
-
-      if (!profiles || profiles.length === 0) {
-        setUsers([]);
-        return;
-      }
-
-      // Buscar todas as roles
-      const userIds = profiles.map(p => p.user_id);
-      const { data: rolesData } = await supabase
-        .from('user_roles')
-        .select('*')
-        .in('user_id', userIds);
-
-      // Criar lista de usuários com suas roles
-      const usersWithData: UserWithProfile[] = profiles.map(profile => {
-        const userRoles = rolesData?.filter(r => r.user_id === profile.user_id) || [];
-        const isEmailConfirmed = profile.email_confirmed_at !== null;
-
-        return {
-          id: profile.user_id,
-          email: profile.email || `user-${profile.user_id.slice(0, 8)}@system.local`,
-          full_name: profile.full_name,
-          display_name: profile.display_name,
-          created_at: profile.created_at || new Date().toISOString(),
-          roles: userRoles,
-          email_confirmed: isEmailConfirmed
-        };
-      });
-
-      setUsers(usersWithData);
-    } catch (error) {
-      console.error('Erro ao carregar usuários:', error);
-      toast.error('Erro ao carregar lista de usuários');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const reload = () => queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
 
   const deleteUser = async (userId: string) => {
     try {
-      setLoading(true);
+      setActionLoading(true);
 
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
@@ -128,12 +101,12 @@ export function UsersList({ onEditUser }: UsersListProps) {
       }
 
       toast.success('Usuário removido completamente');
-      await loadUsers();
+      reload();
     } catch (error: any) {
       console.error('Erro ao remover usuário:', error);
       toast.error(error?.message || 'Erro ao remover usuário');
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -153,7 +126,7 @@ export function UsersList({ onEditUser }: UsersListProps) {
 
   const sendPasswordReset = async (userEmail: string) => {
     try {
-      setLoading(true);
+      setActionLoading(true);
       
       // Usar URL de produção para garantir que o link funcione corretamente
       const productionUrl = 'https://app.coffeelier.com.br';
@@ -174,13 +147,13 @@ export function UsersList({ onEditUser }: UsersListProps) {
       console.error('Erro ao enviar reset de senha:', error);
       toast.error('Erro ao enviar email de redefinição');
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
   const sendEmailVerification = async (userEmail: string) => {
     try {
-      setLoading(true);
+      setActionLoading(true);
       
       const { error } = await supabase.auth.resend({
         type: 'signup',
@@ -196,7 +169,7 @@ export function UsersList({ onEditUser }: UsersListProps) {
       console.error('Erro ao reenviar verificação:', error);
       toast.error('Erro ao reenviar email de verificação');
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -318,7 +291,7 @@ export function UsersList({ onEditUser }: UsersListProps) {
                       size="sm"
                       onClick={() => sendPasswordReset(user.email)}
                       className="flex items-center gap-1"
-                      disabled={loading}
+                      disabled={actionLoading}
                     >
                       <KeyRound className="h-4 w-4" />
                       Reset Senha
@@ -329,7 +302,7 @@ export function UsersList({ onEditUser }: UsersListProps) {
                         size="sm"
                         onClick={() => sendEmailVerification(user.email)}
                         className="flex items-center gap-1"
-                        disabled={loading}
+                        disabled={actionLoading}
                       >
                         <Mail className="h-4 w-4" />
                         Reenviar

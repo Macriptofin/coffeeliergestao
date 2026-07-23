@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,13 +45,85 @@ interface SupplierProductsProps {
   onRefresh: () => void;
 }
 
+async function fetchSupplierProducts(): Promise<SupplierProduct[]> {
+  const { data, error } = await supabase
+    .from('supplier_products')
+    .select(`
+      *,
+      suppliers (
+        id,
+        company_name
+      ),
+      materials:material_id (
+        id,
+        name,
+        usage_unit
+      )
+    `)
+    .eq('is_active', true)
+    .order('supplier_product_name');
+
+  if (error) throw error;
+
+  return data.map(item => ({
+    id: item.id,
+    supplier: {
+      id: item.suppliers.id,
+      companyName: item.suppliers.company_name
+    },
+    ingredient: {
+      id: item.materials.id,
+      name: item.materials.name,
+      usageUnit: item.materials.usage_unit
+    },
+    supplierProductName: item.supplier_product_name,
+    supplierProductCode: item.supplier_product_code,
+    supplierUnit: item.supplier_unit,
+    conversionFactor: parseFloat(item.conversion_factor?.toString() || '1'),
+    lastPrice: item.last_price ? parseFloat(item.last_price?.toString() || '0') : undefined,
+    isActive: item.is_active
+  }));
+}
+
+async function fetchActiveSuppliersList(): Promise<Supplier[]> {
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('id, company_name')
+    .eq('status', 'Ativo')
+    .order('company_name');
+
+  if (error) throw error;
+
+  return data.map(item => ({
+    id: item.id,
+    companyName: item.company_name
+  }));
+}
+
+async function fetchAllIngredients(): Promise<Ingredient[]> {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('id, name, usage_unit')
+    .order('name');
+
+  if (error) throw error;
+
+  return data.map(item => ({
+    id: item.id,
+    name: item.name,
+    usageUnit: item.usage_unit
+  }));
+}
+
+const EMPTY_SUPPLIER_PRODUCTS: SupplierProduct[] = [];
+const EMPTY_SUPPLIERS: Supplier[] = [];
+const EMPTY_INGREDIENTS: Ingredient[] = [];
+const SUPPLIER_PRODUCTS_QUERY_KEY = ['supplier-products'] as const;
+
 export function SupplierProducts({ onRefresh }: SupplierProductsProps) {
-  const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<SupplierProduct | null>(null);
-  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     supplierId: '',
     ingredientId: '',
@@ -61,94 +134,24 @@ export function SupplierProducts({ onRefresh }: SupplierProductsProps) {
     lastPrice: 0
   });
 
+  const { data: supplierProducts = EMPTY_SUPPLIER_PRODUCTS, isPending: loading, isError } = useQuery({
+    queryKey: SUPPLIER_PRODUCTS_QUERY_KEY,
+    queryFn: fetchSupplierProducts,
+  });
+  const { data: suppliers = EMPTY_SUPPLIERS } = useQuery({
+    queryKey: ['active-suppliers-list'],
+    queryFn: fetchActiveSuppliersList,
+  });
+  const { data: ingredients = EMPTY_INGREDIENTS } = useQuery({
+    queryKey: ['all-ingredients'],
+    queryFn: fetchAllIngredients,
+  });
+
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isError) toast.error('Erro ao carregar dados');
+  }, [isError]);
 
-  const loadData = async () => {
-    try {
-      await Promise.all([
-        loadSupplierProducts(),
-        loadSuppliers(),
-        loadIngredients()
-      ]);
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar dados');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadSupplierProducts = async () => {
-    const { data, error } = await supabase
-      .from('supplier_products')
-      .select(`
-        *,
-        suppliers (
-          id,
-          company_name
-        ),
-        materials:material_id (
-          id,
-          name,
-          usage_unit
-        )
-      `)
-      .eq('is_active', true)
-      .order('supplier_product_name');
-
-    if (error) throw error;
-
-    setSupplierProducts(data.map(item => ({
-      id: item.id,
-      supplier: {
-        id: item.suppliers.id,
-        companyName: item.suppliers.company_name
-      },
-      ingredient: {
-        id: item.materials.id,
-        name: item.materials.name,
-        usageUnit: item.materials.usage_unit
-      },
-      supplierProductName: item.supplier_product_name,
-      supplierProductCode: item.supplier_product_code,
-      supplierUnit: item.supplier_unit,
-      conversionFactor: parseFloat(item.conversion_factor?.toString() || '1'),
-      lastPrice: item.last_price ? parseFloat(item.last_price?.toString() || '0') : undefined,
-      isActive: item.is_active
-    })));
-  };
-
-  const loadSuppliers = async () => {
-    const { data, error } = await supabase
-      .from('suppliers')
-      .select('id, company_name')
-      .eq('status', 'Ativo')
-      .order('company_name');
-
-    if (error) throw error;
-
-    setSuppliers(data.map(item => ({
-      id: item.id,
-      companyName: item.company_name
-    })));
-  };
-
-  const loadIngredients = async () => {
-      const { data, error } = await supabase
-        .from('materials')
-        .select('id, name, usage_unit')
-        .order('name');
-
-    if (error) throw error;
-
-    setIngredients(data.map(item => ({
-      id: item.id,
-      name: item.name,
-      usageUnit: item.usage_unit
-    })));
-  };
+  const reload = () => queryClient.invalidateQueries({ queryKey: SUPPLIER_PRODUCTS_QUERY_KEY });
 
   const handleSubmit = async () => {
     if (!formData.supplierId || !formData.ingredientId || !formData.supplierProductName) {
@@ -185,7 +188,7 @@ export function SupplierProducts({ onRefresh }: SupplierProductsProps) {
       toast.success(editingProduct ? 'Produto atualizado com sucesso' : 'Produto criado com sucesso');
       resetForm();
       onRefresh();
-      loadSupplierProducts();
+      reload();
     } catch (error) {
       console.error('Erro ao salvar produto:', error);
       toast.error('Erro ao salvar produto do fornecedor');

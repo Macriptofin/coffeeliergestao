@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,9 +31,22 @@ interface EventAttachmentsListProps {
   eventId: string;
 }
 
+const EMPTY_ATTACHMENTS: Attachment[] = [];
+
+async function fetchEventAttachments(eventId: string): Promise<Attachment[]> {
+  const { data, error } = await supabase
+    .from('event_attachments')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('uploaded_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
 export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const attachmentsQueryKey = ['event-attachments', eventId];
   const [showUpload, setShowUpload] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -40,9 +54,16 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
   const [previewName, setPreviewName] = useState<string>('');
   const [previewLoading, setPreviewLoading] = useState(false);
 
+  const { data: attachments = EMPTY_ATTACHMENTS, isPending: loading, isError } = useQuery({
+    queryKey: attachmentsQueryKey,
+    queryFn: () => fetchEventAttachments(eventId),
+  });
+
   useEffect(() => {
-    loadAttachments();
-  }, [eventId]);
+    if (isError) toast.error('Erro ao carregar anexos');
+  }, [isError]);
+
+  const reload = () => queryClient.invalidateQueries({ queryKey: attachmentsQueryKey });
 
   useEffect(() => {
     if (!previewOpen) {
@@ -52,24 +73,6 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
       setPreviewUrl(null);
     }
   }, [previewOpen, previewUrl]);
-
-  const loadAttachments = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('event_attachments')
-        .select('*')
-        .eq('event_id', eventId)
-        .order('uploaded_at', { ascending: false });
-
-      if (error) throw error;
-      setAttachments(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar anexos:', error);
-      toast.error('Erro ao carregar anexos');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getSignedFileUrl = async (attachment: Attachment, download?: string | boolean) => {
     const { data, error } = await supabase.storage
@@ -201,7 +204,7 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
       if (dbError) throw dbError;
 
       toast.success('Anexo excluído com sucesso!');
-      loadAttachments();
+      reload();
     } catch (error) {
       console.error('Erro ao excluir anexo:', error);
       toast.error('Erro ao excluir anexo');
@@ -318,7 +321,7 @@ export function EventAttachmentsList({ eventId }: EventAttachmentsListProps) {
                 eventId={eventId}
                 onUploadSuccess={() => {
                   setShowUpload(false);
-                  loadAttachments();
+                  reload();
                 }}
                 onCancel={() => setShowUpload(false)}
               />

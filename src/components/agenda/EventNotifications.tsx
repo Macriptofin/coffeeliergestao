@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, Calendar, Clock, CheckCircle, AlertCircle, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -42,40 +43,39 @@ interface EventNotificationsProps {
   events: Event[];
 }
 
+const EMPTY_NOTIFICATIONS: EventNotification[] = [];
+const NOTIFICATIONS_QUERY_KEY = ['event-notifications'] as const;
+
+async function fetchEventNotifications(): Promise<EventNotification[]> {
+  const { data, error } = await supabase
+    .from('event_notifications')
+    .select(`
+      *,
+      events:event_id (
+        event_name,
+        event_date,
+        clients:client_id (
+          name
+        )
+      )
+    `)
+    .order('trigger_date', { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
 export function EventNotifications({ events }: EventNotificationsProps) {
-  const [notifications, setNotifications] = useState<EventNotification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  const { data: notifications = EMPTY_NOTIFICATIONS, isPending: loading, isError } = useQuery({
+    queryKey: NOTIFICATIONS_QUERY_KEY,
+    queryFn: fetchEventNotifications,
+  });
 
   useEffect(() => {
-    loadNotifications();
-  }, []);
-
-  const loadNotifications = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('event_notifications')
-        .select(`
-          *,
-          events:event_id (
-            event_name,
-            event_date,
-            clients:client_id (
-              name
-            )
-          )
-        `)
-        .order('trigger_date', { ascending: true });
-
-      if (error) throw error;
-      setNotifications(data || []);
-    } catch (error: any) {
-      console.error('Erro ao carregar notificações:', error);
-      toast.error('Erro ao carregar notificações');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (isError) toast.error('Erro ao carregar notificações');
+  }, [isError]);
 
   const markAsSent = async (notificationId: string) => {
     try {
@@ -88,8 +88,8 @@ export function EventNotifications({ events }: EventNotificationsProps) {
         .eq('id', notificationId);
 
       if (error) throw error;
-      
-      loadNotifications();
+
+      queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
       toast.success('Notificação marcada como enviada');
     } catch (error: any) {
       console.error('Erro ao marcar notificação:', error);

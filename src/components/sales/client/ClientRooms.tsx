@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -58,10 +59,31 @@ interface Props {
   clientId: string;
 }
 
+async function fetchRoomsAndUnits(clientId: string): Promise<{ rooms: Room[]; units: Unit[] }> {
+  const [roomsRes, unitsRes] = await Promise.all([
+    supabase
+      .from('client_rooms')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('is_active', true)
+      .order('name'),
+    supabase
+      .from('client_units')
+      .select('id, name')
+      .eq('client_id', clientId)
+      .eq('is_active', true)
+      .order('name')
+  ]);
+
+  if (roomsRes.error) throw roomsRes.error;
+  if (unitsRes.error) throw unitsRes.error;
+
+  return { rooms: roomsRes.data || [], units: unitsRes.data || [] };
+}
+
 export default function ClientRooms({ clientId }: Props) {
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const queryKey = ['client-rooms', clientId];
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -73,40 +95,18 @@ export default function ClientRooms({ clientId }: Props) {
     is_active: true
   });
 
+  const { data, isPending: loading, isError } = useQuery({
+    queryKey,
+    queryFn: () => fetchRoomsAndUnits(clientId),
+  });
+  const rooms = data?.rooms ?? [];
+  const units = data?.units ?? [];
+
   useEffect(() => {
-    loadData();
-  }, [clientId]);
+    if (isError) toast.error('Erro ao carregar salas');
+  }, [isError]);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [roomsRes, unitsRes] = await Promise.all([
-        supabase
-          .from('client_rooms')
-          .select('*')
-          .eq('client_id', clientId)
-          .eq('is_active', true)
-          .order('name'),
-        supabase
-          .from('client_units')
-          .select('id, name')
-          .eq('client_id', clientId)
-          .eq('is_active', true)
-          .order('name')
-      ]);
-
-      if (roomsRes.error) throw roomsRes.error;
-      if (unitsRes.error) throw unitsRes.error;
-
-      setRooms(roomsRes.data || []);
-      setUnits(unitsRes.data || []);
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar salas');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const reload = () => queryClient.invalidateQueries({ queryKey });
 
   const handleSubmit = async () => {
     if (!formData.unit_id) {
@@ -146,7 +146,7 @@ export default function ClientRooms({ clientId }: Props) {
       }
 
       handleCancel();
-      loadData();
+      reload();
     } catch (error: any) {
       console.error('Erro ao salvar sala:', error);
       if (error.code === '23505') {
@@ -179,7 +179,7 @@ export default function ClientRooms({ clientId }: Props) {
 
       if (error) throw error;
       toast.success('Sala desativada!');
-      loadData();
+      reload();
     } catch (error) {
       console.error('Erro ao desativar sala:', error);
       toast.error('Erro ao desativar sala');

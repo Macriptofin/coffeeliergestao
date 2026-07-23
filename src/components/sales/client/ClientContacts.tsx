@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -60,10 +61,31 @@ interface Props {
   clientId: string;
 }
 
+async function fetchContactsAndDepartments(clientId: string): Promise<{ contacts: Contact[]; departments: Department[] }> {
+  const [contactsRes, deptsRes] = await Promise.all([
+    supabase
+      .from('client_contacts')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('is_active', true)
+      .order('name'),
+    supabase
+      .from('client_departments')
+      .select('id, name')
+      .eq('client_id', clientId)
+      .eq('is_active', true)
+      .order('name')
+  ]);
+
+  if (contactsRes.error) throw contactsRes.error;
+  if (deptsRes.error) throw deptsRes.error;
+
+  return { contacts: contactsRes.data || [], departments: deptsRes.data || [] };
+}
+
 export default function ClientContacts({ clientId }: Props) {
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const queryKey = ['client-contacts', clientId];
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -77,40 +99,18 @@ export default function ClientContacts({ clientId }: Props) {
     notes: ''
   });
 
+  const { data, isPending: loading, isError } = useQuery({
+    queryKey,
+    queryFn: () => fetchContactsAndDepartments(clientId),
+  });
+  const contacts = data?.contacts ?? [];
+  const departments = data?.departments ?? [];
+
   useEffect(() => {
-    loadData();
-  }, [clientId]);
+    if (isError) toast.error('Erro ao carregar contatos');
+  }, [isError]);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [contactsRes, deptsRes] = await Promise.all([
-        supabase
-          .from('client_contacts')
-          .select('*')
-          .eq('client_id', clientId)
-          .eq('is_active', true)
-          .order('name'),
-        supabase
-          .from('client_departments')
-          .select('id, name')
-          .eq('client_id', clientId)
-          .eq('is_active', true)
-          .order('name')
-      ]);
-
-      if (contactsRes.error) throw contactsRes.error;
-      if (deptsRes.error) throw deptsRes.error;
-
-      setContacts(contactsRes.data || []);
-      setDepartments(deptsRes.data || []);
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar contatos');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const reload = () => queryClient.invalidateQueries({ queryKey });
 
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, '');
@@ -161,7 +161,7 @@ export default function ClientContacts({ clientId }: Props) {
       }
 
       handleCancel();
-      loadData();
+      reload();
     } catch (error) {
       console.error('Erro ao salvar contato:', error);
       toast.error('Erro ao salvar contato');
@@ -192,7 +192,7 @@ export default function ClientContacts({ clientId }: Props) {
 
       if (error) throw error;
       toast.success('Contato desativado!');
-      loadData();
+      reload();
     } catch (error) {
       console.error('Erro ao desativar contato:', error);
       toast.error('Erro ao desativar contato');

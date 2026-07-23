@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,17 +40,55 @@ interface ProductionOrderItem {
   };
 }
 
+const EMPTY_ORDERS: ProductionOrder[] = [];
+const PRODUCTION_ORDERS_QUERY_KEY = ['event-production-orders'] as const;
+
+async function fetchProductionOrders(): Promise<ProductionOrder[]> {
+  const { data, error } = await supabase
+    .from('event_production_orders')
+    .select(`
+      *,
+      event_table:event_tables!inner (
+        event_code,
+        client_name,
+        attendees,
+        date_start
+      ),
+      items:event_production_order_items (
+        id,
+        material_id,
+        planned_qty,
+        planned_unit,
+        kind,
+        material:materials (
+          name,
+          category
+        )
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
 export const ProductionOrdersList = () => {
-  const [productionOrders, setProductionOrders] = useState<ProductionOrder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [executingOrder, setExecutingOrder] = useState<string | null>(null);
   const [printing, setPrinting] = useState<ProductionOrder | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
+  const { data: productionOrders = EMPTY_ORDERS, isPending: loading, isError } = useQuery({
+    queryKey: PRODUCTION_ORDERS_QUERY_KEY,
+    queryFn: fetchProductionOrders,
+  });
+
   useEffect(() => {
-    loadProductionOrders();
-  }, []);
+    if (isError) toast.error('Erro ao carregar ordens de produção');
+  }, [isError]);
+
+  const reload = () => queryClient.invalidateQueries({ queryKey: PRODUCTION_ORDERS_QUERY_KEY });
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -60,42 +99,6 @@ export const ProductionOrdersList = () => {
   const printOrder = (order: ProductionOrder) => {
     setPrinting(order);
     setTimeout(() => handlePrint(), 100);
-  };
-
-  const loadProductionOrders = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('event_production_orders')
-        .select(`
-          *,
-          event_table:event_tables!inner (
-            event_code,
-            client_name,
-            attendees,
-            date_start
-          ),
-          items:event_production_order_items (
-            id,
-            material_id,
-            planned_qty,
-            planned_unit,
-            kind,
-            material:materials (
-              name,
-              category
-            )
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setProductionOrders(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar ordens:', error);
-      toast.error('Erro ao carregar ordens de produção');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const executeManualProduction = async (orderId: string) => {
@@ -151,7 +154,7 @@ export const ProductionOrdersList = () => {
       if (finalError) throw finalError;
 
       toast.success('Lançamento manual executado com sucesso!');
-      await loadProductionOrders();
+      reload();
     } catch (error) {
       console.error('Erro no lançamento manual:', error);
       toast.error('Erro no lançamento manual: ' + (error as Error).message);
@@ -242,7 +245,7 @@ export const ProductionOrdersList = () => {
             Visualize e execute as ordens de produção geradas
           </p>
         </div>
-        <Button onClick={loadProductionOrders} variant="outline" disabled={loading}>
+        <Button onClick={reload} variant="outline" disabled={loading}>
           Atualizar
         </Button>
       </div>

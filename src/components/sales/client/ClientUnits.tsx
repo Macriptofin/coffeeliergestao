@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { computeDistanceKmFromCep } from '@/lib/geo';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -62,9 +63,39 @@ const brazilianStates = [
   'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
+const EMPTY_UNITS: Unit[] = [];
+
+async function fetchClientUnits(clientId: string): Promise<Unit[]> {
+  const { data, error } = await supabase
+    .from('client_units')
+    .select('*')
+    .eq('client_id', clientId)
+    .eq('is_active', true)
+    .order('name');
+
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchClientAddress(clientId: string) {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('address, city, state, zip_code')
+    .eq('id', clientId)
+    .single();
+
+  if (error) throw error;
+  return {
+    address: data?.address || '',
+    city: data?.city || '',
+    state: data?.state || '',
+    zip_code: data?.zip_code || ''
+  };
+}
+
 export default function ClientUnits({ clientId }: Props) {
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const unitsQueryKey = ['client-units', clientId];
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const originalUnitZip = useRef(''); // CEP carregado, p/ recalcular distância só quando mudar
@@ -83,30 +114,26 @@ export default function ClientUnits({ clientId }: Props) {
     is_active: true
   });
 
+  const { data: units = EMPTY_UNITS, isPending: loading, isError } = useQuery({
+    queryKey: unitsQueryKey,
+    queryFn: () => fetchClientUnits(clientId),
+  });
+
   useEffect(() => {
-    loadUnits();
-    loadClientAddress();
-  }, [clientId]);
+    if (isError) toast.error('Erro ao carregar unidades');
+  }, [isError]);
 
-  const loadClientAddress = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('address, city, state, zip_code')
-        .eq('id', clientId)
-        .single();
+  const reload = () => queryClient.invalidateQueries({ queryKey: unitsQueryKey });
 
-      if (error) throw error;
-      clientAddress.current = {
-        address: data?.address || '',
-        city: data?.city || '',
-        state: data?.state || '',
-        zip_code: data?.zip_code || ''
-      };
-    } catch (error) {
-      console.error('Erro ao carregar endereço da matriz:', error);
-    }
-  };
+  const { data: clientAddressData } = useQuery({
+    queryKey: ['client-address', clientId],
+    queryFn: () => fetchClientAddress(clientId),
+    staleTime: 5 * 60_000,
+  });
+
+  useEffect(() => {
+    if (clientAddressData) clientAddress.current = clientAddressData;
+  }, [clientAddressData]);
 
   // Abre o formulário de NOVA unidade, herdando o endereço da matriz (cliente)
   const handleNew = () => {
@@ -123,26 +150,6 @@ export default function ClientUnits({ clientId }: Props) {
       is_active: true
     });
     setShowForm(true);
-  };
-
-  const loadUnits = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('client_units')
-        .select('*')
-        .eq('client_id', clientId)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-      setUnits(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar unidades:', error);
-      toast.error('Erro ao carregar unidades');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const formatZipCode = (value: string) => {
@@ -195,7 +202,7 @@ export default function ClientUnits({ clientId }: Props) {
       }
 
       handleCancel();
-      loadUnits();
+      reload();
     } catch (error: any) {
       console.error('Erro ao salvar unidade:', error);
       if (error.code === '23505') {
@@ -231,7 +238,7 @@ export default function ClientUnits({ clientId }: Props) {
 
       if (error) throw error;
       toast.success('Unidade desativada!');
-      loadUnits();
+      reload();
     } catch (error) {
       console.error('Erro ao desativar unidade:', error);
       toast.error('Erro ao desativar unidade.');
