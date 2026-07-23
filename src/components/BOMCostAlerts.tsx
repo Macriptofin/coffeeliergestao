@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -25,44 +26,43 @@ interface BOMCostAlert {
   created_at: string;
 }
 
+const EMPTY_ALERTS: BOMCostAlert[] = [];
+
+async function fetchBomCostAlerts(showOnlyUnread: boolean): Promise<BOMCostAlert[]> {
+  let query = supabase
+    .from('bom_cost_alerts')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (showOnlyUnread) {
+    query = query.eq('is_read', false);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []) as BOMCostAlert[];
+}
+
 export function BOMCostAlerts() {
-  const [alerts, setAlerts] = useState<BOMCostAlert[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [showOnlyUnread, setShowOnlyUnread] = useState(true);
   const { toast } = useToast();
 
+  const { data: alerts = EMPTY_ALERTS, isPending: loading, isError } = useQuery({
+    queryKey: ['bom-cost-alerts', showOnlyUnread],
+    queryFn: () => fetchBomCostAlerts(showOnlyUnread),
+  });
+
   useEffect(() => {
-    loadAlerts();
-  }, [showOnlyUnread]);
-
-  const loadAlerts = async () => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from('bom_cost_alerts')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (showOnlyUnread) {
-        query = query.eq('is_read', false);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setAlerts((data || []) as BOMCostAlert[]);
-    } catch (error) {
-      console.error('Erro ao carregar alertas:', error);
+    if (isError) {
       toast({
         title: "Erro ao carregar alertas",
         description: "Não foi possível carregar os alertas de custo",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isError, toast]);
 
   const markAsRead = async (alertId: string) => {
     try {
@@ -72,11 +72,7 @@ export function BOMCostAlerts() {
 
       if (error) throw error;
 
-      setAlerts(prev => prev.map(alert => 
-        alert.id === alertId 
-          ? { ...alert, is_read: true, read_at: new Date().toISOString() }
-          : alert
-      ));
+      queryClient.invalidateQueries({ queryKey: ['bom-cost-alerts'] });
 
       toast({
         title: "Alerta marcado como lido",

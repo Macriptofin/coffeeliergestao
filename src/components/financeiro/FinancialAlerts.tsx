@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,65 +27,58 @@ interface FinancialAlertsProps {
   maxItems?: number;
 }
 
+const EMPTY_ALERTS: FinancialAlert[] = [];
+
+async function fetchFinancialAlerts(showAll: boolean, maxItems: number): Promise<FinancialAlert[]> {
+  // Gera alertas de vencimento em aberto antes de listar, garantindo dados frescos
+  try {
+    await supabase.rpc('generate_due_date_alerts');
+  } catch (error) {
+    console.error('Error generating alerts:', error);
+  }
+
+  let query = supabase
+    .from('financial_alerts')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (!showAll) {
+    query = query.eq('is_read', false);
+  }
+
+  if (maxItems && !showAll) {
+    query = query.limit(maxItems);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
 export const FinancialAlerts = ({ showAll = false, maxItems = 5 }: FinancialAlertsProps) => {
-  const [alerts, setAlerts] = useState<FinancialAlert[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const queryKey = ['financial-alerts', showAll, maxItems];
 
-  useEffect(() => {
-    fetchAlerts();
-    generateAlerts();
-  }, []);
+  const { data: alerts = EMPTY_ALERTS, isPending: loading } = useQuery({
+    queryKey,
+    queryFn: () => fetchFinancialAlerts(showAll, maxItems),
+  });
 
-  const generateAlerts = async () => {
-    try {
-      await supabase.rpc('generate_due_date_alerts');
-    } catch (error) {
-      console.error('Error generating alerts:', error);
-    }
-  };
-
-  const fetchAlerts = async () => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from('financial_alerts')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!showAll) {
-        query = query.eq('is_read', false);
-      }
-
-      if (maxItems && !showAll) {
-        query = query.limit(maxItems);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setAlerts(data || []);
-    } catch (error) {
-      console.error('Error fetching alerts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const invalidate = () => queryClient.invalidateQueries({ queryKey });
 
   const markAsRead = async (id: string) => {
     try {
       const { error } = await supabase
         .from('financial_alerts')
-        .update({ 
-          is_read: true, 
-          read_at: new Date().toISOString() 
+        .update({
+          is_read: true,
+          read_at: new Date().toISOString()
         })
         .eq('id', id);
 
       if (error) throw error;
-      
-      setAlerts(alerts.map(a => 
-        a.id === id ? { ...a, is_read: true } : a
-      ));
+
+      invalidate();
     } catch (error) {
       console.error('Error marking alert as read:', error);
       toast.error('Erro ao marcar alerta como lido');
@@ -96,15 +89,15 @@ export const FinancialAlerts = ({ showAll = false, maxItems = 5 }: FinancialAler
     try {
       const { error } = await supabase
         .from('financial_alerts')
-        .update({ 
-          is_read: true, 
-          read_at: new Date().toISOString() 
+        .update({
+          is_read: true,
+          read_at: new Date().toISOString()
         })
         .eq('is_read', false);
 
       if (error) throw error;
-      
-      setAlerts(alerts.map(a => ({ ...a, is_read: true })));
+
+      invalidate();
       toast.success('Todos os alertas foram marcados como lidos');
     } catch (error) {
       console.error('Error marking all alerts as read:', error);
@@ -151,7 +144,7 @@ export const FinancialAlerts = ({ showAll = false, maxItems = 5 }: FinancialAler
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" size="icon" onClick={fetchAlerts}>
+          <Button variant="ghost" size="icon" onClick={invalidate}>
             <RefreshCw className="h-4 w-4" />
           </Button>
           {unreadCount > 0 && (

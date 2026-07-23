@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -15,59 +15,45 @@ interface ClientAssignment {
   user_email?: string;
 }
 
+const EMPTY_ASSIGNMENTS: ClientAssignment[] = [];
+const CLIENT_ASSIGNMENTS_QUERY_KEY = ['client-assignments'] as const;
+
+async function fetchClientAssignments(): Promise<ClientAssignment[]> {
+  const { data, error } = await supabase
+    .from('client_assignments')
+    .select('*, clients(name)')
+    .order('assigned_at', { ascending: false });
+
+  if (error) throw error;
+  if (!data || data.length === 0) return [];
+
+  // Buscar emails dos usuários separadamente
+  const userIds = data.map(a => a.user_id);
+  const { data: profilesData } = await supabase
+    .from('user_profiles')
+    .select('user_id, email')
+    .in('user_id', userIds);
+
+  const profilesMap = new Map(profilesData?.map(p => [p.user_id, p.email]));
+  return data.map(assignment => ({
+    ...assignment,
+    user_email: profilesMap.get(assignment.user_id) || 'Unknown',
+  }));
+}
+
 export function useClientAssignments() {
-  const [loading, setLoading] = useState(false);
-  const [assignments, setAssignments] = useState<ClientAssignment[]>([]);
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const fetchAssignments = async (clientId?: string) => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from('client_assignments')
-        .select('*, clients(name)')
-        .order('assigned_at', { ascending: false });
+  const { data: assignments = EMPTY_ASSIGNMENTS, isPending: loading } = useQuery({
+    queryKey: CLIENT_ASSIGNMENTS_QUERY_KEY,
+    queryFn: fetchClientAssignments,
+  });
 
-      if (clientId) {
-        query = query.eq('client_id', clientId);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      
-      // Buscar emails dos usuários separadamente
-      if (data && data.length > 0) {
-        const userIds = data.map(a => a.user_id);
-        const { data: profilesData } = await supabase
-          .from('user_profiles')
-          .select('user_id, email')
-          .in('user_id', userIds);
-        
-        const profilesMap = new Map(profilesData?.map(p => [p.user_id, p.email]));
-        const enrichedData = data.map(assignment => ({
-          ...assignment,
-          user_email: profilesMap.get(assignment.user_id) || 'Unknown',
-        }));
-        setAssignments(enrichedData);
-      } else {
-        setAssignments(data || []);
-      }
-    } catch (error: any) {
-      console.error('Error fetching client assignments:', error);
-      toast({
-        title: 'Erro ao carregar atribuições',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: CLIENT_ASSIGNMENTS_QUERY_KEY });
 
   const assignClient = async (clientId: string, userId: string, notes?: string) => {
     try {
-      setLoading(true);
       const { error } = await supabase
         .from('client_assignments')
         .insert({
@@ -84,7 +70,7 @@ export function useClientAssignments() {
         description: 'O gerente agora tem acesso a este cliente.',
       });
 
-      await fetchAssignments();
+      invalidate();
     } catch (error: any) {
       console.error('Error assigning client:', error);
       toast({
@@ -92,14 +78,11 @@ export function useClientAssignments() {
         description: error.message,
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   const unassignClient = async (assignmentId: string) => {
     try {
-      setLoading(true);
       const { error } = await supabase
         .from('client_assignments')
         .delete()
@@ -112,7 +95,7 @@ export function useClientAssignments() {
         description: 'O gerente não tem mais acesso a este cliente.',
       });
 
-      await fetchAssignments();
+      invalidate();
     } catch (error: any) {
       console.error('Error unassigning client:', error);
       toast({
@@ -120,8 +103,6 @@ export function useClientAssignments() {
         description: error.message,
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -133,17 +114,17 @@ export function useClientAssignments() {
         .eq('client_id', clientId);
 
       if (error) throw error;
-      
+
       if (data && data.length > 0) {
         const userIds = data.map(a => a.user_id);
         const { data: profilesData } = await supabase
           .from('user_profiles')
           .select('user_id, email')
           .in('user_id', userIds);
-        
+
         return profilesData || [];
       }
-      
+
       return [];
     } catch (error: any) {
       console.error('Error fetching assigned users:', error);
@@ -154,7 +135,7 @@ export function useClientAssignments() {
   return {
     loading,
     assignments,
-    fetchAssignments,
+    fetchAssignments: invalidate,
     assignClient,
     unassignClient,
     getAssignedUsers,

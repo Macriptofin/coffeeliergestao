@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export type HRPermissionType = 
+export type HRPermissionType =
   | 'view_basic_info'
   | 'view_personal_documents'
   | 'view_financial_info'
@@ -17,59 +17,45 @@ interface HRPermission {
   user_email?: string;
 }
 
+const EMPTY_PERMISSIONS: HRPermission[] = [];
+const HR_PERMISSIONS_QUERY_KEY = ['hr-permissions'] as const;
+
+async function fetchHRPermissions(): Promise<HRPermission[]> {
+  const { data, error } = await supabase
+    .from('hr_permissions')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  if (!data || data.length === 0) return [];
+
+  // Buscar emails dos usuários separadamente
+  const userIds = data.map(p => p.user_id);
+  const { data: profilesData } = await supabase
+    .from('user_profiles')
+    .select('user_id, email')
+    .in('user_id', userIds);
+
+  const profilesMap = new Map(profilesData?.map(p => [p.user_id, p.email]));
+  return data.map(permission => ({
+    ...permission,
+    user_email: profilesMap.get(permission.user_id) || 'Unknown',
+  }));
+}
+
 export function useHRPermissions() {
-  const [loading, setLoading] = useState(false);
-  const [permissions, setPermissions] = useState<HRPermission[]>([]);
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const fetchPermissions = async (userId?: string) => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from('hr_permissions')
-        .select('*')
-        .order('created_at', { ascending: false });
+  const { data: permissions = EMPTY_PERMISSIONS, isPending: loading } = useQuery({
+    queryKey: HR_PERMISSIONS_QUERY_KEY,
+    queryFn: fetchHRPermissions,
+  });
 
-      if (userId) {
-        query = query.eq('user_id', userId);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      
-      // Buscar emails dos usuários separadamente
-      if (data && data.length > 0) {
-        const userIds = data.map(p => p.user_id);
-        const { data: profilesData } = await supabase
-          .from('user_profiles')
-          .select('user_id, email')
-          .in('user_id', userIds);
-        
-        const profilesMap = new Map(profilesData?.map(p => [p.user_id, p.email]));
-        const enrichedData = data.map(permission => ({
-          ...permission,
-          user_email: profilesMap.get(permission.user_id) || 'Unknown',
-        }));
-        setPermissions(enrichedData);
-      } else {
-        setPermissions(data || []);
-      }
-    } catch (error: any) {
-      console.error('Error fetching HR permissions:', error);
-      toast({
-        title: 'Erro ao carregar permissões',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: HR_PERMISSIONS_QUERY_KEY });
 
   const grantPermission = async (userId: string, permissionType: HRPermissionType) => {
     try {
-      setLoading(true);
       const { error } = await supabase
         .from('hr_permissions')
         .insert({
@@ -85,7 +71,7 @@ export function useHRPermissions() {
         description: 'O usuário agora tem acesso aos dados de RH.',
       });
 
-      await fetchPermissions();
+      invalidate();
     } catch (error: any) {
       console.error('Error granting permission:', error);
       toast({
@@ -93,14 +79,11 @@ export function useHRPermissions() {
         description: error.message,
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   const revokePermission = async (permissionId: string) => {
     try {
-      setLoading(true);
       const { error } = await supabase
         .from('hr_permissions')
         .delete()
@@ -113,7 +96,7 @@ export function useHRPermissions() {
         description: 'O usuário não tem mais acesso aos dados de RH.',
       });
 
-      await fetchPermissions();
+      invalidate();
     } catch (error: any) {
       console.error('Error revoking permission:', error);
       toast({
@@ -121,8 +104,6 @@ export function useHRPermissions() {
         description: error.message,
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -144,7 +125,7 @@ export function useHRPermissions() {
   return {
     loading,
     permissions,
-    fetchPermissions,
+    fetchPermissions: invalidate,
     grantPermission,
     revokePermission,
     getUserPermissions,

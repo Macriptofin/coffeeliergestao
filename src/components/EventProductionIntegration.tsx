@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,29 +21,29 @@ interface EventProductionIntegrationProps {
   onOrderGenerated?: (orderId: string) => void;
 }
 
+const EMPTY_EVENTS: EventTable[] = [];
+
+async function fetchPendingEvents(): Promise<EventTable[]> {
+  const { data, error } = await supabase
+    .from('event_tables')
+    .select('*')
+    .in('status', ['approved', 'planned'])
+    .order('date_start');
+
+  if (error) throw error;
+  return data || [];
+}
+
 export const EventProductionIntegration = ({ onOrderGenerated }: EventProductionIntegrationProps) => {
-  const [events, setEvents] = useState<EventTable[]>([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [generatingOrder, setGeneratingOrder] = useState<string | null>(null);
 
-  const loadPendingEvents = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('event_tables')
-        .select('*')
-        .in('status', ['approved', 'planned'])
-        .order('date_start');
+  const { data: events = EMPTY_EVENTS, isPending: loading } = useQuery({
+    queryKey: ['event-tables-pending'],
+    queryFn: fetchPendingEvents,
+  });
 
-      if (error) throw error;
-      setEvents(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar eventos:', error);
-      toast.error('Erro ao carregar eventos pendentes');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const reloadEvents = () => queryClient.invalidateQueries({ queryKey: ['event-tables-pending'] });
 
   const generateProductionOrder = async (eventId: string) => {
     setGeneratingOrder(eventId);
@@ -55,9 +56,8 @@ export const EventProductionIntegration = ({ onOrderGenerated }: EventProduction
 
       toast.success('Ordem de produção gerada com sucesso!');
       onOrderGenerated?.(data);
-      
-      // Refresh events list
-      await loadPendingEvents();
+
+      reloadEvents();
     } catch (error) {
       console.error('Erro ao gerar ordem:', error);
       toast.error('Erro ao gerar ordem de produção: ' + (error as Error).message);
@@ -76,9 +76,8 @@ export const EventProductionIntegration = ({ onOrderGenerated }: EventProduction
       if (error) throw error;
 
       toast.success('Produção do evento executada com sucesso!');
-      
-      // Refresh events list
-      await loadPendingEvents();
+
+      reloadEvents();
     } catch (error) {
       console.error('Erro ao executar produção:', error);
       toast.error('Erro ao executar produção: ' + (error as Error).message);
@@ -129,7 +128,7 @@ export const EventProductionIntegration = ({ onOrderGenerated }: EventProduction
             Eventos aguardando geração de ordem de produção
           </p>
         </div>
-        <Button onClick={loadPendingEvents} variant="outline" disabled={loading}>
+        <Button onClick={reloadEvents} variant="outline" disabled={loading}>
           {loading ? 'Carregando...' : 'Atualizar'}
         </Button>
       </div>

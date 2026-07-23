@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -33,44 +34,40 @@ interface User {
   email: string;
 }
 
+const EMPTY_CLIENTS: Client[] = [];
+const EMPTY_MANAGERS: User[] = [];
+
+async function fetchClientsAndManagers(): Promise<{ clients: Client[]; managers: User[] }> {
+  const [{ data: clientsData }, { data: managerRoles }] = await Promise.all([
+    supabase.from('clients').select('id, name').order('name'),
+    supabase
+      .from('user_roles')
+      .select('user_id, user_profiles!user_roles_user_id_fkey(email)')
+      .eq('role', 'manager'),
+  ]);
+
+  return {
+    clients: clientsData || [],
+    managers: (managerRoles || []).map((r: any) => ({
+      id: r.user_id,
+      email: r.user_profiles?.email || 'Unknown',
+    })),
+  };
+}
+
 export function ClientAssignmentsManager() {
-  const { loading, assignments, fetchAssignments, assignClient, unassignClient } =
+  const { loading, assignments, assignClient, unassignClient } =
     useClientAssignments();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [managers, setManagers] = useState<User[]>([]);
+  const { data } = useQuery({
+    queryKey: ['clients-and-managers'],
+    queryFn: fetchClientsAndManagers,
+  });
+  const clients = data?.clients ?? EMPTY_CLIENTS;
+  const managers = data?.managers ?? EMPTY_MANAGERS;
   const [selectedClient, setSelectedClient] = useState('');
   const [selectedManager, setSelectedManager] = useState('');
   const [notes, setNotes] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  useEffect(() => {
-    fetchAssignments();
-    loadClientsAndManagers();
-  }, []);
-
-  const loadClientsAndManagers = async () => {
-    // Load clients
-    const { data: clientsData } = await supabase
-      .from('clients')
-      .select('id, name')
-      .order('name');
-
-    if (clientsData) setClients(clientsData);
-
-    // Load managers (users with manager role)
-    const { data: managerRoles } = await supabase
-      .from('user_roles')
-      .select('user_id, user_profiles!user_roles_user_id_fkey(email)')
-      .eq('role', 'manager');
-
-    if (managerRoles) {
-      const managersData = managerRoles.map((r: any) => ({
-        id: r.user_id,
-        email: r.user_profiles?.email || 'Unknown',
-      }));
-      setManagers(managersData);
-    }
-  };
 
   const handleAssign = async () => {
     if (!selectedClient || !selectedManager) return;

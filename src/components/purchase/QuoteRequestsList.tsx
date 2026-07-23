@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -27,56 +28,61 @@ interface QuoteRequestsListProps {
   onConsumeFromRequest?: () => void;
 }
 
+const EMPTY_ROWS: QuoteRequestRow[] = [];
+
+async function fetchQuoteRequestRows(): Promise<QuoteRequestRow[]> {
+  const { data: requests, error } = await supabase
+    .from('quote_requests')
+    .select('id, quote_number, deadline_date, status')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+
+  const ids = (requests || []).map(r => r.id);
+  if (ids.length === 0) return [];
+
+  const [{ data: suppliers }, { data: quotes }] = await Promise.all([
+    supabase.from('quote_request_suppliers').select('quote_request_id').in('quote_request_id', ids),
+    supabase.from('supplier_quotes').select('quote_request_id').in('quote_request_id', ids),
+  ]);
+
+  const supplierCounts: Record<string, number> = {};
+  (suppliers || []).forEach((s: any) => { supplierCounts[s.quote_request_id] = (supplierCounts[s.quote_request_id] || 0) + 1; });
+  const quotedCounts: Record<string, number> = {};
+  (quotes || []).forEach((q: any) => { quotedCounts[q.quote_request_id] = (quotedCounts[q.quote_request_id] || 0) + 1; });
+
+  return (requests || []).map(r => ({
+    ...r,
+    supplier_count: supplierCounts[r.id] || 0,
+    quoted_count: quotedCounts[r.id] || 0,
+  }));
+}
+
 export const QuoteRequestsList = ({ initialFromRequestId, onConsumeFromRequest }: QuoteRequestsListProps) => {
+  const queryClient = useQueryClient();
   const [view, setView] = useState<View>(() => initialFromRequestId ? { mode: 'create' } : { mode: 'list' });
-  const [rows, setRows] = useState<QuoteRequestRow[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const loadRows = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data: requests, error } = await supabase
-        .from('quote_requests')
-        .select('id, quote_number, deadline_date, status')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-
-      const ids = (requests || []).map(r => r.id);
-      if (ids.length === 0) { setRows([]); return; }
-
-      const [{ data: suppliers }, { data: quotes }] = await Promise.all([
-        supabase.from('quote_request_suppliers').select('quote_request_id').in('quote_request_id', ids),
-        supabase.from('supplier_quotes').select('quote_request_id').in('quote_request_id', ids),
-      ]);
-
-      const supplierCounts: Record<string, number> = {};
-      (suppliers || []).forEach((s: any) => { supplierCounts[s.quote_request_id] = (supplierCounts[s.quote_request_id] || 0) + 1; });
-      const quotedCounts: Record<string, number> = {};
-      (quotes || []).forEach((q: any) => { quotedCounts[q.quote_request_id] = (quotedCounts[q.quote_request_id] || 0) + 1; });
-
-      setRows((requests || []).map(r => ({
-        ...r,
-        supplier_count: supplierCounts[r.id] || 0,
-        quoted_count: quotedCounts[r.id] || 0,
-      })));
-    } catch (error) {
-      console.error('Erro ao carregar cotações:', error);
-      toast.error('Erro ao carregar cotações');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: rows = EMPTY_ROWS, isPending: loading, isError } = useQuery({
+    queryKey: ['quote-requests'],
+    queryFn: fetchQuoteRequestRows,
+    enabled: view.mode === 'list',
+    staleTime: 0, // sempre busca de novo ao voltar pra lista — pode ter cotação nova/atualizada
+  });
 
   useEffect(() => {
-    if (view.mode === 'list') loadRows();
-  }, [view, loadRows]);
+    if (isError) toast.error('Erro ao carregar cotações');
+  }, [isError]);
+
+  const backToList = () => {
+    queryClient.invalidateQueries({ queryKey: ['quote-requests'] });
+    setView({ mode: 'list' });
+  };
 
   if (view.mode === 'create') {
     return (
       <QuoteRequestForm
         fromRequestId={initialFromRequestId ?? undefined}
         onSuccess={(id) => { onConsumeFromRequest?.(); setView({ mode: 'detail', id }); }}
-        onCancel={() => { onConsumeFromRequest?.(); setView({ mode: 'list' }); }}
+        onCancel={() => { onConsumeFromRequest?.(); backToList(); }}
       />
     );
   }
@@ -85,7 +91,7 @@ export const QuoteRequestsList = ({ initialFromRequestId, onConsumeFromRequest }
     return (
       <QuoteRequestDetail
         quoteRequestId={view.id}
-        onBack={() => setView({ mode: 'list' })}
+        onBack={backToList}
       />
     );
   }

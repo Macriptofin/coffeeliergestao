@@ -1,48 +1,43 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, CheckCircle, AlertTriangle } from "lucide-react";
+import type { User } from "@supabase/supabase-js";
+
+const ADMIN_SETUP_QUERY_KEY = ['admin-setup-status'] as const;
+
+async function fetchAdminSetupStatus(): Promise<{ isSetup: boolean; currentUser: User | null }> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('*')
+    .eq('role', 'admin')
+    .limit(1);
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Erro ao verificar setup:', error);
+    return { isSetup: false, currentUser: user };
+  }
+
+  return { isSetup: !!(data && data.length > 0), currentUser: user };
+}
 
 export function AdminSetup() {
-  const [isSetup, setIsSetup] = useState(false);
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
-  const [checkingSetup, setCheckingSetup] = useState(true);
-  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  useEffect(() => {
-    checkSetupStatus();
-    getCurrentUser();
-  }, []);
+  const { data, isPending: checkingSetup } = useQuery({
+    queryKey: ADMIN_SETUP_QUERY_KEY,
+    queryFn: fetchAdminSetupStatus,
+  });
 
-  const getCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setCurrentUser(user);
-  };
-
-  const checkSetupStatus = async () => {
-    try {
-      setCheckingSetup(true);
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('role', 'admin')
-        .limit(1);
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Erro ao verificar setup:', error);
-        return;
-      }
-
-      setIsSetup(data && data.length > 0);
-    } catch (error) {
-      console.error('Erro ao verificar setup:', error);
-    } finally {
-      setCheckingSetup(false);
-    }
-  };
+  const isSetup = data?.isSetup ?? false;
+  const currentUser = data?.currentUser ?? null;
 
   const createFirstAdmin = async () => {
     if (!currentUser) {
@@ -52,7 +47,7 @@ export function AdminSetup() {
 
     try {
       setLoading(true);
-      
+
       const { error } = await supabase
         .from('user_roles')
         .insert({
@@ -63,8 +58,8 @@ export function AdminSetup() {
       if (error) throw error;
 
       toast.success('Você foi configurado como administrador do sistema!');
-      setIsSetup(true);
-      
+      queryClient.invalidateQueries({ queryKey: ADMIN_SETUP_QUERY_KEY });
+
       // Recarregar a página para atualizar as permissões
       setTimeout(() => {
         window.location.reload();
@@ -121,8 +116,8 @@ export function AdminSetup() {
               <li>Gerencie permissões de outros usuários</li>
               <li>Tenha acesso completo ao sistema</li>
             </ul>
-            <Button 
-              onClick={createFirstAdmin} 
+            <Button
+              onClick={createFirstAdmin}
               disabled={loading}
               className="w-full bg-amber-600 hover:bg-amber-700"
             >
@@ -134,7 +129,7 @@ export function AdminSetup() {
             <p className="text-sm text-amber-700">
               Você precisa estar logado para configurar o sistema. Faça login primeiro.
             </p>
-            <Button 
+            <Button
               onClick={() => window.location.href = '/auth'}
               className="w-full bg-amber-600 hover:bg-amber-700"
             >

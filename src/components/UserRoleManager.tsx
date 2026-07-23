@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useState } from "react";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,36 +26,10 @@ interface UserWithProfile {
 }
 
 export function UserRoleManager() {
-  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const { userRole: currentUserRole } = useUserRole();
   const [editingUser, setEditingUser] = useState<UserWithProfile | null>(null);
   const [showUserForm, setShowUserForm] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-  useEffect(() => {
-    checkCurrentUserRole();
-  }, []);
-
-  const checkCurrentUserRole = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Erro ao verificar role:', error);
-        return;
-      }
-
-      setCurrentUserRole(data?.role || null);
-    } catch (error) {
-      console.error('Erro ao verificar role do usuário:', error);
-    }
-  };
 
   const refreshUsersList = () => {
     setRefreshTrigger(prev => prev + 1);

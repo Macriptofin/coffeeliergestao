@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -28,45 +29,43 @@ interface BOMCostHistoryProps {
   bomId?: string;
 }
 
+const EMPTY_HISTORY: CostHistoryEntry[] = [];
+
+async function fetchCostHistory(bomType?: 'recipe' | 'composite', bomId?: string): Promise<CostHistoryEntry[]> {
+  let query = supabase
+    .from('vw_bom_cost_history_detailed')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (bomType && bomId) {
+    query = query
+      .eq('bom_type', bomType)
+      .eq('bom_id', bomId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []) as CostHistoryEntry[];
+}
+
 export function BOMCostHistory({ bomType, bomId }: BOMCostHistoryProps) {
-  const [history, setHistory] = useState<CostHistoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  const { data: history = EMPTY_HISTORY, isPending: loading, isError } = useQuery({
+    queryKey: ['bom-cost-history', bomType, bomId],
+    queryFn: () => fetchCostHistory(bomType, bomId),
+  });
+
   useEffect(() => {
-    loadHistory();
-  }, [bomType, bomId]);
-
-  const loadHistory = async () => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from('vw_bom_cost_history_detailed')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (bomType && bomId) {
-        query = query
-          .eq('bom_type', bomType)
-          .eq('bom_id', bomId);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setHistory((data || []) as CostHistoryEntry[]);
-    } catch (error) {
-      console.error('Erro ao carregar histórico:', error);
+    if (isError) {
       toast({
         title: "Erro ao carregar histórico",
         description: "Não foi possível carregar o histórico de custos",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isError, toast]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +28,18 @@ interface User {
   email: string;
 }
 
+const EMPTY_USERS: User[] = [];
+
+async function fetchUsers(): Promise<User[]> {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('user_id, email')
+    .order('email');
+
+  if (error) throw error;
+  return (data || []).map((u: any) => ({ id: u.user_id, email: u.email }));
+}
+
 const permissionLabels: Record<HRPermissionType, { label: string; description: string }> = {
   view_basic_info: {
     label: 'Informações Básicas',
@@ -47,32 +60,15 @@ const permissionLabels: Record<HRPermissionType, { label: string; description: s
 };
 
 export function HRPermissionsManager() {
-  const { loading, permissions, fetchPermissions, grantPermission, revokePermission } =
+  const { loading, permissions, grantPermission, revokePermission } =
     useHRPermissions();
-  const [users, setUsers] = useState<User[]>([]);
+  const { data: users = EMPTY_USERS } = useQuery({
+    queryKey: ['user-profiles-basic'],
+    queryFn: fetchUsers,
+  });
   const [selectedUser, setSelectedUser] = useState('');
   const [selectedPermission, setSelectedPermission] = useState<HRPermissionType>('view_basic_info');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  useEffect(() => {
-    fetchPermissions();
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('user_id, email')
-      .order('email');
-
-    if (data) {
-      const usersData = data.map((u: any) => ({
-        id: u.user_id,
-        email: u.email,
-      }));
-      setUsers(usersData);
-    }
-  };
 
   const handleGrant = async () => {
     if (!selectedUser || !selectedPermission) return;

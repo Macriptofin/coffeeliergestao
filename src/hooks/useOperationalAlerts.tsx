@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface OperationalAlert {
@@ -14,50 +15,47 @@ export interface OperationalAlert {
   reference_id?: string;
 }
 
+const EMPTY_ALERTS: OperationalAlert[] = [];
+
+async function fetchOperationalAlerts(): Promise<OperationalAlert[]> {
+  const { data, error } = await supabase
+    .from('operational_alerts')
+    .select('*')
+    .eq('is_read', false)
+    .eq('auto_resolved', false)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) throw error;
+  return (data || []) as OperationalAlert[];
+}
+
 export function useOperationalAlerts() {
-  const [alerts,  setAlerts]  = useState<OperationalAlert[]>([]);
-  const [counts,  setCounts]  = useState({ total: 0, critical: 0, warning: 0 });
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const load = useCallback(async () => {
-    try {
-      const { data } = await supabase
-        .from('operational_alerts')
-        .select('*')
-        .eq('is_read', false)
-        .eq('auto_resolved', false)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      const list = (data || []) as OperationalAlert[];
-      setAlerts(list);
-      setCounts({
-        total:    list.length,
-        critical: list.filter(a => a.severity === 'critical').length,
-        warning:  list.filter(a => a.severity === 'warning').length,
-      });
-    } catch (e) {
-      console.error('useOperationalAlerts:', e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: alerts = EMPTY_ALERTS, isPending: loading } = useQuery({
+    queryKey: ['operational-alerts'],
+    queryFn: fetchOperationalAlerts,
+  });
 
   useEffect(() => {
-    load();
-
-    // Realtime subscription
     const channel = supabase
       .channel('operational_alerts_changes')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'operational_alerts',
-      }, () => load())
+      }, () => queryClient.invalidateQueries({ queryKey: ['operational-alerts'] }))
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [load]);
+  }, [queryClient]);
+
+  const counts = useMemo(() => ({
+    total:    alerts.length,
+    critical: alerts.filter(a => a.severity === 'critical').length,
+    warning:  alerts.filter(a => a.severity === 'warning').length,
+  }), [alerts]);
 
   const markRead = async (id: string) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -65,8 +63,7 @@ export function useOperationalAlerts() {
       p_alert_id: id,
       p_user_id:  session?.user?.id ?? null,
     });
-    setAlerts(prev => prev.filter(a => a.id !== id));
-    setCounts(prev => ({ ...prev, total: prev.total - 1 }));
+    queryClient.invalidateQueries({ queryKey: ['operational-alerts'] });
   };
 
   const markAllRead = async () => {
@@ -76,9 +73,15 @@ export function useOperationalAlerts() {
       .from('operational_alerts')
       .update({ is_read: true, read_by: uid, read_at: new Date().toISOString() })
       .eq('is_read', false);
-    setAlerts([]);
-    setCounts({ total: 0, critical: 0, warning: 0 });
+    queryClient.invalidateQueries({ queryKey: ['operational-alerts'] });
   };
 
-  return { alerts, counts, loading, markRead, markAllRead, reload: load };
+  return {
+    alerts,
+    counts,
+    loading,
+    markRead,
+    markAllRead,
+    reload: () => queryClient.invalidateQueries({ queryKey: ['operational-alerts'] }),
+  };
 }

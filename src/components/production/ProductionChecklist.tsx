@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,58 +34,57 @@ interface Props {
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
-export function ProductionChecklist({ orderId, orderName, orderDate, onClose }: Props) {
-  const [materials, setMaterials] = useState<ChecklistItem[]>([]);
-  const [boms,      setBoms]      = useState<BomItem[]>([]);
-  const [loading,   setLoading]   = useState(true);
+const EMPTY_MATERIALS: ChecklistItem[] = [];
+const EMPTY_BOMS: BomItem[] = [];
 
-  useEffect(() => { loadData(); }, [orderId]);
+async function fetchChecklistData(orderId: string): Promise<{ materials: ChecklistItem[]; boms: BomItem[] }> {
+  const [matsRes, bomsRes] = await Promise.all([
+    supabase
+      .from('bom_production_consolidated_materials')
+      .select(`
+        total_quantity, is_consumed, is_reserved,
+        materials:material_id (name, usage_unit),
+        bom_production_orders:production_order_id (order_name)
+      `)
+      .eq('production_order_id', orderId)
+      .order('is_consumed'),
 
-  const loadData = async () => {
-    try {
-      const [matsRes, bomsRes] = await Promise.all([
-        supabase
-          .from('bom_production_consolidated_materials')
-          .select(`
-            total_quantity, is_consumed, is_reserved,
-            materials:material_id (name, usage_unit),
-            bom_production_orders:production_order_id (order_name)
-          `)
-          .eq('production_order_id', orderId)
-          .order('is_consumed'),
+    supabase
+      .from('bom_production_order_items')
+      .select(`
+        id, quantity, multiplier, total_yield_quantity, item_cost,
+        recipes_bom:bom_id (yield_unit, materials!finished_material_id(name))
+      `)
+      .eq('production_order_id', orderId),
+  ]);
 
-        supabase
-          .from('bom_production_order_items')
-          .select(`
-            id, quantity, multiplier, total_yield_quantity, item_cost,
-            recipes_bom:bom_id (yield_unit, materials!finished_material_id(name))
-          `)
-          .eq('production_order_id', orderId),
-      ]);
-
-      setMaterials((matsRes.data || []).map((m: any) => ({
-        material_name: m.materials?.name || '—',
-        total_quantity: parseFloat(m.total_quantity || 0),
-        unit:           m.materials?.usage_unit || '',
-        is_consumed:    m.is_consumed,
-        is_reserved:    m.is_reserved,
-        bom_name:       m.bom_production_orders?.order_name || '',
-      })));
-
-      setBoms((bomsRes.data || []).map((b: any) => ({
-        id:             b.id,
-        bom_name:       b.recipes_bom?.materials?.name || '—',
-        quantity:       b.quantity,
-        yield_quantity: parseFloat(b.total_yield_quantity || 0),
-        yield_unit:     b.recipes_bom?.yield_unit || 'un',
-        item_cost:      parseFloat(b.item_cost || 0),
-      })));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+  return {
+    materials: (matsRes.data || []).map((m: any) => ({
+      material_name: m.materials?.name || '—',
+      total_quantity: parseFloat(m.total_quantity || 0),
+      unit:           m.materials?.usage_unit || '',
+      is_consumed:    m.is_consumed,
+      is_reserved:    m.is_reserved,
+      bom_name:       m.bom_production_orders?.order_name || '',
+    })),
+    boms: (bomsRes.data || []).map((b: any) => ({
+      id:             b.id,
+      bom_name:       b.recipes_bom?.materials?.name || '—',
+      quantity:       b.quantity,
+      yield_quantity: parseFloat(b.total_yield_quantity || 0),
+      yield_unit:     b.recipes_bom?.yield_unit || 'un',
+      item_cost:      parseFloat(b.item_cost || 0),
+    })),
   };
+}
+
+export function ProductionChecklist({ orderId, orderName, orderDate, onClose }: Props) {
+  const { data, isPending: loading } = useQuery({
+    queryKey: ['production-checklist', orderId],
+    queryFn: () => fetchChecklistData(orderId),
+  });
+  const materials = data?.materials ?? EMPTY_MATERIALS;
+  const boms = data?.boms ?? EMPTY_BOMS;
 
   const handlePrint = () => window.print();
 
