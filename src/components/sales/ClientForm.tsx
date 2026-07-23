@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { computeDistanceKmFromCep } from '@/lib/geo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,6 +54,7 @@ const brazilianStates = [
 ];
 
 export default function ClientForm({ clientId, onSuccess, onCancel, embedded = false }: Props) {
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   // Guarda CEP/distância carregados para detectar mudança de endereço (preserva ajuste manual)
   const originalGeo = useRef<{ zip?: string; distance?: number | null }>({});
@@ -64,33 +66,33 @@ export default function ClientForm({ clientId, onSuccess, onCancel, embedded = f
     }
   });
 
-  useEffect(() => {
-    if (clientId) {
-      loadClient(clientId);
-    }
-  }, [clientId]);
-
-  const loadClient = async (id: string) => {
-    try {
+  const { data: clientData, isError: clientError } = useQuery({
+    queryKey: ['client-detail-form', clientId],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('clients')
         .select('*')
-        .eq('id', id)
+        .eq('id', clientId!)
         .single();
-
       if (error) throw error;
+      return data;
+    },
+    enabled: !!clientId,
+  });
 
-      // Preencher formulário
-      Object.keys(data).forEach(key => {
-        setValue(key as keyof ClientFormData, data[key]);
-      });
-      // Guarda referência de endereço/distância para recálculo só quando o CEP mudar
-      originalGeo.current = { zip: data.zip_code ?? '', distance: data.distance_km ?? null };
-    } catch (error) {
-      console.error('Erro ao carregar cliente:', error);
-      toast.error('Erro ao carregar dados do cliente');
-    }
-  };
+  useEffect(() => {
+    if (!clientData) return;
+    // Preencher formulário
+    Object.keys(clientData).forEach(key => {
+      setValue(key as keyof ClientFormData, clientData[key]);
+    });
+    // Guarda referência de endereço/distância para recálculo só quando o CEP mudar
+    originalGeo.current = { zip: clientData.zip_code ?? '', distance: clientData.distance_km ?? null };
+  }, [clientData, setValue]);
+
+  useEffect(() => {
+    if (clientError) toast.error('Erro ao carregar dados do cliente');
+  }, [clientError]);
 
   const onSubmit = async (data: ClientFormData) => {
     try {
@@ -143,6 +145,9 @@ export default function ClientForm({ clientId, onSuccess, onCancel, embedded = f
           .eq('id', clientId);
 
         if (error) throw error;
+        queryClient.invalidateQueries({ queryKey: ['clients'] });
+        queryClient.invalidateQueries({ queryKey: ['client-details', clientId] });
+        queryClient.invalidateQueries({ queryKey: ['client-detail-form', clientId] });
         toast.success('Cliente atualizado com sucesso!');
       } else {
         // Criar novo cliente
@@ -151,6 +156,7 @@ export default function ClientForm({ clientId, onSuccess, onCancel, embedded = f
           .insert(clientData);
 
         if (error) throw error;
+        queryClient.invalidateQueries({ queryKey: ['clients'] });
         toast.success('Cliente cadastrado com sucesso!');
       }
 

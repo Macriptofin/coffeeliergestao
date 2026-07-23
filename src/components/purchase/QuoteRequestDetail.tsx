@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -55,139 +56,154 @@ interface SupplierColumn {
 // coluna dele diretamente. quote_request_items já é, hoje, exatamente a lista que
 // esse fornecedor veria; bastará RLS aditiva escopando supplier_quotes/
 // supplier_quote_items por supplier_id, sem mudar o schema desta fase.
+const EMPTY_ITEMS: RequestItem[] = [];
+const EMPTY_SUPPLIERS: { id: string; company_name: string }[] = [];
+
+async function fetchQuoteRequestDetailData(quoteRequestId: string) {
+  const [{ data: headerData, error: headerError }, { data: itemsData, error: itemsError }] = await Promise.all([
+    supabase.from('quote_requests').select('*').eq('id', quoteRequestId).single(),
+    supabase
+      .from('quote_request_items')
+      .select('id, material_id, quantity, unit, materials(name)')
+      .eq('quote_request_id', quoteRequestId)
+      .order('position'),
+  ]);
+  if (headerError) throw headerError;
+  if (itemsError) throw itemsError;
+
+  const items: RequestItem[] = (itemsData || []).map((i: any) => ({
+    id: i.id,
+    material_id: i.material_id,
+    material_name: i.materials?.name || '—',
+    quantity: Number(i.quantity),
+    unit: i.unit,
+  }));
+
+  const { data: qrSuppliers, error: qrSuppliersError } = await supabase
+    .from('quote_request_suppliers')
+    .select('supplier_id, suppliers(company_name)')
+    .eq('quote_request_id', quoteRequestId);
+  if (qrSuppliersError) throw qrSuppliersError;
+
+  const supplierIds = (qrSuppliers || []).map((s: any) => s.supplier_id);
+
+  let quotesData: any[] = [];
+  let quoteItemsData: any[] = [];
+  if (supplierIds.length > 0) {
+    const { data: sq, error: sqError } = await supabase
+      .from('supplier_quotes')
+      .select('*')
+      .eq('quote_request_id', quoteRequestId)
+      .in('supplier_id', supplierIds);
+    if (sqError) throw sqError;
+    quotesData = sq || [];
+
+    const quoteIds = quotesData.map(q => q.id);
+    if (quoteIds.length > 0) {
+      const { data: sqi, error: sqiError } = await supabase
+        .from('supplier_quote_items')
+        .select('*')
+        .in('quote_id', quoteIds);
+      if (sqiError) throw sqiError;
+      quoteItemsData = sqi || [];
+    }
+  }
+
+  const quotesBySupplier = Object.fromEntries(quotesData.map(q => [q.supplier_id, q]));
+
+  const columns: SupplierColumn[] = (qrSuppliers || []).map((s: any) => {
+    const q = quotesBySupplier[s.supplier_id];
+    return {
+      supplier_id: s.supplier_id,
+      company_name: s.suppliers?.company_name || '—',
+      supplier_quote_id: q?.id ?? null,
+      valid_until: q?.valid_until ?? headerData.deadline_date,
+      payment_terms: q?.payment_terms ?? '',
+      delivery_time_days: q?.delivery_time_days != null ? String(q.delivery_time_days) : '',
+      status: q?.status ?? 'Recebida',
+    };
+  });
+
+  const prices: Record<string, Record<string, string>> = {};
+  quoteItemsData.forEach((qi: any) => {
+    const quote = quotesData.find(q => q.id === qi.quote_id);
+    if (!quote || !qi.quote_request_item_id) return;
+    if (!prices[qi.quote_request_item_id]) prices[qi.quote_request_item_id] = {};
+    prices[qi.quote_request_item_id][quote.supplier_id] = String(qi.unit_price);
+  });
+
+  const { data: allSuppliers, error: allSuppliersError } = await supabase
+    .from('suppliers')
+    .select('id, company_name')
+    .eq('status', 'Ativo')
+    .order('company_name');
+  if (allSuppliersError) throw allSuppliersError;
+  const availableSuppliers = (allSuppliers || []).filter(s => !supplierIds.includes(s.id));
+
+  const { data: existingOrder } = await supabase
+    .from('purchase_orders')
+    .select('order_number')
+    .eq('quote_request_id', quoteRequestId)
+    .maybeSingle();
+
+  return {
+    header: headerData as HeaderData,
+    items,
+    columns,
+    prices,
+    availableSuppliers,
+    existingOrderNumber: existingOrder?.order_number ?? null,
+  };
+}
+
 export const QuoteRequestDetail = ({ quoteRequestId, onBack }: QuoteRequestDetailProps) => {
-  const [header, setHeader] = useState<HeaderData | null>(null);
-  const [items, setItems] = useState<RequestItem[]>([]);
+  const queryClient = useQueryClient();
+  const queryKey = ['quote-request-detail', quoteRequestId];
+  const { data, isPending: loading, isError } = useQuery({
+    queryKey,
+    queryFn: () => fetchQuoteRequestDetailData(quoteRequestId),
+  });
+  const reload = () => queryClient.invalidateQueries({ queryKey });
+
+  const header = data?.header ?? null;
+  const items = data?.items ?? EMPTY_ITEMS;
+  const availableSuppliers = data?.availableSuppliers ?? EMPTY_SUPPLIERS;
+  const [existingOrderNumber, setExistingOrderNumber] = useState<string | null>(null);
   const [columns, setColumns] = useState<SupplierColumn[]>([]);
   const [prices, setPrices] = useState<Record<string, Record<string, string>>>({});
-  const [availableSuppliers, setAvailableSuppliers] = useState<{ id: string; company_name: string }[]>([]);
   const [supplierToAdd, setSupplierToAdd] = useState('');
-  const [loading, setLoading] = useState(true);
   const [savingSupplier, setSavingSupplier] = useState<string | null>(null);
-  const [existingOrderNumber, setExistingOrderNumber] = useState<string | null>(null);
   const [creatingOrder, setCreatingOrder] = useState(false);
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [{ data: headerData, error: headerError }, { data: itemsData, error: itemsError }] = await Promise.all([
-        supabase.from('quote_requests').select('*').eq('id', quoteRequestId).single(),
-        supabase
-          .from('quote_request_items')
-          .select('id, material_id, quantity, unit, materials(name)')
-          .eq('quote_request_id', quoteRequestId)
-          .order('position'),
-      ]);
-      if (headerError) throw headerError;
-      if (itemsError) throw itemsError;
+  useEffect(() => {
+    if (isError) toast.error('Erro ao carregar cotação');
+  }, [isError]);
 
-      setHeader(headerData);
-      const reqItems: RequestItem[] = (itemsData || []).map((i: any) => ({
-        id: i.id,
-        material_id: i.material_id,
-        material_name: i.materials?.name || '—',
-        quantity: Number(i.quantity),
-        unit: i.unit,
-      }));
-      setItems(reqItems);
-
-      const { data: qrSuppliers, error: qrSuppliersError } = await supabase
-        .from('quote_request_suppliers')
-        .select('supplier_id, suppliers(company_name)')
-        .eq('quote_request_id', quoteRequestId);
-      if (qrSuppliersError) throw qrSuppliersError;
-
-      const supplierIds = (qrSuppliers || []).map((s: any) => s.supplier_id);
-
-      let quotesData: any[] = [];
-      let quoteItemsData: any[] = [];
-      if (supplierIds.length > 0) {
-        const { data: sq, error: sqError } = await supabase
-          .from('supplier_quotes')
-          .select('*')
-          .eq('quote_request_id', quoteRequestId)
-          .in('supplier_id', supplierIds);
-        if (sqError) throw sqError;
-        quotesData = sq || [];
-
-        const quoteIds = quotesData.map(q => q.id);
-        if (quoteIds.length > 0) {
-          const { data: sqi, error: sqiError } = await supabase
-            .from('supplier_quote_items')
-            .select('*')
-            .in('quote_id', quoteIds);
-          if (sqiError) throw sqiError;
-          quoteItemsData = sqi || [];
-        }
-      }
-
-      const quotesBySupplier = Object.fromEntries(quotesData.map(q => [q.supplier_id, q]));
-
-      const newColumns: SupplierColumn[] = (qrSuppliers || []).map((s: any) => {
-        const q = quotesBySupplier[s.supplier_id];
-        return {
-          supplier_id: s.supplier_id,
-          company_name: s.suppliers?.company_name || '—',
-          supplier_quote_id: q?.id ?? null,
-          valid_until: q?.valid_until ?? headerData.deadline_date,
-          payment_terms: q?.payment_terms ?? '',
-          delivery_time_days: q?.delivery_time_days != null ? String(q.delivery_time_days) : '',
-          status: q?.status ?? 'Recebida',
-        };
+  useEffect(() => {
+    if (!data) return;
+    setExistingOrderNumber(data.existingOrderNumber);
+    // Mescla com o estado local em vez de substituir: um fornecedor ainda não
+    // salvo (sem supplier_quote_id) pode ter edições locais em andamento (ex.:
+    // o usuário está preenchendo o preço de um fornecedor enquanto salva outro)
+    // — recarregar tudo não pode descartar isso.
+    setColumns(prevColumns => {
+      const prevBySupplier = Object.fromEntries(prevColumns.map(c => [c.supplier_id, c]));
+      return data.columns.map(nc => {
+        const prevCol = prevBySupplier[nc.supplier_id];
+        if (nc.supplier_quote_id || !prevCol) return nc;
+        return { ...nc, valid_until: prevCol.valid_until, payment_terms: prevCol.payment_terms, delivery_time_days: prevCol.delivery_time_days };
       });
-      // Mescla com o estado local em vez de substituir: um fornecedor ainda não
-      // salvo (sem supplier_quote_id) pode ter edições locais em andamento (ex.:
-      // o usuário está preenchendo o preço de um fornecedor enquanto salva outro)
-      // — recarregar tudo não pode descartar isso.
-      setColumns(prevColumns => {
-        const prevBySupplier = Object.fromEntries(prevColumns.map(c => [c.supplier_id, c]));
-        return newColumns.map(nc => {
-          const prevCol = prevBySupplier[nc.supplier_id];
-          if (nc.supplier_quote_id || !prevCol) return nc;
-          return { ...nc, valid_until: prevCol.valid_until, payment_terms: prevCol.payment_terms, delivery_time_days: prevCol.delivery_time_days };
-        });
+    });
+    // Idem: mescla por item, preservando preços digitados p/ fornecedores que
+    // ainda não foram salvos (não aparecem em data.prices ainda).
+    setPrices(prevPrices => {
+      const merged: Record<string, Record<string, string>> = { ...prevPrices };
+      Object.entries(data.prices).forEach(([itemId, supplierMap]) => {
+        merged[itemId] = { ...(merged[itemId] || {}), ...supplierMap };
       });
-
-      const newPrices: Record<string, Record<string, string>> = {};
-      quoteItemsData.forEach((qi: any) => {
-        const quote = quotesData.find(q => q.id === qi.quote_id);
-        if (!quote || !qi.quote_request_item_id) return;
-        if (!newPrices[qi.quote_request_item_id]) newPrices[qi.quote_request_item_id] = {};
-        newPrices[qi.quote_request_item_id][quote.supplier_id] = String(qi.unit_price);
-      });
-      // Idem: mescla por item, preservando preços digitados p/ fornecedores que
-      // ainda não foram salvos (não aparecem em newPrices ainda).
-      setPrices(prevPrices => {
-        const merged: Record<string, Record<string, string>> = { ...prevPrices };
-        Object.entries(newPrices).forEach(([itemId, supplierMap]) => {
-          merged[itemId] = { ...(merged[itemId] || {}), ...supplierMap };
-        });
-        return merged;
-      });
-
-      const { data: allSuppliers, error: allSuppliersError } = await supabase
-        .from('suppliers')
-        .select('id, company_name')
-        .eq('status', 'Ativo')
-        .order('company_name');
-      if (allSuppliersError) throw allSuppliersError;
-      setAvailableSuppliers((allSuppliers || []).filter(s => !supplierIds.includes(s.id)));
-
-      const { data: existingOrder } = await supabase
-        .from('purchase_orders')
-        .select('order_number')
-        .eq('quote_request_id', quoteRequestId)
-        .maybeSingle();
-      setExistingOrderNumber(existingOrder?.order_number ?? null);
-    } catch (error) {
-      console.error('Erro ao carregar cotação:', error);
-      toast.error('Erro ao carregar cotação');
-    } finally {
-      setLoading(false);
-    }
-  }, [quoteRequestId]);
-
-  useEffect(() => { loadAll(); }, [loadAll]);
+      return merged;
+    });
+  }, [data]);
 
   const handleAddSupplier = async () => {
     if (!supplierToAdd) return;
@@ -197,7 +213,7 @@ export const QuoteRequestDetail = ({ quoteRequestId, onBack }: QuoteRequestDetai
         .insert({ quote_request_id: quoteRequestId, supplier_id: supplierToAdd });
       if (error) throw error;
       setSupplierToAdd('');
-      await loadAll();
+      await reload();
     } catch (error) {
       console.error('Erro ao adicionar fornecedor:', error);
       toast.error('Erro ao adicionar fornecedor');
@@ -212,7 +228,7 @@ export const QuoteRequestDetail = ({ quoteRequestId, onBack }: QuoteRequestDetai
         .eq('quote_request_id', quoteRequestId)
         .eq('supplier_id', supplierId);
       if (error) throw error;
-      await loadAll();
+      await reload();
     } catch (error) {
       console.error('Erro ao remover fornecedor:', error);
       toast.error('Erro ao remover fornecedor');
@@ -280,7 +296,7 @@ export const QuoteRequestDetail = ({ quoteRequestId, onBack }: QuoteRequestDetai
       }
 
       toast.success(`Preços de ${col.company_name} salvos`);
-      await loadAll();
+      await reload();
     } catch (error) {
       console.error('Erro ao salvar cotação do fornecedor:', error);
       toast.error(`Erro ao salvar preços de ${col.company_name}`);
@@ -304,7 +320,7 @@ export const QuoteRequestDetail = ({ quoteRequestId, onBack }: QuoteRequestDetai
       }
       await supabase.from('quote_requests').update({ status: 'Concluída' }).eq('id', quoteRequestId);
       toast.success(`${col.company_name} selecionado como vencedor`);
-      await loadAll();
+      await reload();
     } catch (error) {
       console.error('Erro ao selecionar fornecedor:', error);
       toast.error('Erro ao selecionar fornecedor');

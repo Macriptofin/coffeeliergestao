@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -72,20 +73,58 @@ interface EventFormProps {
   onCancel: () => void;
 }
 
+// Helper para converter data do banco (YYYY-MM-DD) para Date local
+const parseLocalDate = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const EMPTY_CLIENTS: Client[] = [];
+
+async function fetchActiveClientsForEventForm(): Promise<Client[]> {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('id, name')
+    .eq('status', 'Ativo')
+    .order('name');
+
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchEventSessions(eventId: string) {
+  const { data, error } = await supabase
+    .from('event_sessions')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('session_date', { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
 export function EventForm({ event, initialDate, onSuccess, onCancel }: EventFormProps) {
-  const [clients, setClients] = useState<Client[]>([]);
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
-  const [loadingClients, setLoadingClients] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [sessions, setSessions] = useState<EventSession[]>([]);
   const [sessionCalendarOpen, setSessionCalendarOpen] = useState<number | null>(null);
   const [originalEventDate, setOriginalEventDate] = useState<Date | null>(null);
 
-  // Helper para converter data do banco (YYYY-MM-DD) para Date local
-  const parseLocalDate = (dateString: string): Date => {
-    const [year, month, day] = dateString.split('-').map(Number);
-    return new Date(year, month - 1, day);
-  };
+  const { data: clients = EMPTY_CLIENTS, isPending: loadingClients, isError: clientsError } = useQuery({
+    queryKey: ['active-clients-list'],
+    queryFn: fetchActiveClientsForEventForm,
+  });
+
+  useEffect(() => {
+    if (clientsError) toast.error('Erro ao carregar clientes');
+  }, [clientsError]);
+
+  const { data: existingSessions } = useQuery({
+    queryKey: ['event-sessions-form', event?.id],
+    queryFn: () => fetchEventSessions(event!.id),
+    enabled: !!event?.id,
+  });
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<EventFormData>({
     defaultValues: {
@@ -108,44 +147,20 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
 
   const selectedDate = watch('event_date');
 
+  // Sincroniza as sessões locais (editáveis) assim que a busca das sessões existentes resolve.
   useEffect(() => {
-    loadClients();
-    if (event?.id) {
-      loadSessions();
-    }
-  }, [event]);
-
-  const loadSessions = async () => {
-    if (!event?.id) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('event_sessions')
-        .select('*')
-        .eq('event_id', event.id)
-        .order('session_date', { ascending: true });
-
-      if (error) throw error;
-      
-      if (data) {
-        setSessions(data.map(s => ({
-          id: s.id,
-          session_date: parseLocalDate(s.session_date),
-          session_time: s.session_time || '',
-          session_type: s.session_type || '',
-          quantity: s.quantity,
-          notes: s.notes || ''
-        })));
-        
-        // Armazenar a data original do evento para detectar mudanças
-        if (event) {
-          setOriginalEventDate(parseLocalDate(event.event_date));
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao carregar sessões:', error);
-    }
-  };
+    if (!existingSessions || !event) return;
+    setSessions(existingSessions.map(s => ({
+      id: s.id,
+      session_date: parseLocalDate(s.session_date),
+      session_time: s.session_time || '',
+      session_type: s.session_type || '',
+      quantity: s.quantity,
+      notes: s.notes || ''
+    })));
+    // Armazenar a data original do evento para detectar mudanças
+    setOriginalEventDate(parseLocalDate(event.event_date));
+  }, [existingSessions, event]);
 
   // Ajustar datas das sessions automaticamente quando a data do evento muda
   useEffect(() => {
@@ -192,24 +207,6 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
       special_requirements: event?.special_requirements || ''
     });
   }, [event, initialDate, reset]);
-
-  const loadClients = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('id, name')
-        .eq('status', 'Ativo')
-        .order('name');
-
-      if (error) throw error;
-      setClients(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar clientes:', error);
-      toast.error('Erro ao carregar clientes');
-    } finally {
-      setLoadingClients(false);
-    }
-  };
 
   const onSubmit = async (data: EventFormData) => {
     try {
@@ -288,6 +285,9 @@ export function EventForm({ event, initialDate, onSuccess, onCancel }: EventForm
 
         if (sessionsError) throw sessionsError;
       }
+
+      queryClient.invalidateQueries({ queryKey: ['event-sessions-form', eventId] });
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'event-sessions' });
 
       toast.success(event?.id ? 'Evento atualizado com sucesso!' : 'Evento criado com sucesso!');
       onSuccess();

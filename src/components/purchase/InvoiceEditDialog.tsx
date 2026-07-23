@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { todayLocalISO, addDaysLocalISO } from '@/lib/date-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -89,6 +90,28 @@ interface InvoiceEditDialogProps {
   purchaseOrderNumber?: string | null;
 }
 
+const EMPTY_USERS: any[] = [];
+const EMPTY_COST_CENTERS: any[] = [];
+
+async function fetchUserProfilesForInvoice() {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('user_id, display_name, email')
+    .limit(50);
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchActiveCostCentersForInvoice() {
+  const { data, error } = await supabase
+    .from('cost_centers')
+    .select('id, name, code')
+    .eq('is_active', true)
+    .order('name');
+  if (error) throw error;
+  return data || [];
+}
+
 export const InvoiceEditDialog = ({
   open,
   onOpenChange,
@@ -120,8 +143,6 @@ export const InvoiceEditDialog = ({
   const [prazoPagamentoDias, setPrazoPagamentoDias] = useState(initialPrazoPagamentoDias || 30);
   const [responsavelId, setResponsavelId] = useState<string | null>(initialResponsavelId || null);
   const [observacoes, setObservacoes] = useState(initialObservacoes || '');
-  const [users, setUsers] = useState<any[]>([]);
-  const [costCenters, setCostCenters] = useState<any[]>([]);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [launching, setLaunching] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -134,10 +155,23 @@ export const InvoiceEditDialog = ({
   
   const canEditItems = !itemsLocked || isAdmin;
 
+  const { data: users = EMPTY_USERS } = useQuery({
+    queryKey: ['user-profiles-for-invoice'],
+    queryFn: fetchUserProfilesForInvoice,
+    enabled: open,
+  });
+  const { data: costCenters = EMPTY_COST_CENTERS } = useQuery({
+    queryKey: ['active-cost-centers'],
+    queryFn: fetchActiveCostCentersForInvoice,
+    enabled: open,
+  });
+
   useEffect(() => {
     if (invoiceData && open) {
-      loadUsers();
-      loadCostCenters();
+      // Auto-selecionar usuário atual como responsável
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) setResponsavelId(user.id);
+      });
 
       // Inicializar itens com status
       const itemsWithStatus: InvoiceItem[] = invoiceData.itens.map(item => ({
@@ -156,48 +190,16 @@ export const InvoiceEditDialog = ({
     }
   }, [invoiceData, open, initialSupplierId]);
 
-  const loadCostCenters = async () => {
-    try {
-      const { data } = await supabase
-        .from('cost_centers')
-        .select('id, name, code')
-        .eq('is_active', true)
-        .order('name');
-      
-      setCostCenters(data || []);
-      
-      // Auto-selecionar centro de custo de frete se existir
-      const freightCC = data?.find(cc => 
-        cc.name.toLowerCase().includes('frete') || 
-        cc.name.toLowerCase().includes('logística') ||
-        cc.name.toLowerCase().includes('entrega')
-      );
-      if (freightCC) {
-        setFreightCostCenterId(freightCC.id);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar centros de custo:', error);
-    }
-  };
-
-  const loadUsers = async () => {
-    try {
-      const { data } = await supabase
-        .from('user_profiles')
-        .select('user_id, display_name, email')
-        .limit(50);
-      
-      setUsers(data || []);
-      
-      // Auto-selecionar usuário atual
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setResponsavelId(user.id);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar usuários:', error);
-    }
-  };
+  // Auto-selecionar centro de custo de frete assim que a lista carrega
+  useEffect(() => {
+    if (!open) return;
+    const freightCC = costCenters.find((cc: any) =>
+      cc.name.toLowerCase().includes('frete') ||
+      cc.name.toLowerCase().includes('logística') ||
+      cc.name.toLowerCase().includes('entrega')
+    );
+    if (freightCC) setFreightCostCenterId(freightCC.id);
+  }, [costCenters, open]);
 
   const handleMaterialSelect = async (itemIndex: number, materialId: string) => {
     if (!editedData) return;

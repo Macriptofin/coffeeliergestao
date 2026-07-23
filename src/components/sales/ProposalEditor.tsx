@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { todayLocalISO } from '@/lib/date-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -105,6 +106,152 @@ const emptyLine = (matId: string): LineItem => ({
   material_id: matId, qty_per_person: 1, use_per_person: true, fixed_qty: 0,
 });
 
+// ─── Data fetching (module-level, cacheável) ──────────────────────────────────
+
+const EMPTY_CLIENTS: Client[] = [];
+const EMPTY_MATERIALS: SellableMaterial[] = [];
+const EMPTY_TAG_MAP: Record<string, Set<string>> = {};
+const EMPTY_DEPARTMENTS: Department[] = [];
+const EMPTY_UNITS: Unit[] = [];
+const EMPTY_ROOMS: Room[] = [];
+const EMPTY_CONTACTS: Contact[] = [];
+const EMPTY_PORTAL_USERS: { user_id: string; name: string }[] = [];
+
+async function fetchActiveClientsForProposal(): Promise<Client[]> {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('id, name, fantasy_name, distance_km')
+    .eq('status', 'Ativo')
+    .order('name');
+  if (error) throw error;
+  return data || [];
+}
+
+// Parâmetros de logística (frete por evento) — globais em app_settings.
+async function fetchProposalLogisticsParams() {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('key, value')
+    .in('key', ['logistics.delivery_trips', 'logistics.cost_per_km']);
+  if (error) throw error;
+  const map = new Map((data || []).map((r: any) => [r.key, r.value]));
+  return {
+    deliveryTrips: parseFloat(map.get('logistics.delivery_trips') ?? '4') || 0,
+    costPerKm: parseFloat(map.get('logistics.cost_per_km') ?? '1.50') || 0,
+  };
+}
+
+async function fetchSellableMaterialsForProposal(): Promise<{ materials: SellableMaterial[]; tagMap: Record<string, Set<string>> }> {
+  const { data: mats, error } = await supabase
+    .from('materials')
+    .select('id, code, name, category, subcategory, unit_weight, cost_price, usage_unit, practiced_price, suggested_price')
+    .eq('is_sellable', true)
+    .eq('is_archived', false)
+    .order('name');
+  if (error) throw error;
+  if (!mats?.length) return { materials: [], tagMap: {} };
+
+  const matIds = mats.map((m: any) => m.id);
+  const [stockRes, bomRes, tagRes] = await Promise.all([
+    supabase.from('stock_items').select('material_id, average_price').in('material_id', matIds),
+    supabase.from('recipes_bom').select('finished_material_id, cached_unit_cost').in('finished_material_id', matIds),
+    supabase.from('material_tags').select('material_id, taxonomy_terms(code)').in('material_id', matIds),
+  ]);
+
+  const stockMap: Record<string, number> = {};
+  stockRes.data?.forEach((s: any) => { stockMap[s.material_id] = parseFloat(s.average_price || 0); });
+
+  // cached_unit_cost = CMV real calculado pela ficha técnica (mais preciso para produtos produzidos)
+  const bomMap: Record<string, number> = {};
+  bomRes.data?.forEach((b: any) => { bomMap[b.finished_material_id] = parseFloat(b.cached_unit_cost || 0); });
+
+  // map materialId -> Set<tagCode>
+  const tagMap: Record<string, Set<string>> = {};
+  tagRes.data?.forEach((t: any) => {
+    const code = t.taxonomy_terms?.code;
+    if (!code) return;
+    if (!tagMap[t.material_id]) tagMap[t.material_id] = new Set();
+    tagMap[t.material_id].add(code);
+  });
+
+  const materials = mats.map((m: any) => {
+    // Custo: cached_unit_cost (ficha) > average_price (estoque) > cost_price (manual)
+    const avg = bomMap[m.id] || stockMap[m.id] || parseFloat(m.cost_price || 0);
+    // Preço de venda do produto: praticado > sugerido (motor de precificação) >
+    // fallback (custo + margem padrão) p/ produtos ainda sem preço calculado.
+    const practiced = m.practiced_price != null ? parseFloat(m.practiced_price) : null;
+    const suggested = m.suggested_price != null ? parseFloat(m.suggested_price) : null;
+    const sale = practiced ?? suggested ?? (avg > 0 ? avg / (1 - MARGIN_TARGET) : 0);
+    return {
+      ...m,
+      unit_weight:   parseFloat(m.unit_weight || 0),
+      cost_price:    parseFloat(m.cost_price  || 0),
+      average_price: avg,
+      sale_price:    sale,
+    };
+  });
+
+  return { materials, tagMap };
+}
+
+async function fetchClientStructureForProposal(clientId: string) {
+  const [deptR, unitR, roomR, contactR] = await Promise.all([
+    supabase.from('client_departments').select('id, name').eq('client_id', clientId).eq('is_active', true).order('name'),
+    supabase.from('client_units').select('id, name, distance_km').eq('client_id', clientId).eq('is_active', true).order('name'),
+    supabase.from('client_rooms').select('id, name, unit_id').eq('client_id', clientId).eq('is_active', true).order('name'),
+    supabase.from('client_contacts').select('id, name, department_id').eq('client_id', clientId).eq('is_active', true).order('name'),
+  ]);
+
+  // Usuários do portal deste cliente (para indicar o solicitante/destinatário).
+  const cuR = await supabase.from('client_users')
+    .select('user_id, portal_role').eq('client_id', clientId).eq('is_active', true);
+  const ids = (cuR.data || []).map((r: any) => r.user_id);
+  let profs: any[] = [];
+  if (ids.length) {
+    profs = (await supabase.from('user_profiles').select('user_id, full_name, email').in('user_id', ids)).data || [];
+  }
+  const pm = new Map(profs.map((p: any) => [p.user_id, p]));
+
+  return {
+    departments: deptR.data || [],
+    units: unitR.data || [],
+    rooms: roomR.data || [],
+    contacts: contactR.data || [],
+    portalUsers: (cuR.data || []).map((r: any) => ({
+      user_id: r.user_id,
+      name: pm.get(r.user_id)?.full_name || pm.get(r.user_id)?.email || 'Usuário',
+    })),
+  };
+}
+
+async function fetchExistingProposalForEditor(id: string) {
+  const { data: prop, error } = await supabase
+    .from('proposals')
+    .select('*, clients(name, fantasy_name)')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  if (!prop) return null;
+
+  const [compRes, catRes] = await Promise.all([
+    supabase
+      .from('proposal_compositions')
+      .select('id, name, event_category, scheduled_date, scheduled_time, room_id, location, number_of_people, notes, sort_order')
+      .eq('proposal_id', id)
+      .order('sort_order'),
+    supabase
+      .from('proposal_categories')
+      .select('id, category_label, composition_id, proposal_category_items(material_id, qty_per_person, fixed_qty, item_kind)')
+      .eq('proposal_id', id),
+  ]);
+
+  return {
+    prop,
+    dbComps: compRes.data || [],
+    dbCats: catRes.data || [],
+  };
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ProposalEditor({ proposalId, onComplete, onCancel }: ProposalEditorProps) {
@@ -125,22 +272,9 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   const [adhocDistance, setAdhocDistance]       = useState<number | null>(null);
   const [adhocCalculating, setAdhocCalculating] = useState(false);
 
-  // ── Reference data ─────────────────────────────────────────────────────────
-  const [clients, setClients]         = useState<Client[]>([]);
-  const [deliveryTrips, setDeliveryTrips] = useState(4);     // nº trajetos (logística)
-  const [costPerKm, setCostPerKm]         = useState(1.5);   // R$/km (logística)
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [units, setUnits]             = useState<Unit[]>([]);
-  const [rooms, setRooms]             = useState<Room[]>([]);
-  const [contacts, setContacts]       = useState<Contact[]>([]);
-  const [portalUsers, setPortalUsers] = useState<{ user_id: string; name: string }[]>([]);
   const [portalUserId, setPortalUserId] = useState(''); // solicitante: usuário do portal dono da proposta
-  const [loadingStructure, setLoadingStructure] = useState(false);
 
   // ── Composition state ──────────────────────────────────────────────────────
-  const [materials, setMaterials] = useState<SellableMaterial[]>([]);
-  // map materialId -> Set<tagCode>
-  const [tagMap, setTagMap]       = useState<Record<string, Set<string>>>({});
   const [compositions, setCompositions] = useState<Composition[]>([]);
   // items: { [compositionLocalId]: { [sectionKey]: { [materialId]: LineItem } } }
   const [items, setItems]         = useState<Record<string, SectionState>>({});
@@ -154,123 +288,73 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   };
 
   // ── UI state ───────────────────────────────────────────────────────────────
-  const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
   const [approving, setApproving] = useState(false);
   const [sending, setSending]   = useState(false);
 
-  // ── Load ───────────────────────────────────────────────────────────────────
+  // ── Reference data (cacheável) ─────────────────────────────────────────────
 
-  useEffect(() => { bootstrap(); }, [proposalId]);
+  const { data: clients = EMPTY_CLIENTS, isPending: clientsLoading } = useQuery({
+    queryKey: ['active-clients-list'],
+    queryFn: fetchActiveClientsForProposal,
+  });
 
-  const bootstrap = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([loadClients(), loadMaterials(), loadLogisticsParams()]);
+  const { data: logisticsParams, isPending: logisticsLoading } = useQuery({
+    queryKey: ['proposal-logistics-params'],
+    queryFn: fetchProposalLogisticsParams,
+  });
+  const deliveryTrips = logisticsParams?.deliveryTrips ?? 4;
+  const costPerKm = logisticsParams?.costPerKm ?? 1.5;
 
-      if (proposalId) {
-        await loadExistingProposal(proposalId);
-      } else {
-        // Proposta nova: garantir ao menos uma composition default.
-        setCompositions([{
-          localId: 'c0',
-          dbId: null,
-          name: 'Momento 1',
-          event_category: '',
-          scheduled_date: '',
-          scheduled_time: '',
-          room_id: '',
-          location: '',
-          number_of_people: null,
-          notes: '',
-        }]);
-        setItems({ c0: {} });
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: materialsData, isPending: materialsLoading } = useQuery({
+    queryKey: ['sellable-materials-for-proposal'],
+    queryFn: fetchSellableMaterialsForProposal,
+  });
+  const materials = materialsData?.materials ?? EMPTY_MATERIALS;
+  const tagMap = materialsData?.tagMap ?? EMPTY_TAG_MAP;
 
-  const loadClients = async () => {
-    const { data } = await supabase
-      .from('clients')
-      .select('id, name, fantasy_name, distance_km')
-      .eq('status', 'Ativo')
-      .order('name');
-    setClients(data || []);
-  };
+  const { data: clientStructure, isFetching: loadingStructure } = useQuery({
+    queryKey: ['client-structure-for-proposal', clientId],
+    queryFn: () => fetchClientStructureForProposal(clientId),
+    enabled: !!clientId,
+  });
+  const departments = clientStructure?.departments ?? EMPTY_DEPARTMENTS;
+  const units = clientStructure?.units ?? EMPTY_UNITS;
+  const rooms = clientStructure?.rooms ?? EMPTY_ROOMS;
+  const contacts = clientStructure?.contacts ?? EMPTY_CONTACTS;
+  const portalUsers = clientStructure?.portalUsers ?? EMPTY_PORTAL_USERS;
 
-  // Parâmetros de logística (frete por evento) — globais em app_settings
-  const loadLogisticsParams = async () => {
-    const { data } = await supabase
-      .from('app_settings')
-      .select('key, value')
-      .in('key', ['logistics.delivery_trips', 'logistics.cost_per_km']);
-    const map = new Map((data || []).map((r: any) => [r.key, r.value]));
-    setDeliveryTrips(parseFloat(map.get('logistics.delivery_trips') ?? '4') || 0);
-    setCostPerKm(parseFloat(map.get('logistics.cost_per_km') ?? '1.50') || 0);
-  };
+  const { data: existingProposal, isPending: existingProposalLoading } = useQuery({
+    queryKey: ['proposal-editor-existing', proposalId],
+    queryFn: () => fetchExistingProposalForEditor(proposalId!),
+    enabled: !!proposalId,
+  });
 
-  const loadMaterials = async () => {
-    const { data: mats } = await supabase
-      .from('materials')
-      .select('id, code, name, category, subcategory, unit_weight, cost_price, usage_unit, practiced_price, suggested_price')
-      .eq('is_sellable', true)
-      .eq('is_archived', false)
-      .order('name');
+  const loading = clientsLoading || logisticsLoading || materialsLoading
+    || (!!proposalId && existingProposalLoading);
 
-    if (!mats?.length) return;
+  // ── Seed do formulário local: proposta nova (composição default, uma vez) ──
+  useEffect(() => {
+    if (proposalId) return;
+    setCompositions([{
+      localId: 'c0',
+      dbId: null,
+      name: 'Momento 1',
+      event_category: '',
+      scheduled_date: '',
+      scheduled_time: '',
+      room_id: '',
+      location: '',
+      number_of_people: null,
+      notes: '',
+    }]);
+    setItems({ c0: {} });
+  }, [proposalId]);
 
-    const matIds = mats.map((m: any) => m.id);
-    const [stockRes, bomRes, tagRes] = await Promise.all([
-      supabase.from('stock_items').select('material_id, average_price').in('material_id', matIds),
-      supabase.from('recipes_bom').select('finished_material_id, cached_unit_cost').in('finished_material_id', matIds),
-      supabase.from('material_tags').select('material_id, taxonomy_terms(code)').in('material_id', matIds),
-    ]);
-
-    const stockMap: Record<string, number> = {};
-    stockRes.data?.forEach((s: any) => { stockMap[s.material_id] = parseFloat(s.average_price || 0); });
-
-    // cached_unit_cost = CMV real calculado pela ficha técnica (mais preciso para produtos produzidos)
-    const bomMap: Record<string, number> = {};
-    bomRes.data?.forEach((b: any) => { bomMap[b.finished_material_id] = parseFloat(b.cached_unit_cost || 0); });
-
-    // map materialId -> Set<tagCode>
-    const tags: Record<string, Set<string>> = {};
-    tagRes.data?.forEach((t: any) => {
-      const code = t.taxonomy_terms?.code;
-      if (!code) return;
-      if (!tags[t.material_id]) tags[t.material_id] = new Set();
-      tags[t.material_id].add(code);
-    });
-
-    setTagMap(tags);
-    setMaterials(mats.map((m: any) => {
-      // Custo: cached_unit_cost (ficha) > average_price (estoque) > cost_price (manual)
-      const avg = bomMap[m.id] || stockMap[m.id] || parseFloat(m.cost_price || 0);
-      // Preço de venda do produto: praticado > sugerido (motor de precificação) >
-      // fallback (custo + margem padrão) p/ produtos ainda sem preço calculado.
-      const practiced = m.practiced_price != null ? parseFloat(m.practiced_price) : null;
-      const suggested = m.suggested_price != null ? parseFloat(m.suggested_price) : null;
-      const sale = practiced ?? suggested ?? (avg > 0 ? avg / (1 - MARGIN_TARGET) : 0);
-      return {
-        ...m,
-        unit_weight:   parseFloat(m.unit_weight || 0),
-        cost_price:    parseFloat(m.cost_price  || 0),
-        average_price: avg,
-        sale_price:    sale,
-      };
-    }));
-  };
-
-  const loadExistingProposal = async (id: string) => {
-    const { data: prop } = await supabase
-      .from('proposals')
-      .select('*, clients(name, fantasy_name)')
-      .eq('id', id)
-      .single();
-
-    if (!prop) return;
+  // ── Seed do formulário local: proposta existente, assim que a busca resolve ──
+  useEffect(() => {
+    if (!existingProposal?.prop) return;
+    const { prop, dbComps, dbCats } = existingProposal;
 
     setClientId(prop.client_id || '');
     setEventName(prop.event_name || '');
@@ -286,24 +370,6 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     setAdhocName(prop.event_location_name || '');
     setAdhocZip(prop.event_location_zip || '');
     setAdhocDistance(prop.event_location_distance_km ?? null);
-
-    if (prop.client_id) loadClientStructure(prop.client_id);
-
-    // Load existing compositions + categories + items
-    const [compRes, catRes] = await Promise.all([
-      supabase
-        .from('proposal_compositions')
-        .select('id, name, event_category, scheduled_date, scheduled_time, room_id, location, number_of_people, notes, sort_order')
-        .eq('proposal_id', id)
-        .order('sort_order'),
-      supabase
-        .from('proposal_categories')
-        .select('id, category_label, composition_id, proposal_category_items(material_id, qty_per_person, fixed_qty, item_kind)')
-        .eq('proposal_id', id),
-    ]);
-
-    const dbComps = compRes.data || [];
-    const dbCats  = catRes.data  || [];
 
     // Construir lista de compositions locais.
     let seq = 1;
@@ -367,45 +433,11 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     setLocalIdSeq(seq);
     setCompositions(comps);
     setItems(newItems);
-  };
-
-  const loadClientStructure = async (id: string) => {
-    setLoadingStructure(true);
-    try {
-      const [deptR, unitR, roomR, contactR] = await Promise.all([
-        supabase.from('client_departments').select('id, name').eq('client_id', id).eq('is_active', true).order('name'),
-        supabase.from('client_units').select('id, name, distance_km').eq('client_id', id).eq('is_active', true).order('name'),
-        supabase.from('client_rooms').select('id, name, unit_id').eq('client_id', id).eq('is_active', true).order('name'),
-        supabase.from('client_contacts').select('id, name, department_id').eq('client_id', id).eq('is_active', true).order('name'),
-      ]);
-      setDepartments(deptR.data || []);
-      setUnits(unitR.data || []);
-      setRooms(roomR.data || []);
-      setContacts(contactR.data || []);
-
-      // Usuários do portal deste cliente (para indicar o solicitante/destinatário).
-      const cuR = await supabase.from('client_users')
-        .select('user_id, portal_role').eq('client_id', id).eq('is_active', true);
-      const ids = (cuR.data || []).map((r: any) => r.user_id);
-      let profs: any[] = [];
-      if (ids.length) {
-        profs = (await supabase.from('user_profiles').select('user_id, full_name, email').in('user_id', ids)).data || [];
-      }
-      const pm = new Map(profs.map((p: any) => [p.user_id, p]));
-      setPortalUsers((cuR.data || []).map((r: any) => ({
-        user_id: r.user_id,
-        name: pm.get(r.user_id)?.full_name || pm.get(r.user_id)?.email || 'Usuário',
-      })));
-    } finally {
-      setLoadingStructure(false);
-    }
-  };
+  }, [existingProposal]);
 
   const handleClientChange = (id: string) => {
     setClientId(id);
     setDepartmentId(''); setUnitId(''); setContactId(''); setPortalUserId('');
-    setDepartments([]); setUnits([]); setRooms([]); setContacts([]); setPortalUsers([]);
-    if (id) loadClientStructure(id);
   };
 
   // ── Seções: quais materiais cada seção oferece (match por categoria/subcategoria/tag) ──

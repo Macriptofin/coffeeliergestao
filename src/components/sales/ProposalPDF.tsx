@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { todayLocalISO, formatLocalDate } from '@/lib/date-utils';
 import { useReactToPrint } from 'react-to-print';
 import { supabase } from '@/integrations/supabase/client';
@@ -152,17 +153,7 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   </div>
 );
 
-// ─── Componente principal ─────────────────────────────────────────────────────
-export function ProposalPDF({ proposalId, onClose }: Props) {
-  const [proposal,     setProposal]     = useState<ProposalData | null>(null);
-  const [compositions, setCompositions] = useState<Composition[]>([]);
-  const [loading,      setLoading]      = useState(true);
-  const printRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { loadData(); }, [proposalId]);
-
-  const loadData = async () => {
-    try {
+async function fetchProposalPDFData(proposalId: string): Promise<{ proposal: ProposalData | null; compositions: Composition[] }> {
       const [propRes, compsRes, catsRes] = await Promise.all([
         supabase
           .from('proposals')
@@ -196,9 +187,10 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
           .order('sort_order'),
       ]);
 
+      let proposal: ProposalData | null = null;
       if (propRes.data) {
         const p = propRes.data as any;
-        setProposal({
+        proposal = {
           id: p.id,
           proposal_number: p.proposal_number,
           revision: p.revision ?? 1,
@@ -218,7 +210,7 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
           contact_name: p.client_contacts?.name || '',
           contact_email: p.client_contacts?.email || '',
           contact_phone: p.client_contacts?.phone || '',
-        });
+        };
       }
 
       // ── Agrupa categorias por composição (momento) → seção → itens ──────────
@@ -313,13 +305,19 @@ export function ProposalPDF({ proposalId, onClose }: Props) {
           : [];
       }
 
-      setCompositions(comps);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return { proposal, compositions: comps };
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+export function ProposalPDF({ proposalId, onClose }: Props) {
+  const printRef = useRef<HTMLDivElement>(null);
+
+  const { data, isPending: loading } = useQuery({
+    queryKey: ['proposal-pdf', proposalId],
+    queryFn: () => fetchProposalPDFData(proposalId),
+  });
+  const proposal = data?.proposal ?? null;
+  const compositions = data?.compositions ?? [];
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,

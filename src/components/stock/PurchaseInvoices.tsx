@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,11 +56,94 @@ interface OpenPurchaseOrder {
   supplier_name: string;
 }
 
+const EMPTY_SUPPLIERS: Supplier[] = [];
+const EMPTY_INGREDIENTS: Ingredient[] = [];
+const EMPTY_OPEN_POS: OpenPurchaseOrder[] = [];
+const EMPTY_PAYABLES: any[] = [];
+
+// Mesma queryKey/shape de SupplierProducts.tsx — cache compartilhado.
+async function fetchActiveSuppliersList(): Promise<Supplier[]> {
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('id, company_name')
+    .eq('status', 'Ativo')
+    .order('company_name');
+
+  if (error) throw error;
+
+  return data.map(item => ({
+    id: item.id,
+    companyName: item.company_name
+  }));
+}
+
+async function fetchMaterialsForInvoice(): Promise<Ingredient[]> {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('id, name, purchase_unit, usage_unit, conversion_factor')
+    .order('name');
+
+  if (error) throw error;
+
+  return data.map(item => ({
+    id: item.id,
+    name: item.name,
+    purchaseUnit: item.purchase_unit,
+    usageUnit: item.usage_unit,
+    conversionFactor: parseFloat(item.conversion_factor?.toString() || '1')
+  }));
+}
+
+// Pedidos de compra aprovados/enviados que ainda não têm nenhuma NF vinculada
+async function fetchOpenPurchaseOrdersForInvoice(): Promise<OpenPurchaseOrder[]> {
+  const { data: linked } = await supabase
+    .from('purchase_invoices')
+    .select('purchase_order_id')
+    .not('purchase_order_id', 'is', null);
+  const linkedIds = (linked || []).map((l: any) => l.purchase_order_id).filter(Boolean);
+
+  let query = supabase
+    .from('purchase_orders')
+    .select('id, order_number, supplier_id, suppliers(company_name)')
+    .in('status', ['Aprovado', 'Enviado'])
+    .order('order_date', { ascending: false });
+
+  if (linkedIds.length > 0) {
+    query = query.not('id', 'in', `(${linkedIds.join(',')})`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data || []).map((o: any) => ({
+    id: o.id,
+    order_number: o.order_number,
+    supplier_id: o.supplier_id,
+    supplier_name: o.suppliers?.company_name || 'N/A',
+  }));
+}
+
+async function fetchExistingPayablesForInvoices(invoiceNumbers: string[]) {
+  const { data, error } = await supabase
+    .from('accounts_payable')
+    .select('invoice_number, supplier_id')
+    .in('invoice_number', invoiceNumbers);
+  if (error) throw error;
+  return data || [];
+}
+
 export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps) {
   const { isAdminOrManager, isAdmin, loading: roleLoading } = useUserRole();
+  const queryClient = useQueryClient();
   const { methodNames: paymentMethodNames } = usePaymentMethods();
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const { data: suppliers = EMPTY_SUPPLIERS } = useQuery({
+    queryKey: ['active-suppliers-list'],
+    queryFn: fetchActiveSuppliersList,
+  });
+  const { data: ingredients = EMPTY_INGREDIENTS } = useQuery({
+    queryKey: ['materials-for-invoice'],
+    queryFn: fetchMaterialsForInvoice,
+  });
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [manualInvoiceData, setManualInvoiceData] = useState<any>(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
@@ -67,8 +151,11 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   const [editingItemsLocked, setEditingItemsLocked] = useState(false);
   const [linkedPurchaseOrder, setLinkedPurchaseOrder] = useState<{ id: string; order_number: string } | null>(null);
   const [poPickerOpen, setPoPickerOpen] = useState(false);
-  const [openPurchaseOrders, setOpenPurchaseOrders] = useState<OpenPurchaseOrder[]>([]);
-  const [loadingPOs, setLoadingPOs] = useState(false);
+  const { data: openPurchaseOrders = EMPTY_OPEN_POS, isFetching: loadingPOs, refetch: refetchOpenPOs } = useQuery({
+    queryKey: ['open-purchase-orders-for-invoice'],
+    queryFn: fetchOpenPurchaseOrdersForInvoice,
+    enabled: poPickerOpen,
+  });
   const [paymentData, setPaymentData] = useState({
     paymentMethod: 'Dinheiro',
     responsiblePerson: '',
@@ -94,7 +181,12 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     bankAccountId: '',
     notes:         '',
   });
-  const [existingPayables, setExistingPayables] = useState<any[]>([]);
+  const invoiceNumbers = useMemo(() => invoices.map(inv => inv.invoiceNumber), [invoices]);
+  const { data: existingPayables = EMPTY_PAYABLES } = useQuery({
+    queryKey: ['existing-payables', invoiceNumbers],
+    queryFn: () => fetchExistingPayablesForInvoices(invoiceNumbers),
+    enabled: invoiceNumbers.length > 0,
+  });
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
@@ -116,59 +208,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     numeroParcelas: 1,
     prazoPagamentoDias: 30,
   });
-
-  useEffect(() => {
-    loadSuppliers();
-    loadIngredients();
-  }, []);
-
-  useEffect(() => {
-    if (invoices.length > 0) {
-      checkExistingPayables();
-    }
-  }, [invoices]);
-
-  const loadSuppliers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('suppliers')
-        .select('id, company_name')
-        .eq('status', 'Ativo')
-        .order('company_name');
-
-      if (error) throw error;
-
-      setSuppliers(data.map(item => ({
-        id: item.id,
-        companyName: item.company_name
-      })));
-    } catch (error) {
-      console.error('Erro ao carregar fornecedores:', error);
-      toast.error('Erro ao carregar fornecedores');
-    }
-  };
-
-  const loadIngredients = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('materials')
-        .select('id, name, purchase_unit, usage_unit, conversion_factor')
-        .order('name');
-
-      if (error) throw error;
-
-      setIngredients(data.map(item => ({
-        id: item.id,
-        name: item.name,
-        purchaseUnit: item.purchase_unit,
-        usageUnit: item.usage_unit,
-        conversionFactor: parseFloat(item.conversion_factor?.toString() || '1')
-      })));
-    } catch (error) {
-      console.error('Erro ao carregar ingredientes:', error);
-      toast.error('Erro ao carregar ingredientes');
-    }
-  };
 
   const openNewInvoiceDialog = () => {
     // Abrir diálogo vazio para nova nota fiscal
@@ -195,43 +234,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     setEditingItemsLocked(false);
     setLinkedPurchaseOrder(null);
     onRefresh();
-  };
-
-  // Pedidos de compra aprovados/enviados que ainda não têm nenhuma NF vinculada
-  const loadOpenPurchaseOrders = async () => {
-    setLoadingPOs(true);
-    try {
-      const { data: linked } = await supabase
-        .from('purchase_invoices')
-        .select('purchase_order_id')
-        .not('purchase_order_id', 'is', null);
-      const linkedIds = (linked || []).map((l: any) => l.purchase_order_id).filter(Boolean);
-
-      let query = supabase
-        .from('purchase_orders')
-        .select('id, order_number, supplier_id, suppliers(company_name)')
-        .in('status', ['Aprovado', 'Enviado'])
-        .order('order_date', { ascending: false });
-
-      if (linkedIds.length > 0) {
-        query = query.not('id', 'in', `(${linkedIds.join(',')})`);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      setOpenPurchaseOrders((data || []).map((o: any) => ({
-        id: o.id,
-        order_number: o.order_number,
-        supplier_id: o.supplier_id,
-        supplier_name: o.suppliers?.company_name || 'N/A',
-      })));
-    } catch (error) {
-      console.error('Erro ao carregar pedidos de compra em aberto:', error);
-      toast.error('Erro ao carregar pedidos de compra em aberto');
-    } finally {
-      setLoadingPOs(false);
-    }
   };
 
   const openInvoiceFromPurchaseOrder = async (order: OpenPurchaseOrder) => {
@@ -855,6 +857,10 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       }
       
       toast.success(successMessage);
+      queryClient.invalidateQueries({ queryKey: ['existing-payables'] });
+      if (invoice.purchase_order_id) {
+        queryClient.invalidateQueries({ queryKey: ['open-purchase-orders-for-invoice'] });
+      }
       onRefresh();
     } catch (error) {
       console.error('Erro ao lançar no estoque:', error);
@@ -862,17 +868,6 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     } finally {
       setLoading(false);
     }
-  };
-
-  // Verificar quais notas já possuem contas a pagar
-  const checkExistingPayables = async () => {
-    const invoiceNumbers = invoices.map(inv => inv.invoiceNumber);
-    const { data: existingPayables } = await supabase
-      .from('accounts_payable')
-      .select('invoice_number, supplier_id')
-      .in('invoice_number', invoiceNumbers);
-    
-    setExistingPayables(existingPayables || []);
   };
 
   const invoiceHasPayable = (invoice: any) => {
@@ -950,7 +945,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       toast.success(successMessage);
       setShowRetroactiveDialog(false);
       setSelectedInvoiceForRetroactive(null);
-      checkExistingPayables(); // Atualizar lista de contas existentes
+      queryClient.invalidateQueries({ queryKey: ['existing-payables'] }); // Atualizar lista de contas existentes
       onRefresh();
 
     } catch (error) {
@@ -1089,7 +1084,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               </CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Button variant="outline" size="sm" onClick={() => { setPoPickerOpen(true); loadOpenPurchaseOrders(); }}>
+              <Button variant="outline" size="sm" onClick={() => { setPoPickerOpen(true); refetchOpenPOs(); }}>
                 <ShoppingCart className="h-4 w-4 mr-2" />
                 Lançar Pedido de Compra
               </Button>

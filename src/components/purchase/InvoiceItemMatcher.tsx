@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -66,6 +67,107 @@ interface InvoiceItemMatcherProps {
   canEditName?: boolean;
 }
 
+const EMPTY_MATERIALS: Material[] = [];
+const EMPTY_SUGGESTIONS: MaterialSuggestion[] = [];
+const EMPTY_SEARCH_RESULTS: Material[] = [];
+
+// Materiais elegíveis a receber entrada por NF: exclui os cujo custo é calculado
+// por ficha técnica (composite/intermediate com recipe) — produto acabado SEM
+// ficha (ex: revenda) pode receber entrada por NF normalmente.
+async function fetchEligibleMaterialsForInvoiceMatch(): Promise<Material[]> {
+  const { data: materials, error } = await supabase
+    .from('materials')
+    .select(`
+      id,
+      name,
+      code,
+      usage_unit,
+      conversion_factor,
+      material_type,
+      stock_items(cost_source)
+    `)
+    .eq('is_archived', false)
+    .limit(200);
+
+  if (error) throw error;
+
+  return (materials || []).filter((m: any) => {
+    const costSource = m.stock_items?.[0]?.cost_source;
+    if (costSource === 'recipe') return false;
+    if (m.material_type === 'intermediate_product' || m.material_type === 'composite_product') return false;
+    return true;
+  });
+}
+
+async function searchInvoiceMatchMaterials(searchTerm: string): Promise<Material[]> {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('id, name, code, usage_unit, conversion_factor, material_type, stock_items(cost_source)')
+    .eq('is_archived', false)
+    .not('material_type', 'in', '(intermediate_product,composite_product)')
+    .ilike('name', `%${searchTerm}%`)
+    .limit(30);
+
+  if (error) throw error;
+
+  // Excluir apenas finished_product com ficha técnica (cost_source = 'recipe')
+  return (data || []).filter((m: any) => {
+    if (m.material_type === 'finished_product') {
+      return m.stock_items?.[0]?.cost_source !== 'recipe';
+    }
+    return true;
+  });
+}
+
+function generateSuggestions(itemName: string, materials: Material[]): MaterialSuggestion[] {
+  const suggestions: MaterialSuggestion[] = [];
+  const nameLower = itemName.toLowerCase();
+
+  materials.forEach(material => {
+    const materialNameLower = material.name.toLowerCase();
+
+    if (materialNameLower === nameLower) {
+      suggestions.push({ ...material, confidence: 1.0, match_method: 'exact', reason: 'Nome idêntico' });
+      return;
+    }
+
+    if (materialNameLower.includes(nameLower) || nameLower.includes(materialNameLower)) {
+      const confidence = calculateSimilarity(materialNameLower, nameLower);
+      suggestions.push({ ...material, confidence, match_method: 'fuzzy', reason: 'Nome similar' });
+    }
+  });
+
+  return suggestions.sort((a, b) => b.confidence - a.confidence).slice(0, 5);
+}
+
+function calculateSimilarity(str1: string, str2: string): number {
+  const longer = str1.length > str2.length ? str1 : str2;
+  const shorter = str1.length > str2.length ? str2 : str1;
+  if (longer.length === 0) return 1.0;
+  const editDistance = levenshteinDistance(longer, shorter);
+  return (longer.length - editDistance) / longer.length;
+}
+
+function levenshteinDistance(str1: string, str2: string): number {
+  const matrix: number[][] = [];
+  for (let i = 0; i <= str2.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= str1.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[str2.length][str1.length];
+}
+
 export const InvoiceItemMatcher = ({
   item,
   index,
@@ -77,138 +179,28 @@ export const InvoiceItemMatcher = ({
   onFiscalChange,
   canEditName = false
 }: InvoiceItemMatcherProps) => {
-  const [suggestions, setSuggestions] = useState<MaterialSuggestion[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<Material[]>([]);
-  const [loading, setLoading] = useState(false);
   const [fiscalOpen, setFiscalOpen] = useState(false);
 
   // Modo manual = quando o nome do item ainda está vazio OU o usuário pode editar
   const isManualMode = canEditName;
 
-  useEffect(() => {
-    if (item.nome) {
-      loadSuggestions();
-    }
-  }, [item.nome]);
+  const { data: eligibleMaterials = EMPTY_MATERIALS } = useQuery({
+    queryKey: ['invoice-match-materials'],
+    queryFn: fetchEligibleMaterialsForInvoiceMatch,
+    staleTime: 5 * 60_000,
+  });
 
-  useEffect(() => {
-    if (searchTerm) {
-      searchMaterials();
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchTerm]);
+  const suggestions = useMemo(
+    () => (item.nome ? generateSuggestions(item.nome, eligibleMaterials) : EMPTY_SUGGESTIONS),
+    [item.nome, eligibleMaterials]
+  );
 
-  const loadSuggestions = async () => {
-    try {
-      const { data: materials } = await supabase
-        .from('materials')
-        .select(`
-          id,
-          name,
-          code,
-          usage_unit,
-          conversion_factor,
-          material_type,
-          stock_items(cost_source)
-        `)
-        .eq('is_archived', false)
-        .limit(200);
-
-      if (!materials) return;
-
-      // Excluir apenas materiais cujo custo é calculado por ficha técnica (composite/intermediate com recipe)
-      // Produto acabado SEM ficha (ex: revenda) pode receber entrada por NF
-      const eligible = materials.filter((m: any) => {
-        const costSource = m.stock_items?.[0]?.cost_source;
-        if (costSource === 'recipe') return false; // tem ficha técnica → não pode receber NF
-        if (m.material_type === 'intermediate_product' || m.material_type === 'composite_product') return false;
-        return true;
-      });
-
-      const suggs = generateSuggestions(item.nome, eligible);
-      setSuggestions(suggs);
-    } catch (error) {
-      console.error('Erro ao carregar sugestões:', error);
-    }
-  };
-
-  const generateSuggestions = (itemName: string, materials: Material[]): MaterialSuggestion[] => {
-    const suggestions: MaterialSuggestion[] = [];
-    const nameLower = itemName.toLowerCase();
-
-    materials.forEach(material => {
-      const materialNameLower = material.name.toLowerCase();
-
-      if (materialNameLower === nameLower) {
-        suggestions.push({ ...material, confidence: 1.0, match_method: 'exact', reason: 'Nome idêntico' });
-        return;
-      }
-
-      if (materialNameLower.includes(nameLower) || nameLower.includes(materialNameLower)) {
-        const confidence = calculateSimilarity(materialNameLower, nameLower);
-        suggestions.push({ ...material, confidence, match_method: 'fuzzy', reason: 'Nome similar' });
-      }
-    });
-
-    return suggestions.sort((a, b) => b.confidence - a.confidence).slice(0, 5);
-  };
-
-  const calculateSimilarity = (str1: string, str2: string): number => {
-    const longer = str1.length > str2.length ? str1 : str2;
-    const shorter = str1.length > str2.length ? str2 : str1;
-    if (longer.length === 0) return 1.0;
-    const editDistance = levenshteinDistance(longer, shorter);
-    return (longer.length - editDistance) / longer.length;
-  };
-
-  const levenshteinDistance = (str1: string, str2: string): number => {
-    const matrix: number[][] = [];
-    for (let i = 0; i <= str2.length; i++) matrix[i] = [i];
-    for (let j = 0; j <= str1.length; j++) matrix[0][j] = j;
-    for (let i = 1; i <= str2.length; i++) {
-      for (let j = 1; j <= str1.length; j++) {
-        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
-          );
-        }
-      }
-    }
-    return matrix[str2.length][str1.length];
-  };
-
-  const searchMaterials = async () => {
-    setLoading(true);
-    try {
-      const { data } = await supabase
-        .from('materials')
-        .select('id, name, code, usage_unit, conversion_factor, material_type, stock_items(cost_source)')
-        .eq('is_archived', false)
-        .not('material_type', 'in', '(intermediate_product,composite_product)')
-        .ilike('name', `%${searchTerm}%`)
-        .limit(30);
-
-      // Excluir apenas finished_product com ficha técnica (cost_source = 'recipe')
-      const eligible = (data || []).filter((m: any) => {
-        if (m.material_type === 'finished_product') {
-          return m.stock_items?.[0]?.cost_source !== 'recipe';
-        }
-        return true;
-      });
-
-      setSearchResults(eligible);
-    } catch (error) {
-      console.error('Erro ao buscar materiais:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: searchResults = EMPTY_SEARCH_RESULTS, isFetching: loading } = useQuery({
+    queryKey: ['invoice-match-search', searchTerm],
+    queryFn: () => searchInvoiceMatchMaterials(searchTerm),
+    enabled: !!searchTerm,
+  });
 
   const handleSelect = (value: string) => {
     if (value === '__new__') {
