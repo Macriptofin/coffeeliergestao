@@ -138,6 +138,7 @@ export const MaterialEditor = ({
     overheadPct: material?.overheadPct != null ? (material.overheadPct * 100).toString() : '',
     overheadValue: material?.overheadValue != null ? material.overheadValue.toString() : '',
     practicedPrice: material?.practicedPrice != null ? material.practicedPrice.toString() : '',
+    isPortalVisible: material?.isPortalVisible !== false,
   });
 
   // Breakdown calculado pelo banco (compute_product_pricing) — base p/ preview ao vivo
@@ -269,6 +270,7 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
         overheadPct: material.overheadPct != null ? (material.overheadPct * 100).toString() : '',
         overheadValue: material.overheadValue != null ? material.overheadValue.toString() : '',
         practicedPrice: material.practicedPrice != null ? material.practicedPrice.toString() : '',
+        isPortalVisible: material.isPortalVisible !== false,
       });
       setRestrictionTagIds(material.restrictionTagIds ?? []);
     }
@@ -299,7 +301,8 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
         formData.targetMarginPct !== (material.targetMarginPct != null ? (material.targetMarginPct * 100).toString() : '') ||
         formData.overheadPct !== (material.overheadPct != null ? (material.overheadPct * 100).toString() : '') ||
         formData.overheadValue !== (material.overheadValue != null ? material.overheadValue.toString() : '') ||
-        formData.practicedPrice !== (material.practicedPrice != null ? material.practicedPrice.toString() : '');
+        formData.practicedPrice !== (material.practicedPrice != null ? material.practicedPrice.toString() : '') ||
+        formData.isPortalVisible !== (material.isPortalVisible !== false);
 
       const initialTags = material.restrictionTagIds ?? [];
       const tagsChanged =
@@ -432,6 +435,7 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
       overheadPct: formData.overheadPct.trim() !== '' ? parseFloat(formData.overheadPct) / 100 : undefined,
       overheadValue: formData.overheadValue.trim() !== '' ? parseFloat(formData.overheadValue) : undefined,
       practicedPrice: formData.practicedPrice.trim() !== '' ? parseFloat(formData.practicedPrice) : undefined,
+      isPortalVisible: formData.isPortalVisible,
     };
 
     onSave(updatedMaterial);
@@ -1195,6 +1199,20 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
                             </strong>
                           </p>
                         )}
+                      </div>
+
+                      {/* Visibilidade no Portal do Cliente — flag global, não por cliente */}
+                      <div className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <Label>Disponível no Portal do Cliente</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Quando ativo, este produto aparece pra qualquer cliente montar pedido no portal de autoatendimento.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={formData.isPortalVisible}
+                          onCheckedChange={(checked) => setFormData({ ...formData, isPortalVisible: checked })}
+                        />
                       </div>
                     </>
                   )}

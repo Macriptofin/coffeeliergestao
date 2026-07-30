@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { todayLocalISO } from '@/lib/date-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +27,8 @@ interface Client { id: string; name: string; fantasy_name?: string | null; dista
 interface Department { id: string; name: string; }
 interface Unit { id: string; name: string; distance_km?: number | null; }
 interface Room { id: string; name: string; unit_id: string; }
-interface Contact { id: string; name: string; department_id?: string | null; }
+interface Contact { id: string; name: string; department_id?: string | null; email?: string | null; }
+interface PortalUser { user_id: string; name: string; email: string | null; portal_role: string; }
 
 interface SellableMaterial {
   id: string;
@@ -65,6 +66,7 @@ interface Composition {
   location: string;           // local livre (complemento/avulso) DESTE momento
   number_of_people: number | null; // nº de pessoas DESTE momento
   notes: string;
+  service_code: string; // override raro do Código de Serviço padrão da empresa (config vendas.fiscal_service_code)
 }
 
 interface ProposalEditorProps {
@@ -115,7 +117,7 @@ const EMPTY_DEPARTMENTS: Department[] = [];
 const EMPTY_UNITS: Unit[] = [];
 const EMPTY_ROOMS: Room[] = [];
 const EMPTY_CONTACTS: Contact[] = [];
-const EMPTY_PORTAL_USERS: { user_id: string; name: string }[] = [];
+const EMPTY_PORTAL_USERS: PortalUser[] = [];
 
 async function fetchActiveClientsForProposal(): Promise<Client[]> {
   const { data, error } = await supabase
@@ -199,10 +201,11 @@ async function fetchClientStructureForProposal(clientId: string) {
     supabase.from('client_departments').select('id, name').eq('client_id', clientId).eq('is_active', true).order('name'),
     supabase.from('client_units').select('id, name, distance_km').eq('client_id', clientId).eq('is_active', true).order('name'),
     supabase.from('client_rooms').select('id, name, unit_id').eq('client_id', clientId).eq('is_active', true).order('name'),
-    supabase.from('client_contacts').select('id, name, department_id').eq('client_id', clientId).eq('is_active', true).order('name'),
+    supabase.from('client_contacts').select('id, name, department_id, email').eq('client_id', clientId).eq('is_active', true).order('name'),
   ]);
 
-  // Usuários do portal deste cliente (para indicar o solicitante/destinatário).
+  // Usuários do portal deste cliente — usado só pra cruzar (por e-mail) se o contato
+  // escolhido já tem acesso; o contato É o solicitante, não há mais campo separado.
   const cuR = await supabase.from('client_users')
     .select('user_id, portal_role').eq('client_id', clientId).eq('is_active', true);
   const ids = (cuR.data || []).map((r: any) => r.user_id);
@@ -220,6 +223,8 @@ async function fetchClientStructureForProposal(clientId: string) {
     portalUsers: (cuR.data || []).map((r: any) => ({
       user_id: r.user_id,
       name: pm.get(r.user_id)?.full_name || pm.get(r.user_id)?.email || 'Usuário',
+      email: pm.get(r.user_id)?.email || null,
+      portal_role: r.portal_role,
     })),
   };
 }
@@ -236,7 +241,7 @@ async function fetchExistingProposalForEditor(id: string) {
   const [compRes, catRes] = await Promise.all([
     supabase
       .from('proposal_compositions')
-      .select('id, name, event_category, scheduled_date, scheduled_time, room_id, location, number_of_people, notes, sort_order')
+      .select('id, name, event_category, scheduled_date, scheduled_time, room_id, location, number_of_people, notes, sort_order, service_code')
       .eq('proposal_id', id)
       .order('sort_order'),
     supabase
@@ -256,6 +261,7 @@ async function fetchExistingProposalForEditor(id: string) {
 
 export default function ProposalEditor({ proposalId, onComplete, onCancel }: ProposalEditorProps) {
   const isNew = !proposalId;
+  const queryClient = useQueryClient();
 
   // ── Header form state ──────────────────────────────────────────────────────
   const [clientId, setClientId]             = useState('');
@@ -272,7 +278,10 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   const [adhocDistance, setAdhocDistance]       = useState<number | null>(null);
   const [adhocCalculating, setAdhocCalculating] = useState(false);
 
-  const [portalUserId, setPortalUserId] = useState(''); // solicitante: usuário do portal dono da proposta
+  // portal_created_by carregado de uma proposta existente — preservado no Salvar/Aprovar
+  // quando o contato atual não resolve (ainda) pra um usuário de portal ativo; o envio
+  // (handleSend) é quem de fato resolve/convida e sobrescreve via portalUserIdOverride.
+  const [loadedPortalCreatedBy, setLoadedPortalCreatedBy] = useState<string | null>(null);
 
   // ── Composition state ──────────────────────────────────────────────────────
   const [compositions, setCompositions] = useState<Composition[]>([]);
@@ -347,6 +356,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       location: '',
       number_of_people: null,
       notes: '',
+      service_code: '',
     }]);
     setItems({ c0: {} });
   }, [proposalId]);
@@ -363,7 +373,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     setDepartmentId(prop.department_id || '');
     setUnitId(prop.unit_id || '');
     setContactId(prop.contact_id || '');
-    setPortalUserId(prop.portal_created_by || '');
+    setLoadedPortalCreatedBy(prop.portal_created_by || null);
     // Local avulso (se a proposta tiver CEP de local avulso gravado)
     const hasAdhoc = !!prop.event_location_zip || prop.event_location_distance_km != null;
     setUseAdhocLocation(hasAdhoc);
@@ -390,6 +400,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         location: c.location || '',
         number_of_people: c.number_of_people ?? (prop.number_of_people || null),
         notes: c.notes || '',
+        service_code: c.service_code || '',
       });
     });
 
@@ -407,6 +418,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         location: '',
         number_of_people: prop?.number_of_people || null,
         notes: '',
+        service_code: '',
       });
     }
     const firstLocalId = comps[0].localId;
@@ -437,7 +449,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
 
   const handleClientChange = (id: string) => {
     setClientId(id);
-    setDepartmentId(''); setUnitId(''); setContactId(''); setPortalUserId('');
+    setDepartmentId(''); setUnitId(''); setContactId(''); setLoadedPortalCreatedBy(null);
   };
 
   // ── Seções: quais materiais cada seção oferece (match por categoria/subcategoria/tag) ──
@@ -459,6 +471,17 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   const filteredRooms   = useMemo(() => unitId ? rooms.filter(r => r.unit_id === unitId) : rooms, [rooms, unitId]);
   const filteredContacts = useMemo(() => departmentId ? contacts.filter(c => !c.department_id || c.department_id === departmentId) : contacts, [contacts, departmentId]);
 
+  // O contato escolhido É o solicitante/dono da visibilidade no portal — cruzamento
+  // por e-mail (case-insensitive) contra os usuários de portal já ativos deste cliente.
+  const selectedContact = useMemo(() => contacts.find(c => c.id === contactId) || null, [contacts, contactId]);
+  const resolvedPortalUser = useMemo(() => {
+    if (!selectedContact?.email) return null;
+    const email = selectedContact.email.trim().toLowerCase();
+    if (!email) return null;
+    return portalUsers.find(u => (u.email || '').trim().toLowerCase() === email) || null;
+  }, [selectedContact, portalUsers]);
+  const resolvedExistingPortalUserId = resolvedPortalUser?.user_id ?? null;
+
   // ── Handlers de composition ──────────────────────────────────────────────────
 
   const addComposition = () => {
@@ -474,6 +497,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       location: '',
       number_of_people: null,
       notes: '',
+      service_code: '',
     }]);
     setItems(prev => ({ ...prev, [localId]: {} }));
   };
@@ -652,7 +676,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     return true;
   };
 
-  const persistAll = async (status: string) => {
+  const persistAll = async (status: string, opts?: { portalUserIdOverride?: string }) => {
     if (!validate()) return null;
 
     // Campos legados de cabeçalho derivados dos momentos (mantidos p/ PDF/lista/RPCs):
@@ -668,7 +692,12 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       unit_id:                  useAdhocLocation ? null : (unitId || null),
       room_id:                  null, // sala agora é por momento
       contact_id:               contactId    || null,
-      portal_created_by:        portalUserId || null, // solicitante/dono no portal
+      // O contato é o solicitante/dono da visibilidade no portal. O override existe porque,
+      // no envio (handleSend), o usuário resolvido/convidado só existe depois de uma chamada
+      // assíncrona — não dá pra confiar no estado já carregado (resolvedExistingPortalUserId)
+      // nesse instante. Fora do envio, preserva o valor já gravado se o contato atual ainda
+      // não resolve pra nenhum usuário de portal ativo (evita apagar o vínculo ao só salvar).
+      portal_created_by:        opts?.portalUserIdOverride ?? resolvedExistingPortalUserId ?? loadedPortalCreatedBy ?? null,
       // Local avulso (quando ativo)
       event_location_name:        useAdhocLocation ? (adhocName || null) : null,
       event_location_zip:         useAdhocLocation ? (adhocZip || null)  : null,
@@ -720,6 +749,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
           price_per_person: compStats ? compStats.pricePerPerson : 0,
           sort_order: ci + 1,
           notes: c.notes || null,
+          service_code: c.service_code.trim() || null,
         })
         .select().single();
       if (compErr) throw compErr;
@@ -796,10 +826,30 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
 
   const handleSend = async () => {
     if (calc.grand.totalItemCount === 0) { toast.error('Adicione pelo menos um item'); return; }
+    if (!contactId) { toast.error('Selecione o contato/solicitante do portal'); return; }
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact?.email) {
+      toast.error('O contato selecionado não tem e-mail cadastrado — informe um e-mail no cadastro do cliente para poder enviar pelo portal.');
+      return;
+    }
     try {
       setSending(true);
-      // Salva a proposta como 'Enviada'
-      const pid = await persistAll('Enviada');
+
+      // Acesso ao portal é sempre pelo contato escolhido. Se ele já tem conta ativa
+      // (cruzada por e-mail), reaproveita; senão convida automaticamente agora.
+      let portalUserIdResolved = resolvedExistingPortalUserId;
+      if (!portalUserIdResolved) {
+        const { data: inviteData, error: inviteError } = await supabase.functions.invoke('invite-client-user', {
+          body: { email: contact.email, full_name: contact.name, client_id: clientId, portal_role: 'aprovador' },
+        });
+        if (inviteError) throw inviteError;
+        if ((inviteData as any)?.error) { toast.error((inviteData as any).error); return; }
+        portalUserIdResolved = (inviteData as any)?.user_id;
+        if (!portalUserIdResolved) { toast.error('Não foi possível criar o acesso do contato ao portal.'); return; }
+      }
+
+      // Salva a proposta como 'Enviada', já com o solicitante resolvido/convidado.
+      const pid = await persistAll('Enviada', { portalUserIdOverride: portalUserIdResolved });
       if (!pid) return;
 
       // Revisão: cada envio incrementa o contador e grava um snapshot (auditoria).
@@ -856,21 +906,17 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         data: snapshot,
       });
 
-      // Gera o token de aprovação e monta o link público
-      const { data: tok, error: tokErr } = await supabase
-        .from('proposal_approval_tokens')
-        .insert({ proposal_id: pid })
-        .select('token')
-        .single();
-      if (tokErr) throw tokErr;
-
-      const url = `${window.location.origin}/aprovar/${tok.token}`;
-      try { await navigator.clipboard.writeText(url); } catch { /* clipboard pode falhar; link no toast */ }
-
-      toast.success(`Proposta enviada (Rev. ${nextRevision})! Link copiado — cole no e-mail/WhatsApp para o cliente aprovar.`, {
-        duration: 8000,
-        description: url,
+      // Notifica o solicitante por e-mail — acesso é sempre pelo Portal autenticado,
+      // não há mais link público sem login.
+      const { error: notifyErr } = await supabase.functions.invoke('notify-portal-proposal', {
+        body: { proposal_id: pid },
       });
+      if (notifyErr) console.warn('notify-portal-proposal:', notifyErr.message);
+
+      // Estrutura do cliente pode ter mudado (novo acesso de portal recém-criado).
+      await queryClient.invalidateQueries({ queryKey: ['client-structure-for-proposal', clientId] });
+
+      toast.success(`Proposta enviada (Rev. ${nextRevision})! ${contact.name} foi notificado(a) por e-mail e pode acompanhar/aprovar pelo Portal.`);
       onComplete();
     } catch (e: any) {
       toast.error('Erro ao enviar: ' + e.message);
@@ -987,7 +1033,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Estrutura do Cliente {loadingStructure && '· carregando...'}
                   </p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     <div className="space-y-1.5">
                       <Label className="text-xs">Departamento</Label>
                       <Select value={departmentId} onValueChange={setDepartmentId} disabled={!departments.length}>
@@ -1011,7 +1057,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                       </Select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Contato</Label>
+                      <Label className="text-xs">Contato / Solicitante do Portal</Label>
                       <Select value={contactId} onValueChange={setContactId} disabled={!filteredContacts.length}>
                         <SelectTrigger className="h-8 text-sm">
                           <SelectValue placeholder={filteredContacts.length ? 'Selecione' : 'Nenhum'} />
@@ -1020,17 +1066,18 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                           {filteredContacts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Solicitante (usuário do portal)</Label>
-                      <Select value={portalUserId} onValueChange={setPortalUserId} disabled={!portalUsers.length}>
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue placeholder={portalUsers.length ? 'Quem vê este pedido no portal' : 'Sem usuários de portal'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {portalUsers.map(u => <SelectItem key={u.user_id} value={u.user_id}>{u.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      {selectedContact && (
+                        resolvedPortalUser ? (
+                          <p className={`text-[10px] ${resolvedPortalUser.portal_role === 'aprovador' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            Já tem acesso ao portal (perfil: {resolvedPortalUser.portal_role})
+                            {resolvedPortalUser.portal_role !== 'aprovador' && ' — não poderá aprovar sozinho'}
+                          </p>
+                        ) : selectedContact.email ? (
+                          <p className="text-[10px] text-muted-foreground">Ainda sem portal — será convidado(a) automaticamente ao enviar</p>
+                        ) : (
+                          <p className="text-[10px] text-destructive">Contato sem e-mail cadastrado — necessário para enviar pelo portal</p>
+                        )
+                      )}
                     </div>
                   </div>
 
@@ -1181,6 +1228,15 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                               value={comp.location}
                               onChange={e => updateComposition(comp.localId, { location: e.target.value })}
                               placeholder="Ex: detalhe do local"
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Código de Serviço (override)</Label>
+                            <Input
+                              value={comp.service_code}
+                              onChange={e => updateComposition(comp.localId, { service_code: e.target.value })}
+                              placeholder="Padrão da empresa (deixe em branco)"
                               className="h-8 text-sm"
                             />
                           </div>

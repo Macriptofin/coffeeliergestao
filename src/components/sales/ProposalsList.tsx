@@ -46,6 +46,7 @@ interface Proposal {
     name: string;
   };
   portal_created_by?: string | null;
+  created_by_client?: boolean;
   requester_name?: string | null; // nome do solicitante (usuário do portal), se houver
 }
 
@@ -173,35 +174,6 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
     }
   };
 
-  const handleSendForApproval = async (proposalId: string) => {
-    try {
-      // Criar token de aprovação
-      const { data, error } = await supabase
-        .from('proposal_approval_tokens')
-        .insert({ proposal_id: proposalId })
-        .select('token')
-        .single();
-
-      if (error) throw error;
-
-      // Marcar proposta como enviada
-      await supabase.from('proposals').update({ status: 'Enviada' }).eq('id', proposalId);
-
-      // Copiar link para o clipboard
-      const url = `${window.location.origin}/aprovar/${data.token}`;
-      await navigator.clipboard.writeText(url);
-
-      toast.success('Link copiado! Cole no e-mail ou WhatsApp para enviar ao cliente.', {
-        duration: 6000,
-        description: url,
-      });
-
-      refetchProposals();
-    } catch (e: any) {
-      toast.error('Erro ao gerar link: ' + e.message);
-    }
-  };
-
   const handleApprove = async (proposalId: string) => {
     try {
       await supabase.from('proposals').update({ status: 'Aprovada' }).eq('id', proposalId);
@@ -274,11 +246,21 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusOption = statusOptions.find(opt => opt.value === status);
+  const getStatusBadge = (proposal: Proposal) => {
+    // Pedido que o próprio cliente montou e enviou pelo Portal — "Enviada" aqui
+    // significa o oposto do caso padrão (equipe→cliente): é a equipe que precisa
+    // analisar, não o cliente. Badge distinto pra não passar despercebido.
+    if (proposal.status === 'Enviada' && proposal.created_by_client) {
+      return (
+        <Badge variant="outline" className="border-blue-300 bg-blue-100 text-blue-800">
+          Novo Pedido — Analisar
+        </Badge>
+      );
+    }
+    const statusOption = statusOptions.find(opt => opt.value === proposal.status);
     return (
       <Badge variant={statusOption?.variant as any || 'secondary'} className={statusOption?.className || ''}>
-        {statusOption?.label || status}
+        {statusOption?.label || proposal.status}
       </Badge>
     );
   };
@@ -456,7 +438,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{getStatusBadge(proposal.status)}</TableCell>
+                      <TableCell>{getStatusBadge(proposal)}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -474,11 +456,6 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                             {onPdfProposal && (
                               <DropdownMenuItem onClick={() => onPdfProposal(proposal.id)}>
                                 <FileDown size={14} className="mr-2" /> Gerar PDF
-                              </DropdownMenuItem>
-                            )}
-                            {['Rascunho', 'Enviada'].includes(proposal.status) && (
-                              <DropdownMenuItem onClick={() => handleSendForApproval(proposal.id)}>
-                                <Send size={14} className="mr-2" /> Link de aprovação
                               </DropdownMenuItem>
                             )}
                             {['Rascunho', 'Enviada', 'Aprovada pelo Cliente'].includes(proposal.status) && (

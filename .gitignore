@@ -27,3 +27,4 @@ dist-ssr
 .ds-sync/
 ds-bundle/
 .design-sync/
+.claude/settings.local.json

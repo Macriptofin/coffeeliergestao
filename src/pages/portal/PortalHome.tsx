@@ -13,14 +13,19 @@ import heroHome from '@/assets/portal/buffet-6.jpg';
 interface PortalProposalRow {
   id: string; proposal_number: string; event_name: string | null; event_category: string | null;
   event_date: string | null; number_of_people: number | null;
-  total_amount: number | null; status: string;
+  total_amount: number | null; status: string; created_by_client: boolean;
 }
 
-// Rótulo amigável + cor do status para o cliente.
-function statusBadge(status: string) {
+// Rótulo amigável + cor do status para o cliente. "Enviada" muda de sentido
+// conforme quem criou: proposta da equipe pro cliente aprovar (aguarda o
+// cliente) vs. pedido que o próprio cliente montou (já foi enviado, aguarda
+// a equipe Coffeelier — nada pendente do lado do cliente).
+function statusBadge(status: string, createdByClient: boolean) {
   switch (status) {
     case 'Rascunho': return { label: 'Rascunho', cls: 'bg-muted text-muted-foreground' };
-    case 'Enviada': return { label: 'Aguardando você', cls: 'bg-accent-mocca/35 text-accent-coffee' };
+    case 'Enviada': return createdByClient
+      ? { label: 'Em análise pela equipe', cls: 'bg-muted text-muted-foreground' }
+      : { label: 'Aguardando você', cls: 'bg-accent-mocca/35 text-accent-coffee' };
     case 'Aprovada pelo Cliente': return { label: 'Em confirmação', cls: 'bg-accent-mocca/35 text-accent-coffee' };
     case 'Aprovada': return { label: 'Confirmada', cls: 'bg-primary/15 text-primary' };
     case 'Rejeitada': return { label: 'Recusada', cls: 'bg-destructive/15 text-destructive' };
@@ -92,9 +97,14 @@ export default function PortalHome() {
       ) : (
         <div className="space-y-3.5">
           {proposals.map((p) => {
-            const badge = statusBadge(p.status);
+            const badge = statusBadge(p.status, p.created_by_client);
             return (
-              <button key={p.id} onClick={() => navigate(p.status === 'Rascunho' ? `/portal/novo-pedido?draft=${p.id}` : `/portal/proposta/${p.id}`)}
+              <button key={p.id} onClick={() => {
+                // Pedido do próprio cliente ainda não aprovado: continua editável direto
+                // na tela de montagem. Depois de aprovado, ou se veio da equipe, é só visualização.
+                const editable = p.created_by_client && ['Rascunho', 'Enviada'].includes(p.status);
+                navigate(editable ? `/portal/novo-pedido?draft=${p.id}` : `/portal/proposta/${p.id}`);
+              }}
                 className="w-full text-left bg-card border border-border/70 rounded-2xl p-5 md:p-6 flex items-center gap-5
                            shadow-soft hover:shadow-warm transition-shadow">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"

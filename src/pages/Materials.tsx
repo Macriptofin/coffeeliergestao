@@ -50,6 +50,7 @@ async function fetchMaterials(status: MaterialStatus = 'active'): Promise<Materi
       material_type,
       unit_weight,
       is_sellable,
+      is_portal_visible,
       ncm,
       cfop,
       cst,
@@ -93,6 +94,7 @@ async function fetchMaterials(status: MaterialStatus = 'active'): Promise<Materi
         materialType: (item.material_type || 'ingredient') as Material['materialType'],
         unitWeight: item.unit_weight ? parseFloat(item.unit_weight.toString()) : undefined,
         isSellable: Boolean(item.is_sellable),
+        isPortalVisible: item.is_portal_visible !== false,
         ncm: item.ncm || undefined,
         cfop: item.cfop || undefined,
         cst: item.cst || undefined,
@@ -331,6 +333,7 @@ const Materials = () => {
           is_sellable: material.materialType === 'finished_product'
             ? (material.isSellable !== false)
             : (material.isSellable || false),
+          is_portal_visible: material.isPortalVisible !== false,
           ncm: material.ncm,
           cfop: material.cfop,
           cst: material.cst,
@@ -394,6 +397,7 @@ const Materials = () => {
           material_type: updatedMaterial.materialType,
           unit_weight: updatedMaterial.unitWeight,
           is_sellable: updatedMaterial.isSellable || false,
+          is_portal_visible: updatedMaterial.isPortalVisible !== false,
           ncm: updatedMaterial.ncm,
           cfop: updatedMaterial.cfop,
           cst: updatedMaterial.cst,

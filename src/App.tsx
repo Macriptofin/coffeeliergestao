@@ -29,7 +29,6 @@ const CentrosCusto = lazy(() => import("./pages/financeiro/CentrosCusto"));
 const AnaliseFinanceira = lazy(() => import("./pages/financeiro/AnaliseFinanceira"));
 const DRE = lazy(() => import("./pages/financeiro/DRE"));
 const PlanoContas = lazy(() => import("./pages/financeiro/PlanoContas"));
-const PropostaAprovacao = lazy(() => import("./pages/PropostaAprovacao"));
 const RelatoriosContabeis = lazy(() => import("./pages/financeiro/RelatoriosContabeis"));
 const ContasBancarias = lazy(() => import("./pages/financeiro/ContasBancarias"));
 const RecurringTransactions = lazy(() => import("./pages/financeiro/RecurringTransactions"));
@@ -83,8 +82,6 @@ function App() {
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            {/* Rota pública — aprovação de proposta pelo cliente (sem login) */}
-            <Route path="/aprovar/:token" element={<PropostaAprovacao />} />
             {/* Portal do cliente (autoatendimento) */}
             <Route path="/portal/login" element={<PortalLogin />} />
             <Route element={<PortalRoute />}>

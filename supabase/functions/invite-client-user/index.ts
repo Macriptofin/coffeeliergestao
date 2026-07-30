@@ -60,6 +60,15 @@ const handler = async (req: Request): Promise<Response> => {
       if (isInternal && (alreadyClient ?? 0) === 0) {
         return biz("Este e-mail já pertence a um usuário interno da equipe. Use um e-mail diferente para o acesso de cliente.");
       }
+
+      // client_users.user_id é UNIQUE — um usuário pertence a um único cliente.
+      // Se este e-mail já é portal user de OUTRO cliente, bloquear em vez de reatribuir silenciosamente.
+      const { data: existingLink } = await admin
+        .from('client_users').select('client_id').eq('user_id', existing.id).maybeSingle();
+      if (existingLink && existingLink.client_id !== client_id) {
+        return biz("Este e-mail já está vinculado ao portal de outro cliente. Use um e-mail diferente para este acesso.");
+      }
+
       // Já é (ou será) cliente — apenas garante o vínculo a este cliente.
       userId = existing.id;
     } else {

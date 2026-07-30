@@ -62,7 +62,10 @@ export default function ClientForm({ clientId, onSuccess, onCancel, embedded = f
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ClientFormData>({
     defaultValues: {
       status: 'Ativo',
-      client_type: 'PJ'
+      client_type: 'PJ',
+      // Condição padrão da casa pra cliente novo (editável) — só entra se o
+      // cliente não tiver uma condição própria (ex.: CMPC usa KQ15).
+      payment_terms: '50% de sinal para reserva da data + 50% de saldo até o último dia útil antes do evento',
     }
   });
 

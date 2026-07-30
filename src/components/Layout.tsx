@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Suspense } from "react";
-import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { LogOut, Menu, X } from "lucide-react";
@@ -7,6 +7,7 @@ import { CoffeelierLogo } from "@/components/CoffeelierLogo";
 import { Sidebar } from "@/components/Sidebar";
 import { useSecureAuth } from "@/hooks/useSecureAuth";
 import { useSessionSecurity } from "@/hooks/useSessionSecurity";
+import { usePortalClient } from "@/hooks/usePortalClient";
 import { NotificationBell } from "@/components/NotificationBell";
 import SecureErrorBoundary from "@/components/security/SecureErrorBoundary";
 
@@ -14,6 +15,10 @@ export const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, session, loading: authLoading, signOut } = useSecureAuth();
+  // Um cliente do portal nunca deve ver a casca do sistema interno, mesmo
+  // navegando manualmente pra uma rota como /vendas — espelha a checagem
+  // inversa que PortalRoute já faz pra /portal/*.
+  const { isPortalClient, loading: portalCheckLoading } = usePortalClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   // Initialize session security monitoring
@@ -74,6 +79,20 @@ if (!session || !user) {
       <p className="text-muted-foreground text-sm">Redirecionando para login…</p>
     </div>
   );
+}
+
+// Aguarda resolver se é cliente de portal antes de renderizar a casca interna
+// (evita flash do menu/sidebar do sistema pra quem não deveria ver).
+if (portalCheckLoading) {
+  return (
+    <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+  );
+}
+
+if (isPortalClient) {
+  return <Navigate to="/portal" replace />;
 }
 
   return (

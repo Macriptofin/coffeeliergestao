@@ -35,6 +35,7 @@ export interface Material {
   materialType: 'ingredient' | 'packaging' | 'intermediate_product' | 'finished_product' | 'composite_product' | 'resale_product' | 'equipment' | 'supply';
   unitWeight?: number;
   isSellable?: boolean;
+  isPortalVisible?: boolean; // vendável + este flag = aparece no catálogo do Portal do Cliente
   costSource?: 'purchase' | 'production' | 'manual';
   manualPrice?: boolean;
   currentQuantity?: number;

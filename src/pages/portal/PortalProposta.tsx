@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ChevronLeft, Check, Pencil, Download, MessageCircle, CalendarDays, Clock, Users, MapPin,
+  ChevronLeft, Check, Pencil, SquarePen, Download, MessageCircle, CalendarDays, Clock, Users, MapPin,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePortalClient } from '@/hooks/usePortalClient';
@@ -15,6 +15,7 @@ import {
 import { formatCurrency } from '@/lib/formatters';
 import { formatLocalDate } from '@/lib/date-utils';
 import { usePortalSettings } from '@/hooks/usePortalSettings';
+import { PortalProposalPDF } from '@/components/portal/PortalProposalPDF';
 import { toast } from 'sonner';
 
 interface Item { name: string; qty_per_person: number | null; fixed_qty: number | null; unit: string | null; }
@@ -27,7 +28,7 @@ interface Composition {
 interface PortalProposalDetail {
   id: string; proposal_number: string; event_name: string | null; event_category: string | null;
   number_of_people: number | null; event_date: string | null; total_amount: number | null;
-  status: string; payment_terms: string | null; notes: string | null;
+  status: string; created_by_client: boolean; payment_terms: string | null; notes: string | null;
   client_name: string | null; department_name: string | null; unit_name: string | null;
   room_name: string | null; event_location_name: string | null;
   compositions: Composition[] | null; categories_no_composition: Section[] | null;
@@ -46,6 +47,7 @@ export default function PortalProposta() {
   const { portalClient } = usePortalClient();
   const { contactHref } = usePortalSettings();
   const [changeOpen, setChangeOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
   const [changeMsg, setChangeMsg] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -122,8 +124,17 @@ export default function PortalProposta() {
   const pricePerPerson = data.total_amount && data.number_of_people
     ? data.total_amount / data.number_of_people : null;
 
-  const canApprove = data.status === 'Enviada' && portalClient?.portalRole === 'aprovador';
+  // Pedido que o próprio cliente montou já leva a aprovação do gestor dele por
+  // fora do sistema (PDF impresso, botão "Imprimir proposta") antes de enviar —
+  // não sobra um "Aprovar pedido" pendente aqui; "Enviada" já é só aguardar a
+  // equipe Coffeelier analisar. O botão de aprovação continua existindo só pro
+  // caso clássico: proposta que a EQUIPE monta e manda pro cliente aprovar.
+  const isClientSubmittedPending = data.created_by_client && data.status === 'Enviada';
+  const canApprove = !isClientSubmittedPending && data.status === 'Enviada' && portalClient?.portalRole === 'aprovador';
   const isApproved = data.status === 'Aprovada pelo Cliente' || data.status === 'Aprovada';
+  // Pedido montado pelo próprio cliente continua editável direto enquanto não
+  // for aprovado — só depois disso (produção já disparada) vira solicitação.
+  const isEditable = data.created_by_client && ['Rascunho', 'Enviada'].includes(data.status);
 
   return (
     <PortalLayout>
@@ -200,6 +211,10 @@ export default function PortalProposta() {
                 <div className="rounded-xl bg-primary/10 text-primary text-sm font-semibold px-4 py-3 text-center">
                   ✓ {data.status === 'Aprovada' ? 'Pedido confirmado' : 'Aprovado — em confirmação pela equipe'}
                 </div>
+              ) : isClientSubmittedPending ? (
+                <div className="rounded-xl bg-muted text-muted-foreground text-sm font-semibold px-4 py-3 text-center">
+                  Enviado — em análise pela equipe Coffeelier
+                </div>
               ) : (
                 <Button onClick={handleApprove} disabled={!canApprove || busy}
                   className="w-full h-12 rounded-xl text-base font-semibold text-accent-creme shadow-warm gap-2"
@@ -207,16 +222,23 @@ export default function PortalProposta() {
                   <Check className="h-5 w-5" /> Aprovar pedido
                 </Button>
               )}
-              {!isApproved && !canApprove && data.status === 'Enviada' && (
+              {!isApproved && !isClientSubmittedPending && !canApprove && data.status === 'Enviada' && (
                 <p className="text-xs text-muted-foreground text-center">
                   Apenas um aprovador da sua empresa pode aprovar este pedido.
                 </p>
               )}
 
-              <Button variant="outline" className="w-full h-11 rounded-xl gap-2" onClick={() => setChangeOpen(true)}>
-                <Pencil className="h-4 w-4" /> Solicitar alteração
-              </Button>
-              <Button variant="outline" className="w-full h-11 rounded-xl gap-2" onClick={() => window.print()}>
+              {isEditable ? (
+                <Button variant="outline" className="w-full h-11 rounded-xl gap-2"
+                  onClick={() => navigate(`/portal/novo-pedido?draft=${id}`)}>
+                  <SquarePen className="h-4 w-4" /> Editar pedido
+                </Button>
+              ) : (
+                <Button variant="outline" className="w-full h-11 rounded-xl gap-2" onClick={() => setChangeOpen(true)}>
+                  <Pencil className="h-4 w-4" /> Solicitar alteração
+                </Button>
+              )}
+              <Button variant="outline" className="w-full h-11 rounded-xl gap-2" onClick={() => setPdfOpen(true)}>
                 <Download className="h-4 w-4" /> Baixar PDF
               </Button>
             </div>
@@ -250,6 +272,10 @@ export default function PortalProposta() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {pdfOpen && id && (
+        <PortalProposalPDF proposalId={id} onClose={() => setPdfOpen(false)} />
+      )}
     </PortalLayout>
   );
 }
