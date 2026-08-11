@@ -16,6 +16,7 @@ import { formatCurrency } from '@/lib/formatters';
 import { formatLocalDate } from '@/lib/date-utils';
 import { usePortalSettings } from '@/hooks/usePortalSettings';
 import { PortalProposalPDF } from '@/components/portal/PortalProposalPDF';
+import { isPrazoMinimoMessage, showPrazoMinimoToast } from '@/components/portal/PrazoMinimoToast';
 import { toast } from 'sonner';
 
 interface Item { name: string; qty_per_person: number | null; fixed_qty: number | null; unit: string | null; }
@@ -45,7 +46,7 @@ export default function PortalProposta() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { portalClient } = usePortalClient();
-  const { contactHref } = usePortalSettings();
+  const { contactHref, whatsappUrl, contactEmail } = usePortalSettings();
   const [changeOpen, setChangeOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [changeMsg, setChangeMsg] = useState('');
@@ -88,6 +89,8 @@ export default function PortalProposta() {
       if (r.success) {
         toast.success(r.message);
         setChangeOpen(false); setChangeMsg('');
+      } else if (isPrazoMinimoMessage(r.message)) {
+        showPrazoMinimoToast(r.message, { whatsappUrl, contactEmail });
       } else toast.error(r.message);
     } catch {
       toast.error('Não foi possível enviar a solicitação.');

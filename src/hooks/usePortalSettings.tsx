@@ -8,7 +8,7 @@ export function usePortalSettings() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_portal_settings');
       if (error) throw error;
-      return (data as { whatsapp: string | null; contact_email: string | null }) || {};
+      return (data as { whatsapp: string | null; contact_email: string | null; prazo_minimo_horas?: number }) || {};
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -19,6 +19,7 @@ export function usePortalSettings() {
     : '';
   const contactEmail = data?.contact_email || '';
   const contactHref = whatsappUrl || (contactEmail ? `mailto:${contactEmail}` : '#');
+  const prazoMinimoHoras = Number(data?.prazo_minimo_horas) || 24;
 
-  return { whatsappUrl, contactEmail, contactHref };
+  return { whatsappUrl, contactEmail, contactHref, prazoMinimoHoras };
 }

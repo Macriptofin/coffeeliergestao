@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, CalendarDays, Clock, Users, MapPin, Send, Coffee, Plus, Minus, X, Trash2, Save, Printer } from 'lucide-react';
+import { ChevronLeft, CalendarDays, Clock, Users, MapPin, Send, Coffee, Plus, Minus, X, Trash2, Save, Printer, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePortalClient } from '@/hooks/usePortalClient';
+import { usePortalSettings } from '@/hooks/usePortalSettings';
+import { isPrazoMinimoMessage, showPrazoMinimoToast } from '@/components/portal/PrazoMinimoToast';
 import { PortalLayout } from '@/components/portal/PortalLayout';
 import { PortalProposalPDF } from '@/components/portal/PortalProposalPDF';
 import { Button } from '@/components/ui/button';
@@ -56,6 +58,7 @@ export default function PortalNovoPedido() {
   const draftId = params.get('draft') || '';
   const { portalClient } = usePortalClient();
   const clientId = portalClient?.clientId;
+  const { prazoMinimoHoras, whatsappUrl, contactEmail } = usePortalSettings();
 
   const [eventName, setEventName] = useState('');
   const [departmentId, setDepartmentId] = useState('');
@@ -133,6 +136,13 @@ export default function PortalNovoPedido() {
   }, [catalog]);
 
   const priceOf = (id: string) => catalog.find(c => c.material_id === id)?.price || 0;
+  // Mesmo prazo mínimo validado no servidor (create_portal_order) — aviso antecipado
+  // aqui é só UX, quem decide de verdade é a RPC na hora de enviar.
+  const isMomentTooSoon = (mt: Moment) => {
+    if (!mt.date) return false;
+    const dt = new Date(`${mt.date}T${mt.time || '00:00'}:00`);
+    return dt.getTime() - Date.now() < prazoMinimoHoras * 3600 * 1000;
+  };
   const momentPeople = (mt: Moment) => Number(mt.people || defaultPeople || 0);
   const momentTotal = (mt: Moment) =>
     Object.entries(mt.qty).reduce((s, [id, q]) => s + (q || 0) * priceOf(id) * momentPeople(mt), 0);
@@ -228,7 +238,11 @@ export default function PortalNovoPedido() {
     const { data, error } = await supabase.rpc('create_portal_order', { p_payload: buildPayload(status) });
     if (error) { toast.error('Não foi possível salvar o pedido. Tente novamente.'); return null; }
     const r = data as { success: boolean; message: string; proposal_id?: string };
-    if (!r.success) { toast.error(r.message); return null; }
+    if (!r.success) {
+      if (isPrazoMinimoMessage(r.message)) showPrazoMinimoToast(r.message, { whatsappUrl, contactEmail });
+      else toast.error(r.message);
+      return null;
+    }
     if (r.proposal_id && r.proposal_id !== currentId) {
       // Passa a reaproveitar esse id em qualquer save seguinte nesta mesma
       // sessão de edição — evita duplicar proposta a cada clique.
@@ -330,6 +344,12 @@ export default function PortalNovoPedido() {
                   <Label className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> Horário</Label>
                   <Input type="time" value={mt.time} onChange={e => patchMoment(mt.localId, { time: e.target.value })} />
                 </div>
+                {isMomentTooSoon(mt) && (
+                  <div className="sm:col-span-2 flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-500 -mt-1">
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    Este momento está a menos de {prazoMinimoHoras}h — pode não dar tempo de enviar o pedido a tempo.
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><MapPin className="h-4 w-4" /> Unidade</Label>
                   <Select value={mt.unitId} onValueChange={(v) => patchMoment(mt.localId, { unitId: v, roomId: '' })}>
@@ -469,7 +489,7 @@ export default function PortalNovoPedido() {
             </Button>
             <p className="text-[13px] text-muted-foreground mt-4 leading-relaxed">
               <Coffee className="h-3.5 w-3.5 inline mr-1" />
-              Imprima pra levar pra aprovação da sua gestão antes de enviar. Salve como rascunho pra continuar depois. Ao enviar, a equipe Coffeelier revisa, confirma e devolve a proposta final.
+              Imprima pra levar pra aprovação da sua gestão antes de enviar. Salve como rascunho pra continuar depois. Ao enviar, a equipe Coffeelier revisa, confirma e devolve a proposta final. Pedidos precisam ser enviados com pelo menos {prazoMinimoHoras}h de antecedência de cada momento.
             </p>
           </div>
         </div>

@@ -525,7 +525,7 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
   if (!material) return null;
 
   const EditorContent = () => (
-    <div className="flex flex-col h-[90vh]">
+    <div className="flex flex-col h-[90vh] min-w-0">
       {/* Sticky Header */}
       <div className="sticky top-0 bg-background border-b z-10 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -572,7 +572,7 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto min-h-0">
+      <div className="flex-1 overflow-auto min-h-0 min-w-0">
         {/* Quando editando BOM, sai das tabs para ter scroll próprio */}
         {editingBOM && isProducedMaterial ? (
           <div className="p-6">
@@ -593,6 +593,10 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
           </div>
         ) : (
         <Tabs defaultValue="general" className="w-full">
+          {/* Wrapper próprio de scroll — com 8 abas a lista costuma passar da largura
+              do modal; sem isso as últimas abas (Anexos/Histórico) ficam cortadas e
+              sem nenhuma forma de rolar até elas. */}
+          <div className="overflow-x-auto">
           <TabsList className="w-full justify-start border-b rounded-none bg-transparent h-auto p-0">
             <TabsTrigger value="general" className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
               <Package className="h-4 w-4" />
@@ -632,6 +636,7 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
               Histórico
             </TabsTrigger>
           </TabsList>
+          </div>
 
           <div className="p-6">
             <TabsContent value="general" className="mt-0 space-y-6">

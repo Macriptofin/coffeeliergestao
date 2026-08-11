@@ -181,6 +181,12 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
       const { error: prodErr } = await supabase.rpc('generate_production_from_proposal', { p_proposal_id: proposalId });
       if (evtErr)  console.warn('create_event_from_proposal:',      evtErr.message);
       if (prodErr) console.warn('generate_production_from_proposal:', prodErr.message);
+      // Notifica o solicitante do portal (se houver) — no-op silencioso pra propostas
+      // sem portal_created_by (a própria função checa e retorna sem enviar nada).
+      const { error: notifyErr } = await supabase.functions.invoke('notify-portal-proposal', {
+        body: { proposal_id: proposalId, event_type: 'approved' },
+      });
+      if (notifyErr) console.warn('notify-portal-proposal:', notifyErr.message);
       toast.success('Proposta aprovada! Evento e OP criados automaticamente.');
       refetchProposals();
     } catch (e: any) {
