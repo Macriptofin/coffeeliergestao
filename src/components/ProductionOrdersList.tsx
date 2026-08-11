@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useReactToPrint } from 'react-to-print';
 import { ThermalPrintableOrder } from './ThermalPrintableOrder';
+import { formatLocalDate } from '@/lib/date-utils';
 
 const THERMAL_PAGE_STYLE = '@page { size: 80mm auto; margin: 3mm; } body { margin: 0; }';
 
@@ -25,6 +26,14 @@ interface ProductionOrder {
     attendees: number;
     date_start: string;
   };
+  composition: {
+    event_category: string | null;
+    scheduled_date: string | null;
+    scheduled_time: string | null;
+    number_of_people: number | null;
+    location: string | null;
+    room: { name: string } | null;
+  } | null;
   items: ProductionOrderItem[];
 }
 
@@ -53,6 +62,14 @@ async function fetchProductionOrders(): Promise<ProductionOrder[]> {
         client_name,
         attendees,
         date_start
+      ),
+      composition:proposal_compositions (
+        event_category,
+        scheduled_date,
+        scheduled_time,
+        number_of_people,
+        location,
+        room:client_rooms ( name )
       ),
       items:event_production_order_items (
         id,
@@ -217,6 +234,21 @@ export const ProductionOrdersList = () => {
     }
   };
 
+  // Cada Ordem de Evento é gerada por MOMENTO da proposta — as características reais
+  // (tipo, sala, nº de pessoas, horário) vêm de composition, não do event_table (que é
+  // 1 registro por proposta inteira, com totais agregados de todos os momentos).
+  // Ordens antigas (geradas antes do vínculo composition_id existir) caem no fallback.
+  const getOrderMeta = (order: ProductionOrder) => {
+    const comp = order.composition;
+    const people = comp?.number_of_people ?? order.event_table.attendees;
+    const dateLabel = comp?.scheduled_date
+      ? `${formatLocalDate(comp.scheduled_date)}${comp.scheduled_time ? ` às ${comp.scheduled_time.slice(0, 5)}` : ''}`
+      : new Date(order.event_table.date_start).toLocaleDateString('pt-BR');
+    const room = comp?.room?.name || comp?.location || null;
+    const eventType = comp?.event_category || null;
+    return { people, dateLabel, room, eventType };
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -251,14 +283,20 @@ export const ProductionOrdersList = () => {
       </div>
 
       <div className="space-y-4">
-        {productionOrders.map((order) => (
+        {productionOrders.map((order) => {
+          const meta = getOrderMeta(order);
+          return (
           <Card key={order.id} className="shadow-soft">
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-lg">{order.order_code}</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg">{order.order_code}</CardTitle>
+                    {meta.eventType && <Badge variant="outline">{meta.eventType}</Badge>}
+                  </div>
                   <CardDescription>
                     {order.event_table.event_code} - {order.event_table.client_name}
+                    {meta.room && ` · ${meta.room}`}
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
@@ -280,13 +318,11 @@ export const ProductionOrdersList = () => {
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{order.event_table.attendees} pessoas</span>
+                  <span className="text-sm">{meta.people} pessoas</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">
-                    {new Date(order.event_table.date_start).toLocaleDateString('pt-BR')}
-                  </span>
+                  <span className="text-sm">{meta.dateLabel}</span>
                 </div>
               </div>
 
@@ -363,7 +399,8 @@ export const ProductionOrdersList = () => {
               )}
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       {/* Impressão Térmica (Oculto) */}
@@ -378,19 +415,14 @@ export const ProductionOrdersList = () => {
                   label: 'Evento',
                   value: `${printing.event_table.event_code} - ${printing.event_table.client_name}`,
                 },
-                {
-                  label: 'Data/Hora',
-                  value: printing.event_table.date_start
-                    ? new Date(printing.event_table.date_start).toLocaleString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : '-',
-                },
-                { label: 'Nº pessoas', value: String(printing.event_table.attendees ?? '-') },
+                ...(printing.composition?.event_category
+                  ? [{ label: 'Tipo', value: printing.composition.event_category }]
+                  : []),
+                { label: 'Data/Hora', value: getOrderMeta(printing).dateLabel },
+                ...(getOrderMeta(printing).room
+                  ? [{ label: 'Sala', value: getOrderMeta(printing).room as string }]
+                  : []),
+                { label: 'Nº pessoas', value: String(getOrderMeta(printing).people ?? '-') },
                 { label: 'Status', value: getStatusLabel(printing.status) },
               ]}
               items={printing.items.map((item) => ({
