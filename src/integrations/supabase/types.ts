@@ -1146,83 +1146,6 @@ export type Database = {
           },
         ]
       }
-      client_catalog_items: {
-        Row: {
-          client_id: string
-          created_at: string
-          created_by: string | null
-          id: string
-          is_active: boolean
-          material_id: string
-        }
-        Insert: {
-          client_id: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_active?: boolean
-          material_id: string
-        }
-        Update: {
-          client_id?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_active?: boolean
-          material_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "client_catalog_items_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_catalog_items_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "materials"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_catalog_items_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_cost_audit"
-            referencedColumns: ["material_id"]
-          },
-          {
-            foreignKeyName: "client_catalog_items_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_proposal_breakdown"
-            referencedColumns: ["material_id"]
-          },
-          {
-            foreignKeyName: "client_catalog_items_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_stock_below_min"
-            referencedColumns: ["material_id"]
-          },
-          {
-            foreignKeyName: "client_catalog_items_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_stock_no_avg_price"
-            referencedColumns: ["material_id"]
-          },
-          {
-            foreignKeyName: "client_catalog_items_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "vw_stock_zero"
-            referencedColumns: ["material_id"]
-          },
-        ]
-      }
       client_contacts: {
         Row: {
           client_id: string
@@ -3670,6 +3593,7 @@ export type Database = {
           description: string | null
           id: string
           is_archived: boolean | null
+          is_portal_visible: boolean
           is_sellable: boolean | null
           is_system_generated: boolean | null
           legacy_code: string | null
@@ -3710,6 +3634,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_archived?: boolean | null
+          is_portal_visible?: boolean
           is_sellable?: boolean | null
           is_system_generated?: boolean | null
           legacy_code?: string | null
@@ -3750,6 +3675,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_archived?: boolean | null
+          is_portal_visible?: boolean
           is_sellable?: boolean | null
           is_system_generated?: boolean | null
           legacy_code?: string | null
@@ -4017,6 +3943,7 @@ export type Database = {
           account_payable_id: string
           amount: number
           bank_account: string | null
+          bank_account_id: string | null
           created_at: string
           document_number: string | null
           id: string
@@ -4028,6 +3955,7 @@ export type Database = {
           account_payable_id: string
           amount: number
           bank_account?: string | null
+          bank_account_id?: string | null
           created_at?: string
           document_number?: string | null
           id?: string
@@ -4039,6 +3967,7 @@ export type Database = {
           account_payable_id?: string
           amount?: number
           bank_account?: string | null
+          bank_account_id?: string | null
           created_at?: string
           document_number?: string | null
           id?: string
@@ -4052,6 +3981,13 @@ export type Database = {
             columns: ["account_payable_id"]
             isOneToOne: false
             referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -4455,6 +4391,7 @@ export type Database = {
           room_id: string | null
           scheduled_date: string | null
           scheduled_time: string | null
+          service_code: string | null
           sort_order: number
           unit_id: string | null
           updated_at: string
@@ -4472,6 +4409,7 @@ export type Database = {
           room_id?: string | null
           scheduled_date?: string | null
           scheduled_time?: string | null
+          service_code?: string | null
           sort_order?: number
           unit_id?: string | null
           updated_at?: string
@@ -4489,6 +4427,7 @@ export type Database = {
           room_id?: string | null
           scheduled_date?: string | null
           scheduled_time?: string | null
+          service_code?: string | null
           sort_order?: number
           unit_id?: string | null
           updated_at?: string
@@ -4703,6 +4642,7 @@ export type Database = {
           client_id: string
           contact_id: string | null
           created_at: string
+          created_by_client: boolean
           department_id: string | null
           event_category: string | null
           event_date: string | null
@@ -4742,6 +4682,7 @@ export type Database = {
           client_id: string
           contact_id?: string | null
           created_at?: string
+          created_by_client?: boolean
           department_id?: string | null
           event_category?: string | null
           event_date?: string | null
@@ -4781,6 +4722,7 @@ export type Database = {
           client_id?: string
           contact_id?: string | null
           created_at?: string
+          created_by_client?: boolean
           department_id?: string | null
           event_category?: string | null
           event_date?: string | null
@@ -8010,6 +7952,10 @@ export type Database = {
       get_material_cost: { Args: { p_material_id: string }; Returns: number }
       get_portal_catalog: { Args: never; Returns: Json }
       get_portal_proposal: { Args: { p_proposal_id: string }; Returns: Json }
+      get_portal_proposal_pdf: {
+        Args: { p_proposal_id: string }
+        Returns: Json
+      }
       get_portal_proposals: { Args: never; Returns: Json }
       get_portal_settings: { Args: never; Returns: Json }
       get_proposal_by_token: { Args: { p_token: string }; Returns: Json }

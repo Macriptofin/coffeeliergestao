@@ -20,7 +20,7 @@ import type { PurchaseInvoice } from "@/pages/Stock";
 import { useUserRole } from "@/hooks/useUserRole";
 import { InvoiceEditDialog } from "../purchase/InvoiceEditDialog";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
-import { todayLocalISO, addDaysLocalISO } from "@/lib/date-utils";
+import { todayLocalISO, addDaysLocalISO, formatLocalDate } from "@/lib/date-utils";
 
 interface Supplier {
   id: string;
@@ -169,6 +169,14 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   });
   const [showRetroactiveDialog, setShowRetroactiveDialog] = useState(false);
   const [selectedInvoiceForRetroactive, setSelectedInvoiceForRetroactive] = useState<any>(null);
+  // Resumo de confirmação antes de "Lançar no Estoque" — essa ação grava
+  // estoque + financeiro de uma vez, sem volta fácil, por isso pede revisão.
+  const [launchConfirm, setLaunchConfirm] = useState<{
+    id: string; invoiceNumber: string; supplierName: string; totalAmount: number;
+    itemCount: number; isPaid: boolean; paymentDate: string | null; dueDate: string | null;
+    paymentMethod: string | null;
+  } | null>(null);
+  const [launchConfirmLoading, setLaunchConfirmLoading] = useState(false);
   // Dialog de condição de pagamento antes de lançar no estoque
   const [showPaymentConditionDialog, setShowPaymentConditionDialog] = useState(false);
   const [invoiceToLaunch, setInvoiceToLaunch] = useState<string | null>(null);
@@ -584,6 +592,44 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     await postToStock(invoiceToLaunch);
   };
 
+  // Abre o resumo de confirmação antes de lançar — "Lançar no Estoque" grava
+  // movimentação de estoque + conta a pagar + pagamento numa tacada só, sem
+  // nenhuma revisão hoje (achado durante a investigação do agente de NF).
+  const openLaunchConfirm = async (invoice: PurchaseInvoice) => {
+    setLaunchConfirmLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('purchase_invoices')
+        .select('notes, invoice_items(count)')
+        .eq('id', invoice.id)
+        .single();
+      if (error) throw error;
+
+      const notesText = data?.notes || '';
+      const statusMatch = notesText.match(/Status Pagamento:\s*(pago|a_vencer)/i);
+      const dateMatch   = notesText.match(/Data Pagamento:\s*(\d{4}-\d{2}-\d{2})/i);
+      const methodMatch = notesText.match(/Forma de Pagamento:\s*([^\n]+)/i);
+      const isPaid = statusMatch?.[1]?.toLowerCase() === 'pago';
+
+      setLaunchConfirm({
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        supplierName: invoice.supplier?.companyName || '—',
+        totalAmount: invoice.totalAmount,
+        itemCount: (data as any)?.invoice_items?.[0]?.count ?? 0,
+        isPaid,
+        paymentDate: isPaid ? (dateMatch?.[1] || null) : null,
+        dueDate: !isPaid ? (dateMatch?.[1] || null) : null,
+        paymentMethod: methodMatch?.[1]?.trim() || null,
+      });
+    } catch (err) {
+      console.error('Erro ao carregar resumo da nota:', err);
+      toast.error('Não foi possível carregar o resumo da nota para confirmação.');
+    } finally {
+      setLaunchConfirmLoading(false);
+    }
+  };
+
   const postToStock = async (invoiceId: string) => {
     setLoading(true);
     try {
@@ -608,12 +654,16 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         .eq('id', invoiceId)
         .single();
 
-      // Extrair status e data de pagamento do campo notes
+      // Extrair status, data e forma de pagamento do campo notes (dados reais
+      // digitados no formulário da NF — launchPaymentData é resquício de um
+      // dialog nunca aberto na prática, sempre no default 'PIX').
       const notesText = invoice?.notes || '';
       const statusMatch = notesText.match(/Status Pagamento:\s*(pago|a_vencer)/i);
       const dateMatch   = notesText.match(/Data Pagamento:\s*(\d{4}-\d{2}-\d{2})/i);
+      const methodMatch = notesText.match(/Forma de Pagamento:\s*([^\n]+)/i);
       const invoicePaymentStatus = statusMatch?.[1] || 'a_vencer';
       const invoicePaymentDate   = dateMatch?.[1] || todayLocalISO();
+      const invoicePaymentMethod = methodMatch?.[1]?.trim() || launchPaymentData.paymentMethod;
 
       if (checkError) throw checkError;
 
@@ -740,13 +790,14 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               original_amount: productsAmount,
               remaining_amount: isPaid ? 0 : productsAmount,
               paid_amount: isPaid ? productsAmount : 0,
+              payment_date: isPaid ? invoicePaymentDate : null,
               discount_amount: parseFloat(invoice.discount_total?.toString() || '0'),
               interest_amount: 0,
               status: isPaid ? 'Pago' : 'Pendente',
               source_type: 'purchase_invoice',
               source_id: invoiceId,
               account_id: purchaseAccount?.id || null,
-              notes: `Produtos da nota fiscal. Método: ${launchPaymentData.paymentMethod}${isPaid ? ` - Pago em ${launchPaymentData.paymentDate}` : ` - Vence em ${launchPaymentData.dueDate}`}${launchPaymentData.notes ? `. ${launchPaymentData.notes}` : ''}`
+              notes: `Produtos da nota fiscal. Método: ${invoicePaymentMethod}${isPaid ? ` - Pago em ${invoicePaymentDate}` : ` - Vence em ${dueDate}`}`
             })
             .select()
             .single();
@@ -756,16 +807,20 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             toast.error('Estoque lançado, mas houve erro ao criar conta a pagar de produtos');
           } else if (isPaid && productsPayable) {
             // Usar data de pagamento da NF (salva no campo notes), não a data de hoje
-            await supabase
+            const { error: ptError } = await supabase
               .from('payment_transactions')
               .insert({
                 account_payable_id: productsPayable.id,
                 payment_date: invoicePaymentDate,
                 amount: productsAmount,
-                payment_method: launchPaymentData.paymentMethod,
-                bank_account: launchPaymentData.bankAccountId || null,
-                notes: `Pagamento - ${launchPaymentData.paymentMethod}${launchPaymentData.notes ? ` - ${launchPaymentData.notes}` : ''}`
+                payment_method: invoicePaymentMethod,
+                bank_account_id: launchPaymentData.bankAccountId || null,
+                notes: `Pagamento - ${invoicePaymentMethod}`
               });
+            if (ptError) {
+              console.error('Erro ao registrar pagamento de produtos:', ptError);
+              toast.error('Conta marcada como paga, mas o pagamento não entrou no Fluxo de Caixa — corrija em Contas a Pagar.');
+            }
           }
         }
         
@@ -792,6 +847,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               original_amount: freightAmount,
               remaining_amount: isPaid ? 0 : freightAmount,
               paid_amount: isPaid ? freightAmount : 0,
+              payment_date: isPaid ? invoicePaymentDate : null,
               discount_amount: 0,
               interest_amount: 0,
               status: isPaid ? 'Pago' : 'Pendente',
@@ -799,7 +855,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               source_type: 'purchase_invoice_freight',
               source_id: invoiceId,
               account_id: freightAccount?.id || null,
-              notes: `Frete/Tele-entrega da nota fiscal ${invoice.invoice_number}. Método: ${launchPaymentData.paymentMethod}${isPaid ? ' - Pago automaticamente' : ''}`
+              notes: `Frete/Tele-entrega da nota fiscal ${invoice.invoice_number}. Método: ${invoicePaymentMethod}${isPaid ? ' - Pago automaticamente' : ''}`
             })
             .select()
             .single();
@@ -809,16 +865,20 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             toast.error('Conta de produtos criada, mas houve erro ao criar conta de frete');
           } else if (isPaid && freightPayable) {
             // Usar data de pagamento da NF (salva no campo notes), não a data de hoje
-            await supabase
+            const { error: ptError } = await supabase
               .from('payment_transactions')
               .insert({
                 account_payable_id: freightPayable.id,
                 payment_date: invoicePaymentDate,
                 amount: freightAmount,
-                payment_method: launchPaymentData.paymentMethod,
-                bank_account: launchPaymentData.bankAccountId || null,
-                notes: `Frete - ${launchPaymentData.paymentMethod}${launchPaymentData.notes ? ` - ${launchPaymentData.notes}` : ''}`
+                payment_method: invoicePaymentMethod,
+                bank_account_id: launchPaymentData.bankAccountId || null,
+                notes: `Frete - ${invoicePaymentMethod}`
               });
+            if (ptError) {
+              console.error('Erro ao registrar pagamento de frete:', ptError);
+              toast.error('Conta de frete marcada como paga, mas o pagamento não entrou no Fluxo de Caixa — corrija em Contas a Pagar.');
+            }
           }
         }
       }
@@ -1309,9 +1369,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                      {invoice.workflowStatus !== 'lancada' && !invoice.stockPosted && (
                        <Button
                          variant="default"
-                         onClick={(e) => { e.stopPropagation(); postToStock(invoice.id); }}
+                         onClick={(e) => { e.stopPropagation(); openLaunchConfirm(invoice); }}
                          size="sm"
-                         disabled={loading}
+                         disabled={loading || launchConfirmLoading}
                          className="flex items-center gap-2"
                        >
                          <Package className="h-4 w-4" />
@@ -1362,6 +1422,70 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
       </Sheet>
 
       {/* As condições de pagamento agora são preenchidas no formulário da NF */}
+
+      {/* Confirmação antes de lançar — última checagem humana antes de gravar
+          estoque + financeiro (esse clique hoje comitava tudo direto, sem revisão). */}
+      <Dialog open={!!launchConfirm} onOpenChange={(open) => !open && setLaunchConfirm(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" />
+              Confirmar lançamento no estoque
+            </DialogTitle>
+            <DialogDescription>
+              Revise antes de gravar — essa ação move o estoque e cria o lançamento financeiro.
+            </DialogDescription>
+          </DialogHeader>
+          {launchConfirm && (
+            <div className="space-y-2 py-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Fornecedor</span>
+                <span className="font-medium">{launchConfirm.supplierName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Nota</span>
+                <span className="font-medium">{launchConfirm.invoiceNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Itens</span>
+                <span className="font-medium">{launchConfirm.itemCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Valor total</span>
+                <span className="font-medium">R$ {launchConfirm.totalAmount.toFixed(2)}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Pagamento</span>
+                <span className="font-medium">
+                  {launchConfirm.isPaid
+                    ? `Pago em ${launchConfirm.paymentDate ? formatLocalDate(launchConfirm.paymentDate) : '—'}`
+                    : `A vencer em ${launchConfirm.dueDate ? formatLocalDate(launchConfirm.dueDate) : '—'}`}
+                </span>
+              </div>
+              {launchConfirm.paymentMethod && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Forma</span>
+                  <span className="font-medium">{launchConfirm.paymentMethod}</span>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setLaunchConfirm(null)}>Cancelar</Button>
+            <Button
+              disabled={loading}
+              onClick={() => {
+                const id = launchConfirm!.id;
+                setLaunchConfirm(null);
+                postToStock(id);
+              }}
+            >
+              <Package className="h-4 w-4 mr-2" /> Confirmar e Lançar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog para criar conta a pagar retroativa — REMOVIDO TEMPORARIAMENTE */}
       {false && <Dialog open={showPaymentConditionDialog} onOpenChange={setShowPaymentConditionDialog}>

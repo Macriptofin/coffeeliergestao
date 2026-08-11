@@ -739,6 +739,13 @@ export const InvoiceItemMatcher = ({
               </SelectContent>
             </Select>
 
+            {item.match_method === 'auto_ocr' && (
+              <div className="flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-400">
+                <Check className="h-3.5 w-3.5" />
+                Selecionado automaticamente pelo histórico — confira antes de lançar.
+              </div>
+            )}
+
             <Alert className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
               <Factory className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <AlertDescription className="text-xs text-blue-700 dark:text-blue-300">

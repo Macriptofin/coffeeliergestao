@@ -173,12 +173,57 @@ export const InvoiceEditDialog = ({
         if (user) setResponsavelId(user.id);
       });
 
-      // Inicializar itens com status
-      const itemsWithStatus: InvoiceItem[] = invoiceData.itens.map(item => ({
-        ...item,
-        status: (item.material_id ? 'matched' : 'pending') as 'matched' | 'not_found' | 'pending'
-      }));
-      setEditedData({ ...invoiceData, itens: itemsWithStatus });
+      // Inicializar itens com status — pré-seleciona sozinho quando o OCR (via
+      // histórico de invoice_material_matches) já sugeriu o material com
+      // confiança alta: o campo material_sugerido_id/confianca_match sempre
+      // veio na resposta do invoice-ocr, mas nunca era usado — o humano tinha
+      // que reescolher manualmente todo item, mesmo quando o sistema já sabia
+      // a resposta. Confiança baixa continua pedindo escolha manual, como hoje.
+      const CONFIDENCE_AUTOFILL_THRESHOLD = 0.8;
+      (async () => {
+        const highConfidenceIds = Array.from(new Set(
+          invoiceData.itens
+            .filter((it: any) => !it.material_id && it.material_sugerido_id && (it.confianca_match ?? 0) >= CONFIDENCE_AUTOFILL_THRESHOLD)
+            .map((it: any) => it.material_sugerido_id as string)
+        ));
+
+        let materialsById = new Map<string, any>();
+        if (highConfidenceIds.length > 0) {
+          const { data: mats } = await supabase
+            .from('materials')
+            .select('id, name, code, conversion_factor, usage_unit')
+            .in('id', highConfidenceIds);
+          materialsById = new Map((mats || []).map((m: any) => [m.id, m]));
+        }
+
+        const itemsWithStatus: InvoiceItem[] = invoiceData.itens.map((item: any) => {
+          const material = item.material_sugerido_id ? materialsById.get(item.material_sugerido_id) : undefined;
+          const autofill = !item.material_id && material && (item.confianca_match ?? 0) >= CONFIDENCE_AUTOFILL_THRESHOLD;
+
+          if (autofill) {
+            const conversionFactor = material.conversion_factor || 1;
+            const precoComDescontoUnit = item.preco_com_desconto ? item.preco_com_desconto / item.quantidade : item.preco_unitario;
+            const ipiPorUnidade = item.ipi_valor && item.quantidade > 0 ? item.ipi_valor / item.quantidade : 0;
+            return {
+              ...item,
+              material_id: material.id,
+              material_nome: material.name,
+              material_codigo: material.code,
+              status: 'matched' as const,
+              match_method: 'auto_ocr',
+              conversion_factor: conversionFactor,
+              usage_unit: material.usage_unit,
+              converted_quantity: item.quantidade * conversionFactor,
+              converted_unit_price: (precoComDescontoUnit + ipiPorUnidade) / conversionFactor,
+            };
+          }
+          return {
+            ...item,
+            status: (item.material_id ? 'matched' : 'pending') as 'matched' | 'not_found' | 'pending'
+          };
+        });
+        setEditedData({ ...invoiceData, itens: itemsWithStatus });
+      })();
 
       // Restaurar desconto global e tipo (preserva rascunho salvo)
       if (invoiceData.discount_total != null) setDiscountTotal(invoiceData.discount_total);

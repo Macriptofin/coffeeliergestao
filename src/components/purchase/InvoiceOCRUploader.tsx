@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2, Edit } from 'lucide-react';
 import { useInvoiceOCR } from '@/hooks/useInvoiceOCR';
+import { formatLocalDate } from '@/lib/date-utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { InvoiceEditDialog } from './InvoiceEditDialog';
 
@@ -159,7 +160,7 @@ export const InvoiceOCRUploader = ({ onCreated }: InvoiceOCRUploaderProps) => {
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Data</label>
                 <p className="text-lg font-semibold">
-                  {new Date(invoiceData.data).toLocaleDateString('pt-BR')}
+                  {formatLocalDate(invoiceData.data)}
                 </p>
               </div>
               {invoiceData.numero_nota && (

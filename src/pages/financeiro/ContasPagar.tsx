@@ -321,10 +321,13 @@ const ContasPagar = () => {
             payment_date:       formData.pago_date,
             amount:             originalAmount,
             payment_method:     formData.pago_method,
-            bank_account:       formData.pago_bank_id || null,
+            bank_account_id:    formData.pago_bank_id || null,
             notes:              `Pagamento no lançamento — ${getDocTypeLabel(formData.document_type)}`,
           });
-        if (ptErr) console.error('Erro ao criar payment_transaction:', ptErr);
+        if (ptErr) {
+          console.error('Erro ao criar payment_transaction:', ptErr);
+          toast.error('Despesa registrada, mas o pagamento não entrou no Fluxo de Caixa — corrija em Contas a Pagar.');
+        }
       }
 
       toast.success(isPago
@@ -438,7 +441,7 @@ const ContasPagar = () => {
           payment_date:       paymentData.payment_date,
           amount:             paymentAmount,
           payment_method:     paymentData.payment_method,
-          bank_account:       paymentData.bank_account_id || null,
+          bank_account_id:    paymentData.bank_account_id || null,
           document_number:    paymentData.document_number || null,
           notes:              paymentData.notes           || null,
         });
