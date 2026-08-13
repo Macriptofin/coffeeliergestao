@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useSecureEmployeeData } from "@/hooks/useSecureEmployeeData";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
+import { EmployeeAccessTab } from "@/components/employees/EmployeeAccessTab";
 
 const employeeSchema = z.object({
   employee_number: z.string().optional(),
@@ -212,11 +213,12 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <Tabs defaultValue="personal" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className={cn("grid w-full", employee?.id ? "grid-cols-5" : "grid-cols-4")}>
                 <TabsTrigger value="personal">Dados Pessoais</TabsTrigger>
                 <TabsTrigger value="professional">Dados Profissionais</TabsTrigger>
                 <TabsTrigger value="documents">Documentação</TabsTrigger>
                 <TabsTrigger value="banking">Dados Bancários</TabsTrigger>
+                {employee?.id && <TabsTrigger value="access">Acesso ao Sistema</TabsTrigger>}
               </TabsList>
 
               <TabsContent value="personal" className="space-y-4">
@@ -891,6 +893,18 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
                   )}
                 />
               </TabsContent>
+
+              {employee?.id && (
+                <TabsContent value="access">
+                  <EmployeeAccessTab
+                    employeeId={employee.id}
+                    employeeName={employee.full_name}
+                    employeeEmail={employee.email || null}
+                    linkedUserId={employee.user_id || null}
+                    onLinked={() => {}}
+                  />
+                </TabsContent>
+              )}
             </Tabs>
 
             <div className="flex justify-end gap-4 mt-6">

@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Save, ArrowLeft, User, Shield, KeyRound, Mail, CheckCircle2, AlertCircle } from "lucide-react";
 import { ACCESS_MODULES, ACCESS_ACTIONS } from "@/lib/accessModules";
+import { UserEmployeeLink } from "@/components/users/UserEmployeeLink";
 
 interface UserWithProfile {
   id: string;
@@ -380,6 +381,10 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
                   />
                 </div>
               </div>
+
+              <Separator />
+
+              <UserEmployeeLink userId={user.id} />
 
               <Separator />
 

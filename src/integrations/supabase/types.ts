@@ -2062,6 +2062,7 @@ export type Database = {
           status: string
           termination_date: string | null
           updated_at: string
+          user_id: string | null
           voter_registration: string | null
           work_schedule_id: string | null
           zip_code: string | null
@@ -2101,6 +2102,7 @@ export type Database = {
           status?: string
           termination_date?: string | null
           updated_at?: string
+          user_id?: string | null
           voter_registration?: string | null
           work_schedule_id?: string | null
           zip_code?: string | null
@@ -2140,6 +2142,7 @@ export type Database = {
           status?: string
           termination_date?: string | null
           updated_at?: string
+          user_id?: string | null
           voter_registration?: string | null
           work_schedule_id?: string | null
           zip_code?: string | null
@@ -7974,6 +7977,7 @@ export type Database = {
           status: string
           termination_date: string
           updated_at: string
+          user_id: string
           voter_registration: string
           zip_code: string
         }[]

@@ -13,15 +13,17 @@ import { UserPlus, ArrowLeft, Mail, Shield, Info } from "lucide-react";
 interface UserFormProps {
   onSuccess: () => void;
   onCancel: () => void;
+  initialData?: { fullName?: string; email?: string };
+  employeeId?: string;
 }
 
-export function UserForm({ onSuccess, onCancel }: UserFormProps) {
+export function UserForm({ onSuccess, onCancel, initialData, employeeId }: UserFormProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: '',
-    fullName: '',
+    email: initialData?.email || '',
+    fullName: initialData?.fullName || '',
     displayName: '',
-    role: 'user' as 'admin' | 'manager' | 'financial' | 'user',
+    role: 'user' as 'admin' | 'manager' | 'user',
     password: ''
   });
 
@@ -93,6 +95,14 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
           body: { user_id: data.user_id },
         });
         if (emailErr) console.warn('send-user-access-email:', emailErr.message);
+
+        if (employeeId) {
+          const { error: linkErr } = await supabase
+            .from('employees')
+            .update({ user_id: data.user_id })
+            .eq('id', employeeId);
+          if (linkErr) console.warn('Erro ao vincular funcionário à conta criada:', linkErr.message);
+        }
       }
 
       toast.success(
@@ -113,13 +123,13 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={onCancel}>
+            <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
               <CardTitle className="flex items-center gap-2">
                 <UserPlus className="h-5 w-5" />
-                Criar Novo Usuário
+                {employeeId ? 'Criar Acesso ao Sistema' : 'Criar Novo Usuário'}
               </CardTitle>
               <CardDescription>
                 Preencha as informações para criar um novo usuário no sistema
@@ -195,9 +205,9 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
                   <Shield className="h-4 w-4" />
                   Nível de Acesso
                 </Label>
-                <Select 
-                  value={formData.role} 
-                  onValueChange={(value: 'admin' | 'manager' | 'financial' | 'user') => 
+                <Select
+                  value={formData.role}
+                  onValueChange={(value: 'admin' | 'manager' | 'user') =>
                     setFormData(prev => ({ ...prev, role: value }))
                   }
                 >
@@ -217,16 +227,10 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
                         <span className="text-xs text-muted-foreground">Gestão operacional e equipes</span>
                       </div>
                     </SelectItem>
-                    <SelectItem value="financial">
-                      <div className="flex flex-col items-start">
-                        <span className="font-semibold">Financial</span>
-                        <span className="text-xs text-muted-foreground">Gestão financeira e relatórios</span>
-                      </div>
-                    </SelectItem>
                     <SelectItem value="user">
                       <div className="flex flex-col items-start">
-                        <span className="font-semibold">User</span>
-                        <span className="text-xs text-muted-foreground">Acesso básico ao sistema</span>
+                        <span className="font-semibold">Usuário</span>
+                        <span className="text-xs text-muted-foreground">Acesso conforme Perfil de Acesso</span>
                       </div>
                     </SelectItem>
                   </SelectContent>
@@ -258,10 +262,10 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
 
           {/* Ações */}
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar
             </Button>
-            <Button onClick={createUser} disabled={loading}>
+            <Button type="button" onClick={createUser} disabled={loading}>
               <UserPlus className="h-4 w-4 mr-2" />
               {loading ? 'Criando...' : 'Criar Usuário'}
             </Button>
