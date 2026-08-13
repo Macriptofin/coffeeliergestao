@@ -112,8 +112,9 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           success: true,
+          user_id: userData.user.id,
           message: "Usuário criado com sucesso"
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

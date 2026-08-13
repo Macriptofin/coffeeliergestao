@@ -85,8 +85,18 @@ export function UserForm({ onSuccess, onCancel }: UserFormProps) {
         return;
       }
 
+      // A criação acima não manda nenhum e-mail — só grava a senha que o admin
+      // definiu. Sem isso, a única forma de o usuário saber a senha é o admin
+      // repassar por fora do sistema.
+      if (data.user_id) {
+        const { error: emailErr } = await supabase.functions.invoke('send-user-access-email', {
+          body: { user_id: data.user_id },
+        });
+        if (emailErr) console.warn('send-user-access-email:', emailErr.message);
+      }
+
       toast.success(
-        `Usuário criado com sucesso! Email: ${formData.email}`,
+        `Usuário criado! E-mail de acesso enviado para ${formData.email}.`,
         { duration: 5000 }
       );
       onSuccess();

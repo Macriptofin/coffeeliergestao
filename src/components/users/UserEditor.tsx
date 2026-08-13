@@ -144,6 +144,30 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
     }
   };
 
+  // E-mail com a marca Coffeelier + link seguro pra pessoa definir a própria senha —
+  // substitui ter que repassar a senha por fora (WhatsApp etc), já que a criação de
+  // usuário e o "Definir Nova Senha" abaixo não mandam nenhum e-mail sozinhos.
+  const sendAccessEmail = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.functions.invoke('send-user-access-email', {
+        body: { user_id: user.id },
+      });
+      if (error) {
+        toast.error(`Erro ao enviar e-mail de acesso: ${error.message}`);
+      } else if (!data?.success) {
+        toast.error(data?.error || 'Erro ao enviar e-mail de acesso');
+      } else {
+        toast.success(`E-mail de acesso enviado para ${user.email}`);
+      }
+    } catch (error) {
+      console.error('Erro ao enviar e-mail de acesso:', error);
+      toast.error('Erro ao enviar e-mail de acesso');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sendEmailVerification = async () => {
     try {
       setLoading(true);
@@ -320,10 +344,19 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
               </div>
 
               <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={sendAccessEmail}
+                  disabled={loading}
+                  className="flex items-center gap-2"
+                >
+                  <Mail className="h-4 w-4" />
+                  Enviar E-mail de Acesso
+                </Button>
                 {!user.email_confirmed && (
-                  <Button 
-                    variant="outline" 
-                    onClick={sendEmailVerification} 
+                  <Button
+                    variant="outline"
+                    onClick={sendEmailVerification}
                     disabled={loading}
                     className="flex items-center gap-2"
                   >

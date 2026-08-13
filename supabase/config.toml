@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.update-overdue-status]
 verify_jwt = false
+
+[functions.send-user-access-email]
+verify_jwt = true
