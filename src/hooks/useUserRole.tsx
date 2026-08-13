@@ -43,14 +43,25 @@ async function fetchUserRole(): Promise<RoleData> {
 
   const role = (data?.[0]?.role as UserRole) ?? 'user';
 
-  // Permissões granulares só para roles não-admin/manager (esses têm tudo)
+  // Permissões granulares só para roles não-admin/manager (esses têm tudo).
+  // Resolve tanto o Perfil de Acesso do usuário (module_permissions.profile_id
+  // via user_profiles.profile_id) quanto exceções pontuais (module_permissions.
+  // user_id) — mesmo modelo de resolução do check_module_permission() no banco.
   let modulePerms: { module: string; action: string }[] = [];
   if (!['admin', 'manager'].includes(role as string)) {
-    const { data: perms } = await supabase
-      .from('module_permissions')
-      .select('module, action')
-      .eq('user_id', user.id);
-    modulePerms = perms || [];
+    const [{ data: profileRow }, { data: exceptions }] = await Promise.all([
+      supabase.from('user_profiles').select('profile_id').eq('user_id', user.id).maybeSingle(),
+      supabase.from('module_permissions').select('module, action').eq('user_id', user.id),
+    ]);
+    let profileGrants: { module: string; action: string }[] = [];
+    if (profileRow?.profile_id) {
+      const { data: pg } = await supabase
+        .from('module_permissions')
+        .select('module, action')
+        .eq('profile_id', profileRow.profile_id);
+      profileGrants = pg || [];
+    }
+    modulePerms = [...profileGrants, ...(exceptions || [])];
   }
 
   return { userRole: role, userId: user.id, modulePerms };
@@ -94,8 +105,6 @@ export function useUserRole() {
   const can = useCallback((module: AppModule, action: ModuleAction): boolean => {
     if (!userRole) return false;
     if (['admin', 'manager'].includes(userRole)) return true;
-    // financial role: acesso total ao módulo financeiro por definição de role
-    if (userRole === 'financial' && module === 'financeiro') return true;
     return modulePerms.some(p => p.module === module && p.action === action);
   }, [userRole, modulePerms]);
 

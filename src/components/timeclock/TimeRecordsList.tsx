@@ -117,7 +117,7 @@ export const TimeRecordsList = () => {
                     <TableHead>Tipo</TableHead>
                     <TableHead>Localização</TableHead>
                     <TableHead>Observações</TableHead>
-                    {isAdmin && <TableHead className="text-right">Ações</TableHead>}
+                    {isAdmin() && <TableHead className="text-right">Ações</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -157,7 +157,7 @@ export const TimeRecordsList = () => {
                       <TableCell className="max-w-xs truncate">
                         {record.notes || "-"}
                       </TableCell>
-                      {isAdmin && (
+                      {isAdmin() && (
                         <TableCell className="text-right">
                           <Button
                             variant="ghost"

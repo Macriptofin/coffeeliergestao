@@ -19,7 +19,7 @@ import { ConfigRH } from "@/components/config/ConfigRH";
 import { ConfigPrecificacao } from "@/components/config/ConfigPrecificacao";
 import { useConfig } from "@/hooks/useConfig";
 import { UserRoleManager } from "@/components/UserRoleManager";
-import { ModulePermissionsManager } from "@/components/ModulePermissionsManager";
+import { AccessProfilesManager } from "@/components/AccessProfilesManager";
 
 // ─── Navigation structure ────────────────────────────────────────────────────
 
@@ -72,7 +72,7 @@ function ConfigContent({ section }: { section: string }) {
       return (
         <div className="space-y-6">
           <UserRoleManager />
-          <ModulePermissionsManager />
+          <AccessProfilesManager />
         </div>
       );
     default: return null;

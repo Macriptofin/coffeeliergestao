@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserX, Save, ArrowLeft, User, Shield, KeyRound, Mail, CheckCircle2, AlertCircle } from "lucide-react";
-import { PermissionsSelector } from "./PermissionsSelector";
+import { Save, ArrowLeft, User, Shield, KeyRound, Mail, CheckCircle2, AlertCircle } from "lucide-react";
+import { ACCESS_MODULES, ACCESS_ACTIONS } from "@/lib/accessModules";
 
 interface UserWithProfile {
   id: string;
@@ -24,6 +25,12 @@ interface UserWithProfile {
     role: 'admin' | 'manager' | 'financial' | 'user';
     created_at: string;
   }>;
+}
+
+interface AccessProfile {
+  id: string;
+  role_name: string;
+  label: string;
 }
 
 interface UserEditorProps {
@@ -42,6 +49,47 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
   const [selectedRole, setSelectedRole] = useState<'admin' | 'manager' | 'financial' | 'user'>(
     user.roles[0]?.role || 'user'
   );
+
+  // Perfil de Acesso (role_templates) — só se aplica quando selectedRole === 'user'.
+  // 'admin' fica fora da lista: role='admin' já dá bypass total via nível de acesso,
+  // não faz sentido também "ser perfil admin" (confundiria os dois conceitos).
+  const [accessProfiles, setAccessProfiles] = useState<AccessProfile[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [profileGrants, setProfileGrants] = useState<Set<string>>(new Set());
+  const [exceptionGrants, setExceptionGrants] = useState<Set<string>>(new Set());
+  const [loadingAccess, setLoadingAccess] = useState(true);
+
+  const grantKey = (m: string, a: string) => `${m}:${a}`;
+
+  const loadAccessData = useCallback(async () => {
+    setLoadingAccess(true);
+    try {
+      const [{ data: profiles }, { data: userProfileRow }, { data: exceptions }] = await Promise.all([
+        supabase.from('role_templates').select('id, role_name, label').order('label'),
+        supabase.from('user_profiles').select('profile_id').eq('user_id', user.id).maybeSingle(),
+        supabase.from('module_permissions').select('module, action').eq('user_id', user.id),
+      ]);
+
+      setAccessProfiles((profiles || []).filter(p => p.role_name !== 'admin'));
+      setSelectedProfileId(userProfileRow?.profile_id ?? null);
+      setExceptionGrants(new Set((exceptions || []).map(e => grantKey(e.module, e.action))));
+    } catch (error) {
+      console.error('Erro ao carregar dados de acesso:', error);
+      toast.error('Erro ao carregar dados de acesso');
+    } finally {
+      setLoadingAccess(false);
+    }
+  }, [user.id]);
+
+  useEffect(() => { loadAccessData(); }, [loadAccessData]);
+
+  // Carrega as permissões do perfil selecionado (só leitura aqui — editar o perfil
+  // em si é feito na tela "Perfis de Acesso", e propaga pra todo mundo que o usa).
+  useEffect(() => {
+    if (!selectedProfileId) { setProfileGrants(new Set()); return; }
+    supabase.from('module_permissions').select('module, action').eq('profile_id', selectedProfileId)
+      .then(({ data }) => setProfileGrants(new Set((data || []).map(g => grantKey(g.module, g.action)))));
+  }, [selectedProfileId]);
 
   const saveProfile = async () => {
     try {
@@ -71,50 +119,78 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
     }
   };
 
-  const updateUserRole = async () => {
+  const saveAccess = async () => {
     try {
       setLoading(true);
 
-      // Remover roles existentes
-      await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', user.id);
-
-      // Adicionar novo role
+      // Nível de acesso (user_roles) — mesma lógica de sempre (1 role por usuário).
+      await supabase.from('user_roles').delete().eq('user_id', user.id);
       const { error: roleError } = await supabase
         .from('user_roles')
-        .insert({
-          user_id: user.id,
-          role: selectedRole
-        });
-
+        .insert({ user_id: user.id, role: selectedRole });
       if (roleError) throw roleError;
 
-      toast.success('Role atualizado com sucesso!');
+      // Perfil de Acesso — só vale quando o nível é "user"; admin/manager não usam.
+      const { error: profileLinkError } = await supabase
+        .from('user_profiles')
+        .upsert({
+          user_id: user.id,
+          profile_id: selectedRole === 'user' ? selectedProfileId : null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' });
+      if (profileLinkError) throw profileLinkError;
+
+      toast.success('Acesso atualizado com sucesso!');
       onUserUpdated();
     } catch (error) {
-      console.error('Erro ao atualizar role:', error);
-      toast.error('Erro ao atualizar role');
+      console.error('Erro ao atualizar acesso:', error);
+      toast.error('Erro ao atualizar acesso');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Exceção pontual: concede (ou remove) uma ação específica pra ESTE usuário, por
+  // cima do que o perfil dele já dá. Grava direto (sem botão de salvar à parte),
+  // mesmo padrão que a tela de Perfis de Acesso usa pro perfil em si.
+  const toggleException = async (module: string, action: string) => {
+    const key = grantKey(module, action);
+    const has = exceptionGrants.has(key);
+    try {
+      if (has) {
+        const { error } = await supabase
+          .from('module_permissions')
+          .delete()
+          .eq('user_id', user.id).eq('module', module).eq('action', action);
+        if (error) throw error;
+        setExceptionGrants(prev => { const next = new Set(prev); next.delete(key); return next; });
+      } else {
+        const { error } = await supabase
+          .from('module_permissions')
+          .insert({ user_id: user.id, module, action, scope: 'all' });
+        if (error) throw error;
+        setExceptionGrants(prev => new Set(prev).add(key));
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar exceção:', error);
+      toast.error('Erro ao atualizar exceção de permissão');
     }
   };
 
   const setUserPassword = async () => {
     // Validação de senha forte
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    
+
     if (!newPassword) {
       toast.error('Digite uma senha');
       return;
     }
-    
+
     if (newPassword.length < 8) {
       toast.error('A senha deve ter pelo menos 8 caracteres');
       return;
     }
-    
+
     if (!passwordRegex.test(newPassword)) {
       toast.error('A senha deve conter: maiúscula, minúscula, número e caractere especial (@$!%*?&)');
       return;
@@ -122,7 +198,7 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
 
     try {
       setLoading(true);
-      
+
       const { error } = await supabase.functions.invoke('admin-set-password', {
         body: {
           user_id: user.id,
@@ -171,7 +247,7 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
   const sendEmailVerification = async () => {
     try {
       setLoading(true);
-      
+
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: user.email
@@ -249,10 +325,9 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
       </Card>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="profile">Perfil</TabsTrigger>
-          <TabsTrigger value="role">Role do Sistema</TabsTrigger>
-          <TabsTrigger value="permissions">Permissões Detalhadas</TabsTrigger>
+          <TabsTrigger value="access">Acesso</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -325,8 +400,8 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
                       Requisitos: mínimo 8 caracteres, incluindo maiúscula, minúscula, número e caractere especial (@$!%*?&)
                     </p>
                   </div>
-                  <Button 
-                    onClick={setUserPassword} 
+                  <Button
+                    onClick={setUserPassword}
                     disabled={loading || !newPassword}
                   >
                     Definir Senha
@@ -373,58 +448,114 @@ export function UserEditor({ user, onClose, onUserUpdated }: UserEditorProps) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="role">
+        <TabsContent value="access">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                Role do Sistema
+                Acesso
               </CardTitle>
               <CardDescription>
-                Configure o nível de acesso principal do usuário
+                Nível de acesso e Perfil de Acesso do usuário
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div>
-                <Label htmlFor="userRole">Role Principal</Label>
-                <Select value={selectedRole} onValueChange={(value: 'admin' | 'manager' | 'financial' | 'user') => setSelectedRole(value)}>
+                <Label htmlFor="userRole">Nível de Acesso</Label>
+                <Select value={selectedRole} onValueChange={(value: 'admin' | 'manager' | 'user') => setSelectedRole(value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione o role" />
+                    <SelectValue placeholder="Selecione o nível" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">Admin - Acesso total ao sistema</SelectItem>
-                    <SelectItem value="manager">Manager - Gestão operacional</SelectItem>
-                    <SelectItem value="financial">Financial - Gestão financeira</SelectItem>
-                    <SelectItem value="user">User - Acesso básico</SelectItem>
+                    <SelectItem value="manager">Gestor - Acesso total, exceto área de segurança</SelectItem>
+                    <SelectItem value="user">Usuário - Acesso conforme Perfil de Acesso</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  O role define o nível de acesso geral. Use as permissões detalhadas para controle específico.
-                </p>
+                {selectedRole === 'financial' && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Nível "Financial" está descontinuado — escolha "Usuário" + perfil "Financeiro" abaixo.
+                  </p>
+                )}
               </div>
 
-              <div className="bg-muted p-4 rounded-lg space-y-2">
-                <h4 className="font-medium">Descrição dos Roles:</h4>
-                <div className="text-sm space-y-1">
-                  <p><Badge variant="destructive" className="mr-2">Admin</Badge>Acesso completo a todas as funcionalidades</p>
-                  <p><Badge variant="default" className="mr-2">Manager</Badge>Gestão operacional e administrativa</p>
-                  <p><Badge variant="secondary" className="mr-2">Financial</Badge>Acesso focado em funcionalidades financeiras</p>
-                  <p><Badge variant="outline" className="mr-2">User</Badge>Acesso básico conforme permissões específicas</p>
+              {selectedRole === 'user' ? (
+                <>
+                  <div>
+                    <Label htmlFor="accessProfile">Perfil de Acesso</Label>
+                    <Select
+                      value={selectedProfileId ?? '__none__'}
+                      onValueChange={(v) => setSelectedProfileId(v === '__none__' ? null : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um perfil" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Sem perfil (nenhum acesso além do básico)</SelectItem>
+                        {accessProfiles.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Editar o perfil em si (não este usuário) é feito em Configurações → Perfis de Acesso, e vale pra todo mundo que usa aquele perfil.
+                    </p>
+                  </div>
+
+                  {!loadingAccess && (
+                    <div className="border rounded-lg overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left p-2 font-medium">Módulo</th>
+                            {ACCESS_ACTIONS.map(a => (
+                              <th key={a.key} className="text-center p-2 font-medium">{a.label}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ACCESS_MODULES.map(m => (
+                            <tr key={m.key} className="border-b last:border-0">
+                              <td className="p-2">{m.label}</td>
+                              {ACCESS_ACTIONS.map(a => {
+                                const key = grantKey(m.key, a.key);
+                                const fromProfile = profileGrants.has(key);
+                                const isException = exceptionGrants.has(key);
+                                return (
+                                  <td key={a.key} className="text-center p-2">
+                                    <Checkbox
+                                      checked={fromProfile || isException}
+                                      disabled={fromProfile}
+                                      onCheckedChange={() => toggleException(m.key, a.key)}
+                                      title={fromProfile ? 'Concedido pelo perfil' : 'Exceção pontual deste usuário'}
+                                    />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Caixas travadas vêm do perfil selecionado. Marque uma caixa extra pra dar uma exceção pontual só pra este usuário, por cima do perfil.
+                  </p>
+                </>
+              ) : (
+                <div className="bg-muted p-4 rounded-lg text-sm text-muted-foreground">
+                  {selectedRole === 'admin' ? 'Admin' : 'Gestor'} tem acesso total ao sistema — Perfil de Acesso não se aplica.
                 </div>
-              </div>
+              )}
 
               <div className="flex justify-end">
-                <Button onClick={updateUserRole} disabled={loading}>
+                <Button onClick={saveAccess} disabled={loading}>
                   <Shield className="h-4 w-4 mr-2" />
-                  Atualizar Role
+                  Salvar Acesso
                 </Button>
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="permissions">
-          <PermissionsSelector userId={user.id} />
         </TabsContent>
       </Tabs>
     </div>

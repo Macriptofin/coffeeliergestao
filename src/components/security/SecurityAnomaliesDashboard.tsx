@@ -216,7 +216,7 @@ const SecurityAnomaliesDashboard = () => {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        {!anomaly.is_investigated && isAdmin && (
+                        {!anomaly.is_investigated && isAdmin() && (
                           <Dialog>
                             <DialogTrigger asChild>
                               <Button
@@ -303,7 +303,7 @@ const SecurityAnomaliesDashboard = () => {
                           )}
                         </div>
                       </div>
-                      {isActive && isAdmin && (
+                      {isActive && isAdmin() && (
                         <Button
                           variant="outline"
                           size="sm"

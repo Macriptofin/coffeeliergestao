@@ -72,7 +72,7 @@ const EnhancedSecurityDashboard = () => {
     return `${minutes}m ${seconds}s`;
   };
 
-  if (!isAdminOrManager) {
+  if (!isAdminOrManager()) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Alert>
@@ -261,7 +261,7 @@ const EnhancedSecurityDashboard = () => {
       </Card>
 
       {/* Security Events Log */}
-      {isAdmin && (
+      {isAdmin() && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

@@ -13,7 +13,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, PieChart, 
 import { DollarSign, TrendingUp, TrendingDown, PieChart as PieChartIcon, BarChart3, Calendar, Shield } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useFinancialPermissions } from "@/hooks/useFinancialPermissions";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface FinancialData {
   entradas: number;
@@ -154,7 +154,8 @@ function calculateTotalMetrics(transactions: any[]) {
 }
 
 const AnaliseFinanceira = () => {
-  const { hasAnyFinancialAccess, canViewAllFinancial, loading: permissionsLoading } = useFinancialPermissions();
+  const { can, loading: permissionsLoading } = useUserRole();
+  const hasFinancialAccess = can('financeiro', 'view');
   const [period, setPeriod] = useState("3"); // Últimos 3 meses
   const [dateFilter, setDateFilter] = useState({
     start: format(subMonths(startOfMonth(new Date()), 2), 'yyyy-MM-dd'),
@@ -218,7 +219,7 @@ const AnaliseFinanceira = () => {
     );
   }
 
-  if (!hasAnyFinancialAccess()) {
+  if (!hasFinancialAccess) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Alert>

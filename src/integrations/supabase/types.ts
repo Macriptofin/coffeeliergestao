@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      _backup_legacy_permissions_ago2026_financial_permissions: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          department: string | null
+          id: string | null
+          permission_type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          department?: string | null
+          id?: string | null
+          permission_type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          department?: string | null
+          id?: string | null
+          permission_type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      _backup_legacy_permissions_ago2026_hr_permissions: {
+        Row: {
+          created_at: string | null
+          granted_by: string | null
+          id: string | null
+          permission_type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          granted_by?: string | null
+          id?: string | null
+          permission_type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          granted_by?: string | null
+          id?: string | null
+          permission_type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      _backup_legacy_permissions_ago2026_user_permissions: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          granted_by: string | null
+          id: string | null
+          subcategory: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          granted_by?: string | null
+          id?: string | null
+          subcategory?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          granted_by?: string | null
+          id?: string | null
+          subcategory?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       _backup_material_names: {
         Row: {
           id: string | null
@@ -2344,6 +2422,7 @@ export type Database = {
       }
       event_production_orders: {
         Row: {
+          composition_id: string | null
           created_at: string
           event_table_id: string
           id: string
@@ -2355,6 +2434,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          composition_id?: string | null
           created_at?: string
           event_table_id: string
           id?: string
@@ -2366,6 +2446,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          composition_id?: string | null
           created_at?: string
           event_table_id?: string
           id?: string
@@ -2377,6 +2458,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "event_production_orders_composition_id_fkey"
+            columns: ["composition_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_compositions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_production_orders_event_table_id_fkey"
             columns: ["event_table_id"]
@@ -2880,57 +2968,6 @@ export type Database = {
           reference_type?: string
           severity?: string
           title?: string
-        }
-        Relationships: []
-      }
-      financial_permissions: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          department: string | null
-          id: string
-          permission_type: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          department?: string | null
-          id?: string
-          permission_type: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          department?: string | null
-          id?: string
-          permission_type?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      hr_permissions: {
-        Row: {
-          created_at: string | null
-          granted_by: string | null
-          id: string
-          permission_type: Database["public"]["Enums"]["hr_permission_type"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          granted_by?: string | null
-          id?: string
-          permission_type: Database["public"]["Enums"]["hr_permission_type"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          granted_by?: string | null
-          id?: string
-          permission_type?: Database["public"]["Enums"]["hr_permission_type"]
-          user_id?: string
         }
         Relationships: []
       }
@@ -3780,8 +3817,9 @@ export type Database = {
           granted_by: string | null
           id: string
           module: string
+          profile_id: string | null
           scope: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           action: string
@@ -3789,8 +3827,9 @@ export type Database = {
           granted_by?: string | null
           id?: string
           module: string
+          profile_id?: string | null
           scope?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           action?: string
@@ -3798,10 +3837,19 @@ export type Database = {
           granted_by?: string | null
           id?: string
           module?: string
+          profile_id?: string | null
           scope?: string | null
-          user_id?: string
+          user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "module_permissions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "role_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       operational_alerts: {
         Row: {
@@ -5904,7 +5952,6 @@ export type Database = {
           id: string
           is_system: boolean | null
           label: string
-          permissions: Json
           role_name: string
         }
         Insert: {
@@ -5913,7 +5960,6 @@ export type Database = {
           id?: string
           is_system?: boolean | null
           label: string
-          permissions?: Json
           role_name: string
         }
         Update: {
@@ -5922,7 +5968,6 @@ export type Database = {
           id?: string
           is_system?: boolean | null
           label?: string
-          permissions?: Json
           role_name?: string
         }
         Relationships: []
@@ -7247,33 +7292,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_permissions: {
-        Row: {
-          category: Database["public"]["Enums"]["permission_category"]
-          created_at: string
-          granted_by: string | null
-          id: string
-          subcategory: Database["public"]["Enums"]["permission_subcategory"]
-          user_id: string
-        }
-        Insert: {
-          category: Database["public"]["Enums"]["permission_category"]
-          created_at?: string
-          granted_by?: string | null
-          id?: string
-          subcategory: Database["public"]["Enums"]["permission_subcategory"]
-          user_id: string
-        }
-        Update: {
-          category?: Database["public"]["Enums"]["permission_category"]
-          created_at?: string
-          granted_by?: string | null
-          id?: string
-          subcategory?: Database["public"]["Enums"]["permission_subcategory"]
-          user_id?: string
-        }
-        Relationships: []
-      }
       user_profiles: {
         Row: {
           created_at: string
@@ -7282,6 +7300,7 @@ export type Database = {
           email_confirmed_at: string | null
           full_name: string | null
           id: string
+          profile_id: string | null
           updated_at: string
           user_id: string
           user_type: string
@@ -7293,6 +7312,7 @@ export type Database = {
           email_confirmed_at?: string | null
           full_name?: string | null
           id?: string
+          profile_id?: string | null
           updated_at?: string
           user_id: string
           user_type?: string
@@ -7304,11 +7324,20 @@ export type Database = {
           email_confirmed_at?: string | null
           full_name?: string | null
           id?: string
+          profile_id?: string | null
           updated_at?: string
           user_id?: string
           user_type?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_profiles_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "role_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -7973,29 +8002,6 @@ export type Database = {
       get_security_summary: { Args: never; Returns: Json }
       get_user_email_safe: { Args: { p_user_id: string }; Returns: string }
       has_financial_access: { Args: { uid: string }; Returns: boolean }
-      has_financial_permission: {
-        Args: {
-          p_department?: string
-          p_permission_type: string
-          p_user_id: string
-        }
-        Returns: boolean
-      }
-      has_hr_permission: {
-        Args: {
-          _permission: Database["public"]["Enums"]["hr_permission_type"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      has_permission: {
-        Args: {
-          p_category: Database["public"]["Enums"]["permission_category"]
-          p_subcategory?: Database["public"]["Enums"]["permission_subcategory"]
-          p_user_id: string
-        }
-        Returns: boolean
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -8373,68 +8379,6 @@ export type Database = {
         | "Festa Infantil"
         | "Casamento"
         | "Reuniao Corporativa"
-      hr_permission_type:
-        | "view_basic_info"
-        | "view_personal_documents"
-        | "view_financial_info"
-        | "full_access"
-      permission_category:
-        | "estoque"
-        | "compras"
-        | "vendas"
-        | "agenda"
-        | "producao"
-        | "fornecedores"
-        | "financeiro"
-        | "relatorios"
-        | "usuarios"
-      permission_subcategory:
-        | "estoque_visualizar"
-        | "estoque_criar"
-        | "estoque_editar"
-        | "estoque_excluir"
-        | "estoque_movimentacoes"
-        | "compras_visualizar"
-        | "compras_criar"
-        | "compras_editar"
-        | "compras_excluir"
-        | "compras_aprovar"
-        | "vendas_visualizar"
-        | "vendas_criar"
-        | "vendas_editar"
-        | "vendas_excluir"
-        | "vendas_propostas"
-        | "vendas_clientes"
-        | "agenda_visualizar"
-        | "agenda_criar"
-        | "agenda_editar"
-        | "agenda_excluir"
-        | "agenda_eventos"
-        | "producao_visualizar"
-        | "producao_criar"
-        | "producao_editar"
-        | "producao_excluir"
-        | "producao_receitas"
-        | "producao_materiais"
-        | "fornecedores_visualizar"
-        | "fornecedores_criar"
-        | "fornecedores_editar"
-        | "fornecedores_excluir"
-        | "fornecedores_produtos"
-        | "financeiro_visualizar"
-        | "financeiro_contas_pagar"
-        | "financeiro_contas_receber"
-        | "financeiro_fluxo_caixa"
-        | "financeiro_relatorios"
-        | "relatorios_visualizar"
-        | "relatorios_financeiros"
-        | "relatorios_operacionais"
-        | "relatorios_exportar"
-        | "usuarios_visualizar"
-        | "usuarios_criar"
-        | "usuarios_editar"
-        | "usuarios_excluir"
-        | "usuarios_permissoes"
       pii_field_type:
         | "email"
         | "phone"
@@ -8591,71 +8535,6 @@ export const Constants = {
         "Festa Infantil",
         "Casamento",
         "Reuniao Corporativa",
-      ],
-      hr_permission_type: [
-        "view_basic_info",
-        "view_personal_documents",
-        "view_financial_info",
-        "full_access",
-      ],
-      permission_category: [
-        "estoque",
-        "compras",
-        "vendas",
-        "agenda",
-        "producao",
-        "fornecedores",
-        "financeiro",
-        "relatorios",
-        "usuarios",
-      ],
-      permission_subcategory: [
-        "estoque_visualizar",
-        "estoque_criar",
-        "estoque_editar",
-        "estoque_excluir",
-        "estoque_movimentacoes",
-        "compras_visualizar",
-        "compras_criar",
-        "compras_editar",
-        "compras_excluir",
-        "compras_aprovar",
-        "vendas_visualizar",
-        "vendas_criar",
-        "vendas_editar",
-        "vendas_excluir",
-        "vendas_propostas",
-        "vendas_clientes",
-        "agenda_visualizar",
-        "agenda_criar",
-        "agenda_editar",
-        "agenda_excluir",
-        "agenda_eventos",
-        "producao_visualizar",
-        "producao_criar",
-        "producao_editar",
-        "producao_excluir",
-        "producao_receitas",
-        "producao_materiais",
-        "fornecedores_visualizar",
-        "fornecedores_criar",
-        "fornecedores_editar",
-        "fornecedores_excluir",
-        "fornecedores_produtos",
-        "financeiro_visualizar",
-        "financeiro_contas_pagar",
-        "financeiro_contas_receber",
-        "financeiro_fluxo_caixa",
-        "financeiro_relatorios",
-        "relatorios_visualizar",
-        "relatorios_financeiros",
-        "relatorios_operacionais",
-        "relatorios_exportar",
-        "usuarios_visualizar",
-        "usuarios_criar",
-        "usuarios_editar",
-        "usuarios_excluir",
-        "usuarios_permissoes",
       ],
       pii_field_type: [
         "email",

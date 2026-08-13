@@ -657,7 +657,7 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
                       <FormItem>
                         <FormLabel className="flex items-center gap-2">
                           Salário 
-                          {!isAdmin && (
+                          {!isAdmin() && (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger>
@@ -674,12 +674,12 @@ export const EmployeeForm = ({ employee, onClose, onSuccess }: EmployeeFormProps
                           <Input 
                             type="number" 
                             step="0.01" 
-                            placeholder={isAdmin ? "0.00" : "Acesso restrito"}
-                            disabled={!isAdmin}
-                            {...field} 
+                            placeholder={isAdmin() ? "0.00" : "Acesso restrito"}
+                            disabled={!isAdmin()}
+                            {...field}
                           />
                         </FormControl>
-                        {!isAdmin && (
+                        {!isAdmin() && (
                           <p className="text-xs text-muted-foreground">
                             Apenas administradores podem ver/editar informações salariais
                           </p>
