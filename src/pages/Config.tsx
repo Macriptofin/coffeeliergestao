@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Settings, Building2, Package, Wrench, DollarSign,
   Calendar, Users, Palette, ChevronRight, ShoppingCart,
-  UserCog
+  UserCog, ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -47,7 +47,8 @@ const NAV_GROUPS = [
     label: 'Sistema',
     items: [
       { id: 'aparencia', label: 'Aparência', icon: Settings, description: 'Tema e configurações gerais' },
-      { id: 'usuarios',  label: 'Usuários',  icon: UserCog,  description: 'Gestão de acesso e permissões' },
+      { id: 'usuarios',  label: 'Usuários',  icon: UserCog,  description: 'Cadastro, nível de acesso e perfil de cada usuário' },
+      { id: 'perfis-acesso', label: 'Perfis de Acesso', icon: ShieldCheck, description: 'Defina os perfis (Financeiro, Compras, RH...) e suas permissões' },
     ],
   },
 ];
@@ -68,13 +69,8 @@ function ConfigContent({ section }: { section: string }) {
     case 'eventos':    return <ConfigEventos />;
     case 'rh':         return <ConfigRH />;
     case 'aparencia':  return <ConfigGeneral />;
-    case 'usuarios':
-      return (
-        <div className="space-y-6">
-          <UserRoleManager />
-          <AccessProfilesManager />
-        </div>
-      );
+    case 'usuarios':       return <UserRoleManager />;
+    case 'perfis-acesso':  return <AccessProfilesManager />;
     default: return null;
   }
 }
