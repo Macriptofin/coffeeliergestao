@@ -133,7 +133,7 @@ async function fetchExistingPayablesForInvoices(invoiceNumbers: string[]) {
 }
 
 export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps) {
-  const { isAdminOrManager, isAdmin, loading: roleLoading } = useUserRole();
+  const { isAdmin, can, loading: roleLoading } = useUserRole();
   const queryClient = useQueryClient();
   const { methodNames: paymentMethodNames } = usePaymentMethods();
   const { data: suppliers = EMPTY_SUPPLIERS } = useQuery({
@@ -1105,7 +1105,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
     );
   }
 
-  if (!isAdminOrManager()) {
+  if (!can('compras', 'view')) {
     return (
       <Card>
         <CardHeader>
@@ -1114,7 +1114,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
             Notas Fiscais de Compra
           </CardTitle>
           <CardDescription>
-            Acesso restrito a administradores e gerentes
+            Acesso restrito — seu perfil de acesso não inclui o módulo Compras
           </CardDescription>
         </CardHeader>
         <CardContent>
