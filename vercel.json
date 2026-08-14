@@ -17,7 +17,7 @@
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://njxxqdcwvehlvqufuyww.supabase.co; connect-src 'self' https://njxxqdcwvehlvqufuyww.supabase.co wss://njxxqdcwvehlvqufuyww.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; media-src 'self'"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://njxxqdcwvehlvqufuyww.supabase.co; connect-src 'self' https://njxxqdcwvehlvqufuyww.supabase.co wss://njxxqdcwvehlvqufuyww.supabase.co https://brasilapi.com.br; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; media-src 'self'"
         }
       ]
     },
