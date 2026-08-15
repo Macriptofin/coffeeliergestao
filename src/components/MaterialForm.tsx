@@ -627,9 +627,9 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
                 />
               </div>
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  Preço praticado (R$)
-                  <HelpTooltip content="Preço de venda efetivamente cobrado." />
+                <Label className="flex items-center gap-1 whitespace-nowrap">
+                  Preço praticado
+                  <HelpTooltip content="Preço de venda efetivamente cobrado, em reais." />
                 </Label>
                 <NumericInput
                   step="0.01"
