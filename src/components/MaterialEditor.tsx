@@ -740,7 +740,7 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
 
               {/* Subcategoria - Terceiro nível da hierarquia */}
               <div className="space-y-3">
-                <Label>Subcategoria (Opcional)</Label>
+                <Label className="flex items-center gap-1">Subcategoria (Opcional)</Label>
                 <Select 
                   value={formData.subcategory || 'none'} 
                   onValueChange={(value) => setFormData({ ...formData, subcategory: value === 'none' ? '' : value })}

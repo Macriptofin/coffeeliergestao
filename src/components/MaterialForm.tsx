@@ -321,7 +321,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
 
               {/* Subcategoria */}
               <div className="space-y-2">
-                <Label>Subcategoria</Label>
+                <Label className="flex items-center gap-1">Subcategoria</Label>
                 <Select
                   value={formData.subcategory || 'none'}
                   onValueChange={(v) => setFormData({ ...formData, subcategory: v === 'none' ? '' : v })}
@@ -460,7 +460,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
                   </div>
                   {needsUnitWeight && (
                     <div className="space-y-2">
-                      <Label>
+                      <Label className="flex items-center gap-1">
                         Peso/volume por {formData.usageUnit} (calculado)
                         <HelpTooltip content="Para produzidos, o peso/volume vem da ficha técnica (somatório dos ingredientes ou peso final informado na ficha). Edite na ficha técnica." />
                       </Label>
@@ -558,7 +558,7 @@ export const MaterialForm = ({ material, existingMaterials, onSubmit, onCancel }
 
                   {needsUnitWeight && (
                     <div className="space-y-2">
-                      <Label>
+                      <Label className="flex items-center gap-1">
                         Peso por {formData.usageUnit} (gramas)
                         <HelpTooltip content="Peso em gramas de 1 unidade de uso, para cálculos de receita." />
                       </Label>
