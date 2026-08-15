@@ -91,7 +91,7 @@ async function fetchSuppliersData(): Promise<SuppliersData> {
 }
 
 const Suppliers = () => {
-  const { isAdminOrManager, loading: roleLoading } = useUserRole();
+  const { can, loading: roleLoading } = useUserRole();
   const queryClient = useQueryClient();
 
   const {
@@ -300,12 +300,12 @@ const Suppliers = () => {
     );
   }
 
-  if (!isAdminOrManager()) {
+  if (!can('fornecedores', 'view')) {
     return (
       <div>
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Gestão de Fornecedores</h1>
-          <p className="text-muted-foreground">Acesso restrito a administradores e gerentes</p>
+          <p className="text-muted-foreground">Acesso restrito — seu perfil de acesso não inclui o módulo Fornecedores</p>
         </div>
         <Card>
           <CardContent className="pt-6">

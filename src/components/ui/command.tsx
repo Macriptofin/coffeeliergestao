@@ -57,10 +57,17 @@ CommandInput.displayName = CommandPrimitive.Input.displayName;
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
->(({ className, ...props }, ref) => (
+>(({ className, onWheel, ...props }, ref) => (
   <CommandPrimitive.List
     ref={ref}
     className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
+    onWheel={(e) => {
+      // Quando o Popover abre dentro de um Dialog (Radix), o scroll-lock do
+      // Dialog bloqueia a roda do mouse mesmo com overflow-y-auto — só as
+      // setas do teclado funcionam nesse caso. Rola manualmente pra contornar.
+      e.currentTarget.scrollTop += e.deltaY;
+      onWheel?.(e);
+    }}
     {...props}
   />
 ));
