@@ -98,7 +98,30 @@ async function fetchMaterialPurchaseHistory(materialId: string): Promise<Purchas
     .sort((a, b) => b.invoiceDate.localeCompare(a.invoiceDate));
 }
 
-export const MaterialEditor = ({ 
+interface MaterialStockInfo {
+  currentQuantity: number;
+  minimumQuantity: number;
+  averagePrice: number;
+}
+
+async function fetchMaterialStockInfo(materialId: string): Promise<MaterialStockInfo | null> {
+  const { data, error } = await supabase
+    .from('stock_items')
+    .select('current_quantity, minimum_quantity, average_price')
+    .eq('material_id', materialId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  return {
+    currentQuantity: Number(data.current_quantity),
+    minimumQuantity: Number(data.minimum_quantity),
+    averagePrice: Number(data.average_price),
+  };
+}
+
+export const MaterialEditor = ({
   material, 
   materials,
   isOpen, 
@@ -150,6 +173,13 @@ export const MaterialEditor = ({
     queryFn: () => fetchMaterialPurchaseHistory(material!.id),
     enabled: !!material?.id && isOpen,
     staleTime: 60_000,
+  });
+
+  const { data: stockInfo, isLoading: stockInfoLoading } = useQuery({
+    queryKey: ['material-stock-info', material?.id],
+    queryFn: () => fetchMaterialStockInfo(material!.id),
+    enabled: !!material?.id && isOpen,
+    staleTime: 30_000,
   });
 
   const [restrictionTagIds, setRestrictionTagIds] = useState<string[]>(material?.restrictionTagIds ?? []);
@@ -893,17 +923,38 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label>Quantidade Atual</Label>
-                      <Input value="0" disabled />
+                      <Input
+                        value={
+                          stockInfoLoading
+                            ? '...'
+                            : `${(stockInfo?.currentQuantity ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} ${material?.usageUnit ?? ''}`.trim()
+                        }
+                        disabled
+                      />
                       <p className="text-xs text-muted-foreground">Somente leitura</p>
                     </div>
                     <div className="space-y-2">
                       <Label>Estoque Mínimo</Label>
-                      <Input value="0" disabled />
+                      <Input
+                        value={
+                          stockInfoLoading
+                            ? '...'
+                            : `${(stockInfo?.minimumQuantity ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} ${material?.usageUnit ?? ''}`.trim()
+                        }
+                        disabled
+                      />
                       <p className="text-xs text-muted-foreground">Somente leitura</p>
                     </div>
                     <div className="space-y-2">
                       <Label>Preço Médio</Label>
-                      <Input value="R$ 0,00" disabled />
+                      <Input
+                        value={
+                          stockInfoLoading
+                            ? '...'
+                            : (stockInfo?.averagePrice ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                        }
+                        disabled
+                      />
                       <p className="text-xs text-muted-foreground">Somente leitura</p>
                     </div>
                   </div>
@@ -923,7 +974,12 @@ const getLegacyMaterialType = (typeTermId: string, _categoryName?: string): Mate
                   </div>
 
                   <div className="pt-4 border-t">
-                    <Button variant="outline" className="w-full">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => navigate('/materiais/controle')}
+                    >
                       <ExternalLink className="h-4 w-4 mr-2" />
                       Abrir em Controle de Estoque
                     </Button>
