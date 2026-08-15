@@ -14,7 +14,7 @@ export const HelpTooltip = ({ content, side = "top", className = "" }: HelpToolt
         <TooltipTrigger asChild>
           <button
             type="button"
-            className={`inline-flex items-center justify-center w-4 h-4 ml-1 text-muted-foreground hover:text-primary transition-colors ${className}`}
+            className={`inline-flex items-center justify-center w-3.5 h-3.5 ml-1 text-muted-foreground hover:text-primary transition-colors ${className}`}
             aria-label="Ajuda"
           >
             <Info className="h-3 w-3" />
