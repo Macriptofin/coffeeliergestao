@@ -20,6 +20,23 @@ interface InvoiceData {
   itens: InvoiceItem[];
 }
 
+// O GPT-4o é instruído a sempre preencher preço/quantidade com um número (0 quando
+// ilegível), mas não segue essa regra 100% das vezes — em notas mais difíceis de ler
+// às vezes omite o campo. A tela então tenta formatar undefined como moeda e quebra
+// (tela "Algo deu errado"). Normaliza aqui, na entrada, pra nenhuma tela depender disso.
+function normalizeInvoiceData(raw: InvoiceData): InvoiceData {
+  const toNumber = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  return {
+    ...raw,
+    itens: (raw.itens || []).map(item => ({
+      ...item,
+      quantidade: toNumber(item.quantidade),
+      preco_unitario: toNumber(item.preco_unitario),
+      preco_total: toNumber(item.preco_total),
+    })),
+  };
+}
+
 export const useInvoiceOCR = () => {
   const [loading, setLoading] = useState(false);
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
@@ -59,9 +76,10 @@ export const useInvoiceOCR = () => {
         throw new Error(data.error || 'Erro ao processar nota fiscal');
       }
 
-      setInvoiceData(data.data);
+      const normalized = normalizeInvoiceData(data.data);
+      setInvoiceData(normalized);
       toast.success('Nota fiscal processada com sucesso!');
-      return data.data;
+      return normalized;
 
     } catch (error) {
       console.error('Erro ao processar nota fiscal:', error);
