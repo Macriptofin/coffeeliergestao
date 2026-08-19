@@ -278,6 +278,12 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
   const [adhocDistance, setAdhocDistance]       = useState<number | null>(null);
   const [adhocCalculating, setAdhocCalculating] = useState(false);
 
+  // Proposta guarda-chuva: aprovada uma vez, execuções lançadas depois via
+  // add_umbrella_execution (ver ProposalUmbrellaPanel) — nunca reaberta aqui.
+  const [isUmbrella, setIsUmbrella]                       = useState(false);
+  const [umbrellaQuotaQuantity, setUmbrellaQuotaQuantity] = useState<number | null>(null);
+  const [umbrellaQuotaUnitPrice, setUmbrellaQuotaUnitPrice] = useState<number | null>(null);
+
   // portal_created_by carregado de uma proposta existente — preservado no Salvar/Aprovar
   // quando o contato atual não resolve (ainda) pra um usuário de portal ativo; o envio
   // (handleSend) é quem de fato resolve/convida e sobrescreve via portalUserIdOverride.
@@ -374,6 +380,9 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     setUnitId(prop.unit_id || '');
     setContactId(prop.contact_id || '');
     setLoadedPortalCreatedBy(prop.portal_created_by || null);
+    setIsUmbrella(!!prop.is_umbrella);
+    setUmbrellaQuotaQuantity(prop.umbrella_quota_quantity ?? null);
+    setUmbrellaQuotaUnitPrice(prop.umbrella_quota_unit_price ?? null);
     // Local avulso (se a proposta tiver CEP de local avulso gravado)
     const hasAdhoc = !!prop.event_location_zip || prop.event_location_distance_km != null;
     setUseAdhocLocation(hasAdhoc);
@@ -712,6 +721,9 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       total_amount:             calc.grand.suggestedPrice,
       total_cost:               calc.grand.totalCost,
       notes:                    notes        || null,
+      is_umbrella:              isUmbrella,
+      umbrella_quota_quantity:  isUmbrella ? umbrellaQuotaQuantity : null,
+      umbrella_quota_unit_price: isUmbrella ? umbrellaQuotaUnitPrice : null,
       status,
     };
 
@@ -1025,6 +1037,43 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                     rows={2}
                   />
                 </div>
+              </div>
+
+              {/* Proposta guarda-chuva: cota total, execuções lançadas depois (fora deste editor) */}
+              <div className="pt-2 border-t space-y-3">
+                <div className="flex items-center gap-2">
+                  <Switch id="is-umbrella" checked={isUmbrella} onCheckedChange={setIsUmbrella} />
+                  <Label htmlFor="is-umbrella" className="cursor-pointer">
+                    Proposta guarda-chuva (execuções recorrentes)
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Aprovada uma vez com uma cota total; depois disso a equipe vai lançando as
+                  execuções (ex.: coffee break mensal, visitas avulsas) direto na lista de
+                  propostas, sem reabrir esta tela.
+                </p>
+                {isUmbrella && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Quantidade contratada</Label>
+                      <Input
+                        type="number" min="0"
+                        value={umbrellaQuotaQuantity ?? ''}
+                        onChange={e => setUmbrellaQuotaQuantity(e.target.value ? Number(e.target.value) : null)}
+                        placeholder="Ex: 1000"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Preço de referência por unidade (R$)</Label>
+                      <Input
+                        type="number" min="0" step="0.01"
+                        value={umbrellaQuotaUnitPrice ?? ''}
+                        onChange={e => setUmbrellaQuotaUnitPrice(e.target.value ? Number(e.target.value) : null)}
+                        placeholder="Ex: 18"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Estrutura do cliente (só aparece quando cliente selecionado) */}

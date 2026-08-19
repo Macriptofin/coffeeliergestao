@@ -38,6 +38,7 @@ interface Proposal {
   total_weight: number;
   revision: number;
   status: string;
+  is_umbrella?: boolean;
   created_at: string;
   auto_generated_event_table_id?: string;
   auto_generated_bom_order_id?: string;
@@ -55,6 +56,7 @@ interface Props {
   onEditProposal: (id: string) => void;
   onViewProposal: (id: string) => void;
   onPdfProposal?: (id: string) => void;
+  onViewUmbrella?: (id: string) => void;
 }
 
 // Conjunto canônico de status (PT, capitalizado).
@@ -93,7 +95,7 @@ async function fetchProposals(): Promise<Proposal[]> {
   return rows;
 }
 
-export default function ProposalsList({ onNewProposal, onEditProposal, onViewProposal, onPdfProposal }: Props) {
+export default function ProposalsList({ onNewProposal, onEditProposal, onViewProposal, onPdfProposal, onViewUmbrella }: Props) {
   const queryClient = useQueryClient();
 
   const {
@@ -111,6 +113,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [eventCategoryFilter, setEventCategoryFilter] = useState('');
+  const [kindFilter, setKindFilter] = useState(''); // '' | 'all' | 'single' | 'umbrella'
 
   const eventCategories = [
     'Coffee Break',
@@ -278,8 +281,10 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
     
     const matchesStatus = !statusFilter || statusFilter === 'all' || proposal.status === statusFilter;
     const matchesCategory = !eventCategoryFilter || eventCategoryFilter === 'all' || proposal.event_category === eventCategoryFilter;
+    const matchesKind = !kindFilter || kindFilter === 'all'
+      || (kindFilter === 'umbrella' ? !!proposal.is_umbrella : !proposal.is_umbrella);
 
-    return matchesSearch && matchesStatus && matchesCategory;
+    return matchesSearch && matchesStatus && matchesCategory && matchesKind;
   });
 
   // KPIs comerciais (refletem o filtro atual)
@@ -348,7 +353,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
           </div>
 
           {/* Filtros */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -387,6 +392,17 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
               </SelectContent>
             </Select>
 
+            <Select value={kindFilter} onValueChange={setKindFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar por tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                <SelectItem value="single">Avulsas</SelectItem>
+                <SelectItem value="umbrella">Recorrentes (guarda-chuva)</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Button variant="outline" onClick={refetchProposals}>
               Atualizar
             </Button>
@@ -411,7 +427,18 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
               <TableBody>
                 {filteredProposals.length > 0 ? (
                   filteredProposals.map((proposal) => (
-                    <TableRow key={proposal.id}>
+                    <TableRow
+                      key={proposal.id}
+                      className="cursor-pointer"
+                      onClick={() => {
+                        // Clique na linha abre a visualização (guarda-chuva aprovada
+                        // vai direto pro painel de saldo/execuções).
+                        if (proposal.is_umbrella && proposal.status === 'Aprovada' && onViewUmbrella) {
+                          onViewUmbrella(proposal.id);
+                        } else {
+                          onViewProposal(proposal.id);
+                        }
+                      }}>
                       <TableCell className="font-medium whitespace-nowrap">
                         {proposal.proposal_number}
                         {proposal.revision > 1 && (
@@ -419,7 +446,14 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{proposalKindLabel(proposal.proposal_kind)}</Badge>
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge variant="secondary">{proposalKindLabel(proposal.proposal_kind)}</Badge>
+                          {proposal.is_umbrella && (
+                            <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary whitespace-nowrap">
+                              Recorrente
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div>{proposal.clients?.name || '—'}</div>
@@ -445,7 +479,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                         )}
                       </TableCell>
                       <TableCell>{getStatusBadge(proposal)}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -453,12 +487,22 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-52">
-                            <DropdownMenuItem onClick={() => onViewProposal(proposal.id)}>
-                              <Eye size={14} className="mr-2" /> Visualizar / Compor
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onEditProposal(proposal.id)}>
-                              <Edit size={14} className="mr-2" /> Editar
-                            </DropdownMenuItem>
+                            {proposal.is_umbrella && proposal.status === 'Aprovada' && onViewUmbrella ? (
+                              // Guarda-chuva já aprovada: nunca abre o editor completo (que apaga e
+                              // recria composições/eventos) — só o painel de saldo/execuções.
+                              <DropdownMenuItem onClick={() => onViewUmbrella(proposal.id)}>
+                                <Wallet size={14} className="mr-2" /> Ver saldo e execuções
+                              </DropdownMenuItem>
+                            ) : (
+                              <>
+                                <DropdownMenuItem onClick={() => onViewProposal(proposal.id)}>
+                                  <Eye size={14} className="mr-2" /> Visualizar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onEditProposal(proposal.id)}>
+                                  <Edit size={14} className="mr-2" /> Editar
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             {onPdfProposal && (
                               <DropdownMenuItem onClick={() => onPdfProposal(proposal.id)}>
                                 <FileDown size={14} className="mr-2" /> Gerar PDF
@@ -473,12 +517,18 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                             <DropdownMenuItem onClick={() => handleDuplicate(proposal.id)}>
                               <Copy size={14} className="mr-2" /> Duplicar
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDelete(proposal.id)}
-                              className="text-destructive focus:text-destructive">
-                              <Trash2 size={14} className="mr-2" /> Excluir
-                            </DropdownMenuItem>
+                            {!(proposal.is_umbrella && proposal.status === 'Aprovada') && (
+                              // Guarda-chuva em execução não se exclui (execuções/eventos
+                              // lançados são histórico) — mesma regra "nunca excluir".
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDelete(proposal.id)}
+                                  className="text-destructive focus:text-destructive">
+                                  <Trash2 size={14} className="mr-2" /> Excluir
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -487,7 +537,7 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                 ) : (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8">
-                      {searchTerm || statusFilter || eventCategoryFilter
+                      {searchTerm || statusFilter || eventCategoryFilter || kindFilter
                         ? 'Nenhuma proposta encontrada com os filtros aplicados.'
                         : 'Nenhuma proposta cadastrada ainda.'}
                     </TableCell>

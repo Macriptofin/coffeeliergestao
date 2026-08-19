@@ -10,6 +10,8 @@ import ClientsList from '@/components/sales/ClientsList';
 import ClientDetails from '@/components/sales/client/ClientDetails';
 import ProposalEditor from '@/components/sales/ProposalEditor';
 import { ProposalPDF } from '@/components/sales/ProposalPDF';
+import { ProposalUmbrellaPanel } from '@/components/sales/ProposalUmbrellaPanel';
+import { ProposalDetailView } from '@/components/sales/ProposalDetailView';
 
 const Sales = () => {
   const queryClient = useQueryClient();
@@ -18,6 +20,8 @@ const Sales = () => {
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
   const [showClientForm, setShowClientForm] = useState(false);
   const [pdfProposalId, setPdfProposalId] = useState<string | null>(null);
+  const [viewingUmbrellaId, setViewingUmbrellaId] = useState<string | null>(null);
+  const [viewingProposalId, setViewingProposalId] = useState<string | null>(null);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [viewingClientId, setViewingClientId] = useState<string | null>(null);
 
@@ -28,17 +32,26 @@ const Sales = () => {
   };
 
   const handleEditProposal = (id: string) => {
+    setViewingProposalId(null);
     setEditingProposalId(id);
     setShowProposalEditor(true);
   };
 
+  // Visualizar = tela somente-leitura (estilo portal); editar continua no editor.
   const handleViewProposal = (id: string) => {
-    setEditingProposalId(id);
-    setShowProposalEditor(true);
+    setShowProposalEditor(false);
+    setEditingProposalId(null);
+    setViewingProposalId(id);
   };
 
   const handlePdfProposal = (id: string) => {
     setPdfProposalId(id);
+    setActiveTab('proposals');
+  };
+
+  const handleViewUmbrella = (id: string) => {
+    setViewingProposalId(null);
+    setViewingUmbrellaId(id);
     setActiveTab('proposals');
   };
 
@@ -155,6 +168,20 @@ const Sales = () => {
               proposalId={pdfProposalId}
               onClose={() => setPdfProposalId(null)}
             />
+          ) : viewingUmbrellaId ? (
+            <ProposalUmbrellaPanel
+              proposalId={viewingUmbrellaId}
+              onBack={() => setViewingUmbrellaId(null)}
+              onViewProposal={(id) => { setViewingUmbrellaId(null); handleViewProposal(id); }}
+            />
+          ) : viewingProposalId ? (
+            <ProposalDetailView
+              proposalId={viewingProposalId}
+              onBack={() => setViewingProposalId(null)}
+              onEdit={handleEditProposal}
+              onPdf={handlePdfProposal}
+              onViewUmbrella={handleViewUmbrella}
+            />
           ) : showProposalEditor ? (
             <ProposalEditor
               proposalId={editingProposalId}
@@ -167,6 +194,7 @@ const Sales = () => {
               onEditProposal={handleEditProposal}
               onViewProposal={handleViewProposal}
               onPdfProposal={handlePdfProposal}
+              onViewUmbrella={handleViewUmbrella}
             />
           )}
         </TabsContent>

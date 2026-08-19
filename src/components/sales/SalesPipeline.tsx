@@ -93,6 +93,7 @@ interface ProposalRow {
   loss_reason: string | null;
   approved_at: string | null;
   created_at: string | null;
+  is_umbrella: boolean | null;
   clients: { name: string | null; fantasy_name: string | null } | null;
 }
 
@@ -115,14 +116,19 @@ const SalesPipeline = () => {
   const [movingId, setMovingId] = useState<string | null>(null);
 
   // ── Propostas ──────────────────────────────────────────────────────────
+  // Chave PRÓPRIA (['proposals','pipeline']): este select é parcial (sem
+  // proposal_kind/event_category); compartilhar ['proposals'] com a lista de
+  // Propostas fazia o Funil sobrescrever o cache dela com linhas incompletas
+  // (badges viravam "Produto"/"—"). O prefixo comum mantém as invalidações
+  // de ['proposals'] atingindo os dois.
   const { data: proposals = [], isLoading } = useQuery({
-    queryKey: ["proposals"],
+    queryKey: ["proposals", "pipeline"],
     staleTime: 30_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("proposals")
         .select(
-          "id, proposal_number, revision, status, total_amount, total_cost, event_date, number_of_people, loss_reason, approved_at, created_at, clients(name, fantasy_name)",
+          "id, proposal_number, revision, status, total_amount, total_cost, event_date, number_of_people, loss_reason, approved_at, created_at, is_umbrella, clients(name, fantasy_name)",
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -186,6 +192,18 @@ const SalesPipeline = () => {
   // ── Mutações de estágio ───────────────────────────────────────────────────
   const handleMove = async (p: ProposalRow, novo: Stage) => {
     if (novo === p.status) return;
+
+    // Guarda-chuva aprovada NUNCA volta de estágio pelo funil: reaprovar
+    // dispara create_event_from_proposal/generate_production_from_proposal,
+    // que apagam e recriam eventos/ordens — destruindo as execuções já
+    // lançadas (checklists/anexos têm ON DELETE CASCADE). Mesma trava da
+    // lista de propostas (que só oferece "Ver saldo e execuções").
+    if (p.is_umbrella && p.status === "Aprovada") {
+      toast.error(
+        'Proposta guarda-chuva aprovada não muda de estágio — gerencie pelas execuções em Propostas ("Ver saldo e execuções").',
+      );
+      return;
+    }
 
     // Perda → pedir motivo
     if (LOST_STAGES.includes(novo)) {
@@ -374,24 +392,31 @@ const SalesPipeline = () => {
                               {p.event_date ? formatLocalDate(p.event_date) : "—"}
                             </div>
 
-                            <Select
-                              value=""
-                              onValueChange={(v) => handleMove(p, v as Stage)}
-                              disabled={movingId === p.id}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue placeholder="Mover estágio..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {MOVE_OPTIONS.filter((s) => s !== p.status).map(
-                                  (s) => (
-                                    <SelectItem key={s} value={s} className="text-xs">
-                                      {s}
-                                    </SelectItem>
-                                  ),
-                                )}
-                              </SelectContent>
-                            </Select>
+                            {p.is_umbrella && p.status === "Aprovada" ? (
+                              // Guarda-chuva em execução não muda de estágio (ver handleMove)
+                              <div className="h-8 flex items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-primary text-xs font-medium">
+                                Recorrente — via Propostas
+                              </div>
+                            ) : (
+                              <Select
+                                value=""
+                                onValueChange={(v) => handleMove(p, v as Stage)}
+                                disabled={movingId === p.id}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Mover estágio..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {MOVE_OPTIONS.filter((s) => s !== p.status).map(
+                                    (s) => (
+                                      <SelectItem key={s} value={s} className="text-xs">
+                                        {s}
+                                      </SelectItem>
+                                    ),
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            )}
                           </CardContent>
                         </Card>
                       );
