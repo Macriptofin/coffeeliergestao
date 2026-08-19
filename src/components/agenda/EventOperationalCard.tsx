@@ -268,9 +268,12 @@ export function EventOperationalCard({ event, onEdit, onRefresh }: Props) {
               <CheckCircle2 className="h-3 w-3 mr-1" /> Concluir
             </Button>
           )}
-          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onEdit}>
-            <Edit className="h-3 w-3 mr-1" /> Editar
-          </Button>
+          {/* Evento finalizado é histórico — não se edita mais */}
+          {!['Concluído', 'Cancelado'].includes(event.status) && (
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onEdit}>
+              <Edit className="h-3 w-3 mr-1" /> Editar
+            </Button>
+          )}
         </div>
 
         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setExpanded(!expanded)}>

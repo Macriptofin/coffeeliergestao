@@ -137,11 +137,24 @@ export default function Agenda() {
   };
 
   const handleEditEvent = (event: Event) => {
+    // Evento finalizado é histórico: não se edita mais (guarda central —
+    // cobre lista, card operacional e clique no calendário).
+    if (['Concluído', 'Cancelado'].includes(event.status)) {
+      toast.info(`Evento ${event.status.toLowerCase()} não pode mais ser editado.`);
+      return;
+    }
     setEditingEvent(event);
     setShowEventForm(true);
   };
 
   const handleDeleteEvent = async (eventId: string) => {
+    // Evento concluído é histórico operacional (checklist/anexos vão junto
+    // na exclusão) — mesma regra "nunca excluir" do resto do sistema.
+    const target = events.find(e => e.id === eventId);
+    if (target && target.status === 'Concluído') {
+      toast.info('Evento concluído não pode ser excluído — é histórico do fornecimento.');
+      return;
+    }
     if (!confirm('Tem certeza que deseja excluir este evento?')) return;
 
     try {

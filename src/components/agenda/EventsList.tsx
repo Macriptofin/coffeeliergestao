@@ -320,21 +320,27 @@ export function EventsList({ events, onEdit, onDelete, onRefresh }: EventsListPr
                           >
                             <FileText className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onEdit(event)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onDelete(event.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {/* Finalizado (Concluído/Cancelado) é histórico: sem editar;
+                              Concluído tampouco se exclui (checklist/anexos vão junto). */}
+                          {!['Concluído', 'Cancelado'].includes(event.status) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onEdit(event)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {event.status !== 'Concluído' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onDelete(event.id)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
