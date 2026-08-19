@@ -26,14 +26,34 @@ interface Composition {
   location: string | null; number_of_people: number | null; price_per_person: number | null;
   categories: Section[] | null;
 }
+interface ProposalPayment {
+  id: string; description: string | null; invoice_number: string | null;
+  due_date: string | null; original_amount: number | null;
+  received_amount: number | null; remaining_amount: number | null; status: string;
+}
+
 interface PortalProposalDetail {
   id: string; proposal_number: string; event_name: string | null; event_category: string | null;
   number_of_people: number | null; event_date: string | null; total_amount: number | null;
   status: string; created_by_client: boolean; payment_terms: string | null; notes: string | null;
   client_name: string | null; department_name: string | null; unit_name: string | null;
   room_name: string | null; event_location_name: string | null;
+  is_umbrella: boolean; umbrella_quota_quantity: number | null;
+  umbrella_quota_unit_price: number | null; consumed_quantity: number | null;
+  payments: ProposalPayment[] | null;
   compositions: Composition[] | null; categories_no_composition: Section[] | null;
   error?: string;
+}
+
+// Selo de status da cobrança, na linguagem do cliente.
+function paymentStatusBadge(status: string) {
+  switch (status) {
+    case 'Vencido':  return { label: 'Em atraso', cls: 'bg-destructive/15 text-destructive' };
+    case 'Parcial':  return { label: 'Parcial', cls: 'bg-accent-mocca/35 text-accent-coffee' };
+    case 'Pendente': return { label: 'A vencer', cls: 'bg-accent-mocca/35 text-accent-coffee' };
+    case 'Recebido': return { label: 'Pago', cls: 'bg-primary/15 text-primary' };
+    default: return { label: status, cls: 'bg-muted text-muted-foreground' };
+  }
 }
 
 const itemQty = (it: Item) =>
@@ -165,6 +185,72 @@ export default function PortalProposta() {
             <CoverItem icon={<Users className="h-4 w-4" />} label="Pessoas" value={String(data.number_of_people ?? '—')} />
             <CoverItem icon={<MapPin className="h-4 w-4" />} label="Local" value={localLabel} />
           </div>
+
+          {/* Pedido recorrente: saldo da cota contratada */}
+          {data.is_umbrella && (data.umbrella_quota_quantity ?? 0) > 0 && (() => {
+            const quota = data.umbrella_quota_quantity!;
+            const consumed = data.consumed_quantity ?? 0;
+            const pct = Math.min(100, (consumed / quota) * 100);
+            return (
+              <div className="mt-5 bg-card border border-border/70 rounded-2xl p-5 shadow-soft">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold">Contrato recorrente</h3>
+                  <span className="text-sm text-muted-foreground">
+                    Consumido {consumed} de {quota}
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                </div>
+                <div className="grid grid-cols-3 gap-4 mt-4 text-center">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Contratado</p>
+                    <p className="text-lg font-semibold">{quota}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Consumido</p>
+                    <p className="text-lg font-semibold">{consumed}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Restante</p>
+                    <p className="text-lg font-semibold text-primary">{Math.max(0, quota - consumed)}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Pagamentos deste pedido (cobranças vinculadas pela equipe) */}
+          {(data.payments || []).length > 0 && (
+            <div className="mt-5 bg-card border border-border/70 rounded-2xl p-5 shadow-soft">
+              <h3 className="font-semibold mb-2">Pagamentos</h3>
+              <div>
+                {(data.payments || []).map(pay => {
+                  const badge = paymentStatusBadge(pay.status);
+                  return (
+                    <div key={pay.id} className="flex items-center justify-between gap-3 py-2.5 border-t border-dashed border-border first:border-t-0 text-sm">
+                      <span className="min-w-0">
+                        <span className="block truncate">
+                          {pay.description || (pay.invoice_number ? `NF ${pay.invoice_number}` : 'Cobrança')}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Vencimento: {pay.due_date ? formatLocalDate(pay.due_date) : '—'}
+                          {(pay.received_amount ?? 0) > 0 && pay.status !== 'Recebido'
+                            ? ` · pago ${formatCurrency(pay.received_amount)}` : ''}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-2.5 whitespace-nowrap">
+                        <span className="font-semibold">{formatCurrency(pay.original_amount)}</span>
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Momentos — cada composição com seu cabeçalho e seções */}
           <div className="mt-6 space-y-7">

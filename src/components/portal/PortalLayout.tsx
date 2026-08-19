@@ -16,7 +16,7 @@ export function PortalLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="bg-primary text-primary-foreground">
-        <div className="max-w-5xl mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
           <CoffeelierLogo size="sm" tone="creme" />
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-3 outline-none">
@@ -35,7 +35,7 @@ export function PortalLayout({ children }: { children: ReactNode }) {
           </DropdownMenu>
         </div>
       </header>
-      <main className="max-w-5xl mx-auto px-6 md:px-10 py-8 md:py-10">{children}</main>
+      <main className="max-w-7xl mx-auto px-6 md:px-10 py-8 md:py-10">{children}</main>
     </div>
   );
 }

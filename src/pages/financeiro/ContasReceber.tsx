@@ -52,6 +52,8 @@ interface Client {
 interface Proposal {
   id: string;
   proposal_number: string;
+  client_id: string | null;
+  event_name: string | null;
 }
 
 interface CostCenter {
@@ -108,7 +110,7 @@ async function fetchAccountsReceivable(): Promise<AccountReceivable[]> {
 async function fetchContasReceberRefs(): Promise<ContasReceberRefs> {
   const [clientsRes, proposalsRes, costCentersRes, chartAccountsRes, bankAccountsRes] = await Promise.all([
     supabase.from('clients').select('id, name').eq('status', 'Ativo'),
-    supabase.from('proposals').select('id, proposal_number').order('proposal_number', { ascending: false }),
+    supabase.from('proposals').select('id, proposal_number, client_id, event_name').order('proposal_number', { ascending: false }),
     supabase.from('cost_centers').select('id, name, code').eq('is_active', true).order('code'),
     supabase.from('chart_of_accounts').select('id, name, code').eq('is_active', true).eq('account_type', 'Receitas').order('code'),
     supabase.from('bank_accounts').select('id, name, bank_name').eq('is_active', true).order('name'),
@@ -642,7 +644,10 @@ const ContasReceber = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="client_id">Cliente</Label>
-                  <Select value={formData.client_id} onValueChange={(value) => setFormData({...formData, client_id: value})}>
+                  <Select
+                    value={formData.client_id}
+                    onValueChange={(value) => setFormData({...formData, client_id: value, proposal_id: ''})}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o cliente" />
                     </SelectTrigger>
@@ -656,19 +661,30 @@ const ContasReceber = () => {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="proposal_id">Proposta</Label>
-                  <Select value={formData.proposal_id} onValueChange={(value) => setFormData({...formData, proposal_id: value})}>
+                  <Label htmlFor="proposal_id">Proposta / Pedido</Label>
+                  {/* Vínculo que expõe a cobrança no portal do cliente (status de
+                      pagamento por pedido) — filtrado pelo cliente selecionado. */}
+                  <Select
+                    value={formData.proposal_id}
+                    onValueChange={(value) => setFormData({...formData, proposal_id: value})}
+                    disabled={!formData.client_id}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione a proposta" />
+                      <SelectValue placeholder={formData.client_id ? 'Vincule ao pedido/proposta' : 'Selecione o cliente antes'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {proposals.map((proposal) => (
-                        <SelectItem key={proposal.id} value={proposal.id}>
-                          {proposal.proposal_number}
-                        </SelectItem>
-                      ))}
+                      {proposals
+                        .filter(p => p.client_id === formData.client_id)
+                        .map((proposal) => (
+                          <SelectItem key={proposal.id} value={proposal.id}>
+                            {proposal.proposal_number}{proposal.event_name ? ` · ${proposal.event_name}` : ''}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Vincular ao pedido faz o status do pagamento aparecer no portal do cliente.
+                  </p>
                 </div>
               </div>
 
