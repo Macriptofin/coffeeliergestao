@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, FileText, KanbanSquare, Store } from "lucide-react";
@@ -13,9 +14,42 @@ import { ProposalPDF } from '@/components/sales/ProposalPDF';
 import { ProposalUmbrellaPanel } from '@/components/sales/ProposalUmbrellaPanel';
 import { ProposalDetailView } from '@/components/sales/ProposalDetailView';
 
+// Endereça as 4 abas por hash (#propostas/#funil/#clientes/#portal) — sem
+// isso, os links do sidebar pra Vendas eram inertes (sempre caía em Propostas).
+const HASH_TO_TAB: Record<string, string> = {
+  '#propostas': 'proposals',
+  '#funil': 'pipeline',
+  '#clientes': 'clients',
+  '#portal': 'portal',
+};
+const TAB_TO_HASH: Record<string, string> = {
+  proposals: '#propostas',
+  pipeline: '#funil',
+  clients: '#clientes',
+  portal: '#portal',
+};
+
 const Sales = () => {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('proposals');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTabState] = useState(() => HASH_TO_TAB[location.hash] || 'proposals');
+
+  // Troca de aba grava o hash (deep-link e botão voltar funcionam); navegação
+  // externa pro hash (ex.: link do sidebar) também atualiza a aba.
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
+    navigate(`/vendas${TAB_TO_HASH[tab] || ''}`, { replace: true });
+  };
+  useEffect(() => {
+    const tab = HASH_TO_TAB[location.hash];
+    if (tab) setActiveTabState(tab);
+    // Sem hash (ex.: clicou no cabeçalho "Vendas" do sidebar): grava o hash
+    // da aba padrão, senão o sidebar não acende nenhum subitem.
+    else if (!location.hash) {
+      navigate(`/vendas${TAB_TO_HASH['proposals']}`, { replace: true });
+    }
+  }, [location.hash]);
   const [showProposalEditor, setShowProposalEditor] = useState(false);
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
   const [showClientForm, setShowClientForm] = useState(false);

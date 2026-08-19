@@ -67,8 +67,23 @@ async function fetchPurchaseInvoices(): Promise<PurchaseInvoice[]> {
   }));
 }
 
+// Endereça as 6 abas por hash — antes só #cotacoes funcionava; os links do
+// sidebar pra #notas/#pedidos caíam sempre em Necessidades (default).
 const HASH_TO_TAB: Record<string, string> = {
+  '#necessidades': 'requirements',
+  '#requisicoes': 'requests',
   '#cotacoes': 'quotes',
+  '#pedidos': 'orders',
+  '#notas': 'invoices',
+  '#produtos-fornecedor': 'products',
+};
+const TAB_TO_HASH: Record<string, string> = {
+  requirements: '#necessidades',
+  requests: '#requisicoes',
+  quotes: '#cotacoes',
+  orders: '#pedidos',
+  invoices: '#notas',
+  products: '#produtos-fornecedor',
 };
 
 const Purchases = () => {
@@ -77,12 +92,25 @@ const Purchases = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fromRequest = searchParams.get('fromRequest');
-  const [activeTab, setActiveTab] = useState(() => (fromRequest ? 'quotes' : HASH_TO_TAB[location.hash] || 'requirements'));
+  const [activeTab, setActiveTabState] = useState(() => (fromRequest ? 'quotes' : HASH_TO_TAB[location.hash] || 'requirements'));
 
   useEffect(() => {
     const tab = HASH_TO_TAB[location.hash];
-    if (tab || fromRequest) setActiveTab(fromRequest ? 'quotes' : tab);
+    if (tab || fromRequest) setActiveTabState(fromRequest ? 'quotes' : tab);
+    // Sem hash (ex.: clicou no cabeçalho "Compras" do sidebar, ou favorito
+    // antigo): grava o hash da aba padrão, senão o sidebar não acende
+    // nenhum subitem (a comparação lá exige rota + hash batendo).
+    else if (!location.hash && !fromRequest) {
+      navigate(`/compras${TAB_TO_HASH['requirements']}`, { replace: true });
+    }
   }, [location.hash, fromRequest]);
+
+  // Troca de aba grava o hash — deep-link (sidebar) e botão voltar funcionam
+  // nos dois sentidos, não só na carga inicial da página.
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
+    navigate(`/compras${TAB_TO_HASH[tab] || ''}`, { replace: true });
+  };
 
   // Consumido pelo QuoteRequestForm ao pré-carregar os itens da requisição —
   // limpa o parâmetro da URL pra não repuxar o pré-preenchimento ao voltar
@@ -236,9 +264,11 @@ const Purchases = () => {
             <FileText className="h-4 w-4" />
             Notas Fiscais
           </TabsTrigger>
+          {/* "Produtos" (não "Fornecedores" — esse nome já é o cadastro
+              completo em /fornecedores; aqui é só o mapeamento produto↔insumo) */}
           <TabsTrigger value="products" className="flex items-center gap-2">
             <Package2 className="h-4 w-4" />
-            Fornecedores
+            Produtos
           </TabsTrigger>
         </TabsList>
 

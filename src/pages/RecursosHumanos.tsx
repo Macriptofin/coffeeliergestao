@@ -63,7 +63,11 @@ const RecursosHumanos = () => {
         {modules.map((module) => {
           const Icon = module.icon;
           return (
-            <Card key={module.title} className={`transition-shadow ${module.available ? "cursor-pointer hover:shadow-lg" : "opacity-60"}`}>
+            <Card
+              key={module.title}
+              onClick={() => module.available && module.href && navigate(module.href)}
+              className={`transition-shadow ${module.available ? "cursor-pointer hover:shadow-lg" : "opacity-60"}`}
+            >
               <CardHeader className="pb-4">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${module.color} text-white`}>
@@ -82,7 +86,7 @@ const RecursosHumanos = () => {
                   {module.description}
                 </CardDescription>
                 <Button
-                  onClick={() => module.available && module.href && navigate(module.href)}
+                  onClick={(e) => { e.stopPropagation(); module.available && module.href && navigate(module.href); }}
                   variant="outline"
                   className="w-full"
                   disabled={!module.available}

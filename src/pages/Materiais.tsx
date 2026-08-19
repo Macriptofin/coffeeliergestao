@@ -79,7 +79,11 @@ const Materiais = () => {
         {modules.map((module) => {
           const Icon = module.icon;
           return (
-            <Card key={module.title} className="cursor-pointer hover:shadow-lg transition-shadow">
+            <Card
+              key={module.title}
+              onClick={() => navigate(module.href)}
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+            >
               <CardHeader className="pb-4">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${module.color} text-white`}>
@@ -94,9 +98,9 @@ const Materiais = () => {
                 <CardDescription className="mb-4">
                   {module.description}
                 </CardDescription>
-                <Button 
-                  onClick={() => navigate(module.href)}
-                  variant="outline" 
+                <Button
+                  onClick={(e) => { e.stopPropagation(); navigate(module.href); }}
+                  variant="outline"
                   className="w-full"
                 >
                   Acessar

@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 interface SubItem {
   name: string;
@@ -57,6 +58,7 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdminOrManager } = useUserRole();
+  const { flags } = useFeatureFlags();
 
   const isActive = (item: NavItem) => {
     if (item.href === "/") return location.pathname === "/";
@@ -80,9 +82,12 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       children: [
         { name: "Cadastro", href: "/ingredientes" },
         { name: "Controle de Estoque", href: "/materiais/controle" },
+        { name: "Gestão de Estoque", href: "/materiais/gestao" },
         { name: "Movimentações", href: "/materiais/movimentacoes" },
-        { name: "Inventário", href: "/materiais/inventario-ajustes" },
         { name: "Relatórios", href: "/materiais/relatorios" },
+        { name: "Importação de Dados", href: "/materiais/importacao" },
+        { name: "Inventário", href: "/materiais/inventario-ajustes" },
+        { name: "Materiais com Problemas", href: "/materiais/problemas" },
       ]
     },
     {
@@ -90,10 +95,11 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       href: "/compras",
       icon: ShoppingCart,
       children: [
-        { name: "Necessidades (MRP)", href: "/compras" },
-        { name: "Notas Fiscais", href: "/compras#notas" },
+        { name: "Necessidades (MRP)", href: "/compras#necessidades" },
+        { name: "Requisições", href: "/compras#requisicoes" },
         { name: "Cotações", href: "/compras#cotacoes" },
         { name: "Pedidos", href: "/compras#pedidos" },
+        { name: "Notas Fiscais", href: "/compras#notas" },
         { name: "Fornecedores", href: "/fornecedores" },
       ]
     },
@@ -103,7 +109,9 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       icon: TrendingUp,
       children: [
         { name: "Propostas", href: "/vendas#propostas" },
+        { name: "Funil", href: "/vendas#funil" },
         { name: "Clientes", href: "/vendas#clientes" },
+        { name: "Portal", href: "/vendas#portal" },
       ]
     },
     {
@@ -119,7 +127,9 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       children: [
         { name: "Fichas Técnicas", href: "/producao/fichas-tecnicas" },
         { name: "Ordens de Produção", href: "/producao/planejamento" },
-        { name: "Mesas / Eventos", href: "/producao/eventos" },
+        // Mesma flag que esconde o card em ProducaoMain.tsx — sidebar não
+        // pode oferecer um link pra rota que a própria página esconde.
+        ...(flags.FF_EVENT_TABLES_ENABLED ? [{ name: "Mesas / Eventos", href: "/producao/eventos" }] : []),
         { name: "Relatórios", href: "/producao/relatorios" },
       ]
     },
@@ -128,13 +138,17 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       href: "/financeiro",
       icon: DollarSign,
       children: [
-        { name: "DRE", href: "/financeiro/dre" },
-        { name: "Plano de Contas", href: "/financeiro/plano-contas" },
         { name: "Contas a Pagar", href: "/financeiro/pagar" },
         { name: "Contas a Receber", href: "/financeiro/receber" },
         { name: "Fluxo de Caixa", href: "/financeiro/fluxo" },
         { name: "Contas Bancárias", href: "/financeiro/bancos" },
+        { name: "Transações Recorrentes", href: "/financeiro/recorrentes" },
         { name: "Aging de Contas", href: "/financeiro/aging" },
+        { name: "Centros de Custo", href: "/financeiro/custos" },
+        { name: "DRE", href: "/financeiro/dre" },
+        { name: "Plano de Contas", href: "/financeiro/plano-contas" },
+        { name: "Análises Financeiras", href: "/financeiro/analises" },
+        { name: "Relatórios Contábeis", href: "/financeiro/relatorios" },
       ]
     },
     {
@@ -192,7 +206,7 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
 
   return (
     <div className="w-64 bg-card border-r border-border h-full">
-      <nav className="px-3 pt-5 pb-4 space-y-1">
+      <nav className="px-3 pt-8 pb-4 space-y-1">
         {navigation.map((item) => {
           const Icon = item.icon;
           const active = isActive(item);
@@ -241,12 +255,17 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
               {hasChildren && isExpanded && (
                 <div className="ml-4 mt-1 space-y-0.5 border-l border-border pl-3">
                   {item.children!.map(child => {
-                    const childActive = location.pathname === child.href ||
-                      (child.href.includes('#') && location.pathname === child.href.split('#')[0]);
+                    // Subitem com "#" é uma aba dentro da mesma rota (ex.: Compras,
+                    // Vendas) — precisa bater rota E hash, senão todas as abas de um
+                    // mesmo módulo acendem juntas (todas "batem" na mesma rota).
+                    const [childPath, childHash] = child.href.split('#');
+                    const childActive = child.href.includes('#')
+                      ? location.pathname === childPath && location.hash === `#${childHash}`
+                      : location.pathname === child.href;
                     return (
                       <NavLink
                         key={child.href}
-                        to={child.href.split('#')[0]}
+                        to={child.href}
                         onClick={onItemClick}
                         className={cn(
                           "flex items-center px-2 py-1.5 rounded-md text-xs font-medium transition-colors",
