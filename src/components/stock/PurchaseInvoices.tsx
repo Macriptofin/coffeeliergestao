@@ -18,7 +18,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { InvoiceOCRUploader } from "@/components/purchase/InvoiceOCRUploader";
 import type { PurchaseInvoice } from "@/pages/Stock";
 import { useUserRole } from "@/hooks/useUserRole";
-import { InvoiceEditDialog } from "../purchase/InvoiceEditDialog";
+import { InvoiceEditDialog, readInvoiceAutosave, clearInvoiceAutosave, type InvoiceAutosaveDraft } from "../purchase/InvoiceEditDialog";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { todayLocalISO, addDaysLocalISO, formatLocalDate } from "@/lib/date-utils";
 
@@ -146,6 +146,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
   });
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [manualInvoiceData, setManualInvoiceData] = useState<any>(null);
+  // Rascunho automático local (lançamento interrompido) — oferecido pra retomar.
+  const [autosaveDraft, setAutosaveDraft] = useState<InvoiceAutosaveDraft | null>(() => readInvoiceAutosave());
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
   const [editingItemsLocked, setEditingItemsLocked] = useState(false);
@@ -1131,6 +1133,36 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
 
   return (
     <div className="space-y-6">
+      {/* Lançamento interrompido: rascunho automático salvo no navegador */}
+      {autosaveDraft && !isInvoiceDialogOpen && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3 text-amber-900">
+            <span>
+              <strong>Lançamento em andamento:</strong> NF {autosaveDraft.numero_nota || 'sem número'}
+              {autosaveDraft.fornecedor ? ` · ${autosaveDraft.fornecedor}` : ''} ·{' '}
+              {autosaveDraft.editedData.itens.length} itens · salvo automaticamente às{' '}
+              {new Date(autosaveDraft.savedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+            <span className="flex gap-2">
+              <Button size="sm" onClick={() => {
+                setEditingInvoiceId(autosaveDraft.invoiceId);
+                setEditingSupplierId(autosaveDraft.supplierId);
+                setManualInvoiceData(autosaveDraft.editedData);
+                setIsInvoiceDialogOpen(true);
+              }}>
+                Continuar
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => {
+                clearInvoiceAutosave();
+                setAutosaveDraft(null);
+              }}>
+                Descartar
+              </Button>
+            </span>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
@@ -1235,6 +1267,9 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                 setEditingSupplierId(null);
                 setEditingItemsLocked(false);
                 setLinkedPurchaseOrder(null);
+                // Fechou sem concluir? O rascunho automático continua no
+                // navegador — atualiza o aviso de retomada (some se salvou/lançou).
+                setAutosaveDraft(readInvoiceAutosave());
               }
             }}
             invoiceData={manualInvoiceData}

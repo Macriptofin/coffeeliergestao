@@ -93,6 +93,49 @@ interface InvoiceEditDialogProps {
 const EMPTY_USERS: any[] = [];
 const EMPTY_COST_CENTERS: any[] = [];
 
+// ── Rascunho automático local ─────────────────────────────────────────────
+// Cada alteração no formulário é persistida no navegador (debounce) enquanto
+// o dialog está aberto. Se a tela fechar sem querer / faltar luz, o progresso
+// (matching de 20-30 itens, fiscais, descontos...) não se perde: a aba Notas
+// Fiscais oferece "Continuar" e o próprio dialog restaura ao reabrir a mesma
+// nota. Limpo ao salvar/lançar de verdade. Local por máquina (não segue o
+// usuário pra outro computador — é rede de segurança, não sincronização).
+const INVOICE_AUTOSAVE_KEY = 'coffeelier-nf-autosave';
+
+export interface InvoiceAutosaveDraft {
+  savedAt: string;
+  invoiceId: string | null;
+  numero_nota: string | null;
+  fornecedor: string | null;
+  editedData: InvoiceData;
+  supplierId: string | null;
+  formaPagamento: string;
+  statusPagamento: 'pago' | 'a_vencer';
+  dataPagamento: string;
+  dataVencimento: string;
+  numeroParcelas: number;
+  prazoPagamentoDias: number;
+  responsavelId: string | null;
+  observacoes: string;
+  discountTotal: number;
+  discountType: 'value' | 'percent';
+  freightAmount: number;
+  freightCostCenterId: string | null;
+}
+
+export function readInvoiceAutosave(): InvoiceAutosaveDraft | null {
+  try {
+    const raw = localStorage.getItem(INVOICE_AUTOSAVE_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as InvoiceAutosaveDraft;
+    return draft?.editedData?.itens ? draft : null;
+  } catch { return null; }
+}
+
+export function clearInvoiceAutosave() {
+  try { localStorage.removeItem(INVOICE_AUTOSAVE_KEY); } catch { /* noop */ }
+}
+
 async function fetchUserProfilesForInvoice() {
   const { data, error } = await supabase
     .from('user_profiles')
@@ -168,6 +211,37 @@ export const InvoiceEditDialog = ({
 
   useEffect(() => {
     if (invoiceData && open) {
+      // Rascunho automático da MESMA nota (mesmo id salvo, ou mesmo número
+      // pra nota nova)? Restaura tudo e pula a inicialização normal.
+      const draft = readInvoiceAutosave();
+      const draftMatches = draft && (
+        invoiceId
+          ? draft.invoiceId === invoiceId
+          : (!draft.invoiceId && !!draft.numero_nota && draft.numero_nota === (invoiceData.numero_nota ?? null))
+      );
+      if (draftMatches) {
+        setEditedData(draft.editedData);
+        setSupplierId(draft.supplierId ?? initialSupplierId ?? null);
+        setFormaPagamento(draft.formaPagamento || '');
+        setStatusPagamento(draft.statusPagamento || 'a_vencer');
+        setDataPagamento(draft.dataPagamento || todayLocalISO());
+        setDataVencimento(draft.dataVencimento || addDaysLocalISO(30));
+        setNumeroParcelas(draft.numeroParcelas || 1);
+        setPrazoPagamentoDias(draft.prazoPagamentoDias || 30);
+        setResponsavelId(draft.responsavelId ?? null);
+        setObservacoes(draft.observacoes || '');
+        setDiscountTotal(draft.discountTotal || 0);
+        setDiscountType(draft.discountType || 'value');
+        setFreightAmount(draft.freightAmount || 0);
+        setFreightCostCenterId(draft.freightCostCenterId ?? null);
+        const hora = new Date(draft.savedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        toast({
+          title: '📝 Rascunho recuperado',
+          description: `Restauramos o preenchimento desta nota salvo automaticamente às ${hora}.`,
+        });
+        return;
+      }
+
       // Auto-selecionar usuário atual como responsável
       supabase.auth.getUser().then(({ data: { user } }) => {
         if (user) setResponsavelId(user.id);
@@ -245,6 +319,40 @@ export const InvoiceEditDialog = ({
     );
     if (freightCC) setFreightCostCenterId(freightCC.id);
   }, [costCenters, open]);
+
+  // Rascunho automático: persiste o formulário no navegador a cada mudança
+  // (debounce de 800ms) enquanto o dialog está aberto.
+  useEffect(() => {
+    if (!open || !editedData) return;
+    const t = setTimeout(() => {
+      try {
+        const draft: InvoiceAutosaveDraft = {
+          savedAt: new Date().toISOString(),
+          invoiceId: invoiceId ?? null,
+          numero_nota: editedData.numero_nota ?? null,
+          fornecedor: editedData.fornecedor ?? null,
+          editedData,
+          supplierId,
+          formaPagamento,
+          statusPagamento,
+          dataPagamento,
+          dataVencimento,
+          numeroParcelas,
+          prazoPagamentoDias,
+          responsavelId,
+          observacoes,
+          discountTotal,
+          discountType,
+          freightAmount,
+          freightCostCenterId,
+        };
+        localStorage.setItem(INVOICE_AUTOSAVE_KEY, JSON.stringify(draft));
+      } catch { /* melhor-esforço: sem espaço no storage não pode travar o form */ }
+    }, 800);
+    return () => clearTimeout(t);
+  }, [open, editedData, supplierId, formaPagamento, statusPagamento, dataPagamento,
+      dataVencimento, numeroParcelas, prazoPagamentoDias, responsavelId, observacoes,
+      discountTotal, discountType, freightAmount, freightCostCenterId, invoiceId]);
 
   const handleMaterialSelect = async (itemIndex: number, materialId: string) => {
     if (!editedData) return;
@@ -808,7 +916,8 @@ export const InvoiceEditDialog = ({
           ? 'Dados da nota atualizados. Já foi lançada no estoque anteriormente.'
           : 'Dados salvos. Clique em "Lançar no Estoque" na lista para concluir o lançamento.'
       });
-      
+
+      clearInvoiceAutosave();
       onOpenChange(false);
       onLaunch();
 
@@ -972,6 +1081,7 @@ export const InvoiceEditDialog = ({
         description: 'Nota fiscal salva como rascunho. Você pode continuar editando depois.'
       });
 
+      clearInvoiceAutosave();
       onOpenChange(false);
       onSaveDraft?.();
 
