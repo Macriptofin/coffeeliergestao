@@ -428,8 +428,9 @@ export const ProductionOrdersList = () => {
                   // Nome real do evento (composição), não o código técnico EVT-…;
                   // ordens antigas sem vínculo caem no fallback do código.
                   label: 'Evento',
-                  value: `${printing.composition?.name || printing.event_table.event_code} - ${printing.event_table.client_name}`,
+                  value: printing.composition?.name || printing.event_table.event_code,
                 },
+                { label: 'Cliente', value: printing.event_table.client_name },
                 ...(printing.composition?.event_category
                   ? [{ label: 'Tipo', value: printing.composition.event_category }]
                   : []),
