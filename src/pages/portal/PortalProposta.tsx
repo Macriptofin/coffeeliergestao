@@ -15,8 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import { Calendar } from '@/components/ui/calendar';
 import { formatCurrency } from '@/lib/formatters';
-import { formatLocalDate, todayLocalISO } from '@/lib/date-utils';
+import { formatLocalDate, parseLocalDate, todayLocalISO } from '@/lib/date-utils';
 import { usePortalSettings } from '@/hooks/usePortalSettings';
 import { PortalProposalPDF } from '@/components/portal/PortalProposalPDF';
 import { isPrazoMinimoMessage, showPrazoMinimoToast } from '@/components/portal/PrazoMinimoToast';
@@ -270,6 +271,10 @@ export default function PortalProposta() {
   });
   const nextExecution = sortedExecutions.find(e =>
     e.event_status === 'Agendado' && e.scheduled_date && e.scheduled_date >= todayStr) || null;
+  // Datas dos fornecimentos vivos pro calendário do contrato (cancelados fora)
+  const executionDates = sortedExecutions
+    .filter(e => e.event_status !== 'Cancelado' && e.scheduled_date)
+    .map(e => parseLocalDate(e.scheduled_date!));
 
   // Resumo financeiro do contrato a partir das cobranças vinculadas
   const pays = data.payments || [];
@@ -420,7 +425,10 @@ export default function PortalProposta() {
           {data.is_umbrella && sortedExecutions.length > 0 && (
             <div className="mt-5 bg-card border border-border/70 rounded-2xl p-5 shadow-soft">
               <h3 className="font-semibold mb-3">Fornecimentos</h3>
-              <div className="space-y-2">
+              {/* Lista (rolagem interna, altura casada com o calendário) ao lado
+                  do calendário do contrato — abre já no mês do próximo fornecimento */}
+              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-5 items-start">
+              <div className="max-h-[330px] overflow-y-auto pr-1 space-y-2">
                 {sortedExecutions.map(ex => {
                   const statusChip = ex.event_status === 'Cancelado'
                     ? { label: 'Cancelado', cls: 'bg-muted text-muted-foreground' }
@@ -460,6 +468,17 @@ export default function PortalProposta() {
                     </div>
                   );
                 })}
+              </div>
+              <div className="md:border-l md:border-border/60 md:pl-5">
+                <Calendar
+                  mode="default"
+                  defaultMonth={nextExecution?.scheduled_date ? parseLocalDate(nextExecution.scheduled_date) : undefined}
+                  modifiers={{ event: executionDates }}
+                  modifiersClassNames={{
+                    event: "relative font-semibold text-primary after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:rounded-full after:bg-primary after:content-['']",
+                  }}
+                />
+              </div>
               </div>
             </div>
           )}
