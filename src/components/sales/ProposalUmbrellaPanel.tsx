@@ -175,6 +175,9 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
   // Aprovar/recusar solicitação de fornecimento do cliente — com confirmação
   const [pendingDecision, setPendingDecision] = useState<{ request: PendingExecutionRequest; approve: boolean } | null>(null);
   const [deciding, setDeciding] = useState(false);
+  // Cancelar execução confirmada (alteração = cancelar + relançar)
+  const [cancelTarget, setCancelTarget] = useState<UmbrellaExecution | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const queryKey = ['proposal-umbrella-panel', proposalId];
   const { data, isPending, isError } = useQuery({
@@ -202,6 +205,24 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
   const quotaQty = progress.quota_quantity ?? 0;
   const consumedQty = progress.consumed_quantity ?? 0;
   const pctQty = quotaQty > 0 ? Math.min(100, (consumedQty / quotaQty) * 100) : 0;
+
+  const cancelExecution = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      const { error } = await (supabase.rpc as any)('cancel_umbrella_execution', {
+        p_composition_id: cancelTarget.composition_id,
+      });
+      if (error) throw error;
+      toast.success('Execução cancelada — evento e ordens cancelados, saldo restituído. Lance a nova execução com os dados corretos.');
+      setCancelTarget(null);
+      refetch();
+    } catch (e: any) {
+      toast.error(e.message || 'Não foi possível cancelar a execução.');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const decideRequest = async () => {
     if (!pendingDecision) return;
@@ -369,11 +390,23 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
                         <TableCell className="text-right">{ex.number_of_people ?? '—'}</TableCell>
                         <TableCell className="text-right">{formatCurrency(ex.value)}</TableCell>
                         <TableCell>
-                          {ex.event_status ? (
-                            <Badge variant="secondary">{ex.event_status}</Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">sem evento</span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {ex.event_status ? (
+                              <Badge variant={ex.event_status === 'Cancelado' ? 'outline' : 'secondary'}
+                                className={ex.event_status === 'Cancelado' ? 'text-muted-foreground' : ''}>
+                                {ex.event_status}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">sem evento</span>
+                            )}
+                            {/* Alteração de execução = cancelar + relançar com os dados novos */}
+                            {ex.event_status && !['Cancelado', 'Concluído'].includes(ex.event_status) && (
+                              <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-destructive"
+                                onClick={(e) => { e.stopPropagation(); setCancelTarget(ex); }}>
+                                <X className="h-3 w-3 mr-1" /> Cancelar
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                       {isExpanded && (
@@ -401,6 +434,27 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
         onOpenChange={setDialogOpen}
         onLaunched={refetch}
       />
+
+      <AlertDialog open={!!cancelTarget} onOpenChange={(open) => { if (!open && !cancelling) setCancelTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar execução</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cancelar "{cancelTarget?.name}" ({cancelTarget?.number_of_people ?? '—'} pessoas
+              {cancelTarget?.scheduled_date ? `, ${formatLocalDate(cancelTarget.scheduled_date)}` : ''})?
+              O evento e as ordens serão cancelados e o saldo do contrato é restituído.
+              Pra alterar data/quantidade/sala, cancele e lance uma nova execução com os dados corretos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Voltar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); cancelExecution(); }} disabled={cancelling}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {cancelling ? 'Cancelando…' : 'Cancelar execução'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!pendingDecision} onOpenChange={(open) => { if (!open && !deciding) setPendingDecision(null); }}>
         <AlertDialogContent>
