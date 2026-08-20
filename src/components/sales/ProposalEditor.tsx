@@ -940,17 +940,41 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
         data: snapshot,
       });
 
+      // Reenvio = a nova versão publicada É a resposta a solicitações de alteração
+      // abertas: marca como resolvidas aqui (senão o cliente fica com o selo
+      // "em análise" e a aprovação travada mesmo já tendo a versão nova em mãos).
+      // O "Resolver" manual da aba Portal segue existindo pros casos sem reenvio.
+      let answeredChangeRequest = false;
+      if (nextRevision > 1) {
+        const { data: resolvedReqs } = await supabase
+          .from('proposal_change_requests')
+          .update({ status: 'resolvida', resolved_at: new Date().toISOString() })
+          .eq('proposal_id', pid)
+          .eq('status', 'aberta')
+          .select('id');
+        answeredChangeRequest = (resolvedReqs?.length ?? 0) > 0;
+      }
+
       // Notifica o solicitante por e-mail — acesso é sempre pelo Portal autenticado,
-      // não há mais link público sem login.
+      // não há mais link público sem login. Reenvio (Rev. > 1) manda "Proposta
+      // atualizada" em vez de "Nova proposta" — fluxos diferentes, e-mails diferentes.
       const { error: notifyErr } = await supabase.functions.invoke('notify-portal-proposal', {
-        body: { proposal_id: pid },
+        body: {
+          proposal_id: pid,
+          event_type: nextRevision > 1 ? 'revised' : 'sent',
+          answered_change_request: answeredChangeRequest,
+        },
       });
       if (notifyErr) console.warn('notify-portal-proposal:', notifyErr.message);
 
       // Estrutura do cliente pode ter mudado (novo acesso de portal recém-criado).
       await queryClient.invalidateQueries({ queryKey: ['client-structure-for-proposal', clientId] });
 
-      toast.success(`Proposta enviada (Rev. ${nextRevision})! ${contact.name} foi notificado(a) por e-mail e pode acompanhar/aprovar pelo Portal.`);
+      toast.success(
+        `Proposta ${nextRevision > 1 ? `atualizada (Rev. ${nextRevision})` : 'enviada'}! ` +
+        `${contact.name} foi notificado(a) por e-mail` +
+        (answeredChangeRequest ? ' e a solicitação de alteração aberta foi marcada como atendida.' : ' e pode acompanhar/aprovar pelo Portal.')
+      );
       onComplete();
     } catch (e: any) {
       toast.error('Erro ao enviar: ' + e.message);

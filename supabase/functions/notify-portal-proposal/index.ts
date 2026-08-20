@@ -7,17 +7,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Avisa por e-mail o solicitante (portal_created_by) sobre uma proposta no Portal —
-// tanto quando a EQUIPE envia uma proposta pro cliente acompanhar/aprovar (event_type
-// 'sent', default) quanto quando a EQUIPE aprova um pedido que o próprio cliente
-// montou no Portal (event_type 'approved'). Acesso é sempre pelo Portal autenticado —
-// este e-mail só notifica, não carrega link de aprovação direta.
+// Avisa por e-mail o solicitante (portal_created_by) sobre uma proposta no Portal:
+// 'sent' (default) = equipe enviou proposta nova; 'revised' = equipe reenviou uma
+// versão atualizada (revisão > 1; com answered_change_request=true o texto diz que
+// foi em resposta à solicitação de alteração do cliente); 'approved' = equipe
+// aprovou um pedido que o próprio cliente montou. Acesso é sempre pelo Portal
+// autenticado — este e-mail só notifica, não carrega link de aprovação direta.
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { proposal_id, event_type } = await req.json() as { proposal_id: string; event_type?: 'sent' | 'approved' };
-    const kind = event_type === 'approved' ? 'approved' : 'sent';
+    const { proposal_id, event_type, answered_change_request } = await req.json() as {
+      proposal_id: string; event_type?: 'sent' | 'approved' | 'revised'; answered_change_request?: boolean;
+    };
+    const kind = event_type === 'approved' ? 'approved' : event_type === 'revised' ? 'revised' : 'sent';
     if (!proposal_id) {
       return new Response(JSON.stringify({ error: "proposal_id é obrigatório" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -52,15 +55,25 @@ const handler = async (req: Request): Promise<Response> => {
 
     const subject = kind === 'approved'
       ? `Pedido aprovado: ${proposal.proposal_number}`
-      : `Nova proposta disponível: ${proposal.proposal_number}`;
-    const heading = kind === 'approved' ? '☕ Seu pedido foi aprovado!' : '☕ Nova proposta no seu portal Coffeelier';
+      : kind === 'revised'
+        ? `Proposta atualizada: ${proposal.proposal_number}`
+        : `Nova proposta disponível: ${proposal.proposal_number}`;
+    const heading = kind === 'approved'
+      ? '☕ Seu pedido foi aprovado!'
+      : kind === 'revised'
+        ? '☕ Sua proposta foi atualizada'
+        : '☕ Nova proposta no seu portal Coffeelier';
     const introText = kind === 'approved'
       ? `${clientName ? `<strong>${clientName}</strong>, seu` : 'Seu'} pedido foi confirmado pela nossa equipe e já entra em produção, conforme o cronograma combinado:`
-      : `${clientName ? `<strong>${clientName}</strong> tem uma` : 'Você tem uma'} nova proposta disponível
+      : kind === 'revised'
+        ? `${clientName ? `<strong>${clientName}</strong>, publicamos` : 'Publicamos'} uma nova versão da proposta${answered_change_request ? ' em resposta à sua solicitação de alteração' : ''}:`
+        : `${clientName ? `<strong>${clientName}</strong> tem uma` : 'Você tem uma'} nova proposta disponível
              para acompanhamento e aprovação:`;
     const footerText = kind === 'approved'
       ? 'Entre com seu e-mail e senha cadastrados para ver os detalhes do pedido confirmado.'
-      : 'Entre com seu e-mail e senha cadastrados para ver os detalhes, aprovar ou solicitar alteração.';
+      : kind === 'revised'
+        ? `Confira a versão atualizada e aprove pelo portal.${answered_change_request ? ' Se algo ainda não estiver como combinado, é só solicitar nova alteração.' : ''}`
+        : 'Entre com seu e-mail e senha cadastrados para ver os detalhes, aprovar ou solicitar alteração.';
 
     const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
     const emailResp = await resend.emails.send({
