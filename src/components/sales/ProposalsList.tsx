@@ -49,6 +49,9 @@ interface Proposal {
   portal_created_by?: string | null;
   created_by_client?: boolean;
   requester_name?: string | null; // nome do solicitante (usuário do portal), se houver
+  // Pendências abertas vindas do portal (derivadas no fetch)
+  pending_execution_requests?: number;
+  pending_change_requests?: number;
 }
 
 interface Props {
@@ -73,18 +76,26 @@ const statusOptions = [
 const EMPTY_PROPOSALS: Proposal[] = [];
 
 async function fetchProposals(): Promise<Proposal[]> {
+  // Embeds trazem só as pendências ABERTAS (ids) — viram selos de "tem coisa
+  // esperando a equipe" no card, sem precisar entrar em cada proposta.
   const { data, error } = await supabase
     .from('proposals')
     .select(`
       *,
       clients (
         name
-      )
+      ),
+      umbrella_execution_requests (id, status),
+      proposal_change_requests (id, status)
     `)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
   const rows = ((data as any) || []) as Proposal[];
+  rows.forEach((r: any) => {
+    r.pending_execution_requests = (r.umbrella_execution_requests || []).filter((x: any) => x.status === 'aberta').length;
+    r.pending_change_requests = (r.proposal_change_requests || []).filter((x: any) => x.status === 'aberta').length;
+  });
   // Enriquecer com o nome do solicitante (usuário do portal) quando houver.
   const ids = Array.from(new Set(rows.map(r => r.portal_created_by).filter(Boolean))) as string[];
   if (ids.length) {
@@ -457,6 +468,21 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
                           {proposal.is_umbrella && (
                             <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary whitespace-nowrap">
                               Recorrente
+                            </Badge>
+                          )}
+                          {/* Pendências do portal esperando a equipe — clicável direto pro lugar certo */}
+                          {(proposal.pending_execution_requests ?? 0) > 0 && onViewUmbrella && (
+                            <Badge
+                              className="bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-300 whitespace-nowrap cursor-pointer"
+                              variant="outline"
+                              onClick={(e) => { e.stopPropagation(); onViewUmbrella(proposal.id); }}
+                            >
+                              {proposal.pending_execution_requests} fornecimento{(proposal.pending_execution_requests ?? 0) > 1 ? 's' : ''} a confirmar
+                            </Badge>
+                          )}
+                          {(proposal.pending_change_requests ?? 0) > 0 && (
+                            <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300 whitespace-nowrap">
+                              Alteração em análise
                             </Badge>
                           )}
                         </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useOperationalAlerts } from '@/hooks/useOperationalAlerts';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,8 +34,21 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
-  const handleClick = (alert: typeof alerts[0]) => {
+  const handleClick = async (alert: typeof alerts[0]) => {
     markRead(alert.id);
+    // Solicitação de FORNECIMENTO: cai direto no painel "Saldo e execuções" da
+    // proposta certa (deep-link ?umbrella=, resolvido em Sales.tsx) — é lá que
+    // se confirma/recusa. O alerta guarda o id da solicitação; busca a proposta.
+    if (alert.reference_type === 'umbrella_execution_request' && alert.reference_id) {
+      const { data } = await supabase
+        .from('umbrella_execution_requests')
+        .select('proposal_id')
+        .eq('id', alert.reference_id)
+        .maybeSingle();
+      navigate(data?.proposal_id ? `/vendas?umbrella=${data.proposal_id}#propostas` : '/vendas#propostas');
+      setOpen(false);
+      return;
+    }
     // Solicitação de alteração do portal: cai direto na aba certa (Vendas →
     // Portal → Solicitações), não na aba padrão de Vendas.
     const route = alert.reference_type === 'proposal_change_request'

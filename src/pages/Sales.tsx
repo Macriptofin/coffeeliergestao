@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, FileText, KanbanSquare, Store } from "lucide-react";
@@ -33,6 +33,7 @@ const Sales = () => {
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTabState] = useState(() => HASH_TO_TAB[location.hash] || 'proposals');
 
   // Troca de aba grava o hash (deep-link e botão voltar funcionam); navegação
@@ -55,6 +56,17 @@ const Sales = () => {
   const [showClientForm, setShowClientForm] = useState(false);
   const [pdfProposalId, setPdfProposalId] = useState<string | null>(null);
   const [viewingUmbrellaId, setViewingUmbrellaId] = useState<string | null>(null);
+
+  // Deep-link ?umbrella=<proposal_id> (sininho de solicitação de fornecimento):
+  // abre direto o painel "Saldo e execuções" da proposta e limpa a URL.
+  useEffect(() => {
+    const umbrellaParam = searchParams.get('umbrella');
+    if (umbrellaParam) {
+      setViewingUmbrellaId(umbrellaParam);
+      setActiveTabState('proposals');
+      navigate('/vendas#propostas', { replace: true });
+    }
+  }, [searchParams]);
   const [viewingProposalId, setViewingProposalId] = useState<string | null>(null);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [viewingClientId, setViewingClientId] = useState<string | null>(null);
