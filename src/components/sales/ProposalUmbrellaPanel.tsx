@@ -6,7 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Plus, Wallet, CalendarClock, ChevronDown, FileText } from 'lucide-react';
+import { ArrowLeft, Plus, Wallet, CalendarClock, ChevronDown, FileText, Check, X, Inbox } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/formatters';
 import { formatLocalDate } from '@/lib/date-utils';
 import { LaunchUmbrellaExecutionDialog } from './LaunchUmbrellaExecutionDialog';
@@ -128,19 +133,38 @@ function ExecutionMenu({ execution }: { execution: UmbrellaExecution }) {
   );
 }
 
+interface PendingExecutionRequest {
+  id: string;
+  name: string;
+  scheduled_date: string;
+  scheduled_time: string | null;
+  number_of_people: number;
+  location: string | null;
+  notes: string | null;
+  created_at: string;
+  client_rooms: { name: string } | null;
+}
+
 async function fetchUmbrellaPanelData(proposalId: string) {
-  const [propRes, progressRes] = await Promise.all([
+  const [propRes, progressRes, requestsRes] = await Promise.all([
     supabase.from('proposals')
       .select('id, proposal_number, event_name, status, is_umbrella, client_id, clients(name)')
       .eq('id', proposalId)
       .single(),
     supabase.rpc('get_umbrella_progress', { p_proposal_id: proposalId }),
+    supabase.from('umbrella_execution_requests')
+      .select('id, name, scheduled_date, scheduled_time, number_of_people, location, notes, created_at, client_rooms(name)')
+      .eq('proposal_id', proposalId)
+      .eq('status', 'aberta')
+      .order('scheduled_date'),
   ]);
   if (propRes.error) throw propRes.error;
   if (progressRes.error) throw progressRes.error;
+  if (requestsRes.error) throw requestsRes.error;
   return {
     proposal: propRes.data as unknown as UmbrellaProposalHeader,
     progress: progressRes.data as UmbrellaProgress,
+    pendingRequests: (requestsRes.data || []) as unknown as PendingExecutionRequest[],
   };
 }
 
@@ -148,6 +172,9 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Aprovar/recusar solicitação de fornecimento do cliente — com confirmação
+  const [pendingDecision, setPendingDecision] = useState<{ request: PendingExecutionRequest; approve: boolean } | null>(null);
+  const [deciding, setDeciding] = useState(false);
 
   const queryKey = ['proposal-umbrella-panel', proposalId];
   const { data, isPending, isError } = useQuery({
@@ -171,10 +198,39 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
     );
   }
 
-  const { proposal, progress } = data;
+  const { proposal, progress, pendingRequests } = data;
   const quotaQty = progress.quota_quantity ?? 0;
   const consumedQty = progress.consumed_quantity ?? 0;
   const pctQty = quotaQty > 0 ? Math.min(100, (consumedQty / quotaQty) * 100) : 0;
+
+  const decideRequest = async () => {
+    if (!pendingDecision) return;
+    setDeciding(true);
+    try {
+      if (pendingDecision.approve) {
+        // A aprovação chama add_umbrella_execution por trás: composição + evento
+        // + ordens + abate de saldo, e vincula a solicitação à execução criada.
+        const { error } = await (supabase.rpc as any)('approve_umbrella_execution_request', {
+          p_request_id: pendingDecision.request.id,
+        });
+        if (error) throw error;
+        toast.success('Fornecimento confirmado! Evento e ordens gerados, saldo abatido.');
+      } else {
+        const { error } = await supabase
+          .from('umbrella_execution_requests')
+          .update({ status: 'recusada', resolved_at: new Date().toISOString() })
+          .eq('id', pendingDecision.request.id);
+        if (error) throw error;
+        toast.success('Solicitação recusada.');
+      }
+      setPendingDecision(null);
+      refetch();
+    } catch (e: any) {
+      toast.error(e.message || 'Não foi possível processar a solicitação.');
+    } finally {
+      setDeciding(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -234,6 +290,43 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
           </div>
         </CardContent>
       </Card>
+
+      {/* Solicitações de fornecimento vindas do PORTAL, aguardando a equipe */}
+      {pendingRequests.length > 0 && (
+        <Card className="border-accent-mocca/60">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Inbox className="h-4 w-4 text-accent-coffee" />
+              Solicitações de fornecimento do cliente
+              <Badge variant="secondary">{pendingRequests.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {pendingRequests.map(req => (
+              <div key={req.id} className="flex items-start justify-between gap-4 border-t border-dashed border-border/60 first:border-t-0 pt-3 first:pt-0">
+                <div className="min-w-0 text-sm">
+                  <p className="font-medium">{req.name}</p>
+                  <p className="text-muted-foreground">
+                    {formatLocalDate(req.scheduled_date)}
+                    {req.scheduled_time ? ` às ${String(req.scheduled_time).slice(0, 5)}` : ''}
+                    {' · '}{req.number_of_people} pessoas
+                    {req.client_rooms?.name ? ` · ${req.client_rooms.name}` : req.location ? ` · ${req.location}` : ''}
+                  </p>
+                  {req.notes && <p className="text-muted-foreground italic mt-0.5">{req.notes}</p>}
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button size="sm" className="gap-1" onClick={() => setPendingDecision({ request: req, approve: true })}>
+                    <Check className="h-4 w-4" /> Confirmar
+                  </Button>
+                  <Button size="sm" variant="ghost" className="gap-1 text-destructive" onClick={() => setPendingDecision({ request: req, approve: false })}>
+                    <X className="h-4 w-4" /> Recusar
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-3">
@@ -308,6 +401,27 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
         onOpenChange={setDialogOpen}
         onLaunched={refetch}
       />
+
+      <AlertDialog open={!!pendingDecision} onOpenChange={(open) => { if (!open && !deciding) setPendingDecision(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingDecision?.approve ? 'Confirmar fornecimento' : 'Recusar solicitação'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDecision?.approve
+                ? `Confirmar "${pendingDecision.request.name}" (${pendingDecision?.request.number_of_people} pessoas)? Isso gera o evento na Agenda e as ordens de produção, e abate o saldo do contrato.`
+                : `Recusar "${pendingDecision?.request.name}"? Combine a recusa com o cliente — nada será gerado.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deciding}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); decideRequest(); }} disabled={deciding}>
+              {deciding ? 'Processando…' : pendingDecision?.approve ? 'Confirmar fornecimento' : 'Recusar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

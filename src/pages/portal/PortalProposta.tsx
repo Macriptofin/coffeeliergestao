@@ -9,6 +9,9 @@ import { usePortalClient } from '@/hooks/usePortalClient';
 import { PortalLayout } from '@/components/portal/PortalLayout';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -31,6 +34,10 @@ interface ProposalPayment {
   due_date: string | null; original_amount: number | null;
   received_amount: number | null; remaining_amount: number | null; status: string;
 }
+interface ExecutionRequest {
+  id: string; name: string; scheduled_date: string; scheduled_time: string | null;
+  number_of_people: number; room_name: string | null; status: string; created_at: string;
+}
 
 interface PortalProposalDetail {
   id: string; proposal_number: string; event_name: string | null; event_category: string | null;
@@ -41,6 +48,7 @@ interface PortalProposalDetail {
   is_umbrella: boolean; umbrella_quota_quantity: number | null;
   umbrella_quota_unit_price: number | null; consumed_quantity: number | null;
   has_open_change_request: boolean;
+  execution_requests: ExecutionRequest[] | null;
   payments: ProposalPayment[] | null;
   compositions: Composition[] | null; categories_no_composition: Section[] | null;
   error?: string;
@@ -72,6 +80,9 @@ export default function PortalProposta() {
   const [pdfOpen, setPdfOpen] = useState(false);
   const [changeMsg, setChangeMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  // Solicitar fornecimento (execução de contrato recorrente)
+  const [execOpen, setExecOpen] = useState(false);
+  const [execForm, setExecForm] = useState({ name: '', date: '', time: '', people: '', roomId: '', notes: '' });
 
   const { data, isPending } = useQuery({
     queryKey: ['portal-proposal', id],
@@ -81,6 +92,14 @@ export default function PortalProposta() {
       if (error) throw error;
       return data as PortalProposalDetail;
     },
+  });
+
+  // Salas do cliente pro seletor do fornecimento (RLS já escopa ao próprio cliente)
+  const { data: rooms = [] } = useQuery({
+    queryKey: ['portal-client-rooms', portalClient?.clientId],
+    enabled: !!portalClient?.clientId && execOpen,
+    queryFn: async () =>
+      (await supabase.from('client_rooms').select('id, name').eq('client_id', portalClient!.clientId).eq('is_active', true).order('name')).data ?? [],
   });
 
   const handleApprove = async () => {
@@ -119,6 +138,36 @@ export default function PortalProposta() {
       } else toast.error(r.message);
     } catch {
       toast.error('Não foi possível enviar a solicitação.');
+    } finally { setBusy(false); }
+  };
+
+  const handleRequestExecution = async () => {
+    setBusy(true);
+    try {
+      const { data: res, error } = await supabase.rpc('request_umbrella_execution', {
+        p_proposal_id: id,
+        p_name: execForm.name,
+        p_scheduled_date: execForm.date || null,
+        p_scheduled_time: execForm.time || null,
+        p_number_of_people: execForm.people ? parseInt(execForm.people) : null,
+        p_room_id: execForm.roomId || null,
+        p_notes: execForm.notes || null,
+      });
+      if (error) throw error;
+      const r = res as { success: boolean; message: string };
+      if (r.success) {
+        toast.success(r.message);
+        setExecOpen(false);
+        setExecForm({ name: '', date: '', time: '', people: '', roomId: '', notes: '' });
+        queryClient.invalidateQueries({ queryKey: ['portal-proposal', id] });
+        // Avisa a equipe por e-mail (fire-and-forget — sininho já aceso por trigger)
+        supabase.functions.invoke('notify-internal-change-request', { body: { proposal_id: id, kind: 'execution' } })
+          .then(({ error: nErr }) => { if (nErr) console.warn('notify-internal-change-request:', nErr.message); });
+      } else if (isPrazoMinimoMessage(r.message)) {
+        showPrazoMinimoToast(r.message, { whatsappUrl, contactEmail });
+      } else toast.error(r.message);
+    } catch {
+      toast.error('Não foi possível solicitar o fornecimento.');
     } finally { setBusy(false); }
   };
 
@@ -241,6 +290,31 @@ export default function PortalProposta() {
             );
           })()}
 
+          {/* Fornecimentos solicitados pelo cliente, aguardando a equipe confirmar */}
+          {(data.execution_requests || []).length > 0 && (
+            <div className="mt-5 bg-card border border-border/70 rounded-2xl p-5 shadow-soft">
+              <h3 className="font-semibold mb-3">Fornecimentos solicitados</h3>
+              <div className="space-y-2">
+                {(data.execution_requests || []).map(req => (
+                  <div key={req.id} className="flex items-center justify-between gap-3 text-sm border-t border-dashed border-border/60 first:border-t-0 pt-2 first:pt-0">
+                    <div className="min-w-0">
+                      <span className="font-medium">{req.name}</span>
+                      <span className="text-muted-foreground">
+                        {' · '}{formatLocalDate(req.scheduled_date)}
+                        {req.scheduled_time ? ` às ${String(req.scheduled_time).slice(0, 5)}` : ''}
+                        {' · '}{req.number_of_people} pessoas
+                        {req.room_name ? ` · ${req.room_name}` : ''}
+                      </span>
+                    </div>
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-accent-mocca/35 text-accent-coffee">
+                      Aguardando confirmação
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Pagamentos deste pedido (cobranças vinculadas pela equipe) */}
           {(data.payments || []).length > 0 && (
             <div className="mt-5 bg-card border border-border/70 rounded-2xl p-5 shadow-soft">
@@ -355,6 +429,14 @@ export default function PortalProposta() {
                 </p>
               )}
 
+              {/* Contrato recorrente confirmado: cliente solicita fornecimentos
+                  (a equipe aprova e só então nascem evento + ordens) */}
+              {data.is_umbrella && data.status === 'Aprovada' && (
+                <Button className="w-full h-11 rounded-xl gap-2 font-semibold" variant="secondary"
+                  onClick={() => setExecOpen(true)}>
+                  <CalendarDays className="h-4 w-4" /> Solicitar fornecimento
+                </Button>
+              )}
               {isEditable ? (
                 <Button variant="outline" className="w-full h-11 rounded-xl gap-2"
                   onClick={() => navigate(`/portal/novo-pedido?draft=${id}`)}>
@@ -383,6 +465,62 @@ export default function PortalProposta() {
           </a>
         </div>
       </div>
+
+      {/* Diálogo: solicitar fornecimento (execução do contrato recorrente) */}
+      <Dialog open={execOpen} onOpenChange={setExecOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Solicitar fornecimento</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-1">
+            Informe os dados do evento. Nossa equipe confirma o fornecimento e ele
+            entra na sua agenda, abatendo do saldo contratado.
+          </p>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Nome do evento *</Label>
+              <Input value={execForm.name} onChange={e => setExecForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Ex: Reunião mensal de resultados" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Data *</Label>
+                <Input type="date" value={execForm.date} onChange={e => setExecForm(f => ({ ...f, date: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Horário</Label>
+                <Input type="time" value={execForm.time} onChange={e => setExecForm(f => ({ ...f, time: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Nº de pessoas *</Label>
+                <Input type="number" min="1" value={execForm.people}
+                  onChange={e => setExecForm(f => ({ ...f, people: e.target.value }))} placeholder="Ex: 50" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Sala</Label>
+                <Select value={execForm.roomId} onValueChange={v => setExecForm(f => ({ ...f, roomId: v }))}>
+                  <SelectTrigger><SelectValue placeholder={rooms.length ? 'Selecione' : 'Sem salas'} /></SelectTrigger>
+                  <SelectContent>
+                    {rooms.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Observações</Label>
+              <Textarea rows={2} value={execForm.notes} onChange={e => setExecForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Algo que a equipe precise saber?" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExecOpen(false)}>Cancelar</Button>
+            <Button onClick={handleRequestExecution}
+              disabled={busy || !execForm.name.trim() || !execForm.date || !execForm.people}>
+              Solicitar fornecimento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo: solicitar alteração */}
       <Dialog open={changeOpen} onOpenChange={setChangeOpen}>

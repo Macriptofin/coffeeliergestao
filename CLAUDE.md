@@ -406,7 +406,7 @@ Localização: `supabase/functions/<nome>/index.ts`
 | `password-verification-hook` | false | Hook de verificação de senha |
 | `update-overdue-status` | false | Atualiza status de contas vencidas (cron) |
 | `admin-set-password` | true | Admin define senha manual |
-| `notify-internal-change-request` | true | E-mail pra equipe quando cliente do portal pede alteração (destinatário: `app_settings` `portal.internal_notify_email`; sininho vem à parte, por trigger `trg_change_request_alert`) |
+| `notify-internal-change-request` | true | E-mail pra equipe quando cliente do portal pede alteração (`kind:'change'`, default) ou fornecimento de guarda-chuva (`kind:'execution'`). Destinatário: `app_settings` `portal.internal_notify_email`; sininho vem à parte, por triggers `trg_change_request_alert`/`trg_execution_request_alert` |
 
 Para deploy de edge function:
 ```bash
