@@ -25,6 +25,9 @@ interface ProductionOrder {
     client_name: string;
     attendees: number;
     date_start: string;
+    proposal: {
+      contact: { name: string; phone: string | null } | null;
+    } | null;
   };
   composition: {
     name: string | null;
@@ -62,7 +65,10 @@ async function fetchProductionOrders(): Promise<ProductionOrder[]> {
         event_code,
         client_name,
         attendees,
-        date_start
+        date_start,
+        proposal:proposals (
+          contact:client_contacts ( name, phone )
+        )
       ),
       composition:proposal_compositions (
         name,
@@ -431,6 +437,14 @@ export const ProductionOrdersList = () => {
                   value: printing.composition?.name || printing.event_table.event_code,
                 },
                 { label: 'Cliente', value: printing.event_table.client_name },
+                // Solicitante (contato da proposta) com telefone: quem monta o
+                // evento muitas vezes precisa ligar — a ordem já traz o contato.
+                ...(printing.event_table.proposal?.contact?.name
+                  ? [{
+                      label: 'Solicitante',
+                      value: `${printing.event_table.proposal.contact.name}${printing.event_table.proposal.contact.phone ? ` · ${printing.event_table.proposal.contact.phone}` : ''}`,
+                    }]
+                  : []),
                 ...(printing.composition?.event_category
                   ? [{ label: 'Tipo', value: printing.composition.event_category }]
                   : []),
