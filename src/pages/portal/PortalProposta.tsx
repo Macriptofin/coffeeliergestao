@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ChevronLeft, Check, Pencil, SquarePen, Download, MessageCircle, CalendarDays, Clock, Users, MapPin,
+  ChevronLeft, ChevronDown, Check, Pencil, SquarePen, Download, MessageCircle, CalendarDays, Clock, Users, MapPin, Repeat, Tag, Coins,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePortalClient } from '@/hooks/usePortalClient';
@@ -16,7 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { formatCurrency } from '@/lib/formatters';
-import { formatLocalDate } from '@/lib/date-utils';
+import { formatLocalDate, todayLocalISO } from '@/lib/date-utils';
 import { usePortalSettings } from '@/hooks/usePortalSettings';
 import { PortalProposalPDF } from '@/components/portal/PortalProposalPDF';
 import { isPrazoMinimoMessage, showPrazoMinimoToast } from '@/components/portal/PrazoMinimoToast';
@@ -53,6 +53,7 @@ interface PortalProposalDetail {
   room_name: string | null; event_location_name: string | null;
   is_umbrella: boolean; umbrella_quota_quantity: number | null;
   umbrella_quota_unit_price: number | null; consumed_quantity: number | null;
+  consumed_value: number | null;
   has_open_change_request: boolean;
   execution_requests: ExecutionRequest[] | null;
   executions: PortalExecution[] | null;
@@ -87,6 +88,8 @@ export default function PortalProposta() {
   const [pdfOpen, setPdfOpen] = useState(false);
   const [changeMsg, setChangeMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  // Cardápio do contrato recolhido por padrão (visão macro primeiro)
+  const [menuOpen, setMenuOpen] = useState(false);
   // Solicitar fornecimento (novo) ou ALTERAR um fornecimento existente
   // (targetId preenchido = alteração: só data/quantidade/sala — cardápio
   // obedece o contrato).
@@ -253,6 +256,35 @@ export default function PortalProposta() {
   const pricePerPerson = data.total_amount && data.number_of_people
     ? data.total_amount / data.number_of_people : null;
 
+  // ── Visão macro do contrato recorrente ──────────────────────────────────
+  const todayStr = todayLocalISO();
+  // Fila de fornecimentos: próximos agendados primeiro (por data); realizados,
+  // cancelados e passados descem pro fim (mais recentes primeiro).
+  const sortedExecutions = [...(data.executions || [])].sort((a, b) => {
+    const rank = (e: PortalExecution) =>
+      e.event_status === 'Agendado' && e.scheduled_date && e.scheduled_date >= todayStr ? 0 : 1;
+    const ra = rank(a); const rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    const da = a.scheduled_date || ''; const db = b.scheduled_date || '';
+    return ra === 0 ? da.localeCompare(db) : db.localeCompare(da);
+  });
+  const nextExecution = sortedExecutions.find(e =>
+    e.event_status === 'Agendado' && e.scheduled_date && e.scheduled_date >= todayStr) || null;
+
+  // Resumo financeiro do contrato a partir das cobranças vinculadas
+  const pays = data.payments || [];
+  const billedTotal = pays.reduce((s, p) => s + (p.original_amount || 0), 0);
+  const openTotal = pays
+    .filter(p => ['Pendente', 'Parcial', 'Vencido'].includes(p.status))
+    .reduce((s, p) => s + (p.remaining_amount || 0), 0);
+  const overduePays = pays.filter(p => p.status === 'Vencido' && (p.remaining_amount || 0) > 0);
+  const overdueTotal = overduePays.reduce((s, p) => s + (p.remaining_amount || 0), 0);
+  const overdueDays = overduePays.reduce((max, p) => {
+    if (!p.due_date) return max;
+    const days = Math.floor((new Date(todayStr + 'T12:00:00').getTime() - new Date(p.due_date + 'T12:00:00').getTime()) / 86_400_000);
+    return Math.max(max, days);
+  }, 0);
+
   // Pedido que o próprio cliente montou já leva a aprovação do gestor dele por
   // fora do sistema (PDF impresso, botão "Imprimir proposta") antes de enviar —
   // não sobra um "Aprovar pedido" pendente aqui; "Enviada" já é só aguardar a
@@ -285,20 +317,58 @@ export default function PortalProposta() {
             {data.event_name || data.event_category || 'Pedido'} · Proposta {data.proposal_number}
           </h1>
 
-          {/* Capa do evento */}
+          {/* Capa: contrato recorrente = visão macro (data/pessoas/local são de
+              cada fornecimento, não do contrato); evento único = capa clássica */}
           <div className="mt-5 rounded-2xl p-6 text-accent-creme shadow-warm grid grid-cols-2 sm:grid-cols-4 gap-5"
                style={{ background: 'linear-gradient(135deg, hsl(20 54% 22%), hsl(25 53% 49%))' }}>
-            <CoverItem icon={<CalendarDays className="h-4 w-4" />} label="Data"
-              value={data.event_date ? formatLocalDate(data.event_date) : 'A definir'} />
-            <CoverItem icon={<Clock className="h-4 w-4" />} label="Horário" value={firstTime || '—'} />
-            <CoverItem icon={<Users className="h-4 w-4" />} label="Pessoas" value={String(data.number_of_people ?? '—')} />
-            <CoverItem icon={<MapPin className="h-4 w-4" />} label="Local" value={localLabel} />
+            {data.is_umbrella ? (
+              <>
+                <CoverItem icon={<Tag className="h-4 w-4" />} label="Tipo"
+                  value={data.event_category || 'Recorrente'} />
+                <CoverItem icon={<Repeat className="h-4 w-4" />} label="Cota contratada"
+                  value={data.umbrella_quota_quantity != null ? `${data.umbrella_quota_quantity} un` : '—'} />
+                <CoverItem icon={<Coins className="h-4 w-4" />} label="Preço unitário"
+                  value={data.umbrella_quota_unit_price != null ? formatCurrency(data.umbrella_quota_unit_price) : '—'} />
+                <CoverItem icon={<CalendarDays className="h-4 w-4" />} label="Próx. fornecimento"
+                  value={nextExecution?.scheduled_date ? formatLocalDate(nextExecution.scheduled_date) : 'A agendar'} />
+              </>
+            ) : (
+              <>
+                <CoverItem icon={<CalendarDays className="h-4 w-4" />} label="Data"
+                  value={data.event_date ? formatLocalDate(data.event_date) : 'A definir'} />
+                <CoverItem icon={<Clock className="h-4 w-4" />} label="Horário" value={firstTime || '—'} />
+                <CoverItem icon={<Users className="h-4 w-4" />} label="Pessoas" value={String(data.number_of_people ?? '—')} />
+                <CoverItem icon={<MapPin className="h-4 w-4" />} label="Local" value={localLabel} />
+              </>
+            )}
           </div>
 
           {/* Solicitação de alteração aberta: a bola está com a equipe */}
           {data.has_open_change_request && (
             <div className="mt-5 bg-accent-mocca/20 border border-accent-mocca/40 rounded-2xl px-5 py-4 text-sm">
               Sua solicitação de alteração está <strong>em análise pela equipe Coffeelier</strong> — retornaremos em breve.
+            </div>
+          )}
+
+          {/* Composição do contrato: recolhida por padrão (visão macro primeiro) */}
+          {data.is_umbrella && (data.compositions || []).length > 0 && (
+            <div className="mt-5 bg-card border border-border/70 rounded-2xl shadow-soft">
+              <button onClick={() => setMenuOpen(o => !o)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left">
+                <span className="font-semibold">Composição do contrato</span>
+                <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {menuOpen ? 'recolher' : 'ver cardápio'}
+                  <ChevronDown className={`h-4 w-4 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
+                </span>
+              </button>
+              {menuOpen && (
+                <div className="px-5 pb-5">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Cardápio padrão servido em todos os fornecimentos deste contrato.
+                  </p>
+                  {(data.compositions![0].categories || []).map((sec, i) => renderSection(sec, `contract-${i}`))}
+                </div>
+              )}
             </div>
           )}
 
@@ -310,7 +380,7 @@ export default function PortalProposta() {
             return (
               <div className="mt-5 bg-card border border-border/70 rounded-2xl p-5 shadow-soft">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold">Contrato recorrente</h3>
+                  <h3 className="font-semibold">Saldo do contrato</h3>
                   <span className="text-sm text-muted-foreground">
                     Consumido {consumed} de {quota}
                   </span>
@@ -322,33 +392,36 @@ export default function PortalProposta() {
                   <div>
                     <p className="text-xs text-muted-foreground">Contratado</p>
                     <p className="text-lg font-semibold">{quota}</p>
+                    {data.umbrella_quota_unit_price != null && (
+                      <p className="text-xs text-muted-foreground">{formatCurrency(quota * data.umbrella_quota_unit_price)}</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Consumido</p>
                     <p className="text-lg font-semibold">{consumed}</p>
+                    <p className="text-xs text-muted-foreground">{formatCurrency(data.consumed_value ?? 0)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Restante</p>
                     <p className="text-lg font-semibold text-primary">{Math.max(0, quota - consumed)}</p>
+                    {data.umbrella_quota_unit_price != null && (
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(Math.max(0, quota * data.umbrella_quota_unit_price - (data.consumed_value ?? 0)))}
+                      </p>
+                    )}
                   </div>
                 </div>
-                {data.umbrella_quota_unit_price != null && (
-                  <p className="text-sm text-center mt-4 pt-3 border-t border-border/60 text-muted-foreground">
-                    Valor total contratado: {quota} × {formatCurrency(data.umbrella_quota_unit_price)} ={' '}
-                    <strong className="text-foreground">{formatCurrency(quota * data.umbrella_quota_unit_price)}</strong>
-                  </p>
-                )}
               </div>
             );
           })()}
 
           {/* Fornecimentos do contrato (eventos confirmados) — cada um editável
               individualmente: só data/quantidade/sala, cardápio obedece o contrato */}
-          {data.is_umbrella && (data.executions || []).length > 0 && (
+          {data.is_umbrella && sortedExecutions.length > 0 && (
             <div className="mt-5 bg-card border border-border/70 rounded-2xl p-5 shadow-soft">
               <h3 className="font-semibold mb-3">Fornecimentos</h3>
               <div className="space-y-2">
-                {(data.executions || []).map(ex => {
+                {sortedExecutions.map(ex => {
                   const statusChip = ex.event_status === 'Cancelado'
                     ? { label: 'Cancelado', cls: 'bg-muted text-muted-foreground' }
                     : ex.event_status === 'Concluído'
@@ -357,9 +430,14 @@ export default function PortalProposta() {
                         ? { label: 'Alteração solicitada', cls: 'bg-accent-mocca/35 text-accent-coffee' }
                         : { label: 'Confirmado', cls: 'bg-primary/15 text-primary' };
                   const canEdit = ex.event_status === 'Agendado' && !ex.has_open_request;
+                  const isPast = ex.event_status === 'Cancelado' || ex.event_status === 'Concluído'
+                    || (ex.scheduled_date != null && ex.scheduled_date < todayStr);
                   return (
                     <div key={ex.composition_id} className="flex items-center justify-between gap-3 text-sm border-t border-dashed border-border/60 first:border-t-0 pt-2 first:pt-0">
-                      <div className={`min-w-0 ${ex.event_status === 'Cancelado' ? 'opacity-60' : ''}`}>
+                      <div className={`min-w-0 ${isPast ? 'opacity-60' : ''}`}>
+                        {nextExecution?.composition_id === ex.composition_id && (
+                          <span className="mr-2 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary/15 text-primary">Próximo</span>
+                        )}
                         <span className="font-medium">{ex.name}</span>
                         <span className="text-muted-foreground">
                           {ex.scheduled_date ? ` · ${formatLocalDate(ex.scheduled_date)}` : ''}
@@ -447,10 +525,10 @@ export default function PortalProposta() {
           )}
 
           {/* Momentos — cada composição com seu cabeçalho e seções.
-              Recorrente: só a COMPOSIÇÃO DO CONTRATO (molde) — os fornecimentos
-              repetem o mesmo cardápio e já aparecem na lista acima. */}
+              Recorrente: nada aqui — o cardápio vive na "Composição do
+              contrato" (recolhível) lá em cima. */}
           <div className="mt-6 space-y-7">
-            {(data.is_umbrella ? (data.compositions || []).slice(0, 1) : (data.compositions || [])).map((comp, ci) => {
+            {(data.is_umbrella ? [] : (data.compositions || [])).map((comp, ci) => {
               const meta = [
                 comp.event_category,
                 comp.scheduled_date ? formatLocalDate(comp.scheduled_date) : null,
@@ -462,13 +540,9 @@ export default function PortalProposta() {
                 <div key={ci} className="space-y-3">
                   <div className="border-l-4 border-primary pl-3">
                     <h2 className="text-xl font-semibold leading-tight">
-                      {data.is_umbrella ? 'Composição do contrato' : (comp.name || `Momento ${ci + 1}`)}
+                      {comp.name || `Momento ${ci + 1}`}
                     </h2>
-                    {data.is_umbrella ? (
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        Cardápio padrão servido em todos os fornecimentos deste contrato.
-                      </p>
-                    ) : meta && <p className="text-sm text-muted-foreground mt-0.5">{meta}</p>}
+                    {meta && <p className="text-sm text-muted-foreground mt-0.5">{meta}</p>}
                   </div>
                   {(comp.categories || []).map((sec, i) => renderSection(sec, `${ci}-${i}`))}
                 </div>
@@ -487,7 +561,7 @@ export default function PortalProposta() {
         {/* Coluna de ações */}
         <div className="lg:sticky lg:top-6 self-start">
           <div className="bg-card border border-border/70 rounded-2xl p-6 shadow-soft">
-            <div className="text-sm text-muted-foreground">Total do pedido</div>
+            <div className="text-sm text-muted-foreground">{data.is_umbrella ? 'Total do contrato' : 'Total do pedido'}</div>
             <div className="text-4xl font-bold mt-0.5">{formatCurrency(data.total_amount)}</div>
             {/* Recorrente: o "por pessoa" certo é o preço unitário do contrato
                 (total ÷ pessoas da composição-molde não significa nada). */}
@@ -500,6 +574,26 @@ export default function PortalProposta() {
             ) : pricePerPerson != null && (
               <div className="text-muted-foreground text-sm mt-1">
                 {formatCurrency(pricePerPerson)} por pessoa · {data.number_of_people} pessoas
+              </div>
+            )}
+
+            {/* Resumo financeiro do contrato (cobranças vinculadas) */}
+            {pays.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-border text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Faturado</span>
+                  <span className="font-medium">{formatCurrency(billedTotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Em aberto</span>
+                  <span className="font-medium">{formatCurrency(openTotal)}</span>
+                </div>
+                {overdueTotal > 0 && (
+                  <div className="flex justify-between text-destructive font-semibold">
+                    <span>Em atraso{overdueDays > 0 ? ` (${overdueDays} dia${overdueDays > 1 ? 's' : ''})` : ''}</span>
+                    <span>{formatCurrency(overdueTotal)}</span>
+                  </div>
+                )}
               </div>
             )}
 
