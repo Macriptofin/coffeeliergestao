@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ChevronLeft, ChevronDown, Check, Pencil, SquarePen, Download, MessageCircle, CalendarDays, Clock, Users, MapPin, Repeat, Tag, Coins,
+  ChevronLeft, ChevronRight, Check, Pencil, SquarePen, Download, MessageCircle, CalendarDays, Clock, Users, MapPin, Repeat, Tag, Coins, Plus,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePortalClient } from '@/hooks/usePortalClient';
@@ -89,8 +89,10 @@ export default function PortalProposta() {
   const [pdfOpen, setPdfOpen] = useState(false);
   const [changeMsg, setChangeMsg] = useState('');
   const [busy, setBusy] = useState(false);
-  // Cardápio do contrato recolhido por padrão (visão macro primeiro)
-  const [menuOpen, setMenuOpen] = useState(false);
+  // Cardápio e condições do contrato abrem em diálogo sobreposto (nada
+  // empurra a página — decisão de layout do usuário, 20/ago)
+  const [menuDialogOpen, setMenuDialogOpen] = useState(false);
+  const [termsDialogOpen, setTermsDialogOpen] = useState(false);
   // Solicitar fornecimento (novo) ou ALTERAR um fornecimento existente
   // (targetId preenchido = alteração: só data/quantidade/sala — cardápio
   // obedece o contrato).
@@ -271,6 +273,9 @@ export default function PortalProposta() {
   });
   const nextExecution = sortedExecutions.find(e =>
     e.event_status === 'Agendado' && e.scheduled_date && e.scheduled_date >= todayStr) || null;
+  const umbrellaActive = data.is_umbrella === true && (data.status === 'Aprovada' || data.status === 'Aprovada pelo Cliente');
+  const contractMenuItemCount = (data.compositions?.[0]?.categories || [])
+    .reduce((s, sec) => s + (sec.items?.length || 0), 0);
   // Datas dos fornecimentos vivos pro calendário do contrato (cancelados fora)
   const executionDates = sortedExecutions
     .filter(e => e.event_status !== 'Cancelado' && e.scheduled_date)
@@ -312,41 +317,80 @@ export default function PortalProposta() {
         <ChevronLeft className="h-4 w-4" /> Voltar aos meus pedidos
       </button>
 
-      <div className="grid lg:grid-cols-[1fr_340px] gap-7">
-        {/* Coluna principal */}
-        <div>
+      {/* Contrato ativo: cabeçalho + capa em largura inteira — a grade de duas
+          colunas começa junto (Resumo financeiro alinhado com Composição/Condições) */}
+      {umbrellaActive && (
+        <>
           <p className="text-muted-foreground text-sm mb-1.5">
             {[data.client_name, data.department_name].filter(Boolean).join(' · ')}
           </p>
-          <h1 className="text-3xl md:text-4xl font-semibold leading-tight">
-            {data.event_name || data.event_category || 'Pedido'} · Proposta {data.proposal_number}
-          </h1>
-
-          {/* Capa: contrato recorrente = visão macro (data/pessoas/local são de
-              cada fornecimento, não do contrato); evento único = capa clássica */}
-          <div className="mt-5 rounded-2xl p-6 text-accent-creme shadow-warm grid grid-cols-2 sm:grid-cols-4 gap-5"
-               style={{ background: 'linear-gradient(135deg, hsl(20 54% 22%), hsl(25 53% 49%))' }}>
-            {data.is_umbrella ? (
-              <>
-                <CoverItem icon={<Tag className="h-4 w-4" />} label="Tipo"
-                  value={data.event_category || 'Recorrente'} />
-                <CoverItem icon={<Repeat className="h-4 w-4" />} label="Cota contratada"
-                  value={data.umbrella_quota_quantity != null ? `${data.umbrella_quota_quantity} un` : '—'} />
-                <CoverItem icon={<Coins className="h-4 w-4" />} label="Preço unitário"
-                  value={data.umbrella_quota_unit_price != null ? formatCurrency(data.umbrella_quota_unit_price) : '—'} />
-                <CoverItem icon={<CalendarDays className="h-4 w-4" />} label="Próx. fornecimento"
-                  value={nextExecution?.scheduled_date ? formatLocalDate(nextExecution.scheduled_date) : 'A agendar'} />
-              </>
-            ) : (
-              <>
-                <CoverItem icon={<CalendarDays className="h-4 w-4" />} label="Data"
-                  value={data.event_date ? formatLocalDate(data.event_date) : 'A definir'} />
-                <CoverItem icon={<Clock className="h-4 w-4" />} label="Horário" value={firstTime || '—'} />
-                <CoverItem icon={<Users className="h-4 w-4" />} label="Pessoas" value={String(data.number_of_people ?? '—')} />
-                <CoverItem icon={<MapPin className="h-4 w-4" />} label="Local" value={localLabel} />
-              </>
-            )}
+          {/* Ações do CONTRATO (alteração/PDF) moram no cabeçalho — junto da
+              identidade do documento, não no resumo financeiro */}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <h1 className="text-3xl md:text-4xl font-semibold leading-tight">
+              {data.event_name || data.event_category || 'Pedido'} · Proposta {data.proposal_number}
+            </h1>
+            <div className="flex gap-2 shrink-0 pt-1">
+              <Button variant="outline" size="sm" className="rounded-lg gap-1.5" onClick={() => setChangeOpen(true)}>
+                <Pencil className="h-3.5 w-3.5" /> Solicitar alteração
+              </Button>
+              <Button variant="outline" size="sm" className="rounded-lg gap-1.5" onClick={() => setPdfOpen(true)}>
+                <Download className="h-3.5 w-3.5" /> Baixar PDF
+              </Button>
+            </div>
           </div>
+          <div className="mt-5 mb-7 rounded-2xl p-6 text-accent-creme shadow-warm grid grid-cols-2 sm:grid-cols-4 gap-5"
+               style={{ background: 'linear-gradient(135deg, hsl(20 54% 22%), hsl(25 53% 49%))' }}>
+            <CoverItem icon={<Tag className="h-4 w-4" />} label="Tipo"
+              value={data.event_category || 'Recorrente'} />
+            <CoverItem icon={<Repeat className="h-4 w-4" />} label="Cota contratada"
+              value={data.umbrella_quota_quantity != null ? `${data.umbrella_quota_quantity} un` : '—'} />
+            <CoverItem icon={<Coins className="h-4 w-4" />} label="Preço unitário"
+              value={data.umbrella_quota_unit_price != null ? formatCurrency(data.umbrella_quota_unit_price) : '—'} />
+            <CoverItem icon={<CalendarDays className="h-4 w-4" />} label="Próx. fornecimento"
+              value={nextExecution?.scheduled_date ? formatLocalDate(nextExecution.scheduled_date) : 'A agendar'} />
+          </div>
+        </>
+      )}
+
+      <div className="grid lg:grid-cols-[1fr_340px] gap-7">
+        {/* Coluna principal */}
+        <div>
+          {!umbrellaActive && (
+            <>
+              <p className="text-muted-foreground text-sm mb-1.5">
+                {[data.client_name, data.department_name].filter(Boolean).join(' · ')}
+              </p>
+              <h1 className="text-3xl md:text-4xl font-semibold leading-tight">
+                {data.event_name || data.event_category || 'Pedido'} · Proposta {data.proposal_number}
+              </h1>
+
+              {/* Capa: recorrente em negociação = visão macro; evento único = clássica */}
+              <div className="mt-5 rounded-2xl p-6 text-accent-creme shadow-warm grid grid-cols-2 sm:grid-cols-4 gap-5"
+                   style={{ background: 'linear-gradient(135deg, hsl(20 54% 22%), hsl(25 53% 49%))' }}>
+                {data.is_umbrella ? (
+                  <>
+                    <CoverItem icon={<Tag className="h-4 w-4" />} label="Tipo"
+                      value={data.event_category || 'Recorrente'} />
+                    <CoverItem icon={<Repeat className="h-4 w-4" />} label="Cota contratada"
+                      value={data.umbrella_quota_quantity != null ? `${data.umbrella_quota_quantity} un` : '—'} />
+                    <CoverItem icon={<Coins className="h-4 w-4" />} label="Preço unitário"
+                      value={data.umbrella_quota_unit_price != null ? formatCurrency(data.umbrella_quota_unit_price) : '—'} />
+                    <CoverItem icon={<CalendarDays className="h-4 w-4" />} label="Próx. fornecimento"
+                      value={nextExecution?.scheduled_date ? formatLocalDate(nextExecution.scheduled_date) : 'A agendar'} />
+                  </>
+                ) : (
+                  <>
+                    <CoverItem icon={<CalendarDays className="h-4 w-4" />} label="Data"
+                      value={data.event_date ? formatLocalDate(data.event_date) : 'A definir'} />
+                    <CoverItem icon={<Clock className="h-4 w-4" />} label="Horário" value={firstTime || '—'} />
+                    <CoverItem icon={<Users className="h-4 w-4" />} label="Pessoas" value={String(data.number_of_people ?? '—')} />
+                    <CoverItem icon={<MapPin className="h-4 w-4" />} label="Local" value={localLabel} />
+                  </>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Solicitação de alteração aberta: a bola está com a equipe */}
           {data.has_open_change_request && (
@@ -355,25 +399,32 @@ export default function PortalProposta() {
             </div>
           )}
 
-          {/* Composição do contrato: recolhida por padrão (visão macro primeiro) */}
-          {data.is_umbrella && (data.compositions || []).length > 0 && (
-            <div className="mt-5 bg-card border border-border/70 rounded-2xl shadow-soft">
-              <button onClick={() => setMenuOpen(o => !o)}
-                className="w-full flex items-center justify-between px-5 py-4 text-left">
-                <span className="font-semibold">Composição do contrato</span>
-                <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {menuOpen ? 'recolher' : 'ver cardápio'}
-                  <ChevronDown className={`h-4 w-4 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
-                </span>
-              </button>
-              {menuOpen && (
-                <div className="px-5 pb-5">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Cardápio padrão servido em todos os fornecimentos deste contrato.
+          {/* Composição e Condições lado a lado — abrem em diálogo sobreposto,
+              nada empurra a página */}
+          {data.is_umbrella && (
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {(data.compositions || []).length > 0 && (
+                <button onClick={() => setMenuDialogOpen(true)}
+                  className="bg-card border border-border/70 rounded-2xl p-4 shadow-soft text-left hover:shadow-warm transition-shadow">
+                  <p className="font-semibold flex items-center justify-between gap-2">
+                    Composição do contrato
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                   </p>
-                  {(data.compositions![0].categories || []).map((sec, i) => renderSection(sec, `contract-${i}`))}
-                </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {contractMenuItemCount} {contractMenuItemCount === 1 ? 'item' : 'itens'} no cardápio padrão
+                  </p>
+                </button>
               )}
+              <button onClick={() => setTermsDialogOpen(true)}
+                className="bg-card border border-border/70 rounded-2xl p-4 shadow-soft text-left hover:shadow-warm transition-shadow">
+                <p className="font-semibold flex items-center justify-between gap-2">
+                  Condições do contrato
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 truncate">
+                  {data.payment_terms || 'A combinar'}
+                </p>
+              </button>
             </div>
           )}
 
@@ -422,9 +473,23 @@ export default function PortalProposta() {
 
           {/* Fornecimentos do contrato (eventos confirmados) — cada um editável
               individualmente: só data/quantidade/sala, cardápio obedece o contrato */}
-          {data.is_umbrella && sortedExecutions.length > 0 && (
+          {data.is_umbrella && (sortedExecutions.length > 0 || umbrellaActive) && (
             <div className="mt-5 bg-card border border-border/70 rounded-2xl p-5 shadow-soft">
-              <h3 className="font-semibold mb-3">Fornecimentos</h3>
+              {/* A ação mora ao lado do objeto que ela afeta: solicitar
+                  fornecimento vive no cabeçalho da própria fila */}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold">Fornecimentos</h3>
+                {data.status === 'Aprovada' && (
+                  <Button size="sm" className="rounded-lg gap-1.5 font-semibold" onClick={() => openExecDialog()}>
+                    <Plus className="h-4 w-4" /> Solicitar fornecimento
+                  </Button>
+                )}
+              </div>
+              {sortedExecutions.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Nenhum fornecimento agendado ainda — solicite o primeiro.
+                </p>
+              )}
               <div className="space-y-2">
                 {sortedExecutions.map(ex => {
                   const statusChip = ex.event_status === 'Cancelado'
@@ -565,6 +630,50 @@ export default function PortalProposta() {
 
         {/* Coluna de ações */}
         <div className="lg:sticky lg:top-6 self-start">
+          {umbrellaActive ? (
+            /* Contrato ativo: lateral = SÓ resumo financeiro (ações do contrato
+               moraram pro cabeçalho; fornecimento mora na fila; condições no
+               cartão próprio da coluna principal) */
+            <div className="bg-card border border-border/70 rounded-2xl p-6 shadow-soft">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Coins className="h-4 w-4 text-primary" /> Resumo financeiro
+                </h3>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${data.status === 'Aprovada' ? 'bg-primary/15 text-primary' : 'bg-accent-mocca/35 text-accent-coffee'}`}>
+                  {data.status === 'Aprovada' ? 'Confirmado' : 'Em confirmação'}
+                </span>
+              </div>
+              <div className="text-sm text-muted-foreground mt-4">Total do contrato</div>
+              <div className="text-3xl font-bold mt-0.5">{formatCurrency(data.total_amount)}</div>
+              {data.umbrella_quota_unit_price != null && (
+                <div className="text-muted-foreground text-sm mt-1">
+                  {formatCurrency(data.umbrella_quota_unit_price)} por unidade · cota de {data.umbrella_quota_quantity ?? '—'}
+                </div>
+              )}
+              {pays.length > 0 ? (
+                <div className="mt-3 pt-3 border-t border-border text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Faturado</span>
+                    <span className="font-medium">{formatCurrency(billedTotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Em aberto</span>
+                    <span className="font-medium">{formatCurrency(openTotal)}</span>
+                  </div>
+                  {overdueTotal > 0 && (
+                    <div className="flex justify-between text-destructive font-semibold">
+                      <span>Em atraso{overdueDays > 0 ? ` (${overdueDays} dia${overdueDays > 1 ? 's' : ''})` : ''}</span>
+                      <span>{formatCurrency(overdueTotal)}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
+                  Nenhuma cobrança lançada ainda.
+                </p>
+              )}
+            </div>
+          ) : (
           <div className="bg-card border border-border/70 rounded-2xl p-6 shadow-soft">
             <div className="text-sm text-muted-foreground">{data.is_umbrella ? 'Total do contrato' : 'Total do pedido'}</div>
             <div className="text-4xl font-bold mt-0.5">{formatCurrency(data.total_amount)}</div>
@@ -662,22 +771,22 @@ export default function PortalProposta() {
               Inclui montagem, transporte e recolhimento. Validade da proposta: 15 dias.
             </div>
           </div>
+          )}
 
           <a href={contactHref} target="_blank" rel="noopener noreferrer"
              className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-primary hover:underline">
             <MessageCircle className="h-4 w-4" /> Falar com a Coffeelier
           </a>
 
-          {/* Calendário do contrato: bloco próprio abaixo do total, marcando as
-              datas dos fornecimentos vivos; abre no mês do próximo fornecimento */}
-          {data.is_umbrella && executionDates.length > 0 && (
+          {/* Calendário do contrato: bloco próprio abaixo do resumo financeiro,
+              no MÊS ATUAL (âncora do hoje), com as datas dos fornecimentos vivos */}
+          {umbrellaActive && (
             <div className="mt-4 bg-card border border-border/70 rounded-2xl p-5 shadow-soft">
               <h3 className="font-semibold flex items-center gap-2 mb-2">
                 <CalendarDays className="h-4 w-4 text-primary" /> Calendário do contrato
               </h3>
               <Calendar
                 mode="default"
-                defaultMonth={nextExecution?.scheduled_date ? parseLocalDate(nextExecution.scheduled_date) : undefined}
                 modifiers={{ event: executionDates }}
                 modifiersClassNames={{
                   event: "relative font-semibold text-primary after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:rounded-full after:bg-primary after:content-['']",
@@ -687,6 +796,40 @@ export default function PortalProposta() {
           )}
         </div>
       </div>
+
+      {/* Diálogo: cardápio do contrato (sobreposto — não empurra a página) */}
+      <Dialog open={menuDialogOpen} onOpenChange={setMenuDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Composição do contrato</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-1">
+            Cardápio padrão servido em todos os fornecimentos deste contrato.
+          </p>
+          <div className="space-y-4">
+            {(data.compositions?.[0]?.categories || []).map((sec, i) => renderSection(sec, `contract-dialog-${i}`))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: condições do contrato */}
+      <Dialog open={termsDialogOpen} onOpenChange={setTermsDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Condições do contrato</DialogTitle></DialogHeader>
+          <div className="text-sm space-y-4">
+            <div>
+              <p className="font-semibold mb-0.5">Condição de pagamento</p>
+              <p className="text-muted-foreground">{data.payment_terms || 'A combinar'}</p>
+            </div>
+            <div>
+              <p className="font-semibold mb-0.5">Escopo</p>
+              <p className="text-muted-foreground">Inclui montagem, transporte e recolhimento.</p>
+            </div>
+            <div>
+              <p className="font-semibold mb-0.5">Validade da proposta</p>
+              <p className="text-muted-foreground">15 dias a partir da emissão.</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo: solicitar fornecimento novo OU alterar um existente */}
       <Dialog open={execOpen} onOpenChange={(open) => { setExecOpen(open); if (!open) setExecTargetId(null); }}>
