@@ -40,6 +40,7 @@ interface PortalProposalDetail {
   room_name: string | null; event_location_name: string | null;
   is_umbrella: boolean; umbrella_quota_quantity: number | null;
   umbrella_quota_unit_price: number | null; consumed_quantity: number | null;
+  has_open_change_request: boolean;
   payments: ProposalPayment[] | null;
   compositions: Composition[] | null; categories_no_composition: Section[] | null;
   error?: string;
@@ -185,6 +186,13 @@ export default function PortalProposta() {
             <CoverItem icon={<Users className="h-4 w-4" />} label="Pessoas" value={String(data.number_of_people ?? '—')} />
             <CoverItem icon={<MapPin className="h-4 w-4" />} label="Local" value={localLabel} />
           </div>
+
+          {/* Solicitação de alteração aberta: a bola está com a equipe */}
+          {data.has_open_change_request && (
+            <div className="mt-5 bg-accent-mocca/20 border border-accent-mocca/40 rounded-2xl px-5 py-4 text-sm">
+              Sua solicitação de alteração está <strong>em análise pela equipe Coffeelier</strong> — retornaremos em breve.
+            </div>
+          )}
 
           {/* Pedido recorrente: saldo da cota contratada */}
           {data.is_umbrella && (data.umbrella_quota_quantity ?? 0) > 0 && (() => {

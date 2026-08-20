@@ -33,6 +33,7 @@ interface PortalProposalRow {
   consumed_quantity: number | null;
   next_execution_date: string | null;
   last_execution_date: string | null;
+  has_open_change_request: boolean;
   payment_summary: PaymentSummary | null;
 }
 
@@ -64,7 +65,12 @@ interface PortalEventRow {
 // conforme quem criou: proposta da equipe pro cliente aprovar (aguarda o
 // cliente) vs. pedido que o próprio cliente montou (já foi enviado, aguarda
 // a equipe Coffeelier — nada pendente do lado do cliente).
-function statusBadge(status: string, createdByClient: boolean) {
+function statusBadge(status: string, createdByClient: boolean, hasOpenChangeRequest?: boolean) {
+  // Solicitação de alteração aberta: a bola está com a equipe Coffeelier,
+  // qualquer que fosse o rótulo padrão (ex.: "Aguardando você" mentiria aqui).
+  if (hasOpenChangeRequest && !['Cancelada', 'Rejeitada'].includes(status)) {
+    return { label: 'Alteração em análise', cls: 'bg-muted text-muted-foreground' };
+  }
   switch (status) {
     case 'Rascunho': return { label: 'Rascunho', cls: 'bg-muted text-muted-foreground' };
     case 'Enviada': return createdByClient
@@ -166,7 +172,7 @@ export default function PortalHome() {
   const nextPayments = [...overduePayments, ...openPayments.filter(p => p.status !== 'Vencido')].slice(0, 4);
 
   const renderOrderCard = (p: PortalProposalRow) => {
-    const badge = statusBadge(p.status, p.created_by_client);
+    const badge = statusBadge(p.status, p.created_by_client, p.has_open_change_request);
     const payBadge = paymentBadge(p.payment_summary);
     const quota = p.umbrella_quota_quantity ?? 0;
     const consumed = p.consumed_quantity ?? 0;
@@ -187,7 +193,9 @@ export default function PortalHome() {
               ? <Repeat className="h-6 w-6 text-accent-coffee" />
               : <Coffee className="h-6 w-6 text-accent-coffee" />}
           </div>
-          <div className="flex-1 min-w-0">
+          {/* self-start nas colunas de texto: o selo de status alinha com a
+              linha do título (antes ficava um degrau abaixo do "Recorrente"). */}
+          <div className="flex-1 min-w-0 self-start">
             <div className="font-semibold text-lg truncate flex items-center gap-2">
               <span className="truncate">
                 {p.event_name || p.event_category || 'Pedido'} · Proposta {p.proposal_number}
@@ -221,9 +229,9 @@ export default function PortalHome() {
             </div>
           </div>
           {!p.is_umbrella && (
-            <div className="text-xl font-semibold hidden sm:block">{formatCurrency(p.total_amount)}</div>
+            <div className="text-xl font-semibold hidden sm:block self-start">{formatCurrency(p.total_amount)}</div>
           )}
-          <span className="flex flex-col items-end gap-1.5">
+          <span className="flex flex-col items-end gap-1.5 self-start">
             <span className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${badge.cls}`}>
               {badge.label}
             </span>
