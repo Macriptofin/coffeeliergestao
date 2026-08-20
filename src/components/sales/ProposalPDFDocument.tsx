@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import { formatLocalDate, todayLocalISO } from '@/lib/date-utils';
 import { ProposalData, Composition } from '@/lib/proposalPdfViewModel';
+import logoCreme from '@/assets/brand/coffeelier-creme.png';
 
 // ─── Paleta oficial Coffeelier (MIV) ─────────────────────────────────────────
 const C = {
@@ -47,20 +48,16 @@ const PageHeader = ({ num, proposal }: { num: string; proposal: ProposalData }) 
       background: C.oliva, padding: '14px 20px',
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     }}>
-      <div
-        role="img"
-        aria-label="Coffeelier"
-        // Único arquivo de logo disponível é a versão oliva (mesma cor do fundo
-        // desta barra) — sem isso, fica só um contorno quase invisível. Em vez de
-        // inverter pra branco puro (destoa da paleta), usamos o PNG como máscara
-        // e pintamos com a cor creme da marca — mesmo tom do texto desta barra.
-        style={{
-          height: 36, aspectRatio: '1920 / 367', backgroundColor: C.creme,
-          WebkitMaskImage: 'url(/logo-coffeelier.png)', WebkitMaskSize: 'contain',
-          WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'left center',
-          maskImage: 'url(/logo-coffeelier.png)', maskSize: 'contain',
-          maskRepeat: 'no-repeat', maskPosition: 'left center',
-        } as React.CSSProperties}
+      {/* Imagem real, não máscara CSS: Safari ignora mask-image na impressão
+          (imprimia só o retângulo pintado — logo "corrompida" no PDF do
+          cliente, 20/ago/2026). Asset oficial da marca no tom creme, o mesmo
+          usado por CoffeelierLogo.tsx. */}
+      <img
+        src={logoCreme}
+        alt="Coffeelier"
+        width={188}
+        height={36}
+        style={{ height: 36, width: 'auto', display: 'block' }}
       />
       <div style={{ textAlign: 'right' }}>
         <div style={{ fontSize: 7, letterSpacing: 2, color: C.cremedark, textTransform: 'uppercase', marginBottom: 2 }}>
@@ -82,7 +79,10 @@ const PageHeader = ({ num, proposal }: { num: string; proposal: ProposalData }) 
 );
 
 const PageFooter = ({ pageNum }: { pageNum: string }) => (
+  // Ancorado por posição absoluta (a página reserva o espaço via paddingBottom)
+  // em vez de flex-spacer — ver comentário do estilo `page`.
   <div style={{
+    position: 'absolute', left: 0, right: 0, bottom: 0,
     background: C.oliva, padding: '5px 20px',
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
   }}>
@@ -163,20 +163,28 @@ export const ProposalPDFDocument = forwardRef<HTMLDivElement, Props>(({ proposal
   };
 
   // ── Estilos de página ─────────────────────────────────────────────────────
+  // Block (não flex) e 290mm (não 297): o WebKit/Safari NÃO fragmenta layout
+  // flex na impressão — com a folha flex de 297mm cravados, qualquer meio
+  // milímetro de arredondamento mm→px transbordava e o Safari descartava o
+  // conteúdo em vez de quebrá-lo (pág. 2 saía 100% em branco; confirmado ao
+  // vivo em 20/ago/2026 no print do portal). A folga de 7mm absorve o
+  // arredondamento; conteúdo maior (multi-momento) cresce e fragmenta como
+  // block, que o Safari sabe quebrar. O rodapé ancora por posição absoluta
+  // (paddingBottom reserva o espaço), substituindo o flex-spacer.
   const page: React.CSSProperties = {
     width: '210mm',
-    minHeight: '297mm',
+    minHeight: '290mm',
     background: C.creme,
     fontFamily: 'Arial, Helvetica, sans-serif',
     boxSizing: 'border-box',
-    display: 'flex',
-    flexDirection: 'column',
+    display: 'block',
+    position: 'relative',
+    paddingBottom: 34,
     pageBreakAfter: 'always',
   };
 
   const bodyPad: React.CSSProperties = {
     padding: '16px 20px',
-    flex: 1,
   };
 
   // ── Seções: grade adaptativa (por composição) ────────────────────────────
@@ -296,7 +304,9 @@ export const ProposalPDFDocument = forwardRef<HTMLDivElement, Props>(({ proposal
               const showMomentHeader = !!comp.name || !!meta || comp.price_per_person > 0;
 
               return (
-                <div key={comp.id} style={{ marginBottom: ci < compositions.length - 1 ? 12 : 0 }}>
+                // breakInside evita que um card de momento seja partido no meio
+                // quando uma proposta multi-momento cresce além de uma folha.
+                <div key={comp.id} style={{ marginBottom: ci < compositions.length - 1 ? 12 : 0, breakInside: 'avoid' }}>
                   {showMomentHeader && (
                     <div style={{
                       display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
