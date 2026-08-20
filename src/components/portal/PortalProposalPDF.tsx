@@ -96,7 +96,11 @@ export function PortalProposalPDF({ proposalId, onClose }: Props) {
           <p className="p-8 text-center text-primary-foreground">Não foi possível carregar a proposta.</p>
         )}
         {proposal && (
-          <ProposalPDFDocument ref={printRef} proposal={proposal} compositions={compositions} defaultServiceCode={defaultServiceCode} />
+          // Centraliza a folha no preview (fora do printRef — não vai pra impressão);
+          // fit-content + margin auto não clipa a borda esquerda em tela estreita.
+          <div style={{ width: 'fit-content', margin: '0 auto', boxShadow: '0 4px 16px rgba(0,0,0,0.35)' }}>
+            <ProposalPDFDocument ref={printRef} proposal={proposal} compositions={compositions} defaultServiceCode={defaultServiceCode} />
+          </div>
         )}
       </div>
     </div>
