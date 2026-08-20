@@ -425,10 +425,7 @@ export default function PortalProposta() {
           {data.is_umbrella && sortedExecutions.length > 0 && (
             <div className="mt-5 bg-card border border-border/70 rounded-2xl p-5 shadow-soft">
               <h3 className="font-semibold mb-3">Fornecimentos</h3>
-              {/* Lista (rolagem interna, altura casada com o calendário) ao lado
-                  do calendário do contrato — abre já no mês do próximo fornecimento */}
-              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-5 items-start">
-              <div className="max-h-[330px] overflow-y-auto pr-1 space-y-2">
+              <div className="space-y-2">
                 {sortedExecutions.map(ex => {
                   const statusChip = ex.event_status === 'Cancelado'
                     ? { label: 'Cancelado', cls: 'bg-muted text-muted-foreground' }
@@ -468,17 +465,6 @@ export default function PortalProposta() {
                     </div>
                   );
                 })}
-              </div>
-              <div className="md:border-l md:border-border/60 md:pl-5">
-                <Calendar
-                  mode="default"
-                  defaultMonth={nextExecution?.scheduled_date ? parseLocalDate(nextExecution.scheduled_date) : undefined}
-                  modifiers={{ event: executionDates }}
-                  modifiersClassNames={{
-                    event: "relative font-semibold text-primary after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:rounded-full after:bg-primary after:content-['']",
-                  }}
-                />
-              </div>
               </div>
             </div>
           )}
@@ -681,6 +667,24 @@ export default function PortalProposta() {
              className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-primary hover:underline">
             <MessageCircle className="h-4 w-4" /> Falar com a Coffeelier
           </a>
+
+          {/* Calendário do contrato: bloco próprio abaixo do total, marcando as
+              datas dos fornecimentos vivos; abre no mês do próximo fornecimento */}
+          {data.is_umbrella && executionDates.length > 0 && (
+            <div className="mt-4 bg-card border border-border/70 rounded-2xl p-5 shadow-soft">
+              <h3 className="font-semibold flex items-center gap-2 mb-2">
+                <CalendarDays className="h-4 w-4 text-primary" /> Calendário do contrato
+              </h3>
+              <Calendar
+                mode="default"
+                defaultMonth={nextExecution?.scheduled_date ? parseLocalDate(nextExecution.scheduled_date) : undefined}
+                modifiers={{ event: executionDates }}
+                modifiersClassNames={{
+                  event: "relative font-semibold text-primary after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:rounded-full after:bg-primary after:content-['']",
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
