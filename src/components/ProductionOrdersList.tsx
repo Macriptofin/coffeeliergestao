@@ -66,7 +66,7 @@ async function fetchProductionOrders(): Promise<ProductionOrder[]> {
         client_name,
         attendees,
         date_start,
-        proposal:proposals (
+        proposal:proposals!event_tables_proposal_id_fkey (
           contact:client_contacts ( name, phone )
         )
       ),
