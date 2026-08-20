@@ -158,7 +158,10 @@ export default function PortalProposta() {
   // equipe Coffeelier analisar. O botão de aprovação continua existindo só pro
   // caso clássico: proposta que a EQUIPE monta e manda pro cliente aprovar.
   const isClientSubmittedPending = data.created_by_client && data.status === 'Enviada';
-  const canApprove = !isClientSubmittedPending && data.status === 'Enviada' && portalClient?.portalRole === 'aprovador';
+  // Solicitação de alteração aberta bloqueia a aprovação: evita aprovar uma
+  // versão que a equipe ainda vai mexer (pedido explícito do processo CMPC).
+  const canApprove = !isClientSubmittedPending && data.status === 'Enviada'
+    && portalClient?.portalRole === 'aprovador' && !data.has_open_change_request;
   const isApproved = data.status === 'Aprovada pelo Cliente' || data.status === 'Aprovada';
   // Pedido montado pelo próprio cliente continua editável direto enquanto não
   // for aprovado — só depois disso (produção já disparada) vira solicitação.
@@ -307,7 +310,15 @@ export default function PortalProposta() {
           <div className="bg-card border border-border/70 rounded-2xl p-6 shadow-soft">
             <div className="text-sm text-muted-foreground">Total do pedido</div>
             <div className="text-4xl font-bold mt-0.5">{formatCurrency(data.total_amount)}</div>
-            {pricePerPerson != null && (
+            {/* Recorrente: o "por pessoa" certo é o preço unitário do contrato
+                (total ÷ pessoas da composição-molde não significa nada). */}
+            {data.is_umbrella ? (
+              data.umbrella_quota_unit_price != null && (
+                <div className="text-muted-foreground text-sm mt-1">
+                  {formatCurrency(data.umbrella_quota_unit_price)} por unidade · cota de {data.umbrella_quota_quantity ?? '—'}
+                </div>
+              )
+            ) : pricePerPerson != null && (
               <div className="text-muted-foreground text-sm mt-1">
                 {formatCurrency(pricePerPerson)} por pessoa · {data.number_of_people} pessoas
               </div>
@@ -329,9 +340,18 @@ export default function PortalProposta() {
                   <Check className="h-5 w-5" /> Aprovar pedido
                 </Button>
               )}
+              {/* Botão desativado nunca fica mudo: explica o porquê */}
               {!isApproved && !isClientSubmittedPending && !canApprove && data.status === 'Enviada' && (
                 <p className="text-xs text-muted-foreground text-center">
-                  Apenas um aprovador da sua empresa pode aprovar este pedido.
+                  {data.has_open_change_request
+                    ? 'A aprovação fica bloqueada enquanto sua solicitação de alteração está em análise.'
+                    : 'Apenas um aprovador da sua empresa pode aprovar este pedido.'}
+                </p>
+              )}
+              {!isApproved && !isClientSubmittedPending && data.status === 'Rascunho' && !data.created_by_client && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Este pedido está em revisão pela equipe Coffeelier — a aprovação
+                  reabre quando a nova versão for enviada.
                 </p>
               )}
 
