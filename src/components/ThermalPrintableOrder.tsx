@@ -3,6 +3,9 @@ import { forwardRef } from 'react';
 interface ThermalMeta {
   label: string;
   value: string;
+  // Valores longos (nome de evento/cliente/solicitante): rótulo numa linha e
+  // valor na linha de baixo, evitando quebras desproporcionais nos 72mm.
+  block?: boolean;
 }
 
 interface ThermalItem {
@@ -73,12 +76,19 @@ export const ThermalPrintableOrder = forwardRef<HTMLDivElement, ThermalPrintable
         {/* META */}
         {meta.length > 0 && (
           <div style={{ marginBottom: '6px', fontSize: '11px', lineHeight: 1.5 }}>
-            {meta.map((m, i) => (
-              <div key={i} style={{ display: 'flex', gap: '4px' }}>
-                <span style={{ fontWeight: 700 }}>{m.label}:</span>
-                <span style={{ flex: 1, wordBreak: 'break-word' }}>{m.value}</span>
-              </div>
-            ))}
+            {meta.map((m, i) =>
+              m.block ? (
+                <div key={i} style={{ marginBottom: '3px' }}>
+                  <div style={{ fontWeight: 700 }}>{m.label}:</div>
+                  <div style={{ wordBreak: 'break-word' }}>{m.value}</div>
+                </div>
+              ) : (
+                <div key={i} style={{ display: 'flex', gap: '4px' }}>
+                  <span style={{ fontWeight: 700 }}>{m.label}:</span>
+                  <span style={{ flex: 1, wordBreak: 'break-word' }}>{m.value}</span>
+                </div>
+              )
+            )}
           </div>
         )}
 

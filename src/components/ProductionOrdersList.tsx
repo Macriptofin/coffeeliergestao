@@ -435,14 +435,16 @@ export const ProductionOrdersList = () => {
                   // ordens antigas sem vínculo caem no fallback do código.
                   label: 'Evento',
                   value: printing.composition?.name || printing.event_table.event_code,
+                  block: true,
                 },
-                { label: 'Cliente', value: printing.event_table.client_name },
+                { label: 'Cliente', value: printing.event_table.client_name, block: true },
                 // Solicitante (contato da proposta) com telefone: quem monta o
                 // evento muitas vezes precisa ligar — a ordem já traz o contato.
                 ...(printing.event_table.proposal?.contact?.name
                   ? [{
                       label: 'Solicitante',
                       value: `${printing.event_table.proposal.contact.name}${printing.event_table.proposal.contact.phone ? ` · ${printing.event_table.proposal.contact.phone}` : ''}`,
+                      block: true,
                     }]
                   : []),
                 ...(printing.composition?.event_category
