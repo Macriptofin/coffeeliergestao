@@ -27,6 +27,7 @@ interface ProductionOrder {
     date_start: string;
   };
   composition: {
+    name: string | null;
     event_category: string | null;
     scheduled_date: string | null;
     scheduled_time: string | null;
@@ -64,6 +65,7 @@ async function fetchProductionOrders(): Promise<ProductionOrder[]> {
         date_start
       ),
       composition:proposal_compositions (
+        name,
         event_category,
         scheduled_date,
         scheduled_time,
@@ -231,6 +233,17 @@ export const ProductionOrdersList = () => {
         return 'bg-teal-100 text-teal-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Ordem de montagem da mesa na impressão: salgados → doces → demais → bebidas
+  // (mesma sequência das seções do compositor de proposta).
+  const assemblyRank = (category?: string | null) => {
+    switch (category) {
+      case 'Salgados': return 1;
+      case 'Doces & Confeitaria': return 2;
+      case 'Bebidas': return 4;
+      default: return 3;
     }
   };
 
@@ -412,8 +425,10 @@ export const ProductionOrdersList = () => {
               orderCode={printing.order_code}
               meta={[
                 {
+                  // Nome real do evento (composição), não o código técnico EVT-…;
+                  // ordens antigas sem vínculo caem no fallback do código.
                   label: 'Evento',
-                  value: `${printing.event_table.event_code} - ${printing.event_table.client_name}`,
+                  value: `${printing.composition?.name || printing.event_table.event_code} - ${printing.event_table.client_name}`,
                 },
                 ...(printing.composition?.event_category
                   ? [{ label: 'Tipo', value: printing.composition.event_category }]
@@ -425,12 +440,16 @@ export const ProductionOrdersList = () => {
                 { label: 'Nº pessoas', value: String(getOrderMeta(printing).people ?? '-') },
                 { label: 'Status', value: getStatusLabel(printing.status) },
               ]}
-              items={printing.items.map((item) => ({
-                qty: item.planned_qty.toLocaleString('pt-BR'),
-                unit: item.planned_unit,
-                name: item.material.name,
-                note: getKindLabel(item.kind),
-              }))}
+              // Ordem de MONTAGEM da mesa (salgados → doces → demais → bebidas) —
+              // e sem a nota "Produzir": isso é assunto da Ordem de Produção; esta
+              // é a lista de separação/montagem do evento.
+              items={[...printing.items]
+                .sort((a, b) => assemblyRank(a.material?.category) - assemblyRank(b.material?.category))
+                .map((item) => ({
+                  qty: item.planned_qty.toLocaleString('pt-BR'),
+                  unit: item.planned_unit,
+                  name: item.material.name,
+                }))}
               footerNote="Coffeelier - Ordem de Evento"
             />
           )}
