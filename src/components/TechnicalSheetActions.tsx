@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { useReactToPrint } from "react-to-print";
+import { usePrintWithTitle } from "@/hooks/usePrintWithTitle";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { Printer, FileDown, Eye } from "lucide-react";
@@ -190,7 +190,7 @@ export const TechnicalSheetActions = ({ sheetId, sheetName, productType }: Techn
     else if (!loading && !sheetData) toast.error('Ficha técnica não encontrada');
   }, [isError, loading, sheetData]);
 
-  const handlePrint = useReactToPrint({
+  const handlePrint = usePrintWithTitle({
     contentRef: printRef,
     documentTitle: `Ficha_Tecnica_${sheetName.replace(/\s+/g, '_')}`,
     pageStyle: `

@@ -9,7 +9,7 @@ import { Calendar, Users, Package, Play, CheckCircle, Clock, AlertCircle, Eye, E
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useReactToPrint } from 'react-to-print';
+import { usePrintWithTitle } from '@/hooks/usePrintWithTitle';
 import { PrintableBOMProductionOrder } from './PrintableBOMProductionOrder';
 import { ThermalPrintableOrder } from './ThermalPrintableOrder';
 import { ProductionChecklist } from './production/ProductionChecklist';
@@ -194,7 +194,7 @@ export const BOMProductionOrdersList = () => {
     setShowMaterialsDialog(true);
   };
 
-  const handlePrint = useReactToPrint({
+  const handlePrint = usePrintWithTitle({
     contentRef: printRef,
     documentTitle: `Ordem_Producao_BOM_${orderToPrint?.order_name.replace(/\s+/g, '_') || 'Sem_Nome'}`,
     pageStyle: `
@@ -235,7 +235,7 @@ export const BOMProductionOrdersList = () => {
     setShowPrintDialog(true);
   };
 
-  const handleThermalPrint = useReactToPrint({
+  const handleThermalPrint = usePrintWithTitle({
     contentRef: thermalRef,
     documentTitle: `Ordem_Producao_Termica_${thermalOrder?.order_name.replace(/\s+/g, '_') || 'Sem_Nome'}`,
     pageStyle: '@page { size: 80mm auto; margin: 3mm; } body { margin: 0; }',

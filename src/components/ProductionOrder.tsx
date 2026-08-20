@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useReactToPrint } from "react-to-print";
+import { usePrintWithTitle } from "@/hooks/usePrintWithTitle";
 import { Plus, Minus, Printer, FileDown, ShoppingCart, X } from "lucide-react";
 import { PrintableProductionOrder } from "./PrintableProductionOrder";
 import type { Recipe, Ingredient } from "@/types";
@@ -40,7 +40,7 @@ export const ProductionOrder = ({ recipes, ingredients, onClose }: ProductionOrd
   const [orderDate, setOrderDate] = useState(todayLocalISO());
   const printRef = useRef<HTMLDivElement>(null);
 
-  const handlePrint = useReactToPrint({
+  const handlePrint = usePrintWithTitle({
     contentRef: printRef,
     documentTitle: `Ordem_Producao_${orderName.replace(/\s+/g, '_') || 'Sem_Nome'}`,
   });

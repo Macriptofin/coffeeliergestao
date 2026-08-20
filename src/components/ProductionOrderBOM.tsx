@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useReactToPrint } from "react-to-print";
+import { usePrintWithTitle } from "@/hooks/usePrintWithTitle";
 import { Plus, Minus, Printer, FileDown, ShoppingCart, X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { PrintableBOMProductionOrder } from "./PrintableBOMProductionOrder";
 import { supabase } from "@/integrations/supabase/client";
@@ -164,7 +164,7 @@ export const ProductionOrderBOM = ({ onClose }: ProductionOrderBOMProps) => {
     if (bomsError) toast.error('Erro ao carregar fichas técnicas');
   }, [bomsError]);
 
-  const handlePrint = useReactToPrint({
+  const handlePrint = usePrintWithTitle({
     contentRef: printRef,
     documentTitle: `Ordem_Producao_BOM_${orderName.replace(/\s+/g, '_') || 'Sem_Nome'}`,
   });

@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar, Users, Package, Play, Eye, EyeOff, CheckCircle, Printer } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useReactToPrint } from 'react-to-print';
+import { usePrintWithTitle } from '@/hooks/usePrintWithTitle';
 import { ThermalPrintableOrder } from './ThermalPrintableOrder';
 import { formatLocalDate } from '@/lib/date-utils';
 
@@ -109,7 +109,7 @@ export const ProductionOrdersList = () => {
 
   const reload = () => queryClient.invalidateQueries({ queryKey: PRODUCTION_ORDERS_QUERY_KEY });
 
-  const handlePrint = useReactToPrint({
+  const handlePrint = usePrintWithTitle({
     contentRef: printRef,
     documentTitle: `Ordem_Evento_${printing?.order_code || 'Sem_Codigo'}`,
     pageStyle: THERMAL_PAGE_STYLE,

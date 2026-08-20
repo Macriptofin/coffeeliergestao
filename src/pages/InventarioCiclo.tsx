@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { todayLocalISO } from "@/lib/date-utils";
-import { useReactToPrint } from "react-to-print";
+import { usePrintWithTitle } from "@/hooks/usePrintWithTitle";
 import { useParams, useNavigate } from "react-router-dom";
 import { InventarioPrintLayout } from "@/components/inventory/InventarioPrintLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -306,7 +306,7 @@ const InventarioCiclo = () => {
   // ref para o layout de impressão (hidden na tela, visível apenas ao imprimir)
   const printRef = useRef<HTMLDivElement>(null);
 
-  const handlePrint = useReactToPrint({
+  const handlePrint = usePrintWithTitle({
     contentRef: printRef,
     documentTitle: `Inventário — ${cycle?.name ?? 'ciclo'}`,
     onBeforePrint: () => {

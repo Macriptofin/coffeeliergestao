@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useReactToPrint } from 'react-to-print';
+import { usePrintWithTitle } from '@/hooks/usePrintWithTitle';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Loader2, Printer, X } from 'lucide-react';
@@ -41,21 +41,9 @@ export function PortalProposalPDF({ proposalId, onClose }: Props) {
   const defaultServiceCode = getConfigValue('vendas', 'fiscal_service_code') || '';
 
   const pdfTitle = `Proposta_${proposal?.event_name ? `${proposal.event_name.replace(/\s+/g, '_')}_` : ''}${proposal?.proposal_number || ''}${proposal && proposal.revision > 1 ? `_Rev${proposal.revision}` : ''}`;
-  const previousTitleRef = useRef<string>('');
-  const handlePrint = useReactToPrint({
+  const handlePrint = usePrintWithTitle({
     contentRef: printRef,
     documentTitle: pdfTitle,
-    // Safari usa o título da PÁGINA PRINCIPAL no "Salvar como PDF" (ignora o
-    // do iframe que o react-to-print cria) — confirmado ao vivo em 20/ago/2026:
-    // sugeria "Coffeelier - Sistema de Gestão". Troca o título no print e
-    // restaura depois; no Chrome (que já usava o do iframe) é inócuo.
-    onBeforePrint: async () => {
-      previousTitleRef.current = document.title;
-      document.title = pdfTitle;
-    },
-    onAfterPrint: () => {
-      if (previousTitleRef.current) document.title = previousTitleRef.current;
-    },
     pageStyle: `
       @page { size: A4 portrait; margin: 0; }
       @media print {

@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { useReactToPrint } from "react-to-print";
+import { usePrintWithTitle } from "@/hooks/usePrintWithTitle";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { Printer, FileDown, Eye } from "lucide-react";
@@ -16,7 +16,7 @@ interface RecipeActionsProps {
 export const RecipeActions = ({ recipe, ingredients }: RecipeActionsProps) => {
   const printRef = useRef<HTMLDivElement>(null);
 
-  const handlePrint = useReactToPrint({
+  const handlePrint = usePrintWithTitle({
     contentRef: printRef,
     documentTitle: `Ficha_Tecnica_${recipe.name.replace(/\s+/g, '_')}`,
     pageStyle: `
