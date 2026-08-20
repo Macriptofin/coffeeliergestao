@@ -110,6 +110,10 @@ export default function PortalProposta() {
       if (r.success) {
         toast.success(r.message);
         setChangeOpen(false); setChangeMsg('');
+        // Avisa a equipe por e-mail (fire-and-forget — o sininho interno já foi
+        // aceso por trigger no banco; falha aqui não pode travar o cliente).
+        supabase.functions.invoke('notify-internal-change-request', { body: { proposal_id: id } })
+          .then(({ error: nErr }) => { if (nErr) console.warn('notify-internal-change-request:', nErr.message); });
       } else if (isPrazoMinimoMessage(r.message)) {
         showPrazoMinimoToast(r.message, { whatsappUrl, contactEmail });
       } else toast.error(r.message);

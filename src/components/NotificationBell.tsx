@@ -35,7 +35,11 @@ export function NotificationBell() {
 
   const handleClick = (alert: typeof alerts[0]) => {
     markRead(alert.id);
-    const route = MODULE_ROUTES[alert.module];
+    // Solicitação de alteração do portal: cai direto na aba certa (Vendas →
+    // Portal → Solicitações), não na aba padrão de Vendas.
+    const route = alert.reference_type === 'proposal_change_request'
+      ? '/vendas#portal'
+      : MODULE_ROUTES[alert.module];
     if (route) { navigate(route); setOpen(false); }
   };
 

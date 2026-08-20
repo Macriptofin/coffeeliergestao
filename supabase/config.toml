@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.send-user-access-email]
 verify_jwt = true
+
+[functions.notify-internal-change-request]
+verify_jwt = true

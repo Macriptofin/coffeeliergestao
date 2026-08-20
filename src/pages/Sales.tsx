@@ -238,7 +238,9 @@ const Sales = () => {
         </TabsContent>
 
         <TabsContent value="portal" className="mt-6">
-          <PortalAdmin />
+          {/* "Abrir proposta" de uma solicitação de alteração: troca pra aba
+              Propostas já na visão de detalhe da proposta em questão. */}
+          <PortalAdmin onViewProposal={(id) => { handleViewProposal(id); setActiveTab('proposals'); }} />
         </TabsContent>
 
       </Tabs>

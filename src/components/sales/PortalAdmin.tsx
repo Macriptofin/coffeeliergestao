@@ -8,15 +8,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
-  MessageSquareWarning, MapPinned, KeyRound, Settings2, Check, X, ShieldCheck, User,
+  MessageSquareWarning, MapPinned, KeyRound, Settings2, Check, X, ShieldCheck, User, FileText,
 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { formatLocalDate } from '@/lib/date-utils';
 import { toast } from 'sonner';
+
+interface PortalAdminProps {
+  // Abre a proposta da solicitação na aba Propostas (fio vindo de Sales.tsx).
+  onViewProposal?: (id: string) => void;
+}
 
 // Painel interno do Portal (admin "loja online"): acompanha e configura o canal do cliente.
 // Catálogo do Portal não é mais curado por cliente aqui — é um flag global por produto
 // ("Disponível no Portal", aba Precificação do cadastro do material).
-export default function PortalAdmin() {
+export default function PortalAdmin({ onViewProposal }: PortalAdminProps) {
   return (
     <Tabs defaultValue="requests" className="w-full">
       <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
@@ -25,7 +34,7 @@ export default function PortalAdmin() {
         <TabsTrigger value="access" className="gap-2 py-2"><KeyRound className="h-4 w-4" /><span className="hidden sm:inline">Acessos</span></TabsTrigger>
         <TabsTrigger value="config" className="gap-2 py-2"><Settings2 className="h-4 w-4" /><span className="hidden sm:inline">Configurações</span></TabsTrigger>
       </TabsList>
-      <TabsContent value="requests" className="mt-6"><ChangeRequests /></TabsContent>
+      <TabsContent value="requests" className="mt-6"><ChangeRequests onViewProposal={onViewProposal} /></TabsContent>
       <TabsContent value="locations" className="mt-6"><PendingLocations /></TabsContent>
       <TabsContent value="access" className="mt-6"><PortalAccess /></TabsContent>
       <TabsContent value="config" className="mt-6"><PortalConfig /></TabsContent>
@@ -34,8 +43,11 @@ export default function PortalAdmin() {
 }
 
 /* ---------- Solicitações de alteração ---------- */
-function ChangeRequests() {
+function ChangeRequests({ onViewProposal }: { onViewProposal?: (id: string) => void }) {
   const qc = useQueryClient();
+  // Resolver/Recusar pedem confirmação explícita — antes um clique já marcava
+  // resolvida sem a alteração ter sido feita de fato na proposta.
+  const [pendingAction, setPendingAction] = useState<{ id: string; status: 'resolvida' | 'recusada' } | null>(null);
   const { data = [], isPending } = useQuery({
     queryKey: ['portal-change-requests'],
     queryFn: async () => {
@@ -73,8 +85,13 @@ function ChangeRequests() {
               </div>
               {r.status === 'aberta' ? (
                 <div className="flex gap-2 shrink-0">
-                  <Button size="sm" variant="outline" className="gap-1" onClick={() => setStatus(r.id, 'resolvida')}><Check className="h-4 w-4" /> Resolver</Button>
-                  <Button size="sm" variant="ghost" className="gap-1 text-destructive" onClick={() => setStatus(r.id, 'recusada')}><X className="h-4 w-4" /> Recusar</Button>
+                  {onViewProposal && (
+                    <Button size="sm" variant="secondary" className="gap-1" onClick={() => onViewProposal(r.proposal_id)}>
+                      <FileText className="h-4 w-4" /> Abrir proposta
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="gap-1" onClick={() => setPendingAction({ id: r.id, status: 'resolvida' })}><Check className="h-4 w-4" /> Resolver</Button>
+                  <Button size="sm" variant="ghost" className="gap-1 text-destructive" onClick={() => setPendingAction({ id: r.id, status: 'recusada' })}><X className="h-4 w-4" /> Recusar</Button>
                 </div>
               ) : (
                 <Badge variant={r.status === 'resolvida' ? 'secondary' : 'outline'} className="capitalize shrink-0">{r.status}</Badge>
@@ -83,6 +100,27 @@ function ChangeRequests() {
           </CardContent>
         </Card>
       ))}
+
+      <AlertDialog open={!!pendingAction} onOpenChange={(open) => { if (!open) setPendingAction(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingAction?.status === 'resolvida' ? 'Confirmar resolução' : 'Recusar solicitação'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingAction?.status === 'resolvida'
+                ? 'Confirme apenas se a alteração pedida já foi aplicada na proposta. O cliente verá o pedido voltar ao status normal no portal.'
+                : 'A solicitação será marcada como recusada e o pedido volta ao status normal no portal — combine a recusa com o cliente antes.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (pendingAction) { setStatus(pendingAction.id, pendingAction.status); setPendingAction(null); } }}>
+              {pendingAction?.status === 'resolvida' ? 'Sim, foi resolvida' : 'Recusar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -194,6 +232,7 @@ function PortalConfig() {
   const qc = useQueryClient();
   const [whatsapp, setWhatsapp] = useState('');
   const [emailContato, setEmailContato] = useState('');
+  const [emailAvisos, setEmailAvisos] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -201,11 +240,12 @@ function PortalConfig() {
     queryKey: ['portal-config'],
     queryFn: async () => {
       const { data, error } = await supabase.from('app_settings').select('key, value')
-        .in('key', ['portal.whatsapp', 'portal.contact_email']);
+        .in('key', ['portal.whatsapp', 'portal.contact_email', 'portal.internal_notify_email']);
       if (error) throw error;
       const m = new Map((data || []).map(d => [d.key, d.value]));
       setWhatsapp(m.get('portal.whatsapp') || '');
       setEmailContato(m.get('portal.contact_email') || '');
+      setEmailAvisos(m.get('portal.internal_notify_email') || '');
       setLoaded(true);
       return data;
     },
@@ -217,10 +257,12 @@ function PortalConfig() {
       const { error } = await supabase.from('app_settings').upsert([
         { key: 'portal.whatsapp', value: whatsapp.trim() },
         { key: 'portal.contact_email', value: emailContato.trim() },
+        { key: 'portal.internal_notify_email', value: emailAvisos.trim() },
       ], { onConflict: 'key' });
       if (error) throw error;
       toast.success('Configurações do portal salvas.');
       qc.invalidateQueries({ queryKey: ['portal-settings'] });
+      qc.invalidateQueries({ queryKey: ['portal-config'] });
     } catch {
       toast.error('Erro ao salvar.');
     } finally { setSaving(false); }
@@ -240,6 +282,14 @@ function PortalConfig() {
         <div className="space-y-1.5">
           <Label>E-mail de contato</Label>
           <Input type="email" value={emailContato} onChange={e => setEmailContato(e.target.value)} placeholder="contato@coffeelier.com.br" disabled={!loaded} />
+        </div>
+        <div className="space-y-1.5 pt-3 border-t">
+          <Label>E-mail de avisos internos</Label>
+          <Input type="email" value={emailAvisos} onChange={e => setEmailAvisos(e.target.value)} placeholder="equipe@coffeelier.com.br" disabled={!loaded} />
+          <p className="text-xs text-muted-foreground">
+            Recebe um e-mail a cada nova solicitação de alteração feita por cliente no portal
+            (além do alerta no sininho do sistema). Em branco = não envia e-mail.
+          </p>
         </div>
         <Button onClick={save} disabled={saving || !loaded}>{saving ? 'Salvando…' : 'Salvar configurações'}</Button>
       </CardContent>
