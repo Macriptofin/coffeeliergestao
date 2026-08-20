@@ -257,6 +257,9 @@ export function ProposalDetailView({ proposalId, onBack, onEdit, onPdf, onViewUm
                   <span>
                     {prop.umbrella_quota_quantity ?? '—'}
                     {prop.umbrella_quota_unit_price != null ? ` × ${formatCurrency(prop.umbrella_quota_unit_price)}` : ''}
+                    {prop.umbrella_quota_quantity != null && prop.umbrella_quota_unit_price != null && (
+                      <strong>{` = ${formatCurrency(prop.umbrella_quota_quantity * prop.umbrella_quota_unit_price)}`}</strong>
+                    )}
                   </span>
                 </div>
               )}

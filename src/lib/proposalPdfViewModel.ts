@@ -24,6 +24,11 @@ export interface ProposalData {
   contact_email: string;
   contact_phone: string;
   payment_terms: string;
+  // Guarda-chuva (contrato recorrente): a tabela de Orçamento vira
+  // quantidade contratada × preço unitário = valor total.
+  is_umbrella: boolean;
+  umbrella_quota_quantity: number | null;
+  umbrella_quota_unit_price: number | null;
 }
 
 export interface MenuItem {
@@ -90,6 +95,9 @@ export function buildProposalData(p: any): ProposalData | null {
     // Condição da proposta tem prioridade; sem ela, cai pra condição padrão do
     // cadastro do cliente (nunca hardcoded — cada cliente pode ter a sua, ex.: CMPC).
     payment_terms: p.payment_terms || p.clients?.payment_terms || '',
+    is_umbrella: !!p.is_umbrella,
+    umbrella_quota_quantity: p.umbrella_quota_quantity != null ? parseFloat(p.umbrella_quota_quantity) : null,
+    umbrella_quota_unit_price: p.umbrella_quota_unit_price != null ? parseFloat(p.umbrella_quota_unit_price) : null,
   };
 }
 

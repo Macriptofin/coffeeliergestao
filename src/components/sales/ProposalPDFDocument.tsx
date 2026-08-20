@@ -119,6 +119,19 @@ export const ProposalPDFDocument = forwardRef<HTMLDivElement, Props>(({ proposal
   const numPeople = proposal.number_of_people || 1;
   const billableCompositions = compositions.filter(c => c.id !== '__legacy__' && c.number_of_people > 0);
 
+  // Guarda-chuva (contrato recorrente): o Orçamento vira quantidade contratada ×
+  // preço unitário (campo de referência, caindo pro preço/pessoa da composição-
+  // molde — mesma cadeia de fallback de add_umbrella_execution no banco).
+  const umbrellaUnitPrice = proposal.is_umbrella
+    ? (proposal.umbrella_quota_unit_price ?? billableCompositions[0]?.price_per_person ?? 0)
+    : 0;
+  const isUmbrellaBudget = proposal.is_umbrella
+    && (proposal.umbrella_quota_quantity ?? 0) > 0
+    && umbrellaUnitPrice > 0;
+  const budgetQty   = isUmbrellaBudget ? proposal.umbrella_quota_quantity! : 1;
+  const budgetUnit  = isUmbrellaBudget ? umbrellaUnitPrice : proposal.total_amount;
+  const budgetTotal = isUmbrellaBudget ? budgetQty * umbrellaUnitPrice : proposal.total_amount;
+
   // Descrição comercial padrão do serviço (linha da tabela de Orçamento) — segue
   // literalmente o padrão real já usado na emissão de NFS-e da Coffeelier (ex.:
   // "Prestação de serviço de alimentação (Coffee break secretaria do esporte
@@ -129,6 +142,11 @@ export const ProposalPDFDocument = forwardRef<HTMLDivElement, Props>(({ proposal
   // casos) — pensada pra ser copiada direto pro campo "Descrição do Serviço" da
   // NFS-e/pedido de compra do cliente, sem depender do parágrafo acima da tabela.
   const buildServiceDescription = () => {
+    // Contrato recorrente: sem data única — descreve o fornecimento sob demanda.
+    if (proposal.is_umbrella) {
+      const paren = proposal.event_name ? ` (${proposal.event_name})` : '';
+      return `Prestação recorrente de serviço de alimentação${paren}, fornecida sob demanda dentro da cota contratada, incluindo fornecimento de alimentos, logística e atendimento.`;
+    }
     const types = Array.from(new Set(
       billableCompositions.map(c => c.event_category || c.name).filter(Boolean)
     ));
@@ -396,12 +414,14 @@ export const ProposalPDFDocument = forwardRef<HTMLDivElement, Props>(({ proposal
                   <td style={{ padding: '9px 8px', textAlign: 'center', color: C.text }}>
                     {billableCompositions.find(c => c.service_code)?.service_code || defaultServiceCode || '—'}
                   </td>
-                  <td style={{ padding: '9px 8px', textAlign: 'center', fontWeight: 700, color: C.text }}>1</td>
+                  <td style={{ padding: '9px 8px', textAlign: 'center', fontWeight: 700, color: C.text }}>
+                    {budgetQty.toLocaleString('pt-BR')}
+                  </td>
                   <td style={{ padding: '9px 8px', textAlign: 'center', color: C.text }}>
-                    {fmtMoney(proposal.total_amount)}
+                    {fmtMoney(budgetUnit)}
                   </td>
                   <td style={{ padding: '9px 8px', textAlign: 'center', fontWeight: 800, color: C.oliva, fontSize: 11 }}>
-                    {fmtMoney(proposal.total_amount)}
+                    {fmtMoney(budgetTotal)}
                   </td>
                 </tr>
               </tbody>
@@ -409,11 +429,20 @@ export const ProposalPDFDocument = forwardRef<HTMLDivElement, Props>(({ proposal
                 <tr style={{ borderTop: `2px solid ${C.oliva}` }}>
                   <td colSpan={4} style={{ padding: '7px 8px', fontWeight: 700, color: C.textMuted }}>Total geral</td>
                   <td style={{ padding: '7px 8px', textAlign: 'center', fontWeight: 900, fontSize: 13, color: C.oliva }}>
-                    {fmtMoney(proposal.total_amount)}
+                    {fmtMoney(budgetTotal)}
                   </td>
                 </tr>
               </tfoot>
             </table>
+
+            {/* Contrato recorrente: como a cota é consumida */}
+            {isUmbrellaBudget && (
+              <p style={{ fontSize: 8, color: C.textMuted, lineHeight: 1.6, marginBottom: 8 }}>
+                Proposta de fornecimento recorrente: a quantidade contratada
+                ({budgetQty.toLocaleString('pt-BR')} unidades a {fmtMoney(budgetUnit)} cada) é consumida
+                conforme os eventos forem realizados, com faturamento conforme as condições de pagamento abaixo.
+              </p>
+            )}
 
             {/* Validade */}
             <div style={{

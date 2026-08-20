@@ -677,6 +677,13 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     if (!clientId)  { toast.error('Selecione o cliente');     return false; }
     if (!eventName.trim()) { toast.error('Informe o nome do evento'); return false; }
     if (!compositions.length) { toast.error('Adicione ao menos um momento'); return false; }
+    // Guarda-chuva: 1 momento único (a composição-molde). As ocorrências reais
+    // entram depois da aprovação, pelo painel "Saldo e execuções" — permitir
+    // vários momentos aqui tornaria ambíguo qual é o molde copiado nas execuções.
+    if (isUmbrella && compositions.length > 1) {
+      toast.error('Proposta guarda-chuva usa um único momento (a composição-molde). As execuções reais são lançadas após a aprovação, em "Saldo e execuções".');
+      return false;
+    }
     for (let i = 0; i < compositions.length; i++) {
       const c = compositions[i];
       if (!c.event_category) { toast.error(`Selecione o tipo de evento do momento ${i + 1}`); return false; }
@@ -693,6 +700,16 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
     const derivedEventCategory = compositions[0]?.event_category || null;
     const compDates = compositions.map(c => c.scheduled_date).filter(Boolean).sort();
     const derivedEventDate = compDates[0] || null;
+
+    // Guarda-chuva: o valor comercial da proposta é a cota contratada (qtd ×
+    // preço de referência, caindo pro preço da composição-molde quando o campo
+    // fica em branco — mesma cadeia de fallback de add_umbrella_execution), não
+    // o total da molde. É o que a lista/funil/portal/PDF mostram como total.
+    const moldePricePerPerson = calc.perComp[compositions[0]?.localId]?.pricePerPerson ?? 0;
+    const umbrellaEffectiveUnitPrice = umbrellaQuotaUnitPrice ?? (moldePricePerPerson > 0 ? moldePricePerPerson : null);
+    const umbrellaContractTotal = isUmbrella && umbrellaQuotaQuantity && umbrellaEffectiveUnitPrice != null
+      ? umbrellaQuotaQuantity * umbrellaEffectiveUnitPrice
+      : null;
 
     const proposalPayload: any = {
       client_id:                clientId,
@@ -718,7 +735,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       number_of_people:         totalPeople,
       target_weight_per_person: calc.grand.weightPerPerson || 200,
       total_weight:             calc.grand.totalWeightG,
-      total_amount:             calc.grand.suggestedPrice,
+      total_amount:             umbrellaContractTotal ?? calc.grand.suggestedPrice,
       total_cost:               calc.grand.totalCost,
       notes:                    notes        || null,
       is_umbrella:              isUmbrella,
@@ -822,12 +839,17 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
       if (!pid) return;
 
       const { error: evtErr } = await (supabase.rpc as any)('create_event_from_proposal', { p_proposal_id: pid });
-      if (evtErr) console.warn('create_event_from_proposal:', evtErr.message);
-
       const { error: prodErr } = await (supabase.rpc as any)('generate_production_from_proposal', { p_proposal_id: pid });
-      if (prodErr) console.warn('generate_production_from_proposal:', prodErr.message);
 
-      toast.success('Proposta aprovada! Evento e ordem de produção criados.');
+      // Erro aqui NÃO pode ser silencioso: a proposta já está 'Aprovada', mas sem
+      // evento/ordens — o usuário precisa saber que a geração falhou.
+      if (evtErr || prodErr) {
+        toast.error(`Proposta aprovada, mas a geração de evento/produção falhou: ${(evtErr || prodErr)!.message}`);
+      } else {
+        toast.success(isUmbrella
+          ? 'Proposta aprovada! Contrato guarda-chuva ativado — lance as execuções em "Saldo e execuções".'
+          : 'Proposta aprovada! Evento e ordem de produção criados.');
+      }
       onComplete();
     } catch (e: any) {
       toast.error('Erro ao aprovar: ' + e.message);
@@ -1052,28 +1074,53 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
                   execuções (ex.: coffee break mensal, visitas avulsas) direto na lista de
                   propostas, sem reabrir esta tela.
                 </p>
-                {isUmbrella && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label>Quantidade contratada</Label>
-                      <Input
-                        type="number" min="0"
-                        value={umbrellaQuotaQuantity ?? ''}
-                        onChange={e => setUmbrellaQuotaQuantity(e.target.value ? Number(e.target.value) : null)}
-                        placeholder="Ex: 1000"
-                      />
+                {isUmbrella && (() => {
+                  const moldePrice = calc.perComp[compositions[0]?.localId]?.pricePerPerson ?? 0;
+                  const effectivePrice = umbrellaQuotaUnitPrice ?? (moldePrice > 0 ? moldePrice : null);
+                  return (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>Quantidade contratada</Label>
+                          <Input
+                            type="number" min="0"
+                            value={umbrellaQuotaQuantity ?? ''}
+                            onChange={e => setUmbrellaQuotaQuantity(e.target.value ? Number(e.target.value) : null)}
+                            placeholder="Ex: 1000"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Preço de referência por unidade (R$)</Label>
+                          <Input
+                            type="number" min="0" step="0.01"
+                            value={umbrellaQuotaUnitPrice ?? ''}
+                            onChange={e => setUmbrellaQuotaUnitPrice(e.target.value ? Number(e.target.value) : null)}
+                            placeholder={moldePrice > 0 ? moldePrice.toFixed(2) : 'Ex: 18'}
+                          />
+                          {umbrellaQuotaUnitPrice == null && moldePrice > 0 && (
+                            <p className="text-[11px] text-muted-foreground">
+                              Em branco: usa o preço por pessoa da composição ({fmt(moldePrice)}).{' '}
+                              <button
+                                type="button"
+                                className="underline text-primary"
+                                onClick={() => setUmbrellaQuotaUnitPrice(Number(moldePrice.toFixed(2)))}
+                              >
+                                Usar esse preço
+                              </button>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {umbrellaQuotaQuantity && effectivePrice != null ? (
+                        <p className="text-sm bg-muted/50 rounded-md px-3 py-2">
+                          Valor total contratado:{' '}
+                          <span className="text-muted-foreground">{umbrellaQuotaQuantity} × {fmt(effectivePrice)} =</span>{' '}
+                          <span className="font-bold text-primary">{fmt(umbrellaQuotaQuantity * effectivePrice)}</span>
+                        </p>
+                      ) : null}
                     </div>
-                    <div className="space-y-1.5">
-                      <Label>Preço de referência por unidade (R$)</Label>
-                      <Input
-                        type="number" min="0" step="0.01"
-                        value={umbrellaQuotaUnitPrice ?? ''}
-                        onChange={e => setUmbrellaQuotaUnitPrice(e.target.value ? Number(e.target.value) : null)}
-                        placeholder="Ex: 18"
-                      />
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* Estrutura do cliente (só aparece quando cliente selecionado) */}

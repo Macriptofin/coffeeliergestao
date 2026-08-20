@@ -226,10 +226,15 @@ const SalesPipeline = () => {
           "generate_production_from_proposal",
           { p_proposal_id: p.id },
         );
-        if (evtErr) console.warn("create_event_from_proposal:", evtErr.message);
-        if (prodErr)
-          console.warn("generate_production_from_proposal:", prodErr.message);
-        toast.success("Proposta aprovada! Evento e ordem de produção criados.");
+        // Erro aqui NÃO pode ser silencioso: a proposta já está 'Aprovada', mas
+        // sem evento/ordens — o usuário precisa saber que a geração falhou.
+        if (evtErr || prodErr) {
+          toast.error(`Proposta aprovada, mas a geração de evento/produção falhou: ${(evtErr || prodErr)!.message}`);
+        } else {
+          toast.success(p.is_umbrella
+            ? 'Proposta aprovada! Contrato guarda-chuva ativado — lance as execuções em "Saldo e execuções".'
+            : "Proposta aprovada! Evento e ordem de produção criados.");
+        }
       } else {
         // 'Enviada' ou 'Aprovada pelo Cliente'
         const { error } = await supabase

@@ -216,6 +216,12 @@ export default function PortalProposta() {
                     <p className="text-lg font-semibold text-primary">{Math.max(0, quota - consumed)}</p>
                   </div>
                 </div>
+                {data.umbrella_quota_unit_price != null && (
+                  <p className="text-sm text-center mt-4 pt-3 border-t border-border/60 text-muted-foreground">
+                    Valor total contratado: {quota} × {formatCurrency(data.umbrella_quota_unit_price)} ={' '}
+                    <strong className="text-foreground">{formatCurrency(quota * data.umbrella_quota_unit_price)}</strong>
+                  </p>
+                )}
               </div>
             );
           })()}

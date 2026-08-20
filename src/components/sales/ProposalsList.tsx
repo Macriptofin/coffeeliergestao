@@ -178,19 +178,25 @@ export default function ProposalsList({ onNewProposal, onEditProposal, onViewPro
   };
 
   const handleApprove = async (proposalId: string) => {
+    const isUmbrella = !!proposals.find(p => p.id === proposalId)?.is_umbrella;
     try {
       await supabase.from('proposals').update({ status: 'Aprovada' }).eq('id', proposalId);
       const { error: evtErr }  = await (supabase.rpc as any)('create_event_from_proposal',      { p_proposal_id: proposalId });
       const { error: prodErr } = await supabase.rpc('generate_production_from_proposal', { p_proposal_id: proposalId });
-      if (evtErr)  console.warn('create_event_from_proposal:',      evtErr.message);
-      if (prodErr) console.warn('generate_production_from_proposal:', prodErr.message);
+      // Erro aqui NÃO pode ser silencioso: a proposta já está 'Aprovada', mas
+      // sem evento/ordens — o usuário precisa saber que a geração falhou.
+      if (evtErr || prodErr) {
+        toast.error(`Proposta aprovada, mas a geração de evento/produção falhou: ${(evtErr || prodErr)!.message}`);
+      }
       // Notifica o solicitante do portal (se houver) — no-op silencioso pra propostas
       // sem portal_created_by (a própria função checa e retorna sem enviar nada).
       const { error: notifyErr } = await supabase.functions.invoke('notify-portal-proposal', {
         body: { proposal_id: proposalId, event_type: 'approved' },
       });
       if (notifyErr) console.warn('notify-portal-proposal:', notifyErr.message);
-      toast.success('Proposta aprovada! Evento e OP criados automaticamente.');
+      toast.success(isUmbrella
+        ? 'Proposta aprovada! Contrato guarda-chuva ativado — lance as execuções em "Saldo e execuções".'
+        : 'Proposta aprovada! Evento e OP criados automaticamente.');
       refetchProposals();
     } catch (e: any) {
       toast.error(e.message || 'Erro ao aprovar proposta');

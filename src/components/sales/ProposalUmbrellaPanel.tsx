@@ -44,6 +44,9 @@ interface UmbrellaProgress {
   quota_quantity: number | null;
   quota_unit_price: number | null;
   quota_value_total: number;
+  // Composição-molde (cardápio-template do contrato) — fora do consumo/extrato.
+  template_name: string | null;
+  template_price_per_person: number | null;
   consumed_quantity: number;
   consumed_value: number;
   remaining_quantity: number;
@@ -300,7 +303,7 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
         proposalId={proposalId}
         clientId={proposal.client_id}
         eventName={proposal.event_name}
-        matrixUnitPrice={progress.quota_unit_price ?? progress.executions[0]?.price_per_person ?? null}
+        matrixUnitPrice={progress.quota_unit_price ?? progress.template_price_per_person ?? progress.executions[0]?.price_per_person ?? null}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onLaunched={refetch}

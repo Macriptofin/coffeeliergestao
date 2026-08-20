@@ -20,6 +20,7 @@ async function fetchProposalPDFData(proposalId: string): Promise<{ proposal: Pro
       .select(`
         id, proposal_number, revision, event_name, event_category, number_of_people,
         event_date, total_amount, target_weight_per_person, status, payment_terms,
+        is_umbrella, umbrella_quota_quantity, umbrella_quota_unit_price,
         clients(name, cnpj_cpf, payment_terms),
         client_departments(name),
         client_units(name, address),
