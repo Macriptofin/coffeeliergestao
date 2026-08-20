@@ -82,7 +82,7 @@ export default function PortalProposta() {
   const [busy, setBusy] = useState(false);
   // Solicitar fornecimento (execução de contrato recorrente)
   const [execOpen, setExecOpen] = useState(false);
-  const [execForm, setExecForm] = useState({ name: '', date: '', time: '', people: '', roomId: '', notes: '' });
+  const [execForm, setExecForm] = useState({ name: '', date: '', time: '', people: '', unitId: '', roomId: '', notes: '' });
 
   const { data, isPending } = useQuery({
     queryKey: ['portal-proposal', id],
@@ -94,13 +94,21 @@ export default function PortalProposta() {
     },
   });
 
-  // Salas do cliente pro seletor do fornecimento (RLS já escopa ao próprio cliente)
+  // Estrutura do cliente pro fornecimento: Unidade (prédio) → Sala em cascata
+  // (RLS já escopa ao próprio cliente).
+  const { data: units = [] } = useQuery({
+    queryKey: ['portal-client-units', portalClient?.clientId],
+    enabled: !!portalClient?.clientId && execOpen,
+    queryFn: async () =>
+      (await supabase.from('client_units').select('id, name').eq('client_id', portalClient!.clientId).eq('is_active', true).order('name')).data ?? [],
+  });
   const { data: rooms = [] } = useQuery({
     queryKey: ['portal-client-rooms', portalClient?.clientId],
     enabled: !!portalClient?.clientId && execOpen,
     queryFn: async () =>
-      (await supabase.from('client_rooms').select('id, name').eq('client_id', portalClient!.clientId).eq('is_active', true).order('name')).data ?? [],
+      (await supabase.from('client_rooms').select('id, name, unit_id').eq('client_id', portalClient!.clientId).eq('is_active', true).order('name')).data ?? [],
   });
+  const roomsOfUnit = (rooms as any[]).filter(r => r.unit_id === execForm.unitId);
 
   const handleApprove = async () => {
     setBusy(true);
@@ -144,6 +152,9 @@ export default function PortalProposta() {
   const handleRequestExecution = async () => {
     setBusy(true);
     try {
+      // Sem sala escolhida, a unidade vira o local do fornecimento (a sala já
+      // implica a unidade quando informada).
+      const unitName = (units as any[]).find(u => u.id === execForm.unitId)?.name || null;
       const { data: res, error } = await supabase.rpc('request_umbrella_execution', {
         p_proposal_id: id,
         p_name: execForm.name,
@@ -151,6 +162,7 @@ export default function PortalProposta() {
         p_scheduled_time: execForm.time || null,
         p_number_of_people: execForm.people ? parseInt(execForm.people) : null,
         p_room_id: execForm.roomId || null,
+        p_location: !execForm.roomId && unitName ? unitName : null,
         p_notes: execForm.notes || null,
       });
       if (error) throw error;
@@ -158,7 +170,7 @@ export default function PortalProposta() {
       if (r.success) {
         toast.success(r.message);
         setExecOpen(false);
-        setExecForm({ name: '', date: '', time: '', people: '', roomId: '', notes: '' });
+        setExecForm({ name: '', date: '', time: '', people: '', unitId: '', roomId: '', notes: '' });
         queryClient.invalidateQueries({ queryKey: ['portal-proposal', id] });
         // Avisa a equipe por e-mail (fire-and-forget — sininho já aceso por trigger)
         supabase.functions.invoke('notify-internal-change-request', { body: { proposal_id: id, kind: 'execution' } })
@@ -490,18 +502,32 @@ export default function PortalProposta() {
                 <Input type="time" value={execForm.time} onChange={e => setExecForm(f => ({ ...f, time: e.target.value }))} />
               </div>
             </div>
+            <div className="space-y-1.5">
+              <Label>Nº de pessoas *</Label>
+              <Input type="number" min="1" value={execForm.people}
+                onChange={e => setExecForm(f => ({ ...f, people: e.target.value }))} placeholder="Ex: 50" />
+            </div>
+            {/* Cascata: primeiro a Unidade (prédio), depois só as salas dela */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Nº de pessoas *</Label>
-                <Input type="number" min="1" value={execForm.people}
-                  onChange={e => setExecForm(f => ({ ...f, people: e.target.value }))} placeholder="Ex: 50" />
+                <Label>Unidade</Label>
+                <Select value={execForm.unitId}
+                  onValueChange={v => setExecForm(f => ({ ...f, unitId: v, roomId: '' }))}>
+                  <SelectTrigger><SelectValue placeholder={units.length ? 'Selecione' : 'Sem unidades'} /></SelectTrigger>
+                  <SelectContent>
+                    {units.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Sala</Label>
-                <Select value={execForm.roomId} onValueChange={v => setExecForm(f => ({ ...f, roomId: v }))}>
-                  <SelectTrigger><SelectValue placeholder={rooms.length ? 'Selecione' : 'Sem salas'} /></SelectTrigger>
+                <Select value={execForm.roomId} onValueChange={v => setExecForm(f => ({ ...f, roomId: v }))}
+                  disabled={!execForm.unitId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={!execForm.unitId ? 'Selecione a unidade' : roomsOfUnit.length ? 'Selecione' : 'Sem salas nesta unidade'} />
+                  </SelectTrigger>
                   <SelectContent>
-                    {rooms.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                    {roomsOfUnit.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
