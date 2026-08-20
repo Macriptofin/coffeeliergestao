@@ -142,7 +142,9 @@ interface PendingExecutionRequest {
   location: string | null;
   notes: string | null;
   created_at: string;
+  kind: 'nova' | 'alteracao';
   client_rooms: { name: string } | null;
+  target: { name: string } | null;
 }
 
 async function fetchUmbrellaPanelData(proposalId: string) {
@@ -153,7 +155,7 @@ async function fetchUmbrellaPanelData(proposalId: string) {
       .single(),
     supabase.rpc('get_umbrella_progress', { p_proposal_id: proposalId }),
     supabase.from('umbrella_execution_requests')
-      .select('id, name, scheduled_date, scheduled_time, number_of_people, location, notes, created_at, client_rooms(name)')
+      .select('id, name, scheduled_date, scheduled_time, number_of_people, location, notes, created_at, kind, client_rooms(name), target:proposal_compositions!umbrella_execution_requests_target_composition_id_fkey(name)')
       .eq('proposal_id', proposalId)
       .eq('status', 'aberta')
       .order('scheduled_date'),
@@ -326,7 +328,14 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
             {pendingRequests.map(req => (
               <div key={req.id} className="flex items-start justify-between gap-4 border-t border-dashed border-border/60 first:border-t-0 pt-3 first:pt-0">
                 <div className="min-w-0 text-sm">
-                  <p className="font-medium">{req.name}</p>
+                  <p className="font-medium">
+                    {req.kind === 'alteracao' && (
+                      <Badge variant="outline" className="mr-2 bg-orange-100 text-orange-700 border-orange-300">
+                        Alteração{req.target?.name ? ` de: ${req.target.name}` : ''}
+                      </Badge>
+                    )}
+                    {req.name}
+                  </p>
                   <p className="text-muted-foreground">
                     {formatLocalDate(req.scheduled_date)}
                     {req.scheduled_time ? ` às ${String(req.scheduled_time).slice(0, 5)}` : ''}
@@ -464,7 +473,9 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingDecision?.approve
-                ? `Confirmar "${pendingDecision.request.name}" (${pendingDecision?.request.number_of_people} pessoas)? Isso gera o evento na Agenda e as ordens de produção, e abate o saldo do contrato.`
+                ? pendingDecision.request.kind === 'alteracao'
+                  ? `Confirmar a alteração para "${pendingDecision.request.name}" (${pendingDecision.request.number_of_people} pessoas)? O fornecimento original${pendingDecision.request.target?.name ? ` ("${pendingDecision.request.target.name}")` : ''} será cancelado e recriado com os novos dados — evento e ordens acompanham.`
+                  : `Confirmar "${pendingDecision.request.name}" (${pendingDecision?.request.number_of_people} pessoas)? Isso gera o evento na Agenda e as ordens de produção, e abate o saldo do contrato.`
                 : `Recusar "${pendingDecision?.request.name}"? Combine a recusa com o cliente — nada será gerado.`}
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -37,6 +37,12 @@ interface ProposalPayment {
 interface ExecutionRequest {
   id: string; name: string; scheduled_date: string; scheduled_time: string | null;
   number_of_people: number; room_name: string | null; status: string; created_at: string;
+  kind: 'nova' | 'alteracao'; target_name: string | null;
+}
+interface PortalExecution {
+  composition_id: string; name: string; scheduled_date: string | null; scheduled_time: string | null;
+  number_of_people: number | null; room_id: string | null; room_name: string | null;
+  location: string | null; event_status: string | null; has_open_request: boolean;
 }
 
 interface PortalProposalDetail {
@@ -49,6 +55,7 @@ interface PortalProposalDetail {
   umbrella_quota_unit_price: number | null; consumed_quantity: number | null;
   has_open_change_request: boolean;
   execution_requests: ExecutionRequest[] | null;
+  executions: PortalExecution[] | null;
   payments: ProposalPayment[] | null;
   compositions: Composition[] | null; categories_no_composition: Section[] | null;
   error?: string;
@@ -80,9 +87,31 @@ export default function PortalProposta() {
   const [pdfOpen, setPdfOpen] = useState(false);
   const [changeMsg, setChangeMsg] = useState('');
   const [busy, setBusy] = useState(false);
-  // Solicitar fornecimento (execução de contrato recorrente)
+  // Solicitar fornecimento (novo) ou ALTERAR um fornecimento existente
+  // (targetId preenchido = alteração: só data/quantidade/sala — cardápio
+  // obedece o contrato).
   const [execOpen, setExecOpen] = useState(false);
+  const [execTargetId, setExecTargetId] = useState<string | null>(null);
   const [execForm, setExecForm] = useState({ name: '', date: '', time: '', people: '', unitId: '', roomId: '', notes: '' });
+
+  const openExecDialog = (target?: PortalExecution) => {
+    if (target) {
+      setExecTargetId(target.composition_id);
+      setExecForm({
+        name: target.name || '',
+        date: target.scheduled_date || '',
+        time: target.scheduled_time ? String(target.scheduled_time).slice(0, 5) : '',
+        people: target.number_of_people != null ? String(target.number_of_people) : '',
+        unitId: '', // resolvido abaixo quando as salas carregarem
+        roomId: target.room_id || '',
+        notes: '',
+      });
+    } else {
+      setExecTargetId(null);
+      setExecForm({ name: '', date: '', time: '', people: '', unitId: '', roomId: '', notes: '' });
+    }
+    setExecOpen(true);
+  };
 
   const { data, isPending } = useQuery({
     queryKey: ['portal-proposal', id],
@@ -109,6 +138,15 @@ export default function PortalProposta() {
       (await supabase.from('client_rooms').select('id, name, unit_id').eq('client_id', portalClient!.clientId).eq('is_active', true).order('name')).data ?? [],
   });
   const roomsOfUnit = (rooms as any[]).filter(r => r.unit_id === execForm.unitId);
+
+  // Alteração com sala pré-selecionada: resolve a unidade dela quando as salas
+  // carregarem (a cascata Unidade → Sala precisa da unidade preenchida).
+  useEffect(() => {
+    if (execOpen && execForm.roomId && !execForm.unitId && (rooms as any[]).length) {
+      const room = (rooms as any[]).find(r => r.id === execForm.roomId);
+      if (room?.unit_id) setExecForm(f => ({ ...f, unitId: room.unit_id }));
+    }
+  }, [execOpen, rooms, execForm.roomId, execForm.unitId]);
 
   const handleApprove = async () => {
     setBusy(true);
@@ -164,12 +202,14 @@ export default function PortalProposta() {
         p_room_id: execForm.roomId || null,
         p_location: !execForm.roomId && unitName ? unitName : null,
         p_notes: execForm.notes || null,
+        p_target_composition_id: execTargetId,
       });
       if (error) throw error;
       const r = res as { success: boolean; message: string };
       if (r.success) {
         toast.success(r.message);
         setExecOpen(false);
+        setExecTargetId(null);
         setExecForm({ name: '', date: '', time: '', people: '', unitId: '', roomId: '', notes: '' });
         queryClient.invalidateQueries({ queryKey: ['portal-proposal', id] });
         // Avisa a equipe por e-mail (fire-and-forget — sininho já aceso por trigger)
@@ -302,14 +342,61 @@ export default function PortalProposta() {
             );
           })()}
 
-          {/* Fornecimentos solicitados pelo cliente, aguardando a equipe confirmar */}
+          {/* Fornecimentos do contrato (eventos confirmados) — cada um editável
+              individualmente: só data/quantidade/sala, cardápio obedece o contrato */}
+          {data.is_umbrella && (data.executions || []).length > 0 && (
+            <div className="mt-5 bg-card border border-border/70 rounded-2xl p-5 shadow-soft">
+              <h3 className="font-semibold mb-3">Fornecimentos</h3>
+              <div className="space-y-2">
+                {(data.executions || []).map(ex => {
+                  const statusChip = ex.event_status === 'Cancelado'
+                    ? { label: 'Cancelado', cls: 'bg-muted text-muted-foreground' }
+                    : ex.event_status === 'Concluído'
+                      ? { label: 'Realizado', cls: 'bg-primary/15 text-primary' }
+                      : ex.has_open_request
+                        ? { label: 'Alteração solicitada', cls: 'bg-accent-mocca/35 text-accent-coffee' }
+                        : { label: 'Confirmado', cls: 'bg-primary/15 text-primary' };
+                  const canEdit = ex.event_status === 'Agendado' && !ex.has_open_request;
+                  return (
+                    <div key={ex.composition_id} className="flex items-center justify-between gap-3 text-sm border-t border-dashed border-border/60 first:border-t-0 pt-2 first:pt-0">
+                      <div className={`min-w-0 ${ex.event_status === 'Cancelado' ? 'opacity-60' : ''}`}>
+                        <span className="font-medium">{ex.name}</span>
+                        <span className="text-muted-foreground">
+                          {ex.scheduled_date ? ` · ${formatLocalDate(ex.scheduled_date)}` : ''}
+                          {ex.scheduled_time ? ` às ${String(ex.scheduled_time).slice(0, 5)}` : ''}
+                          {ex.number_of_people ? ` · ${ex.number_of_people} pessoas` : ''}
+                          {ex.room_name ? ` · ${ex.room_name}` : ex.location ? ` · ${ex.location}` : ''}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${statusChip.cls}`}>
+                          {statusChip.label}
+                        </span>
+                        {canEdit && (
+                          <Button size="sm" variant="outline" className="h-7 rounded-lg gap-1 text-xs"
+                            onClick={() => openExecDialog(ex)}>
+                            <Pencil className="h-3 w-3" /> Alterar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Solicitações aguardando a equipe confirmar (novas e alterações) */}
           {(data.execution_requests || []).length > 0 && (
             <div className="mt-5 bg-card border border-border/70 rounded-2xl p-5 shadow-soft">
-              <h3 className="font-semibold mb-3">Fornecimentos solicitados</h3>
+              <h3 className="font-semibold mb-3">Solicitações em análise</h3>
               <div className="space-y-2">
                 {(data.execution_requests || []).map(req => (
                   <div key={req.id} className="flex items-center justify-between gap-3 text-sm border-t border-dashed border-border/60 first:border-t-0 pt-2 first:pt-0">
                     <div className="min-w-0">
+                      {req.kind === 'alteracao' && (
+                        <span className="text-muted-foreground">Alteração de {req.target_name || 'fornecimento'} → </span>
+                      )}
                       <span className="font-medium">{req.name}</span>
                       <span className="text-muted-foreground">
                         {' · '}{formatLocalDate(req.scheduled_date)}
@@ -359,9 +446,11 @@ export default function PortalProposta() {
             </div>
           )}
 
-          {/* Momentos — cada composição com seu cabeçalho e seções */}
+          {/* Momentos — cada composição com seu cabeçalho e seções.
+              Recorrente: só a COMPOSIÇÃO DO CONTRATO (molde) — os fornecimentos
+              repetem o mesmo cardápio e já aparecem na lista acima. */}
           <div className="mt-6 space-y-7">
-            {(data.compositions || []).map((comp, ci) => {
+            {(data.is_umbrella ? (data.compositions || []).slice(0, 1) : (data.compositions || [])).map((comp, ci) => {
               const meta = [
                 comp.event_category,
                 comp.scheduled_date ? formatLocalDate(comp.scheduled_date) : null,
@@ -373,9 +462,13 @@ export default function PortalProposta() {
                 <div key={ci} className="space-y-3">
                   <div className="border-l-4 border-primary pl-3">
                     <h2 className="text-xl font-semibold leading-tight">
-                      {comp.name || `Momento ${ci + 1}`}
+                      {data.is_umbrella ? 'Composição do contrato' : (comp.name || `Momento ${ci + 1}`)}
                     </h2>
-                    {meta && <p className="text-sm text-muted-foreground mt-0.5">{meta}</p>}
+                    {data.is_umbrella ? (
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        Cardápio padrão servido em todos os fornecimentos deste contrato.
+                      </p>
+                    ) : meta && <p className="text-sm text-muted-foreground mt-0.5">{meta}</p>}
                   </div>
                   {(comp.categories || []).map((sec, i) => renderSection(sec, `${ci}-${i}`))}
                 </div>
@@ -445,7 +538,7 @@ export default function PortalProposta() {
                   (a equipe aprova e só então nascem evento + ordens) */}
               {data.is_umbrella && data.status === 'Aprovada' && (
                 <Button className="w-full h-11 rounded-xl gap-2 font-semibold" variant="secondary"
-                  onClick={() => setExecOpen(true)}>
+                  onClick={() => openExecDialog()}>
                   <CalendarDays className="h-4 w-4" /> Solicitar fornecimento
                 </Button>
               )}
@@ -478,13 +571,16 @@ export default function PortalProposta() {
         </div>
       </div>
 
-      {/* Diálogo: solicitar fornecimento (execução do contrato recorrente) */}
-      <Dialog open={execOpen} onOpenChange={setExecOpen}>
+      {/* Diálogo: solicitar fornecimento novo OU alterar um existente */}
+      <Dialog open={execOpen} onOpenChange={(open) => { setExecOpen(open); if (!open) setExecTargetId(null); }}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Solicitar fornecimento</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{execTargetId ? 'Alterar fornecimento' : 'Solicitar fornecimento'}</DialogTitle>
+          </DialogHeader>
           <p className="text-sm text-muted-foreground -mt-1">
-            Informe os dados do evento. Nossa equipe confirma o fornecimento e ele
-            entra na sua agenda, abatendo do saldo contratado.
+            {execTargetId
+              ? 'Ajuste data, quantidade ou sala — o cardápio segue a composição do contrato. Nossa equipe confirma a alteração.'
+              : 'Informe os dados do evento. Nossa equipe confirma o fornecimento e ele entra na sua agenda, abatendo do saldo contratado.'}
           </p>
           <div className="space-y-3">
             <div className="space-y-1.5">
@@ -542,7 +638,7 @@ export default function PortalProposta() {
             <Button variant="outline" onClick={() => setExecOpen(false)}>Cancelar</Button>
             <Button onClick={handleRequestExecution}
               disabled={busy || !execForm.name.trim() || !execForm.date || !execForm.people}>
-              Solicitar fornecimento
+              {execTargetId ? 'Solicitar alteração' : 'Solicitar fornecimento'}
             </Button>
           </DialogFooter>
         </DialogContent>

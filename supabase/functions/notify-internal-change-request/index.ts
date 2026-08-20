@@ -51,7 +51,7 @@ const handler = async (req: Request): Promise<Response> => {
     if (isExecution) {
       const { data: request } = await admin
         .from('umbrella_execution_requests')
-        .select('name, scheduled_date, scheduled_time, number_of_people, location, notes, client_rooms(name), proposals(proposal_number, event_name, clients(name))')
+        .select('name, scheduled_date, scheduled_time, number_of_people, location, notes, kind, client_rooms(name), target:proposal_compositions!umbrella_execution_requests_target_composition_id_fkey(name), proposals(proposal_number, event_name, clients(name))')
         .eq('proposal_id', proposal_id)
         .eq('status', 'aberta')
         .order('created_at', { ascending: false })
@@ -61,13 +61,23 @@ const handler = async (req: Request): Promise<Response> => {
       const prop = (request as any).proposals;
       const clientName = prop?.clients?.name || 'Cliente';
       propNumber = prop?.proposal_number || '';
+      const isModification = (request as any).kind === 'alteracao';
+      const targetName = (request as any).target?.name || '';
       const dateBr = String(request.scheduled_date || '').split('-').reverse().join('/');
       const time = request.scheduled_time ? String(request.scheduled_time).slice(0, 5) : '';
       const room = (request as any).client_rooms?.name || request.location || '';
-      subject = `Solicitação de fornecimento — Proposta ${propNumber} (${clientName})`;
-      heading = '📅 Solicitação de fornecimento no Portal';
-      intro = `<strong>${clientName}</strong> solicitou um fornecimento no contrato recorrente
-        <strong>${propNumber}</strong>${prop?.event_name ? ` — ${prop.event_name}` : ''}:`;
+      subject = isModification
+        ? `Alteração de fornecimento — Proposta ${propNumber} (${clientName})`
+        : `Solicitação de fornecimento — Proposta ${propNumber} (${clientName})`;
+      heading = isModification
+        ? '🔁 Alteração de fornecimento no Portal'
+        : '📅 Solicitação de fornecimento no Portal';
+      intro = isModification
+        ? `<strong>${clientName}</strong> solicitou a alteração do fornecimento
+          ${targetName ? `<strong>${targetName.replace(/</g, '&lt;')}</strong>` : ''} no contrato recorrente
+          <strong>${propNumber}</strong>${prop?.event_name ? ` — ${prop.event_name}` : ''}. Novos dados:`
+        : `<strong>${clientName}</strong> solicitou um fornecimento no contrato recorrente
+          <strong>${propNumber}</strong>${prop?.event_name ? ` — ${prop.event_name}` : ''}:`;
       detailHtml = `
         <strong>${(request.name || 'Fornecimento').replace(/</g, '&lt;')}</strong><br/>
         ${dateBr}${time ? ` às ${time}` : ''} · ${request.number_of_people} pessoas${room ? ` · ${String(room).replace(/</g, '&lt;')}` : ''}
