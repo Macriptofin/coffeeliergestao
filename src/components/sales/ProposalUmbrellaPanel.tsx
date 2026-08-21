@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Plus, Wallet, CalendarClock, ChevronDown, FileText, Check, X, Inbox } from 'lucide-react';
+import { ArrowLeft, Plus, Wallet, CalendarClock, ChevronDown, FileText, Check, X, Inbox, Activity } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -52,6 +52,13 @@ interface UmbrellaProgress {
   // Composição-molde (cardápio-template do contrato) — fora do consumo/extrato.
   template_name: string | null;
   template_price_per_person: number | null;
+  // Saúde financeira: preço congelado × custo vivo (termômetro de renegociação)
+  health: {
+    contract_unit_price: number | null;
+    unit_cost_today: number;
+    signing_unit_cost: number | null;
+    signing_revision: number | null;
+  } | null;
   consumed_quantity: number;
   consumed_value: number;
   remaining_quantity: number;
@@ -313,6 +320,67 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
           </div>
         </CardContent>
       </Card>
+
+      {/* Saúde financeira: preço congelado no contrato × custo vivo dos insumos.
+          Margem deriva ao longo do ano — este é o termômetro de renegociação. */}
+      {(() => {
+        const h = progress.health;
+        const price = h?.contract_unit_price ?? 0;
+        if (!h || price <= 0) return null;
+        const marginToday = (price - h.unit_cost_today) / price;
+        const marginSigning = h.signing_unit_cost != null ? (price - h.signing_unit_cost) / price : null;
+        const deltaPp = marginSigning != null ? (marginToday - marginSigning) * 100 : null;
+        const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
+        return (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="h-4 w-4 text-muted-foreground" />
+                Saúde do contrato
+                {deltaPp != null && (
+                  <Badge
+                    variant={deltaPp < -1 ? 'destructive' : 'secondary'}
+                    className={deltaPp >= 0 ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : deltaPp >= -1 ? '' : ''}
+                  >
+                    {deltaPp >= 0 ? '▲' : '▼'} {Math.abs(deltaPp).toFixed(1)} p.p. desde a assinatura
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Preço unitário contratado</p>
+                  <p className="text-lg font-semibold">{formatCurrency(price)}</p>
+                  <p className="text-xs text-muted-foreground">congelado no contrato</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Custo na assinatura{h.signing_revision ? ` (Rev. ${h.signing_revision})` : ''}
+                  </p>
+                  <p className="text-lg font-semibold">
+                    {h.signing_unit_cost != null ? formatCurrency(h.signing_unit_cost) : '—'}
+                  </p>
+                  {marginSigning != null && (
+                    <p className="text-xs text-muted-foreground">margem {pct(marginSigning)}</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Custo hoje</p>
+                  <p className="text-lg font-semibold">{formatCurrency(h.unit_cost_today)}</p>
+                  <p className={`text-xs font-medium ${marginToday < 0 ? 'text-destructive' : marginSigning != null && marginToday < marginSigning - 0.01 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                    margem {pct(marginToday)}
+                  </p>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-3">
+                Custo = insumos da composição do contrato valorados a preços atuais
+                (ficha técnica / estoque). O preço não muda; quando a margem cair, é hora de renegociar.
+              </p>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Solicitações de fornecimento vindas do PORTAL, aguardando a equipe */}
       {pendingRequests.length > 0 && (
