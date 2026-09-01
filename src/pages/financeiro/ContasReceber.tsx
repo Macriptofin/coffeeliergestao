@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatLocalDate, parseLocalDate, isOverdue } from "@/lib/date-utils";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
+import { ClientBillingManager } from "@/components/financeiro/ClientBillingManager";
 
 interface AccountReceivable {
   id: string;
@@ -42,6 +43,9 @@ interface AccountReceivable {
   account_id?: string;
   chart_of_accounts?: { name: string };
   notes?: string;
+  // Origem da conta (ex.: 'billing_batch' = funil de faturamento de contrato)
+  source_type?: string | null;
+  source_id?: string | null;
 }
 
 interface Client {
@@ -163,6 +167,19 @@ const ContasReceber = () => {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<AccountReceivable | null>(null);
+
+  // Conta nascida do funil de faturamento: busca o lote pra exibir a
+  // rastreabilidade (pedido de compras, nº Zeev) no diálogo de recebimento —
+  // somente leitura, a fonte da verdade é o funil.
+  const { data: receiptBatchCtx } = useQuery({
+    queryKey: ['ar-billing-context', selectedAccount?.source_id],
+    enabled: receiptDialogOpen && selectedAccount?.source_type === 'billing_batch' && !!selectedAccount?.source_id,
+    queryFn: async () => (await supabase
+      .from('proposal_billing_batches')
+      .select('purchase_order_number, client_process_number, posted_at')
+      .eq('id', selectedAccount!.source_id!)
+      .maybeSingle()).data,
+  });
   const [viewingAccount, setViewingAccount] = useState<AccountReceivable | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<AccountReceivable | null>(null);
   const [editingAccount, setEditingAccount] = useState<AccountReceivable | null>(null);
@@ -600,6 +617,9 @@ const ContasReceber = () => {
         </Card>
       </div>
 
+      {/* Faturamento consolidado por cliente (pedido único → N fornecimentos) */}
+      <ClientBillingManager onChanged={refetchReceivables} />
+
       {/* Filtros e ações */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="flex-1">
@@ -950,7 +970,15 @@ const ContasReceber = () => {
                       onClick={() => handleViewDetails(account)}
                     >
                       <TableCell colSpan={8} className="pt-0 pb-3">
-                        <span className="text-xs text-muted-foreground">{account.description}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {account.invoice_number && (
+                            <span className="font-semibold text-foreground mr-2">NF {account.invoice_number}</span>
+                          )}
+                          {account.proposals?.proposal_number && (
+                            <span className="font-semibold text-foreground mr-2">Prop. {account.proposals.proposal_number}</span>
+                          )}
+                          {account.description}
+                        </span>
                       </TableCell>
                     </TableRow>
                   )}
@@ -970,7 +998,29 @@ const ContasReceber = () => {
               Registrar recebimento da conta: {selectedAccount?.description}
             </DialogDescription>
           </DialogHeader>
-          
+
+          {/* Rastreabilidade (somente leitura — a fonte é o funil de faturamento
+              / o lançamento da conta; aqui só se confirma que é a conta certa) */}
+          {(selectedAccount?.invoice_number || selectedAccount?.proposals?.proposal_number || receiptBatchCtx) && (
+            <div className="rounded-lg bg-muted/50 border border-border/60 px-3 py-2 text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+              {selectedAccount?.invoice_number && (
+                <span><span className="font-semibold text-foreground">NF</span> {selectedAccount.invoice_number}</span>
+              )}
+              {receiptBatchCtx?.purchase_order_number && (
+                <span><span className="font-semibold text-foreground">Pedido</span> {receiptBatchCtx.purchase_order_number}</span>
+              )}
+              {receiptBatchCtx?.client_process_number && (
+                <span><span className="font-semibold text-foreground">Zeev</span> {receiptBatchCtx.client_process_number}</span>
+              )}
+              {selectedAccount?.proposals?.proposal_number && (
+                <span><span className="font-semibold text-foreground">Proposta</span> {selectedAccount.proposals.proposal_number}</span>
+              )}
+              {receiptBatchCtx?.posted_at && (
+                <span><span className="font-semibold text-foreground">Lançada</span> {formatLocalDate(receiptBatchCtx.posted_at)}</span>
+              )}
+            </div>
+          )}
+
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>

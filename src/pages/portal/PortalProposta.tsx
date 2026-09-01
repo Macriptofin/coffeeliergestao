@@ -55,6 +55,7 @@ interface PortalProposalDetail {
   is_umbrella: boolean; umbrella_quota_quantity: number | null;
   umbrella_quota_unit_price: number | null; consumed_quantity: number | null;
   consumed_value: number | null;
+  umbrella_closed_at: string | null; umbrella_close_reason: 'concluido' | 'encerrado' | null;
   has_open_change_request: boolean;
   execution_requests: ExecutionRequest[] | null;
   executions: PortalExecution[] | null;
@@ -274,6 +275,8 @@ export default function PortalProposta() {
   const nextExecution = sortedExecutions.find(e =>
     e.event_status === 'Agendado' && e.scheduled_date && e.scheduled_date >= todayStr) || null;
   const umbrellaActive = data.is_umbrella === true && (data.status === 'Aprovada' || data.status === 'Aprovada pelo Cliente');
+  // Contrato concluído/encerrado: consulta livre, mas sem novos fornecimentos
+  const contractClosed = data.is_umbrella === true && !!data.umbrella_closed_at;
   const contractMenuItemCount = (data.compositions?.[0]?.categories || [])
     .reduce((s, sec) => s + (sec.items?.length || 0), 0);
   // Datas dos fornecimentos vivos pro calendário do contrato (cancelados fora)
@@ -331,9 +334,11 @@ export default function PortalProposta() {
               {data.event_name || data.event_category || 'Pedido'} · Proposta {data.proposal_number}
             </h1>
             <div className="flex gap-2 shrink-0 pt-1">
-              <Button variant="outline" size="sm" className="rounded-lg gap-1.5" onClick={() => setChangeOpen(true)}>
-                <Pencil className="h-3.5 w-3.5" /> Solicitar alteração
-              </Button>
+              {!contractClosed && (
+                <Button variant="outline" size="sm" className="rounded-lg gap-1.5" onClick={() => setChangeOpen(true)}>
+                  <Pencil className="h-3.5 w-3.5" /> Solicitar alteração
+                </Button>
+              )}
               <Button variant="outline" size="sm" className="rounded-lg gap-1.5" onClick={() => setPdfOpen(true)}>
                 <Download className="h-3.5 w-3.5" /> Baixar PDF
               </Button>
@@ -348,7 +353,9 @@ export default function PortalProposta() {
             <CoverItem icon={<Coins className="h-4 w-4" />} label="Preço unitário"
               value={data.umbrella_quota_unit_price != null ? formatCurrency(data.umbrella_quota_unit_price) : '—'} />
             <CoverItem icon={<CalendarDays className="h-4 w-4" />} label="Próx. fornecimento"
-              value={nextExecution?.scheduled_date ? formatLocalDate(nextExecution.scheduled_date) : 'A agendar'} />
+              value={contractClosed
+                ? (data.umbrella_close_reason === 'concluido' ? 'Contrato concluído' : 'Contrato encerrado')
+                : nextExecution?.scheduled_date ? formatLocalDate(nextExecution.scheduled_date) : 'A agendar'} />
           </div>
         </>
       )}
@@ -479,7 +486,7 @@ export default function PortalProposta() {
                   fornecimento vive no cabeçalho da própria fila */}
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold">Fornecimentos</h3>
-                {data.status === 'Aprovada' && (
+                {data.status === 'Aprovada' && !contractClosed && (
                   <Button size="sm" className="rounded-lg gap-1.5 font-semibold" onClick={() => openExecDialog()}>
                     <Plus className="h-4 w-4" /> Solicitar fornecimento
                   </Button>
@@ -744,7 +751,7 @@ export default function PortalProposta() {
 
               {/* Contrato recorrente confirmado: cliente solicita fornecimentos
                   (a equipe aprova e só então nascem evento + ordens) */}
-              {data.is_umbrella && data.status === 'Aprovada' && (
+              {data.is_umbrella && data.status === 'Aprovada' && !contractClosed && (
                 <Button className="w-full h-11 rounded-xl gap-2 font-semibold" variant="secondary"
                   onClick={() => openExecDialog()}>
                   <CalendarDays className="h-4 w-4" /> Solicitar fornecimento

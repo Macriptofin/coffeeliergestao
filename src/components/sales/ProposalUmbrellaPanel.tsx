@@ -6,15 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Plus, Wallet, CalendarClock, ChevronDown, FileText, Check, X, Inbox, Activity } from 'lucide-react';
+import { ArrowLeft, Plus, Wallet, CalendarClock, ChevronDown, FileText, Check, X, Inbox, Activity, Flag, RotateCcw, CheckCircle2 } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/formatters';
 import { formatLocalDate } from '@/lib/date-utils';
 import { LaunchUmbrellaExecutionDialog } from './LaunchUmbrellaExecutionDialog';
+import { ProposalBillingCard } from './ProposalBillingCard';
 import { sectionLabel } from './ProposalDetailView';
 
 interface Props {
@@ -30,6 +34,7 @@ interface UmbrellaProposalHeader {
   status: string;
   is_umbrella: boolean;
   client_id: string;
+  client_po_number: string | null;
   clients: { name: string } | null;
 }
 
@@ -64,6 +69,10 @@ interface UmbrellaProgress {
   remaining_quantity: number;
   remaining_value: number;
   executions: UmbrellaExecution[];
+  // Desfecho do contrato: 'concluido' (cota atendida) ou 'encerrado'
+  // (interrompido — fecha o saldo a fornecer, a cobrança do fornecido continua)
+  closed_at: string | null;
+  close_reason: 'concluido' | 'encerrado' | null;
 }
 
 interface MenuSection {
@@ -157,7 +166,7 @@ interface PendingExecutionRequest {
 async function fetchUmbrellaPanelData(proposalId: string) {
   const [propRes, progressRes, requestsRes] = await Promise.all([
     supabase.from('proposals')
-      .select('id, proposal_number, event_name, status, is_umbrella, client_id, clients(name)')
+      .select('id, proposal_number, event_name, status, is_umbrella, client_id, client_po_number, clients(name)')
       .eq('id', proposalId)
       .single(),
     supabase.rpc('get_umbrella_progress', { p_proposal_id: proposalId }),
@@ -187,6 +196,9 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
   // Cancelar execução confirmada (alteração = cancelar + relançar)
   const [cancelTarget, setCancelTarget] = useState<UmbrellaExecution | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  // Encerrar/concluir contrato (fecha o saldo a fornecer; cobrança continua)
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [closingBusy, setClosingBusy] = useState(false);
 
   const queryKey = ['proposal-umbrella-panel', proposalId];
   const { data, isPending, isError } = useQuery({
@@ -214,6 +226,45 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
   const quotaQty = progress.quota_quantity ?? 0;
   const consumedQty = progress.consumed_quantity ?? 0;
   const pctQty = quotaQty > 0 ? Math.min(100, (consumedQty / quotaQty) * 100) : 0;
+  const isClosed = !!progress.closed_at;
+  const quotaExhausted = !isClosed && quotaQty > 0 && progress.remaining_quantity <= 0;
+
+  const closeContract = async (reason: 'concluido' | 'encerrado') => {
+    setClosingBusy(true);
+    try {
+      const { error } = await (supabase.rpc as any)('close_umbrella_contract', {
+        p_proposal_id: proposalId, p_reason: reason,
+      });
+      if (error) throw error;
+      toast.success(reason === 'concluido'
+        ? 'Contrato concluído! Ele sai de Ativas/Contratos; o faturamento do que foi fornecido continua disponível.'
+        : 'Contrato encerrado — o saldo restante foi fechado. O faturamento do que foi fornecido continua disponível.');
+      setCloseDialogOpen(false);
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['umbrella-contracts'] });
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+    } catch (e: any) {
+      toast.error(e.message || 'Não foi possível fechar o contrato.');
+    } finally {
+      setClosingBusy(false);
+    }
+  };
+
+  const reopenContract = async () => {
+    setClosingBusy(true);
+    try {
+      const { error } = await (supabase.rpc as any)('reopen_umbrella_contract', { p_proposal_id: proposalId });
+      if (error) throw error;
+      toast.success('Contrato reaberto — volta para Ativas e aceita fornecimentos de novo.');
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['umbrella-contracts'] });
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+    } catch (e: any) {
+      toast.error(e.message || 'Não foi possível reabrir o contrato.');
+    } finally {
+      setClosingBusy(false);
+    }
+  };
 
   const cancelExecution = async () => {
     if (!cancelTarget) return;
@@ -283,11 +334,52 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
               <FileText className="h-4 w-4 mr-2" /> Ver proposta
             </Button>
           )}
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Lançar execução
-          </Button>
+          {isClosed ? (
+            <Button variant="outline" onClick={reopenContract} disabled={closingBusy}>
+              <RotateCcw className="h-4 w-4 mr-2" /> Reabrir contrato
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setCloseDialogOpen(true)}>
+                <Flag className="h-4 w-4 mr-2" /> Encerrar contrato
+              </Button>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" /> Lançar execução
+              </Button>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Contrato fechado: banner do desfecho */}
+      {isClosed && (
+        <div className={`rounded-lg border px-4 py-3 flex items-center gap-3 text-sm ${
+          progress.close_reason === 'concluido'
+            ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+            : 'border-slate-300 bg-slate-50 text-slate-700'
+        }`}>
+          {progress.close_reason === 'concluido' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <Flag className="h-4 w-4 shrink-0" />}
+          <span>
+            <strong>Contrato {progress.close_reason === 'concluido' ? 'concluído' : 'encerrado'}</strong>
+            {' '}em {formatLocalDate(progress.closed_at!.slice(0, 10))} — não aceita novos fornecimentos.
+            O faturamento do que foi fornecido continua disponível abaixo.
+          </span>
+        </div>
+      )}
+
+      {/* Cota atendida: sugere concluir */}
+      {quotaExhausted && (
+        <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 flex items-center justify-between gap-3 text-sm text-emerald-800">
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            A cota do contrato foi atendida por completo — que tal concluí-lo?
+          </span>
+          <Button size="sm" variant="outline" className="border-emerald-400 text-emerald-800 hover:bg-emerald-100"
+            onClick={() => closeContract('concluido')} disabled={closingBusy}>
+            Concluir contrato
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="pb-3">
@@ -381,6 +473,18 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
           </Card>
         );
       })()}
+
+      {/* Funil de faturamento do contrato (SAP/Zeev): pré-fatura → aprovação →
+          NF → lançamento → conta a receber */}
+      <ProposalBillingCard
+        proposalId={proposalId}
+        proposalNumber={proposal.proposal_number}
+        eventName={proposal.event_name}
+        clientName={proposal.clients?.name || null}
+        clientPoNumber={proposal.client_po_number}
+        executions={progress.executions}
+        onChanged={refetch}
+      />
 
       {/* Solicitações de fornecimento vindas do PORTAL, aguardando a equipe */}
       {pendingRequests.length > 0 && (
@@ -555,6 +659,45 @@ export function ProposalUmbrellaPanel({ proposalId, onBack, onViewProposal }: Pr
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Encerrar contrato: dois desfechos possíveis */}
+      <Dialog open={closeDialogOpen} onOpenChange={(open) => { if (!closingBusy) setCloseDialogOpen(open); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fechar o contrato</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>
+              O contrato sai de Ativas e da aba Contratos, e novos fornecimentos ficam bloqueados
+              (equipe e portal). <strong className="text-foreground">O faturamento do que já foi
+              fornecido continua funcionando</strong> — o que se fecha é o saldo a fornecer
+              ({progress.remaining_quantity} un · {formatCurrency(progress.remaining_value)}).
+              Dá pra reabrir depois, se for engano.
+            </p>
+            <div className="grid gap-2">
+              <Button variant="outline" className="justify-start h-auto py-2.5 text-left"
+                onClick={() => closeContract('concluido')} disabled={closingBusy}>
+                <CheckCircle2 className="h-4 w-4 mr-2 shrink-0 text-emerald-600" />
+                <span>
+                  <span className="font-semibold block">Concluído</span>
+                  <span className="text-xs text-muted-foreground">Forneceu até o fim da cota — desfecho natural do contrato.</span>
+                </span>
+              </Button>
+              <Button variant="outline" className="justify-start h-auto py-2.5 text-left"
+                onClick={() => closeContract('encerrado')} disabled={closingBusy}>
+                <Flag className="h-4 w-4 mr-2 shrink-0 text-slate-600" />
+                <span>
+                  <span className="font-semibold block">Encerrado</span>
+                  <span className="text-xs text-muted-foreground">Interrompido antes do fim — o saldo restante deixa de valer.</span>
+                </span>
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCloseDialogOpen(false)} disabled={closingBusy}>Voltar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
