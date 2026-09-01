@@ -71,6 +71,9 @@ interface Composition {
 
 interface ProposalEditorProps {
   proposalId?: string | null;
+  // Proposta nova já no modo guarda-chuva (botão "Novo contrato recorrente" da
+  // aba Contratos). Ignorado ao editar existente (o fetch sobrescreve o estado).
+  initialUmbrella?: boolean;
   onComplete: () => void;
   onCancel: () => void;
 }
@@ -259,7 +262,7 @@ async function fetchExistingProposalForEditor(id: string) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ProposalEditor({ proposalId, onComplete, onCancel }: ProposalEditorProps) {
+export default function ProposalEditor({ proposalId, initialUmbrella, onComplete, onCancel }: ProposalEditorProps) {
   const isNew = !proposalId;
   const queryClient = useQueryClient();
 
@@ -280,7 +283,7 @@ export default function ProposalEditor({ proposalId, onComplete, onCancel }: Pro
 
   // Proposta guarda-chuva: aprovada uma vez, execuções lançadas depois via
   // add_umbrella_execution (ver ProposalUmbrellaPanel) — nunca reaberta aqui.
-  const [isUmbrella, setIsUmbrella]                       = useState(false);
+  const [isUmbrella, setIsUmbrella]                       = useState(!!initialUmbrella);
   const [umbrellaQuotaQuantity, setUmbrellaQuotaQuantity] = useState<number | null>(null);
   const [umbrellaQuotaUnitPrice, setUmbrellaQuotaUnitPrice] = useState<number | null>(null);
 

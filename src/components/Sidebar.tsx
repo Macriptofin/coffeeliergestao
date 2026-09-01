@@ -109,6 +109,7 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
       icon: TrendingUp,
       children: [
         { name: "Propostas", href: "/vendas#propostas" },
+        { name: "Contratos", href: "/vendas#contratos" },
         { name: "Funil", href: "/vendas#funil" },
         { name: "Clientes", href: "/vendas#clientes" },
         { name: "Portal", href: "/vendas#portal" },

@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, FileText, KanbanSquare, Store } from "lucide-react";
+import { Users, FileText, KanbanSquare, Store, Handshake } from "lucide-react";
 import ProposalsList from '@/components/sales/ProposalsList';
+import UmbrellaContractsList from '@/components/sales/UmbrellaContractsList';
 import PortalAdmin from '@/components/sales/PortalAdmin';
 import SalesPipeline from '@/components/sales/SalesPipeline';
 import ClientForm from '@/components/sales/ClientForm';
@@ -14,16 +15,18 @@ import { ProposalPDF } from '@/components/sales/ProposalPDF';
 import { ProposalUmbrellaPanel } from '@/components/sales/ProposalUmbrellaPanel';
 import { ProposalDetailView } from '@/components/sales/ProposalDetailView';
 
-// Endereça as 4 abas por hash (#propostas/#funil/#clientes/#portal) — sem
-// isso, os links do sidebar pra Vendas eram inertes (sempre caía em Propostas).
+// Endereça as abas por hash (#propostas/#contratos/#funil/#clientes/#portal) —
+// sem isso, os links do sidebar pra Vendas eram inertes (sempre caía em Propostas).
 const HASH_TO_TAB: Record<string, string> = {
   '#propostas': 'proposals',
+  '#contratos': 'contracts',
   '#funil': 'pipeline',
   '#clientes': 'clients',
   '#portal': 'portal',
 };
 const TAB_TO_HASH: Record<string, string> = {
   proposals: '#propostas',
+  contracts: '#contratos',
   pipeline: '#funil',
   clients: '#clientes',
   portal: '#portal',
@@ -53,6 +56,7 @@ const Sales = () => {
   }, [location.hash]);
   const [showProposalEditor, setShowProposalEditor] = useState(false);
   const [editingProposalId, setEditingProposalId] = useState<string | null>(null);
+  const [newProposalUmbrella, setNewProposalUmbrella] = useState(false);
   const [showClientForm, setShowClientForm] = useState(false);
   const [pdfProposalId, setPdfProposalId] = useState<string | null>(null);
   const [viewingUmbrellaId, setViewingUmbrellaId] = useState<string | null>(null);
@@ -72,19 +76,34 @@ const Sales = () => {
   const [viewingClientId, setViewingClientId] = useState<string | null>(null);
 
   const handleNewProposal = () => {
+    setNewProposalUmbrella(false);
+    setEditingProposalId(null);
+    setShowProposalEditor(true);
+    setActiveTab('proposals');
+  };
+
+  // "Novo contrato recorrente" (aba Contratos): mesmo editor, com o modo
+  // guarda-chuva já ligado — a proposta segue o fluxo normal de negociação.
+  const handleNewContract = () => {
+    setNewProposalUmbrella(true);
     setEditingProposalId(null);
     setShowProposalEditor(true);
     setActiveTab('proposals');
   };
 
   const handleEditProposal = (id: string) => {
+    setNewProposalUmbrella(false);
     setViewingProposalId(null);
     setEditingProposalId(id);
     setShowProposalEditor(true);
   };
 
   // Visualizar = tela somente-leitura (estilo portal); editar continua no editor.
+  // Limpa TODOS os estados da aba Propostas (PDF/editor/painel têm precedência
+  // no render — resíduo de uma navegação anterior mostraria a tela errada).
   const handleViewProposal = (id: string) => {
+    setPdfProposalId(null);
+    setViewingUmbrellaId(null);
     setShowProposalEditor(false);
     setEditingProposalId(null);
     setViewingProposalId(id);
@@ -95,7 +114,12 @@ const Sales = () => {
     setActiveTab('proposals');
   };
 
+  // Chamado também de FORA da aba Propostas (aba Contratos) — limpa PDF/editor
+  // residuais, senão eles têm precedência no render e escondem o painel.
   const handleViewUmbrella = (id: string) => {
+    setPdfProposalId(null);
+    setShowProposalEditor(false);
+    setEditingProposalId(null);
     setViewingProposalId(null);
     setViewingUmbrellaId(id);
     setActiveTab('proposals');
@@ -167,10 +191,14 @@ const Sales = () => {
 
       {/* Tabs do Sistema */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-auto">
+        <TabsList className="grid w-full grid-cols-5 h-auto">
           <TabsTrigger value="proposals" className="flex items-center gap-2 py-2">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Propostas</span>
+          </TabsTrigger>
+          <TabsTrigger value="contracts" className="flex items-center gap-2 py-2">
+            <Handshake className="h-4 w-4" />
+            <span className="hidden sm:inline">Contratos</span>
           </TabsTrigger>
           <TabsTrigger value="pipeline" className="flex items-center gap-2 py-2">
             <KanbanSquare className="h-4 w-4" />
@@ -231,6 +259,7 @@ const Sales = () => {
           ) : showProposalEditor ? (
             <ProposalEditor
               proposalId={editingProposalId}
+              initialUmbrella={newProposalUmbrella}
               onComplete={handleProposalEditorComplete}
               onCancel={handleProposalEditorCancel}
             />
@@ -243,6 +272,15 @@ const Sales = () => {
               onViewUmbrella={handleViewUmbrella}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="contracts" className="mt-6">
+          {/* Portfólio dos contratos guarda-chuva ativos; o detalhe (painel de
+              saldo/execuções) abre na aba Propostas via handleViewUmbrella. */}
+          <UmbrellaContractsList
+            onViewContract={handleViewUmbrella}
+            onNewContract={handleNewContract}
+          />
         </TabsContent>
 
         <TabsContent value="pipeline" className="mt-6">
