@@ -342,6 +342,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         fornecedor: invoice.suppliers?.company_name || '',
         data: invoice.invoice_date || '',
         numero_nota: invoice.invoice_number || '',
+        document_type: (invoice as any).document_type || 'nota_fiscal',
         itens: (items || []).map((item: any) => ({
           nome: item.description || item.materials?.name || '',
           quantidade: item.quantity || 0,
@@ -641,6 +642,7 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
         .select(`
           stock_posted,
           invoice_number,
+          document_type,
           invoice_date,
           total_amount,
           discount_total,
@@ -786,7 +788,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               supplier_id: invoice.suppliers.id,
               invoice_number: invoice.invoice_number,
               document_number: invoice.invoice_number,
-              description: `NF ${invoice.invoice_number} - ${invoice.suppliers.company_name} (Produtos)`,
+              document_type: (invoice as any).document_type || 'nota_fiscal',
+              description: `${(invoice as any).document_type === 'recibo' ? 'Recibo' : (invoice as any).document_type === 'comprovante' ? 'Comprovante' : 'NF'} ${invoice.invoice_number} - ${invoice.suppliers.company_name} (Produtos)`,
               issue_date: invoice.invoice_date || currentDate,
               due_date: dueDate,
               original_amount: productsAmount,
@@ -843,7 +846,8 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
               supplier_id: invoice.suppliers.id,
               invoice_number: `${invoice.invoice_number}-FRETE`,
               document_number: invoice.invoice_number,
-              description: `NF ${invoice.invoice_number} - Frete/Tele-entrega`,
+              document_type: (invoice as any).document_type || 'nota_fiscal',
+              description: `${(invoice as any).document_type === 'recibo' ? 'Recibo' : (invoice as any).document_type === 'comprovante' ? 'Comprovante' : 'NF'} ${invoice.invoice_number} - Frete/Tele-entrega`,
               issue_date: invoice.invoice_date || currentDate,
               due_date: dueDate,
               original_amount: freightAmount,
@@ -1352,7 +1356,16 @@ export function PurchaseInvoices({ invoices, onRefresh }: PurchaseInvoicesProps)
                 <div key={invoice.id} className="flex items-center justify-between p-4 bg-accent rounded-lg">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-1 flex-wrap">
-                      <h3 className="font-medium">Nota #{invoice.invoiceNumber}</h3>
+                      <h3 className="font-medium">
+                        {invoice.documentType === 'recibo' ? 'Recibo' : invoice.documentType === 'comprovante' ? 'Comprovante' : 'Nota'} #{invoice.invoiceNumber}
+                      </h3>
+                      {invoice.documentType && invoice.documentType !== 'nota_fiscal' && (
+                        // Compra sem NF (documento interno) — distinção visual
+                        // pra ninguém tratar como documento fiscal
+                        <Badge variant="outline" className="text-xs bg-slate-100 text-slate-700 border-slate-300">
+                          Sem NF
+                        </Badge>
+                      )}
                       {invoice.itemsLocked && (
                         <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
                           <Lock className="h-3 w-3 mr-1" />

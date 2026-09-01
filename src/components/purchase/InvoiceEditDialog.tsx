@@ -51,6 +51,9 @@ interface InvoiceData {
   fornecedor: string;
   data: string;
   numero_nota?: string;
+  // 'nota_fiscal' | 'recibo' | 'comprovante' — compra sem NF (mercado que só dá
+  // recibo) entra pelo mesmo fluxo; número interno REC-AAAA-NNNN gerado no banco
+  document_type?: string;
   itens: InvoiceItem[];
   discount_total?: number;
   discount_type?: 'value' | 'percent';
@@ -712,6 +715,7 @@ export const InvoiceEditDialog = ({
           .from('purchase_invoices')
           .update({
             invoice_number: editedData.numero_nota,
+            document_type: editedData.document_type || 'nota_fiscal',
             supplier_id: supplierId,
             purchase_order_id: purchaseOrderId,
             invoice_date: new Date(editedData.data).toISOString().split('T')[0],
@@ -781,6 +785,7 @@ export const InvoiceEditDialog = ({
           .from('purchase_invoices')
           .insert({
             invoice_number: editedData.numero_nota,
+            document_type: editedData.document_type || 'nota_fiscal',
             supplier_id: supplierId,
             purchase_order_id: purchaseOrderId,
             invoice_date: new Date(editedData.data).toISOString().split('T')[0],
@@ -1157,11 +1162,35 @@ export const InvoiceEditDialog = ({
                 />
               </div>
               <div className="space-y-2">
-                <Label>Número NF</Label>
+                <Label>Tipo de documento</Label>
+                <Select
+                  value={editedData.document_type || 'nota_fiscal'}
+                  onValueChange={(v) => setEditedData({ ...editedData, document_type: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nota_fiscal">Nota Fiscal</SelectItem>
+                    <SelectItem value="recibo">Recibo (sem NF)</SelectItem>
+                    <SelectItem value="comprovante">Comprovante/Cupom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{(editedData.document_type || 'nota_fiscal') === 'nota_fiscal' ? 'Número NF' : 'Número do documento'}</Label>
                 <Input
                   value={editedData.numero_nota || ''}
                   onChange={(e) => setEditedData({ ...editedData, numero_nota: e.target.value })}
+                  placeholder={(editedData.document_type || 'nota_fiscal') === 'nota_fiscal'
+                    ? ''
+                    : 'Vazio = gera REC-… automático'}
                 />
+                {(editedData.document_type || 'nota_fiscal') !== 'nota_fiscal' && (
+                  <p className="text-xs text-muted-foreground">
+                    Documento sem numeração? Deixe vazio — o sistema gera um número interno (REC-{new Date().getFullYear()}-NNNN).
+                  </p>
+                )}
               </div>
             </div>
 

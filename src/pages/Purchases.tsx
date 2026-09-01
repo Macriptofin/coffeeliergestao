@@ -31,6 +31,7 @@ export interface PurchaseInvoice {
   workflowStatus?: 'rascunho' | 'pendente' | 'lancada';
   discountTotal?: number;
   itemsLocked?: boolean;
+  documentType?: 'nota_fiscal' | 'recibo' | 'comprovante';
 }
 
 const EMPTY_INVOICES: PurchaseInvoice[] = [];
@@ -63,7 +64,8 @@ async function fetchPurchaseInvoices(): Promise<PurchaseInvoice[]> {
     stockPostedAt: item.stock_posted_at || undefined,
     workflowStatus: (item.workflow_status || 'pendente') as 'rascunho' | 'pendente' | 'lancada',
     discountTotal: parseFloat(item.discount_total?.toString() || '0'),
-    itemsLocked: item.items_locked || false
+    itemsLocked: item.items_locked || false,
+    documentType: ((item as any).document_type || 'nota_fiscal') as 'nota_fiscal' | 'recibo' | 'comprovante'
   }));
 }
 
