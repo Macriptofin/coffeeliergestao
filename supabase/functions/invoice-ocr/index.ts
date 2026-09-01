@@ -44,17 +44,24 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY não configurada. Por favor, configure a chave nas secrets do Supabase.');
     }
 
-    const { image_base64, mime_type } = await req.json();
+    const { image_base64, images_base64, mime_type } = await req.json();
 
-    if (!image_base64) {
-      throw new Error('image_base64 is required');
+    // Caminho preferido: páginas já rasterizadas pelo front (PDF → JPEGs).
+    // O caminho de arquivo PDF direto continua como fallback de compatibilidade,
+    // mas a via de imagem é a confiável (o modelo não lia PDFs escaneados).
+    const pages: string[] = Array.isArray(images_base64) && images_base64.length > 0
+      ? images_base64.slice(0, 5)
+      : (image_base64 ? [image_base64] : []);
+
+    if (pages.length === 0) {
+      throw new Error('image_base64 (ou images_base64) is required');
     }
 
     // Detect file type - default to image/jpeg if not provided
     const detectedMimeType = mime_type || 'image/jpeg';
-    const isPDF = detectedMimeType === 'application/pdf';
-    
-    console.log(`Processando nota fiscal com gpt-4o... Tipo: ${detectedMimeType}`);
+    const isPDF = detectedMimeType === 'application/pdf' && !Array.isArray(images_base64);
+
+    console.log(`Processando nota fiscal com gpt-4o... Tipo: ${detectedMimeType} · ${pages.length} página(s)`);
 
     // Call OpenAI Vision API
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -106,11 +113,15 @@ REGRAS CRÍTICAS:
 - Se desconto estiver em percentual (ex: -10,02%), capture também o percentual
 - O preco_com_desconto deve ser preco_total - desconto
 - Não reescreva nomes: quando possível, copie a descrição literal em "descricao_original"
+- PROIBIDO INVENTAR: se a imagem estiver ilegível, borrada, distante demais, cortada,
+  ou se você NÃO conseguir ler os itens REAIS da nota, retorne EXATAMENTE:
+  {"ilegivel": true, "motivo": "explique em 1 frase o problema (ex.: foto distante/borrada, texto pequeno demais)"}
+  NUNCA retorne dados de exemplo, fictícios ou hipotéticos — todo dado no JSON deve ter sido LIDO na imagem
 - Retorne APENAS o JSON, sem texto adicional`
           },
           {
             role: 'user',
-            content: isPDF 
+            content: isPDF
               ? [
                   {
                     type: 'text',
@@ -120,22 +131,24 @@ REGRAS CRÍTICAS:
                     type: 'file',
                     file: {
                       filename: 'nota_fiscal.pdf',
-                      file_data: `data:application/pdf;base64,${image_base64}`
+                      file_data: `data:application/pdf;base64,${pages[0]}`
                     }
                   }
                 ]
               : [
                   {
                     type: 'text',
-                    text: 'Extraia todos os dados desta nota fiscal:'
+                    text: pages.length > 1
+                      ? `Extraia todos os dados desta nota fiscal (${pages.length} páginas, na ordem):`
+                      : 'Extraia todos os dados desta nota fiscal:'
                   },
-                  {
+                  ...pages.map((p) => ({
                     type: 'image_url',
                     image_url: {
-                      url: `data:${detectedMimeType};base64,${image_base64}`,
+                      url: `data:${detectedMimeType};base64,${p}`,
                       detail: 'high'
                     }
-                  }
+                  }))
                 ]
           }
         ],
@@ -152,18 +165,49 @@ REGRAS CRÍTICAS:
 
     const openaiData = await openaiResponse.json();
     const extractedText = openaiData.choices[0].message.content;
-    
+
     console.log('Resposta do GPT-4o:', extractedText);
+
+    const ILLEGIBLE_MSG = 'Não foi possível ler a nota na imagem enviada. Tente uma foto mais próxima, nítida e bem iluminada, com a nota preenchendo a tela (ou envie o PDF/DANFE).';
+
+    // Recusa ou fabricação: em imagem ilegível o modelo às vezes recusa ou
+    // devolve dados de EXEMPLO ("Produto A/B/C... dados fictícios") — que, se
+    // parseados, entrariam como itens reais na NF. Detecta os sinais e devolve
+    // erro claro pro usuário refazer a foto.
+    const telltales = ['fictíci', 'hipotétic', 'hypothetical', 'não posso ajudar',
+      'não consigo ajudar', 'cannot directly', 'não consegui extrair', 'exemplo baseado', 'example based'];
+    const lowerText = (extractedText || '').toLowerCase();
+    if (!extractedText || telltales.some(t => lowerText.includes(t))) {
+      console.error('Resposta recusada/fabricada — tratando como ilegível');
+      return new Response(
+        JSON.stringify({ success: false, error: ILLEGIBLE_MSG }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 422 }
+      );
+    }
 
     // Parse JSON from response
     let invoiceData: InvoiceData;
     try {
-      // Remove markdown code blocks if present
-      const jsonText = extractedText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      invoiceData = JSON.parse(jsonText);
+      // Remove cercas de markdown e recorta do primeiro '{' ao último '}' —
+      // o modelo às vezes anexa comentários fora do JSON, que quebravam o parse
+      const cleaned = extractedText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const start = cleaned.indexOf('{');
+      const end = cleaned.lastIndexOf('}');
+      if (start === -1 || end <= start) throw new Error('sem objeto JSON na resposta');
+      invoiceData = JSON.parse(cleaned.slice(start, end + 1));
     } catch (e) {
       console.error('Erro ao parsear JSON:', e);
-      throw new Error('Não foi possível extrair dados estruturados da nota fiscal');
+      throw new Error('Não foi possível extrair dados estruturados da nota fiscal. Tente novamente ou use uma foto mais nítida.');
+    }
+
+    // Modelo declarou ilegível (regra do prompt) ou não trouxe itens
+    if ((invoiceData as any).ilegivel === true || !Array.isArray(invoiceData.itens) || invoiceData.itens.length === 0) {
+      const motivo = (invoiceData as any).motivo;
+      console.error('Nota ilegível:', motivo || '(sem itens)');
+      return new Response(
+        JSON.stringify({ success: false, error: motivo ? `${ILLEGIBLE_MSG} Detalhe: ${motivo}` : ILLEGIBLE_MSG }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 422 }
+      );
     }
 
     // Initialize Supabase client
@@ -260,12 +304,11 @@ REGRAS CRÍTICAS:
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: false,
-        error: errorMessage,
-        details: 'Verifique se a OPENAI_API_KEY está configurada nas secrets do Supabase'
+        error: errorMessage
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
       }

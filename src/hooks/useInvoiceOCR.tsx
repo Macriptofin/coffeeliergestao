@@ -37,6 +37,34 @@ function normalizeInvoiceData(raw: InvoiceData): InvoiceData {
   };
 }
 
+// PDF → imagens JPEG no navegador (pdfjs, carregado sob demanda). O caminho
+// "arquivo PDF" da API da OpenAI não entrega páginas ESCANEADAS pro modelo de
+// forma confiável (respondia "não consigo ler o arquivo" e inventava exemplo);
+// rasterizar aqui manda o PDF pela via de imagem, que funciona.
+async function rasterizePdfToJpegs(file: File, maxPages = 3): Promise<string[]> {
+  const pdfjs = await import('pdfjs-dist');
+  // @ts-expect-error — import de asset do Vite (?url) sem tipos
+  const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
+  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+
+  const doc = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pages: string[] = [];
+  const pageCount = Math.min(doc.numPages, maxPages);
+  for (let i = 1; i <= pageCount; i++) {
+    const page = await doc.getPage(i);
+    const base = page.getViewport({ scale: 1 });
+    // ~2048px no lado maior: nítido o bastante pra letra miúda de DANFE
+    const scale = 2048 / Math.max(base.width, base.height);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    await page.render({ canvas, viewport } as any).promise;
+    pages.push(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+  }
+  return pages;
+}
+
 export const useInvoiceOCR = () => {
   const [loading, setLoading] = useState(false);
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
@@ -46,31 +74,43 @@ export const useInvoiceOCR = () => {
     setInvoiceData(null);
 
     try {
-      // Convert file to base64
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          const base64Data = result.split(',')[1];
-          resolve(base64Data);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      // Determine file type
       const isPDF = file.type === 'application/pdf';
-      const mimeType = isPDF ? 'application/pdf' : file.type;
+
+      let body: Record<string, unknown>;
+      if (isPDF) {
+        const pages = await rasterizePdfToJpegs(file);
+        body = { images_base64: pages, mime_type: 'image/jpeg' };
+      } else {
+        // Convert file to base64
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64Data = result.split(',')[1];
+            resolve(base64Data);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        body = { image_base64: base64, mime_type: file.type };
+      }
 
       // Call edge function
       const { data, error } = await supabase.functions.invoke('invoice-ocr', {
-        body: { 
-          image_base64: base64,
-          mime_type: mimeType
-        }
+        body
       });
 
-      if (error) throw error;
+      if (error) {
+        // FunctionsHttpError não expõe o corpo da resposta em error.message —
+        // sem isso o usuário via só "Edge Function returned a non-2xx status
+        // code" em vez da mensagem real (ex.: "foto ilegível, aproxime a câmera")
+        let message = error.message;
+        try {
+          const body = await (error as any).context?.json?.();
+          if (body?.error) message = body.error;
+        } catch { /* mantém a mensagem genérica */ }
+        throw new Error(message);
+      }
 
       if (!data.success) {
         throw new Error(data.error || 'Erro ao processar nota fiscal');
