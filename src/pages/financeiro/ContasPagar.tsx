@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -46,7 +47,7 @@ interface AccountPayable {
   notes?: string;
 }
 
-interface Supplier { id: string; company_name: string; }
+interface Supplier { id: string; company_name: string; trade_name?: string | null; }
 interface CostCenter { id: string; name: string; code: string; }
 interface Account { id: string; name: string; code: string; level?: number; is_postable?: boolean; }
 interface BankAccount { id: string; name: string; bank_name: string; }
@@ -82,7 +83,7 @@ async function fetchAccountsPayable(): Promise<AccountPayable[]> {
  *  plano de contas e bancos. Cacheados com staleTime alto. */
 async function fetchContasPagarRefs(): Promise<ContasPagarRefs> {
   const [suppliersRes, costCentersRes, chartRes, bankRes] = await Promise.all([
-    supabase.from('suppliers').select('id, company_name').eq('status', 'Ativo').order('company_name'),
+    supabase.from('suppliers').select('id, company_name, trade_name').eq('status', 'Ativo').order('company_name'),
     supabase.from('cost_centers').select('id, name, code').eq('is_active', true).order('code'),
     supabase.from('chart_of_accounts').select('id, name, code, level, is_postable')
       .eq('is_active', true).eq('account_type', 'Despesas').order('code'),
@@ -113,6 +114,19 @@ const ContasPagar = () => {
     staleTime: 5 * 60_000,
   });
   const { suppliers, costCenters, chartAccounts, bankAccounts } = refs;
+  // Seletor com busca: razão social + nome fantasia (ex.: "ABASTECEDORA ... RIOXEL (POSTO DOS LAGOS)")
+  const supplierOptions = useMemo(() => suppliers.map(s => {
+    const fantasia = (s.trade_name || '').trim();
+    const showFantasia = fantasia && fantasia.toUpperCase() !== s.company_name.toUpperCase();
+    return {
+      value: s.id,
+      label: showFantasia ? `${s.company_name} (${fantasia})` : s.company_name,
+      searchText: `${s.company_name} ${fantasia}`,
+    };
+  }), [suppliers]);
+  // A lista de referência é cacheada 5 min; ao abrir um formulário, garante que um fornecedor
+  // recém-cadastrado em outra tela já apareça.
+  const refreshRefs = () => queryClient.invalidateQueries({ queryKey: ['contas-pagar-refs'] });
   const showLoader = useDelayedLoading(loading);
 
   // ── filters ───────────────────────────────────────────────────────────────
@@ -644,17 +658,15 @@ const ContasPagar = () => {
               </SelectContent>
             </Select>
 
-            <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-              <SelectTrigger className="w-[190px]">
-                <SelectValue placeholder="Fornecedor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os fornecedores</SelectItem>
-                {suppliers.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.company_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              className="w-[230px] font-normal"
+              options={[{ value: 'all', label: 'Todos os fornecedores', searchText: 'todos' }, ...supplierOptions]}
+              value={supplierFilter}
+              placeholder="Fornecedor"
+              searchPlaceholder="Buscar fornecedor…"
+              emptyText="Nenhum fornecedor encontrado."
+              onSelect={setSupplierFilter}
+            />
 
             {/* Botões de ação — sempre visíveis na primeira linha */}
             <div className="ml-auto flex gap-2 shrink-0">
@@ -812,7 +824,7 @@ const ContasPagar = () => {
       {/* ════════════════════════════════════════════════════════════════════
           Dialog: Nova Conta / Nova Despesa
       ════════════════════════════════════════════════════════════════════ */}
-      <Dialog open={newDialogOpen} onOpenChange={setNewDialogOpen}>
+      <Dialog open={newDialogOpen} onOpenChange={(o) => { setNewDialogOpen(o); if (o) refreshRefs(); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -850,12 +862,14 @@ const ContasPagar = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Fornecedor {formData.document_type !== 'nota_fiscal' && <span className="text-muted-foreground font-normal">(opcional)</span>}</Label>
-                <Select value={formData.supplier_id} onValueChange={v => setFormData(f => ({ ...f, supplier_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.company_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={supplierOptions}
+                  value={formData.supplier_id}
+                  placeholder="Selecione"
+                  searchPlaceholder="Buscar por razão social ou nome fantasia…"
+                  emptyText="Nenhum fornecedor encontrado."
+                  onSelect={v => setFormData(f => ({ ...f, supplier_id: v }))}
+                />
               </div>
               <div>
                 <Label>{formData.document_type === 'nota_fiscal' ? 'Número da Nota' : 'Número do Documento'} <span className="text-muted-foreground font-normal">(opcional)</span></Label>
@@ -1086,7 +1100,7 @@ const ContasPagar = () => {
       {/* ════════════════════════════════════════════════════════════════════
           Dialog: Edição
       ════════════════════════════════════════════════════════════════════ */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      <Dialog open={editDialogOpen} onOpenChange={(o) => { setEditDialogOpen(o); if (o) refreshRefs(); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Conta a Pagar</DialogTitle>
@@ -1116,12 +1130,14 @@ const ContasPagar = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Fornecedor</Label>
-                <Select value={editFormData.supplier_id} onValueChange={v => setEditFormData(f => ({ ...f, supplier_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.company_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={supplierOptions}
+                  value={editFormData.supplier_id}
+                  placeholder="Selecione"
+                  searchPlaceholder="Buscar por razão social ou nome fantasia…"
+                  emptyText="Nenhum fornecedor encontrado."
+                  onSelect={v => setEditFormData(f => ({ ...f, supplier_id: v }))}
+                />
               </div>
               <div>
                 <Label>Número do Documento</Label>
