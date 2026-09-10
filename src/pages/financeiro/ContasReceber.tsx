@@ -421,7 +421,15 @@ const ContasReceber = () => {
       const receiptAmount = parseFloat(receiptData.amount);
       const discountAmount = parseFloat(receiptData.discount_amount) || 0;
       const interestAmount = parseFloat(receiptData.interest_amount) || 0;
-      const grossAmount = receiptAmount + discountAmount - interestAmount;
+      const grossAmount = receiptAmount + discountAmount - interestAmount; // quanto da conta este recebimento liquida
+      if (!(receiptAmount > 0)) { toast.error('Informe um valor recebido válido'); return; }
+      if ((discountAmount > 0 || interestAmount > 0) && !receiptData.adjustment_type) {
+        toast.error('Classifique a diferença (desconto ou juros)'); return;
+      }
+      if (grossAmount > (selectedAccount.remaining_amount || 0) + 0.005) {
+        toast.error(`Valor líquido + desconto (${grossAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}) excede o saldo pendente. O valor líquido é o que entrou no banco; o desconto é a diferença.`);
+        return;
+      }
       
       // Criar transação de recebimento
       const { data: receiptTransaction, error: receiptError } = await supabase
@@ -443,45 +451,14 @@ const ContasReceber = () => {
 
       if (receiptError) throw receiptError;
 
-      // Atualizar a conta a receber — CORREÇÃO DO BUG
-      const totalRecebido  = (selectedAccount.received_amount || 0) + receiptAmount;
-      const totalOriginal  = selectedAccount.original_amount
-                           + (selectedAccount.interest_amount || 0)
-                           - (selectedAccount.discount_amount || 0)
-                           + interestAmount
-                           - discountAmount;
-      const saldoRestante  = Math.max(0, totalOriginal - totalRecebido);
-      const novoStatus     = saldoRestante <= 0.01 ? 'Pago' : 'Parcial';
+      // Saldo, status, data de recebimento e saldo bancário são recalculados por trigger
+      // (update_receivable_remaining_amount; insert_cash_on_receipt → recompute_bank_balance).
+      // Sem UPDATE manual aqui: o cálculo paralelo divergia do banco ('Pago'/'Parcial' não existem
+      // em accounts_receivable) e o saldo bancário era somado uma segunda vez por cima do trigger.
+      const saldoRestante = Math.max(0, (selectedAccount.remaining_amount || 0) - grossAmount);
+      const novoStatus    = saldoRestante <= 0.005 ? 'Recebido' : 'Pendente';
 
-      const { error: updateError } = await supabase
-        .from('accounts_receivable')
-        .update({
-          received_amount:  totalRecebido,
-          remaining_amount: saldoRestante,
-          status:           novoStatus,
-          ...(novoStatus === 'Pago' ? { receipt_date: receiptData.receipt_date } : {}),
-        })
-        .eq('id', selectedAccount.id);
-
-      if (updateError) throw updateError;
-
-      // Atualizar saldo da conta bancária se informada
-      if (receiptData.bank_account_id) {
-        const { data: bankData } = await supabase
-          .from('bank_accounts')
-          .select('current_balance')
-          .eq('id', receiptData.bank_account_id)
-          .single();
-
-        if (bankData) {
-          await supabase
-            .from('bank_accounts')
-            .update({ current_balance: (bankData.current_balance || 0) + receiptAmount })
-            .eq('id', receiptData.bank_account_id);
-        }
-      }
-
-      toast.success(novoStatus === 'Pago'
+      toast.success(novoStatus === 'Recebido'
         ? `Recebimento de ${receiptAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} registrado — conta liquidada!`
         : `Recebimento parcial registrado. Saldo restante: ${saldoRestante.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
       );
@@ -500,7 +477,9 @@ const ContasReceber = () => {
       refetchReceivables();
     } catch (error) {
       console.error('Error processing receipt:', error);
-      toast.error('Erro ao registrar recebimento');
+      const e = error as { message?: string; details?: string } | null;
+      const msg = e?.message || e?.details;
+      toast.error(msg ? `Erro ao registrar recebimento: ${msg}` : 'Erro ao registrar recebimento');
     }
   };
 
@@ -516,7 +495,8 @@ const ContasReceber = () => {
       return 'Vencido';
     }
     
-    // Caso contrário, mantém o status original (Pendente ou Parcial)
+    // Recebimento parcial: no banco a conta segue 'Pendente' (não há status 'Parcial' na tabela) — derivado só p/ exibição
+    if (account.remaining_amount > 0 && (account.received_amount || 0) > 0) return 'Parcial';
     return account.status;
   };
 

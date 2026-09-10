@@ -194,6 +194,8 @@ const ContasPagar = () => {
   const getEffectiveStatus = (a: AccountPayable) => {
     if (a.status === 'Pago' || a.status === 'Cancelado') return a.status;
     if (a.remaining_amount > 0 && isOverdue(a.due_date)) return 'Vencido';
+    // Pagamento parcial: no banco a conta segue 'Pendente' (não há status 'Parcial' na tabela) — derivado só p/ exibição
+    if (a.remaining_amount > 0 && (a.paid_amount || 0) > 0) return 'Parcial';
     return a.status;
   };
 
@@ -434,6 +436,23 @@ const ContasPagar = () => {
 
       if (paymentAmount <= 0) { toast.error('Informe um valor de pagamento válido'); return; }
 
+      // 1) Desconto obtido / juros pagos ficam na própria conta (payment_transactions não tem esses campos).
+      //    Vem ANTES do pagamento porque é o trigger update_payable_remaining_amount, disparado pelo insert
+      //    do pagamento, que recalcula saldo, status e data de pagamento — nunca UPDATE manual desses campos
+      //    ('Parcial' nem existe no CHECK de accounts_payable).
+      if (discountObtained > 0 || interestPaid > 0 || paymentData.bank_account_id) {
+        const { error: apErr } = await supabase
+          .from('accounts_payable')
+          .update({
+            ...(discountObtained > 0 ? { discount_amount: (selectedAccount.discount_amount || 0) + discountObtained } : {}),
+            ...(interestPaid > 0     ? { interest_amount: (selectedAccount.interest_amount || 0) + interestPaid } : {}),
+            ...(paymentData.bank_account_id ? { bank_account_id: paymentData.bank_account_id } : {}),
+          })
+          .eq('id', selectedAccount.id);
+        if (apErr) throw apErr;
+      }
+
+      // 2) Pagamento — gera o caixa (insert_cash_on_payment) e dispara o recálculo da conta
       const { error: ptErr } = await supabase
         .from('payment_transactions')
         .insert({
@@ -447,25 +466,8 @@ const ContasPagar = () => {
         });
       if (ptErr) throw ptErr;
 
-      const totalPago    = (selectedAccount.paid_amount || 0) + paymentAmount;
-      const totalDevido  = selectedAccount.original_amount
-                         + (selectedAccount.interest_amount || 0)
-                         - (selectedAccount.discount_amount || 0)
-                         + interestPaid - discountObtained;
-      const saldoRestante = Math.max(0, totalDevido - totalPago);
-      const novoStatus    = saldoRestante <= 0.01 ? 'Pago' : 'Parcial';
-
-      const { error: upErr } = await supabase
-        .from('accounts_payable')
-        .update({
-          paid_amount:      totalPago,
-          remaining_amount: saldoRestante,
-          status:           novoStatus,
-          ...(novoStatus === 'Pago' ? { payment_date: paymentData.payment_date } : {}),
-          ...(paymentData.bank_account_id ? { bank_account_id: paymentData.bank_account_id } : {}),
-        })
-        .eq('id', selectedAccount.id);
-      if (upErr) throw upErr;
+      const saldoRestante = Math.max(0, (selectedAccount.remaining_amount || 0) + interestPaid - discountObtained - paymentAmount);
+      const novoStatus    = saldoRestante <= 0.005 ? 'Pago' : 'Pendente';
 
       toast.success(novoStatus === 'Pago'
         ? `Conta liquidada — ${paymentAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} registrado!`
@@ -476,7 +478,9 @@ const ContasPagar = () => {
       refetchAccounts();
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao registrar pagamento');
+      const e = err as { message?: string; details?: string } | null;
+      const msg = e?.message || e?.details;
+      toast.error(msg ? `Erro ao registrar pagamento: ${msg}` : 'Erro ao registrar pagamento');
     }
   };
 
@@ -1103,7 +1107,7 @@ const ContasPagar = () => {
                 <Select value={editFormData.status} onValueChange={v => setEditFormData(f => ({ ...f, status: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {['Pendente','Parcial','Pago','Vencido','Cancelado'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    {['Pendente','Pago','Vencido','Cancelado'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

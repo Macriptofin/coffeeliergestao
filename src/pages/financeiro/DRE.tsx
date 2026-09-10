@@ -13,6 +13,7 @@ interface DREData {
   // Receitas
   receitaBruta:       number;
   deducoes:           number;
+  descontosComerciais: number;  // parte das deduções vinda de descontos comerciais concedidos no recebimento
   receitaLiquida:     number;
   // Custos
   csp:                number;
@@ -24,6 +25,7 @@ interface DREData {
   margemEbitda:       number;
   // Financeiro
   despesasFinanceiras: number;
+  receitasFinanceiras: number;  // juros/multas recebidos a mais nos recibos
   resultadoAntes:     number;
   // Resultado
   resultadoLiquido:   number;
@@ -65,7 +67,8 @@ interface APRow {
 }
 
 interface DRESources {
-  rec:    { gross_amount: string | null; amount: string | null; discount_amount: string | null }[];
+  rec:    { gross_amount: string | null; amount: string | null; discount_amount: string | null;
+            interest_amount: string | null; adjustment_type: string | null }[];
   ar:     { original_amount: string | null }[];        // receita por competência (período)
   arOpen: { remaining_amount: string | null; due_date: string | null; status: string | null }[]; // carteira aberta (aging/PDD)
   invo:   { total_amount: string | null; discount_total: string | null }[];
@@ -85,7 +88,7 @@ async function fetchDRESources(dateStart: string, dateEnd: string): Promise<DRES
     // Recebido (caixa) no período — usado só no painel "reconhecida × recebida"
     supabase
       .from('receipt_transactions')
-      .select('gross_amount, amount, discount_amount')
+      .select('gross_amount, amount, discount_amount, interest_amount, adjustment_type')
       .gte('receipt_date', dateStart)
       .lte('receipt_date', dateEnd),
 
@@ -156,6 +159,23 @@ function computeDRE(sources: DRESources): DREData {
   const recebidaPeriodo = sources.rec.reduce((s, r) =>
     s + parseFloat(r.gross_amount || r.amount || '0'), 0);
 
+  // Ajustes lançados NO RECIBO (Contas a Receber → Receber), por "Classificação da Diferença":
+  // deságio de antecipação e taxa bancária = despesa financeira; desconto comercial = dedução da receita;
+  // multa/juros recebidos = receita financeira. Competência = data do recebimento (é quando o custo financeiro ocorre).
+  // As antecipações históricas reconstruídas em set/2026 estão como AP em 5.3.4 — cada antecipação existe de UMA forma só.
+  let descComercial = 0, desagio = 0, taxasRec = 0, outrosDescRec = 0, recFin = 0;
+  sources.rec.forEach((r) => {
+    const d = parseFloat(r.discount_amount || '0');
+    const j = parseFloat(r.interest_amount || '0');
+    switch (r.adjustment_type) {
+      case 'Desconto de Antecipação': desagio       += d; break;
+      case 'Taxa Bancária':           taxasRec      += d; break;
+      case 'Desconto Comercial':      descComercial += d; break;
+      default:                        outrosDescRec += d;
+    }
+    recFin += j;
+  });
+
   // Carteira a receber em aberto + PDD por aging.
   const today = new Date();
   let carteiraAberta = 0, carteiraVencida = 0, pdd = 0;
@@ -171,7 +191,7 @@ function computeDRE(sources: DRESources): DREData {
 
   // ISS estimado (5% sobre serviços de catering)
   const iss      = recBruta * 0.05;
-  const deducoes = iss;
+  const deducoes = iss + descComercial;
   const recLiq   = recBruta - deducoes;
 
   // CSP: custo direto das matérias-primas
@@ -209,13 +229,21 @@ function computeDRE(sources: DRESources): DREData {
     }
   });
 
+  // Ajustes de recibo que são despesa financeira (deságio / taxa / outros descontos concedidos)
+  const addFin = (label: string, v: number) => {
+    if (v > 0) { despFinTotal += v; despFinMap[label] = (despFinMap[label] || 0) + v; }
+  };
+  addFin('Deságio de antecipação de recebíveis (recibos)', desagio);
+  addFin('Taxas bancárias sobre recebimentos', taxasRec);
+  addFin('Outros descontos concedidos no recebimento', outrosDescRec);
+
   // PDD entra como despesa operacional (perda estimada com inadimplência).
   if (pdd > 0) despOpMap['Provisão p/ inadimplência (PDD)'] = pdd;
   const despOpComPdd = despOpTotal + pdd;
 
   const lucroBruto   = recLiq - cspTotal;
   const ebitda       = lucroBruto - despOpComPdd;
-  const resAntes     = ebitda - despFinTotal;
+  const resAntes     = ebitda - despFinTotal + recFin; // receitas financeiras = juros/multas recebidos
   const resLiquido   = resAntes; // sem IRPJ/CSLL por ora (Simples)
 
   const margemBruta   = recBruta > 0 ? (lucroBruto / recBruta) * 100 : 0;
@@ -223,10 +251,10 @@ function computeDRE(sources: DRESources): DREData {
   const margemLiquida = recBruta > 0 ? (resLiquido / recBruta) * 100 : 0;
 
   return {
-    receitaBruta: recBruta, deducoes, receitaLiquida: recLiq,
+    receitaBruta: recBruta, deducoes, descontosComerciais: descComercial, receitaLiquida: recLiq,
     csp: cspTotal, lucroBruto, margemBruta,
     despesasOp: despOpComPdd, ebitda, margemEbitda,
-    despesasFinanceiras: despFinTotal, resultadoAntes: resAntes,
+    despesasFinanceiras: despFinTotal, receitasFinanceiras: recFin, resultadoAntes: resAntes,
     resultadoLiquido: resLiquido, margemLiquida,
     pdd, recebidaPeriodo, carteiraAberta, carteiraVencida,
     detReceitas: [
@@ -494,8 +522,12 @@ const DRE = () => {
 
                   {/* DEDUÇÕES */}
                   <DRELine label="Deduções da Receita" level={0} value={0} />
-                  <DRELine label="(-) ISS sobre serviços (~5%)" value={data.deducoes}
-                    percent={data.receitaBruta > 0 ? (data.deducoes/data.receitaBruta)*100 : 0} color="#dc2626" />
+                  <DRELine label="(-) ISS sobre serviços (~5%)" value={data.deducoes - data.descontosComerciais}
+                    percent={data.receitaBruta > 0 ? ((data.deducoes - data.descontosComerciais)/data.receitaBruta)*100 : 0} color="#dc2626" />
+                  {data.descontosComerciais > 0 && (
+                    <DRELine label="(-) Descontos comerciais concedidos" value={data.descontosComerciais}
+                      percent={data.receitaBruta > 0 ? (data.descontosComerciais/data.receitaBruta)*100 : 0} color="#dc2626" />
+                  )}
                   <DRELine label="(=) Receita Líquida" level={1} value={data.receitaLiquida}
                     percent={data.receitaBruta > 0 ? (data.receitaLiquida/data.receitaBruta)*100 : 0}
                     color="#1d4ed8" bold separator />
@@ -533,6 +565,10 @@ const DRE = () => {
                   {data.despesasFinanceiras === 0 && (
                     <DRELine label="Despesas financeiras" value={0}
                       percent={0} color="#9ca3af" />
+                  )}
+                  {data.receitasFinanceiras > 0 && (
+                    <DRELine label="(+) Juros e multas recebidos" value={data.receitasFinanceiras}
+                      percent={data.receitaBruta > 0 ? (data.receitasFinanceiras/data.receitaBruta)*100 : 0} color="#15803d" />
                   )}
                   <DRELine label="(=) Resultado Antes do Imposto" level={1} value={data.resultadoAntes}
                     percent={data.receitaBruta > 0 ? (data.resultadoAntes/data.receitaBruta)*100 : 0}
