@@ -142,6 +142,7 @@ export const Sidebar = ({ onItemClick }: SidebarProps) => {
         { name: "Contas a Pagar", href: "/financeiro/pagar" },
         { name: "Contas a Receber", href: "/financeiro/receber" },
         { name: "Fluxo de Caixa", href: "/financeiro/fluxo" },
+        { name: "Conciliação Bancária", href: "/financeiro/conciliacao" },
         { name: "Contas Bancárias", href: "/financeiro/bancos" },
         { name: "Transações Recorrentes", href: "/financeiro/recorrentes" },
         { name: "Aging de Contas", href: "/financeiro/aging" },

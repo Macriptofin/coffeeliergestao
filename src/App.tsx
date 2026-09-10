@@ -33,6 +33,7 @@ const RelatoriosContabeis = lazy(() => import("./pages/financeiro/RelatoriosCont
 const ContasBancarias = lazy(() => import("./pages/financeiro/ContasBancarias"));
 const RecurringTransactions = lazy(() => import("./pages/financeiro/RecurringTransactions"));
 const AgingReport = lazy(() => import("./pages/financeiro/AgingReport"));
+const ConciliacaoBancaria = lazy(() => import("./pages/financeiro/ConciliacaoBancaria"));
 const RecursosHumanos = lazy(() => import("./pages/RecursosHumanos"));
 const Colaboradores = lazy(() => import("./pages/Colaboradores"));
 const ControlePonto = lazy(() => import("./pages/rh/ControlePonto"));
@@ -147,6 +148,7 @@ function App() {
                 <Route path="financeiro/pagar" element={<ContasPagar />} />
                 <Route path="financeiro/receber" element={<ContasReceber />} />
                 <Route path="financeiro/fluxo" element={<FluxoCaixa />} />
+                <Route path="financeiro/conciliacao" element={<ConciliacaoBancaria />} />
                 <Route path="financeiro/custos" element={<CentrosCusto />} />
                 <Route path="financeiro/analises" element={<AnaliseFinanceira />} />
                 <Route path="financeiro/dre" element={<DRE />} />

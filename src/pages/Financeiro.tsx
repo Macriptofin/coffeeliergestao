@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, CreditCard, FileText, TrendingUp, Calculator, PieChart, Building2, Repeat, CalendarClock, BarChart2, BookOpen } from "lucide-react";
+import { DollarSign, CreditCard, FileText, TrendingUp, Calculator, PieChart, Building2, Repeat, CalendarClock, BarChart2, BookOpen, Landmark } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { FinancialAlerts } from "@/components/financeiro/FinancialAlerts";
 
@@ -28,6 +28,13 @@ const Financeiro = () => {
       icon: TrendingUp,
       href: "/financeiro/fluxo",
       color: "bg-blue-500"
+    },
+    {
+      title: "Conciliação Bancária",
+      description: "Extrato do banco × sistema: casa o que existe, classifica o que falta",
+      icon: Landmark,
+      href: "/financeiro/conciliacao",
+      color: "bg-indigo-500"
     },
     {
       title: "Contas Bancárias",
